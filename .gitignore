@@ -1,0 +1,6 @@
+actenon-scan/
+Actenon-Permit/
+actenon-cloud/
+actenon-kernel/
+*.egg-info/
+__pycache__/

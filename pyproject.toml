@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "actenon-scan"
+version = "0.1.0"
+description = "Defensive static-analysis scanner for the AI-agent execution gap."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [{ name = "Actenon" }]
+keywords = ["security", "static-analysis", "ai-agents", "execution-gap", "sast"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.optional-dependencies]
+yaml = ["pyyaml>=6.0"]
+dev = ["pytest>=8.0", "pyyaml>=6.0"]
+
+[project.scripts]
+actenon-scan = "actenon_scan.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"actenon_scan.rules" = ["default_rules.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
