@@ -15,13 +15,10 @@ from actenon_scan.suppress import collect_suppressions_from_file
 
 
 def main(argv: list[str] | None = None) -> int:
-    from actenon_scan import __version__
-
     parser = argparse.ArgumentParser(
         prog="actenon-scan",
         description="Defensive static-analysis scanner for the AI-agent execution gap.",
     )
-    parser.add_argument("--version", action="version", version=f"actenon-scan {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
     # scan
