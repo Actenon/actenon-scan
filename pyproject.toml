@@ -28,6 +28,8 @@ yaml = ["pyyaml>=6.0"]
 dev = [
   "pytest>=8.0",
   "pyyaml>=6.0",
+  # tomllib is stdlib in Python 3.11+. On 3.10, use tomli as a backport.
+  "tomli>=2.0; python_version < '3.11'",
   # actenon-protocol is a DEV-only dependency. Scan is a static analyzer
   # with ZERO runtime dependencies (it must remain installable without
   # pulling in the protocol package). The protocol is used only by the

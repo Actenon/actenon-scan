@@ -22,6 +22,14 @@ import json
 import re
 from pathlib import Path
 
+# tomllib was added in Python 3.11. On 3.10, use tomli (which is installed
+# as a dev dependency).
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
+
 import pytest
 
 
@@ -60,7 +68,6 @@ def test_protocol_is_dev_dependency_only():
     """actenon-protocol MUST be in [dev] optional-dependencies, NOT in
     runtime dependencies. Scan is a static analyzer with ZERO runtime
     dependencies — it must remain installable without the protocol."""
-    import tomllib
     with PYPROJECT_PATH.open("rb") as f:
         data = tomllib.load(f)
     runtime_deps = data["project"].get("dependencies", [])
@@ -197,7 +204,6 @@ def test_remediation_hints_point_to_kernel_for_verification():
 def test_scan_has_no_runtime_dependency_on_kernel_or_permit():
     """Scan MUST NOT have a runtime dependency on actenon-kernel or
     actenon-permit. Scan is a standalone static analyzer."""
-    import tomllib
     with PYPROJECT_PATH.open("rb") as f:
         data = tomllib.load(f)
     runtime_deps = data["project"].get("dependencies", [])
@@ -238,7 +244,6 @@ def test_scan_remains_usable_without_cloud():
     This is verified by the zero-runtime-deps invariant above + the
     no-import-kernel/permit invariant above."""
     # Re-verify: runtime dependencies must be empty (scan is standalone).
-    import tomllib
     with PYPROJECT_PATH.open("rb") as f:
         data = tomllib.load(f)
     runtime_deps = data["project"].get("dependencies", [])
