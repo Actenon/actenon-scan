@@ -4,3 +4,6 @@ actenon-cloud/
 actenon-kernel/
 *.egg-info/
 __pycache__/
+build/
+dist/
+*.egg-info/
