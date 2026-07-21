@@ -33,8 +33,15 @@
       "id": "DATA-DELETE-FILE",
       "category": "data_destruction",
       "severity": "high",
-      "description": "File/directory deletion call",
+      "description": "File/directory deletion call (bare function or module attribute)",
       "match": {"type": "name_call", "func_patterns": ["delete", "destroy", "drop", "truncate", "remove", "unlink", "rmtree"]}
+    },
+    {
+      "id": "DATA-DELETE-OS",
+      "category": "data_destruction",
+      "severity": "high",
+      "description": "File/directory deletion via os/shutil/pathlib module calls",
+      "match": {"type": "attr_call", "module_patterns": ["os", "shutil", "pathlib", "Path"], "func_patterns": ["remove", "unlink", "rmtree", "rmdir", "removedirs"]}
     },
     {
       "id": "DATA-DELETE-OBJ",

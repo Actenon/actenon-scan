@@ -138,38 +138,67 @@ def _collect_files(
     include_globs: list[str] | None,
     exclude_globs: list[str] | None,
 ) -> list[Path]:
-    """Collect .py files to scan, respecting include/exclude globs."""
+    """Collect .py files to scan, respecting include/exclude globs.
+
+    When no --include globs are specified, ALL .py files in the target
+    directory are scanned. This is the expected default — the headline
+    command `actenon-scan scan .` must find files without requiring the
+    user to pass --include.
+    """
     import fnmatch
 
     if target.is_file():
         return [target] if target.suffix == ".py" else []
 
-    include = include_globs or ["**/*.py"]
+    # Collect all .py files recursively
+    all_py_files = list(target.rglob("*.py"))
+
+    # If no include globs specified, scan all .py files (minus excludes)
+    if not include_globs:
+        include_globs = ["**/*.py"]
+
     exclude = exclude_globs or []
     files = []
-    for filepath in target.rglob("*.py"):
+    for filepath in all_py_files:
         rel = filepath.relative_to(target)
         rel_str = str(rel)
 
         # Check excludes
         excluded = False
         for pattern in exclude:
-            if fnmatch.fnmatch(rel_str, pattern):
+            if _glob_match(rel_str, pattern):
                 excluded = True
                 break
         if excluded:
             continue
 
-        # Check includes
+        # Check includes — if any include matches, the file is included
         included = False
-        for pattern in include:
-            if fnmatch.fnmatch(rel_str, pattern):
+        for pattern in include_globs:
+            if _glob_match(rel_str, pattern):
                 included = True
                 break
         if included:
             files.append(filepath)
 
     return files
+
+
+def _glob_match(rel_path: str, pattern: str) -> bool:
+    """Match a relative path against a glob pattern.
+
+    Handles ** patterns (recursive) that fnmatch doesn't support natively.
+    """
+    # Normalize: **/*.py matches everything ending in .py
+    if pattern == "**/*.py":
+        return rel_path.endswith(".py")
+    # Convert ** to a wildcard that fnmatch can handle
+    # **/ means "any number of directories" — fnmatch treats * as "any chars including /"
+    # So **/*.py → *.py in fnmatch terms (since * matches / too in fnmatch on some platforms)
+    # Actually fnmatch DOES match / with *, so ** is redundant but harmless
+    # The real fix: just use fnmatch which treats * as matching everything including /
+    normalized_pattern = pattern.replace("**/", "")
+    return fnmatch.fnmatch(rel_path, normalized_pattern) or fnmatch.fnmatch(rel_path, pattern)
 
 
 def _compute_snippet_hash(source: str, line: int) -> str:
