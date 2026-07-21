@@ -25,7 +25,17 @@ dependencies = []
 
 [project.optional-dependencies]
 yaml = ["pyyaml>=6.0"]
-dev = ["pytest>=8.0", "pyyaml>=6.0"]
+dev = [
+  "pytest>=8.0",
+  "pyyaml>=6.0",
+  # actenon-protocol is a DEV-only dependency. Scan is a static analyzer
+  # with ZERO runtime dependencies (it must remain installable without
+  # pulling in the protocol package). The protocol is used only by the
+  # drift gate (tests/test_protocol_drift.py) to verify that scan's
+  # guard vocabulary and refusal-code references stay in sync with the
+  # protocol's catalogue.
+  "actenon-protocol @ git+https://github.com/Actenon/actenon-protocol.git@v1.0.0",
+]
 
 [project.scripts]
 actenon-scan = "actenon_scan.cli:main"

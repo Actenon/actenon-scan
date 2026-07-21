@@ -87,8 +87,42 @@
     }
   ],
   "guards": [
-    {"patterns": ["verify", "verify_proof", "require_proof", "check_permission", "authorize", "require_approval", "assert_authorized", "has_permission", "check_idempotency", "seen_before", "replay_guard", "require_authorization", "validate_authorization"]},
-    {"patterns": ["actenon_verify", "actenon_check", "actenon_require", "permit_check", "permit_authorize", "permit_validate", "kernel_verify"]}
+    {
+      "comment": "Generic authority checks recognised as boundary guards. These are vendor-neutral and cover the most common naming conventions across frameworks.",
+      "patterns": [
+        "verify", "verify_proof", "require_proof",
+        "check_permission", "authorize", "require_approval",
+        "assert_authorized", "has_permission",
+        "check_idempotency", "seen_before", "replay_guard",
+        "require_authorization", "validate_authorization",
+        "verify_signature", "verify_token",
+        "requires_scope", "oauth_scope", "requires_roles",
+        "roles_required", "has_role", "requires_role",
+        "jwt_required", "verify_jwt", "decode_jwt",
+        "opa_eval", "check_opa_policy", "authorize_with_opa",
+        "enforce", "casbin_enforce",
+        "verify_iam", "iam_authorize",
+        "cf_access", "verify_cf_jwt",
+        "verify_api_key", "check_api_key",
+        "verify_mtls", "require_client_cert",
+        "check_relation", "check_capability"
+      ]
+    },
+    {
+      "comment": "Actenon-specific guards. NOTE: only the Kernel's proof-verification surface counts as a boundary guard. Permit calls (permit_check, permit_authorize, permit_validate) are NOT guards — Permit issues authority, the Kernel verifies it. Treating Permit calls as guards would collapse the trust boundary (audit S-01). They have been removed.",
+      "patterns": [
+        "actenon_verify", "actenon_check", "actenon_require",
+        "kernel_verify",
+        "PCCBVerifier", "ProtectedExecutor", "ActenonGate",
+        "ProtectedEndpointMiddleware", "verify_pccb"
+      ]
+    },
+    {
+      "comment": "Permit-named functions that are NOT boundary guards. These appear in the rules so that scan can recognise them and flag paths that use Permit WITHOUT a Kernel verification as a PERMIT_WITHOUT_KERNEL_PROOF finding (planned for v1.1). For now, they are NOT in the guard patterns — a path that calls only permit_authorize() will be flagged as unguarded.",
+      "permit_non_guard_patterns": [
+        "permit_check", "permit_authorize", "permit_validate"
+      ]
+    }
   ],
   "reachability": {
     "tool_decorators": ["tool", "mcp.tool", "server.tool", "function_tool", "langchain_tool", "structured_tool", "call_tool"],
