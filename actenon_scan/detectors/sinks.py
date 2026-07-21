@@ -23,8 +23,14 @@ class SinkFinding:
 
 
 def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list[SinkFinding]:
-    """Walk the AST and find all sink calls matching the rules."""
+    """Walk the AST and find all sink calls matching the rules.
+
+    SQL string patterns (type=string_pattern) are only matched on string
+    literals that are arguments to execute(), cursor(), or commit() calls,
+    or assigned to a variable named 'query'/'sql'/'statement'.
+    """
     findings: list[SinkFinding] = []
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             for rule in rules:
@@ -39,22 +45,46 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
                         call_text=_call_to_text(node),
                     ))
                     break  # one finding per call
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            # Check string literals for dangerous SQL
+
+            # Check if this is a cursor.execute("DELETE FROM ...") call
+            for rule in rules:
+                mt = rule.match.get("type", "")
+                if mt in ("sql_execute_pattern", "sql_fstring_pattern"):
+                    if _is_sql_execute_call(node, rule):
+                        findings.append(SinkFinding(
+                            rule_id=rule.id,
+                            category=rule.category,
+                            severity=rule.severity,
+                            description=rule.description,
+                            line=node.lineno,
+                            col=node.col_offset,
+                            call_text=_call_to_text(node),
+                        ))
+                        break
+
+        # Only match raw string_pattern on strings assigned to query-like vars
+        elif isinstance(node, ast.Assign):
             for rule in rules:
                 if rule.match.get("type") == "string_pattern":
-                    for pattern in rule.match.get("patterns", []):
-                        if re.search(pattern, node.value, re.IGNORECASE):
-                            findings.append(SinkFinding(
-                                rule_id=rule.id,
-                                category=rule.category,
-                                severity=rule.severity,
-                                description=rule.description,
-                                line=node.lineno,
-                                col=node.col_offset,
-                                call_text=repr(node.value[:80]),
-                            ))
-                            break
+                    # Check if target is a query-like variable name
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and target.id.lower() in (
+                            "query", "sql", "statement", "command", "stmt"
+                        ):
+                            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                                for pattern in rule.match.get("patterns", []):
+                                    if re.search(pattern, node.value.value, re.IGNORECASE):
+                                        findings.append(SinkFinding(
+                                            rule_id=rule.id,
+                                            category=rule.category,
+                                            severity=rule.severity,
+                                            description=rule.description,
+                                            line=node.lineno,
+                                            col=node.col_offset,
+                                            call_text=repr(node.value.value[:80]),
+                                        ))
+                                        break
+
     return findings
 
 
@@ -70,7 +100,7 @@ def _match_call(node: ast.Call, rule: SinkRule) -> bool:
 
 
 def _match_name_call(node: ast.Call, rule: SinkRule) -> bool:
-    """Match bare function calls like refund(), delete(), send()."""
+    """Match bare function calls like refund(), delete(), sendmail()."""
     if not isinstance(node.func, ast.Name):
         return False
     func_name = node.func.id
@@ -104,6 +134,48 @@ def _match_attr_call(node: ast.Call, rule: SinkRule) -> bool:
             if var_name == mod_pattern or mod_pattern.startswith(var_name):
                 return True
     return False
+
+
+def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
+    """Check if this is a cursor.execute() or cursor.executemany() call
+    with a SQL string argument containing dangerous patterns.
+    """
+    if not isinstance(node.func, ast.Attribute):
+        return False
+    method_name = node.func.attr
+    if method_name not in ("execute", "executemany", "executescript"):
+        return False
+
+    # Check args for dangerous SQL patterns
+    patterns = rule.match.get("patterns", [])
+    for arg in node.args:
+        text = _extract_string_from_node(arg)
+        if text:
+            for pattern in patterns:
+                if re.search(pattern, text, re.IGNORECASE):
+                    return True
+    return False
+
+
+def _extract_string_from_node(node: ast.expr) -> str | None:
+    """Extract a string value from an AST node (constant, f-string, or joined string)."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        # f-string — concatenate all string parts
+        parts = []
+        for val in node.values:
+            if isinstance(val, ast.Constant) and isinstance(val.value, str):
+                parts.append(val.value)
+            elif isinstance(val, ast.FormattedValue):
+                parts.append("{var}")
+        return "".join(parts)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _extract_string_from_node(node.left)
+        right = _extract_string_from_node(node.right)
+        if left is not None:
+            return left + (right or "")
+    return None
 
 
 def _match_subprocess_deploy(node: ast.Call) -> bool:

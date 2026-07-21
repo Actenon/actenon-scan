@@ -141,9 +141,9 @@ def _collect_files(
     """Collect .py files to scan, respecting include/exclude globs.
 
     When no --include globs are specified, ALL .py files in the target
-    directory are scanned. This is the expected default — the headline
-    command `actenon-scan scan .` must find files without requiring the
-    user to pass --include.
+    directory are scanned. Test files are skipped by default (test_*.py,
+    *_test.py, files in tests/ or test/ directories) to reduce noise —
+    use --include to override or --exclude to add patterns.
     """
     import fnmatch
 
@@ -157,7 +157,23 @@ def _collect_files(
     if not include_globs:
         include_globs = ["**/*.py"]
 
-    exclude = exclude_globs or []
+    # Default excludes: test files (unless user explicitly includes them)
+    # We exclude test_*.py and *_test.py files, and conftest.py, but NOT
+    # directories named tests/ (they may contain agent tool fixtures)
+    default_excludes = [
+        "*/tests/test_*.py", "*/test/test_*.py",
+        "*/tests/*_test.py", "*/test/*_test.py",
+        "tests/test_*.py", "test/test_*.py",
+        "tests/*_test.py", "test/*_test.py",
+        "test_*.py", "*_test.py",
+        "*conftest.py",
+    ]
+    exclude = list(exclude_globs or [])
+
+    # Only add default test excludes if the user didn't explicitly include test files
+    if not any("test" in g.lower() for g in (include_globs or [])):
+        exclude.extend(default_excludes)
+
     files = []
     for filepath in all_py_files:
         rel = filepath.relative_to(target)
@@ -189,16 +205,14 @@ def _glob_match(rel_path: str, pattern: str) -> bool:
 
     Handles ** patterns (recursive) that fnmatch doesn't support natively.
     """
+    import fnmatch as _fnmatch
+
     # Normalize: **/*.py matches everything ending in .py
     if pattern == "**/*.py":
         return rel_path.endswith(".py")
     # Convert ** to a wildcard that fnmatch can handle
-    # **/ means "any number of directories" — fnmatch treats * as "any chars including /"
-    # So **/*.py → *.py in fnmatch terms (since * matches / too in fnmatch on some platforms)
-    # Actually fnmatch DOES match / with *, so ** is redundant but harmless
-    # The real fix: just use fnmatch which treats * as matching everything including /
     normalized_pattern = pattern.replace("**/", "")
-    return fnmatch.fnmatch(rel_path, normalized_pattern) or fnmatch.fnmatch(rel_path, pattern)
+    return _fnmatch.fnmatch(rel_path, normalized_pattern) or _fnmatch.fnmatch(rel_path, pattern)
 
 
 def _compute_snippet_hash(source: str, line: int) -> str:

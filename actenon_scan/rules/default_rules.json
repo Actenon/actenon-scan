@@ -1,5 +1,5 @@
 {
-  "version": "1",
+  "version": "2",
   "sinks": [
     {
       "id": "PAY-STRIPE-REFUND",
@@ -26,15 +26,22 @@
       "id": "DATA-DELETE-SQL",
       "category": "data_destruction",
       "severity": "high",
-      "description": "Dangerous SQL DELETE/DROP/TRUNCATE string literal",
-      "match": {"type": "string_pattern", "patterns": ["\\bDELETE\\s+FROM\\b", "\\bDROP\\s+(TABLE|DATABASE)\\b", "\\bTRUNCATE\\b"]}
+      "description": "Dangerous SQL DELETE/DROP string literal passed to execute/cursor",
+      "match": {"type": "sql_execute_pattern", "patterns": ["\\bDELETE\\s+FROM\\b", "\\bDROP\\s+(TABLE|DATABASE)\\b"]}
+    },
+    {
+      "id": "DATA-DELETE-SQL-RAW",
+      "category": "data_destruction",
+      "severity": "high",
+      "description": "Dangerous SQL DELETE/DROP in f-string or string concat passed to execute/cursor",
+      "match": {"type": "sql_fstring_pattern", "patterns": ["\\bDELETE\\s+FROM\\b", "\\bDROP\\s+(TABLE|DATABASE)\\b"]}
     },
     {
       "id": "DATA-DELETE-FILE",
       "category": "data_destruction",
       "severity": "high",
-      "description": "File/directory deletion call (bare function or module attribute)",
-      "match": {"type": "name_call", "func_patterns": ["delete", "destroy", "drop", "truncate", "remove", "unlink", "rmtree"]}
+      "description": "File/directory deletion call (bare function name)",
+      "match": {"type": "name_call", "func_patterns": ["delete", "destroy", "drop", "remove", "unlink", "rmtree"]}
     },
     {
       "id": "DATA-DELETE-OS",
@@ -69,7 +76,14 @@
       "category": "communication",
       "severity": "medium",
       "description": "Message/email send on behalf of user",
-      "match": {"type": "name_call", "func_patterns": ["send", "sendmail", "messages_create", "messages.create", "chat_postMessage", "chat.postMessage"]}
+      "match": {"type": "attr_call", "module_patterns": ["smtplib", "email", "twilio", "slack", "webhook"], "func_patterns": ["sendmail", "send_message", "create", "postMessage", "post_message"]}
+    },
+    {
+      "id": "COMMUNICATION-SEND-NAME",
+      "category": "communication",
+      "severity": "medium",
+      "description": "Bare sendmail/send_message call",
+      "match": {"type": "name_call", "func_patterns": ["sendmail", "send_message", "chat_postMessage", "chat_postMessage"]}
     }
   ],
   "guards": [
@@ -77,10 +91,10 @@
     {"patterns": ["actenon_verify", "actenon_check", "actenon_require", "permit_check", "permit_authorize", "permit_validate", "kernel_verify"]}
   ],
   "reachability": {
-    "tool_decorators": ["tool", "mcp.tool", "server.tool", "function_tool", "langchain_tool", "structured_tool"],
+    "tool_decorators": ["tool", "mcp.tool", "server.tool", "function_tool", "langchain_tool", "structured_tool", "call_tool"],
     "tool_wrappers": ["Tool.from_function", "FunctionTool.from_defaults", "StructuredTool.from_function", "tool"],
     "tool_base_classes": ["BaseTool", "AgentTool", "MCPTool"],
-    "tool_methods": ["_run", "_arun"],
+    "tool_methods": ["_run", "_arun", "_execute"],
     "agent_frameworks": ["langchain", "llama_index", "mcp", "openai", "autogen", "crewai"]
   }
 }

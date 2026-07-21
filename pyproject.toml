@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "actenon-scan"
-version = "0.1.2"
+version = "0.1.3"
 description = "Defensive static-analysis scanner for the AI-agent execution gap."
 readme = "README.md"
 license = "Apache-2.0"
