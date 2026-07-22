@@ -73,6 +73,41 @@ actenon-scan init
 actenon-scan scan ./my-agent-code --baseline baseline.json
 ```
 
+## Example: detecting the execution gap
+
+Save this as `refund_tool.py`:
+
+```python
+from langchain.tools import tool
+import stripe
+
+@tool
+def refund(pid: str, amt: int) -> str:
+    """Refund a payment."""
+    return stripe.Refund.create(payment_intent=pid, amount=amt)
+```
+
+Run the scanner:
+
+```bash
+$ actenon-scan scan .
+
+actenon-scan: 1 finding(s) in 1 file(s) (scanned 1 file(s))
+
+  refund_tool.py
+    6:11  [HIGH] PAY-STRIPE-REFUND (payments)
+            stripe.Refund.create(payment_intent=pid, amount=amt)
+            confidence: high
+            Guard this payment call before execution. Options:
+              (1) add an existing internal authorization check,
+              (2) register it with scan --config,
+              (3) use Actenon Kernel proof verification,
+              (4) use brokered Actenon protection (Permit + adapter),
+              (5) redesign the boundary if this action should not be agent-reachable.
+```
+
+Notice the `@tool` decorator on line 4 — that is what makes the `stripe.Refund.create()` call on line 6 agent-reachable, and therefore in-scope for the scanner. The same call inside a plain function with no agent-tool boundary would be silently ignored to avoid false positives.
+
 ## What Scan detects — 8 consequence categories
 
 Scan walks the AST and finds calls to consequential / irreversible operations across eight categories. Rules are configurable in [`actenon_scan/rules/default_rules.json`](actenon_scan/rules/default_rules.json); you can add your own.
@@ -89,6 +124,8 @@ Scan walks the AST and finds calls to consequential / irreversible operations ac
 | **Identity change** | `create_user()`, `assign_role()`, `rotate_keys()`, `update_permissions()` |
 
 Each finding includes: rule ID, category, severity, description, file:line:column, and the matched call text.
+
+> **Detection requires an agent-tool boundary.** A finding is only raised when the risky call is reachable from a recognised agent-tool boundary — a `@tool`-decorated function (LangChain, LlamaIndex), an MCP `@server.tool` handler, a method on a tool-base subclass, or a module that imports a supported agent framework. Standalone calls with no agent context are intentionally ignored to avoid drowning you in false positives on code that isn't agent-reachable. See the [example below](#example-detecting-the-execution-gap) for what this looks like in practice.
 
 ## What Scan recognises as a guard
 
