@@ -6,7 +6,6 @@ import ast
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from actenon_scan.detectors.guards import is_guarded
 from actenon_scan.detectors.reachability import detect_reachability
@@ -145,7 +144,6 @@ def _collect_files(
     *_test.py, files in tests/ or test/ directories) to reduce noise —
     use --include to override or --exclude to add patterns.
     """
-    import fnmatch
 
     if target.is_file():
         return [target] if target.suffix == ".py" else []
@@ -233,11 +231,86 @@ def _compute_snippet_hash(source: str, line: int) -> str:
 
 
 def _remediation_hint(category: str) -> str:
+    """Provide remediation guidance with MULTIPLE routes (not Actenon-only).
+
+    Each finding offers several remediation routes:
+      1. Add an existing internal guard (if one exists but isn't recognised)
+      2. Register the guard with Scan (so it's recognised in future scans)
+      3. Use Actenon Kernel (proof verification at the edge)
+      4. Use brokered Actenon protection (Permit + broker + adapter)
+      5. Redesign the boundary (if the action shouldn't be reachable)
+    """
     hints = {
-        "payments": "Guard this payment call with actenon proof verification before execution. See: https://github.com/Actenon/actenon-permit",
-        "data_destruction": "Guard this destructive call with actenon proof verification. See: https://github.com/Actenon/actenon-permit",
-        "deployment": "Guard this deployment call with actenon proof verification. See: https://github.com/Actenon/actenon-permit",
-        "access_control": "Guard this access-control mutation with actenon proof verification. See: https://github.com/Actenon/actenon-permit",
-        "communication": "Guard this send-on-behalf call with actenon proof verification. See: https://github.com/Actenon/actenon-permit",
+        "payments": (
+            "Guard this payment call before execution. Options: "
+            "(1) add an existing internal authorization check, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel proof verification, "
+            "(4) use brokered Actenon protection (Permit + adapter), "
+            "(5) redesign the boundary if this action should not be agent-reachable."
+        ),
+        "data_destruction": (
+            "Guard this destructive call before execution. Options: "
+            "(1) add an existing internal guard, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel, "
+            "(4) use brokered Actenon protection, "
+            "(5) redesign the boundary."
+        ),
+        "deployment": (
+            "Guard this deployment call before execution. Options: "
+            "(1) add an existing internal guard, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel, "
+            "(4) use brokered Actenon protection, "
+            "(5) redesign the boundary."
+        ),
+        "access_control": (
+            "Guard this access-control mutation before execution. Options: "
+            "(1) add an existing internal guard, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel, "
+            "(4) use brokered Actenon protection, "
+            "(5) redesign the boundary."
+        ),
+        "communication": (
+            "Guard this send-on-behalf call before execution. Options: "
+            "(1) add an existing internal guard, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel, "
+            "(4) use brokered Actenon protection, "
+            "(5) redesign the boundary."
+        ),
+        "provider_sdk": (
+            "Guard this provider SDK call before execution. Options: "
+            "(1) add an existing internal guard, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel, "
+            "(4) use brokered Actenon protection (adapter wraps the SDK), "
+            "(5) redesign the boundary."
+        ),
+        "database_mutation": (
+            "Guard this database mutation before execution. Options: "
+            "(1) add an existing internal guard, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel, "
+            "(4) use brokered Actenon protection, "
+            "(5) redesign the boundary."
+        ),
+        "identity_change": (
+            "Guard this identity/IAM mutation before execution. Options: "
+            "(1) add an existing internal guard, "
+            "(2) register it with scan --config, "
+            "(3) use Actenon Kernel, "
+            "(4) use brokered Actenon protection, "
+            "(5) redesign the boundary."
+        ),
     }
-    return hints.get(category, "Guard this action with actenon proof verification. See: https://github.com/Actenon/actenon-kernel")
+    return hints.get(category, (
+        "Guard this action before execution. Options: "
+        "(1) add an existing internal guard, "
+        "(2) register it with scan --config, "
+        "(3) use Actenon Kernel, "
+        "(4) use brokered Actenon protection, "
+        "(5) redesign the boundary."
+    ))

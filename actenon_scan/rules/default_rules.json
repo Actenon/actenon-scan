@@ -84,6 +84,55 @@
       "severity": "medium",
       "description": "Bare sendmail/send_message call",
       "match": {"type": "name_call", "func_patterns": ["sendmail", "send_message", "chat_postMessage", "chat_postMessage"]}
+    },
+    {
+      "id": "PROVIDER-SDK-CALL",
+      "category": "provider_sdk",
+      "severity": "medium",
+      "description": "Provider SDK call that may have side effects (GitHub, Slack, AWS, GCP, Azure)",
+      "match": {"type": "attr_call", "module_patterns": ["github", "Github", "slack_sdk", "WebClient", "boto3", "googleapiclient", "azure"], "func_patterns": ["create", "update", "delete", "patch", "put", "post"]}
+    },
+    {
+      "id": "DATABASE-MUTATE",
+      "category": "database_mutation",
+      "severity": "high",
+      "description": "Database INSERT/UPDATE via ORM or raw SQL",
+      "match": {"type": "sql_execute_pattern", "patterns": ["\\bINSERT\\s+INTO\\b", "\\bUPDATE\\s+\\b", "\\bTRUNCATE\\b"]}
+    },
+    {
+      "id": "DATABASE-ORM-MUTATE",
+      "category": "database_mutation",
+      "severity": "medium",
+      "description": "ORM save/update/delete call",
+      "match": {"type": "attr_call", "module_patterns": ["db", "session", "objects", "query"], "func_patterns": ["save", "update", "delete", "create", "bulk_create", "bulk_update"]}
+    },
+    {
+      "id": "IDENTITY-CHANGE",
+      "category": "identity_change",
+      "severity": "high",
+      "description": "Identity/IAM mutation (create user, assign role, modify group)",
+      "match": {"type": "name_call", "func_patterns": ["create_user", "delete_user", "assign_role", "revoke_role", "add_role", "remove_role", "update_user", "create_group", "delete_group"]}
+    },
+    {
+      "id": "IDENTITY-IAM-MUTATE",
+      "category": "identity_change",
+      "severity": "high",
+      "description": "Cloud IAM identity mutation",
+      "match": {"type": "attr_call", "module_patterns": ["iam", "cognito", "okta", "auth0"], "func_patterns": ["create_user", "delete_user", "create_group", "add_user_to_group", "create_role", "attach_role_policy"]}
+    },
+    {
+      "id": "DEPLOY-K8S",
+      "category": "deployment",
+      "severity": "high",
+      "description": "Kubernetes deployment mutation",
+      "match": {"type": "attr_call", "module_patterns": ["kubernetes", "k8s", "client"], "func_patterns": ["create_namespaced_deployment", "delete_namespaced_deployment", "patch_namespaced_deployment", "create_pod", "delete_pod"]}
+    },
+    {
+      "id": "DEPLOY-TERRAFORM",
+      "category": "deployment",
+      "severity": "high",
+      "description": "Terraform/infrastructure-as-code apply/destroy",
+      "match": {"type": "name_call", "func_patterns": ["terraform_apply", "terraform_destroy", "tf_apply", "tf_destroy", "apply_terraform", "destroy_terraform"]}
     }
   ],
   "guards": [
@@ -114,7 +163,11 @@
         "actenon_verify", "actenon_check", "actenon_require",
         "kernel_verify",
         "PCCBVerifier", "ProtectedExecutor", "ActenonGate",
-        "ProtectedEndpointMiddleware", "verify_pccb"
+        "ProtectedEndpointMiddleware", "verify_pccb",
+        "Actenon", "ActenonClient", "BrokeredExecutionCoordinator",
+        "ResourceOwnedSubmissionClient", "IntentManager",
+        "Broker", "execute_via_adapter",
+        "verify_pccb_at_edge", "Gateway"
       ]
     },
     {

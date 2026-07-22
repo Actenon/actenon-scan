@@ -5,9 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from actenon_scan.baseline import load_baseline, write_baseline
+from actenon_scan.baseline import load_baseline
 from actenon_scan.engine import scan_path
-from actenon_scan.report.json_out import format_json
 from actenon_scan.suppress import parse_suppressions
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"

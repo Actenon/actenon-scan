@@ -2,7 +2,7 @@
 
 import subprocess
 
-from crewai import Agent, Task, Tool
+from crewai import Tool
 
 
 @Tool("Deploy Application", "Deploys the application to the cluster")

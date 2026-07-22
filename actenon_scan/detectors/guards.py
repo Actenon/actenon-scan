@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-from typing import Any
 
 
 def is_guarded(

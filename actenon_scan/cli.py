@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from actenon_scan.engine import ScanResult, SEVERITY_ORDER, scan_path
+from actenon_scan.engine import scan_path
 from actenon_scan.report.json_out import format_json
 from actenon_scan.report.pretty import format_pretty
 from actenon_scan.report.sarif import format_sarif
@@ -36,11 +36,26 @@ def main(argv: list[str] | None = None) -> int:
     scan_parser.add_argument("--output", "-o", default=None, help="Write output to file instead of stdout.")
 
     # rules
-    rules_parser = subparsers.add_parser("rules", help="List active rules.")
+    _rules_parser = subparsers.add_parser("rules", help="List active rules.")
 
     # init
     init_parser = subparsers.add_parser("init", help="Write a default config file.")
     init_parser.add_argument("--format", choices=["json", "yaml", "yml"], default="json")
+
+    # adopt (adoption guidance)
+    adopt_parser = subparsers.add_parser(
+        "adopt",
+        help="Show adoption guidance for scan findings.",
+    )
+    adopt_parser.add_argument(
+        "path", help="File or directory to scan for adoption guidance.",
+    )
+    adopt_parser.add_argument(
+        "--config", help="Path to config file (JSON or YAML).",
+    )
+    adopt_parser.add_argument(
+        "--baseline", help="Path to baseline.json for known-findings suppression.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -50,6 +65,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_rules(args)
     elif args.command == "init":
         return _cmd_init(args)
+    elif args.command == "adopt":
+        return _cmd_adopt(args)
     else:
         parser.print_help()
         return 0
@@ -72,7 +89,6 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     if target.is_file():
         suppressions = collect_suppressions_from_file(target)
     else:
-        import fnmatch
         for filepath in target.rglob("*.py"):
             suppressions.update(collect_suppressions_from_file(filepath))
 
@@ -163,3 +179,95 @@ def _cmd_init(args: argparse.Namespace) -> int:
     Path(path).write_text(content)
     print(f"Wrote default config to {path}")
     return 0
+
+
+def _cmd_adopt(args: argparse.Namespace) -> int:
+    """Show adoption guidance for scan findings.
+
+    Demonstrates the adoption journey:
+      scan finding
+      -> local brokered protection
+      -> Cloud management
+      -> resource-owned verification
+
+    This command is fully usable WITHOUT Cloud login — it just shows
+    guidance text based on the scan findings.
+    """
+    target = Path(args.path)
+    if not target.exists():
+        print(f"Error: path not found: {target}", file=sys.stderr)
+        return 2
+
+    baseline = None
+    if args.baseline:
+        from actenon_scan.baseline import load_baseline
+        baseline = load_baseline(args.baseline)
+
+    suppressions = set()
+    from actenon_scan.suppress import collect_suppressions_from_file
+
+    files_to_scan = [target] if target.is_file() else list(target.rglob("*.py"))
+    for f in files_to_scan:
+        if f.suffix == ".py":
+            suppressions.update(collect_suppressions_from_file(f))
+
+    result = scan_path(
+        target,
+        config=args.config,
+        suppressions=suppressions,
+        baseline_findings=baseline,
+    )
+
+    if result.finding_count == 0:
+        print("No findings. Your codebase has no detected execution-gap vulnerabilities.")
+        print("If you have custom guards, make sure they're registered with scan --config.")
+        return 0
+
+    print(f"Found {result.finding_count} unguarded consequential action(s).")
+    print("=" * 60)
+    print()
+    print("Adoption journey for each finding:")
+    print()
+
+    for f in result.findings:
+        if f.suppressed:
+            continue
+        print(f"  Finding: {f.rule_id} ({f.category}, {f.severity})")
+        print(f"  File:    {f.file}:{f.line}")
+        print(f"  Call:    {f.call_text}")
+        print()
+        print("  Remediation routes (NOT Actenon-only):")
+        print("    1. Add an existing internal guard (if one exists)")
+        print("       -> Register it: actenon-scan init, add to guards section")
+        print("    2. Use a policy engine (OPA, Casbin, custom)")
+        print("       -> Register the policy-check function with scan --config")
+        print("    3. Use Actenon Kernel (proof verification at the edge)")
+        print("       -> pip install actenon-kernel")
+        print("       -> verify_pccb() before the sink call")
+        print("    4. Use brokered Actenon protection (local):")
+        print("       -> pip install actenon-permit")
+        print("       -> Actenon.local() + register_adapter_tool()")
+        print("       -> The broker resolves the credential; agent never sees it")
+        print("    5. Use Cloud-managed Actenon:")
+        print("       -> Deploy actenon-cloud")
+        print("       -> Cloud issues grants, manages credentials, runs the broker")
+        print("       -> Evidence bundle with 9 independent layers")
+        print("    6. Use resource-owned verification:")
+        print("       -> Resource boundary independently verifies the proof")
+        print("       -> Resource issues a signed receipt")
+        print("       -> Cloud verifies the receipt (never trusts submission alone)")
+        print("    7. Redesign the boundary:")
+        print("       -> If the action should not be agent-reachable, remove the path")
+        print()
+        print("  Note: Cloud is OPTIONAL. Local brokered protection (route 4)")
+        print("  works without any Cloud login or deployment.")
+        print()
+        print("-" * 60)
+
+    print()
+    print("Next steps:")
+    print("  1. Review each finding and choose a remediation route.")
+    print("  2. If using custom guards, register them: actenon-scan init")
+    print("  3. Re-scan after remediation: actenon-scan scan <path>")
+    print("  4. Create a baseline for accepted findings: actenon-scan baseline <path>")
+    return 1 if result.has_findings_at_or_above("medium") else 0

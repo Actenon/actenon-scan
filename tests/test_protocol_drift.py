@@ -266,7 +266,6 @@ def test_scan_does_not_emit_unregistered_refusal_codes():
     This test verifies that scan's source does not hard-code refusal-code
     strings that have been removed from the protocol.
     """
-    from actenon_protocol import resolve_alias, RefusalCode
     # Codes that were NEVER in the protocol (fictional or removed).
     forbidden_codes = {"PROOF_FORGED", "AUTHORITY_MISSING", "GRANT_INVALID"}
     scan_src = Path(__file__).resolve().parent.parent / "actenon_scan"
