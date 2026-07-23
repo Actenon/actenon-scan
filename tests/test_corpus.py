@@ -18,8 +18,21 @@ CORPUS = Path(__file__).resolve().parent / "corpus"
 
 
 def _scan(file_path: Path):
-    """Scan a single file and return the list of non-suppressed findings."""
+    """Scan a single file and return the list of non-suppressed findings.
+
+    Also asserts that the scan produced NO analysis_errors. A safe fixture
+    that crashes silently inside the per-file try/except wrapper would
+    otherwise look identical to a correctly-suppressed fixture (both yield
+    0 findings). The v0.2.2 crash snuck through exactly this way: the
+    constructor_params branch AttributeError was swallowed, the safe
+    fixture's "0 findings" assertion passed, and the bug shipped.
+    """
     result = scan_path(file_path)
+    assert result.analysis_errors == [], (
+        f"{file_path.name} produced analysis_errors during scan — "
+        f"this means part of the file was skipped due to a detector crash, "
+        f"not correctly suppressed. Errors: {result.analysis_errors}"
+    )
     return [f for f in result.findings if not f.suppressed]
 
 
