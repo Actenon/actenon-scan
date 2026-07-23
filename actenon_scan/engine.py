@@ -162,17 +162,33 @@ def _collect_files(
     default_dir_excludes = [
         ".git/**", ".hg/**", ".svn/**",
         ".venv/**", "venv/**", "env/**", ".env/**",
-        ".actenon-env/**", ".scan-env/**", ".tox/**",
+        ".actenon-env/**", ".scan-env/**", ".scan-venv/**", ".tox/**",
+        ".cache/**", ".pytest_cache/**",
         "node_modules/**", "bower_components/**",
         "__pycache__/**", "*.pyc",
         "build/**", "dist/**", "target/**",
         ".eggs/**", "*.egg-info/**",
-        ".mypy_cache/**", ".pytest_cache/**", ".ruff_cache/**",
+        ".mypy_cache/**", ".ruff_cache/**",
         ".coverage/**", "htmlcov/**",
         # Actenon's own shipped test fixtures (defensive — the wheel also
         # excludes them now, but this catches source-checkout scans).
         "**/tests/fixtures/**",
     ]
+
+    # Detect virtual environments by marker file (pyvenv.cfg). Any directory
+    # containing pyvenv.cfg is a venv, regardless of its name. This catches
+    # arbitrarily-named venvs like .scan-venv, my-env, etc.
+    venv_dirs: set[str] = set()
+    for cfg in target.rglob("pyvenv.cfg"):
+        # The venv root is the directory containing pyvenv.cfg
+        venv_root = cfg.parent
+        try:
+            rel = venv_root.relative_to(target)
+            venv_dirs.add(str(rel))
+        except ValueError:
+            pass
+    for venv_dir in venv_dirs:
+        default_dir_excludes.append(f"{venv_dir}/**")
 
     # Default excludes: test files (unless user explicitly includes them)
     # We exclude test_*.py and *_test.py files, and conftest.py, but NOT
