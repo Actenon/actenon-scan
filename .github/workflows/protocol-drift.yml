@@ -44,9 +44,13 @@ jobs:
           import json
           rules = json.load(open('actenon_scan/rules/default_rules.json'))
           guard_patterns = set()
+          # Support both the old 'guards' array format and the newer
+          # top-level 'guard_patterns' array format.
           for g in rules.get('guards', []):
               for p in g.get('patterns', []):
                   guard_patterns.add(p)
+          for p in rules.get('guard_patterns', []):
+              guard_patterns.add(p)
           permit_overlap = guard_patterns & {'permit_check', 'permit_authorize', 'permit_validate'}
           assert not permit_overlap, (
               f'permit_* patterns are treated as guards: {permit_overlap}. '
@@ -61,9 +65,13 @@ jobs:
           import json
           rules = json.load(open('actenon_scan/rules/default_rules.json'))
           guard_patterns = set()
+          # Support both the old 'guards' array format and the newer
+          # top-level 'guard_patterns' array format.
           for g in rules.get('guards', []):
               for p in g.get('patterns', []):
                   guard_patterns.add(p)
+          for p in rules.get('guard_patterns', []):
+              guard_patterns.add(p)
           required = {
               'OAuth': {'requires_scope', 'oauth_scope'},
               'RBAC': {'roles_required', 'requires_roles', 'has_role'},
