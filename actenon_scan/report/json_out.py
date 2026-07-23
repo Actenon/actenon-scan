@@ -39,5 +39,12 @@ def format_json(result: ScanResult) -> str:
         "finding_count": len(findings),
         "production_count": production_count,
         "example_count": example_count,
+        # Per-file analysis errors caught by the defensive wrapper.
+        # Surface these so users see what got skipped — a non-empty list
+        # means part of the repo wasn't actually scanned.
+        "analysis_errors": [
+            {"file": rel, "error": err}
+            for rel, err in result.analysis_errors
+        ],
     }
     return json.dumps(output, indent=2) + "\n"

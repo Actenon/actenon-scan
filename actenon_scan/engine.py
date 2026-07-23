@@ -51,6 +51,11 @@ class ScanResult:
     findings: list[Finding] = field(default_factory=list)
     files_scanned: int = 0
     rules_used: Ruleset | None = None
+    # Per-file analysis errors caught by the defensive wrapper in scan_path.
+    # Each tuple is (relative_path, error_message). One malformed file should
+    # never zero out a whole repo — see the v0.2.2 crash where a single
+    # AttributeError in _find_declarative_guarded_classes killed 7 of 14 repos.
+    analysis_errors: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def finding_count(self) -> int:
@@ -158,14 +163,21 @@ def _find_declarative_guarded_classes(
                 guarded_classes.add(node.name)
 
     # Pass 2: detect constructor params (AuthPlugin(permissions=[...]))
+    # A guarded class is one instantiated with a declared constructor_params
+    # kwarg (e.g. Tool(dependencies=[Depends(auth)])). The callee may be a
+    # bare Name (Tool(...)), an Attribute (module.Tool(...)), or a chained
+    # Call (Foo()(...)) — use _callee_name to handle all shapes safely.
+    # NOTE: ast.Name exposes `.id`, NOT `.name` (only ClassDef/FunctionDef
+    # have `.name`). Using `.name` on a Name crashes with AttributeError —
+    # this was the v0.2.2 release-blocking bug.
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         for kw in node.keywords:
             if kw.arg in constructor_params:
-                # The class being instantiated might be guarded
-                if isinstance(node.func, ast.Name):
-                    guarded_classes.add(node.func.name)
+                name = _callee_name(node.func)
+                if name:
+                    guarded_classes.add(name)
 
     # Pass 3: inheritance — subclasses of guarded classes inherit the guard
     changed = True
@@ -181,6 +193,25 @@ def _find_declarative_guarded_classes(
                     changed = True
 
     return guarded_classes
+
+
+def _callee_name(func: ast.expr) -> str | None:
+    """Return the callable name for a Call's `func` node.
+
+    Handles all common call shapes so the constructor_params guard pass
+    doesn't crash on plain constructor calls:
+      Tool(...)              -> ast.Name       -> 'Tool'
+      pkg.Tool(...)          -> ast.Attribute  -> 'Tool'
+      Foo()(...)             -> ast.Call       -> recurse on .func
+      (lambda: x)()          -> ast.Lambda     -> None
+    """
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    if isinstance(func, ast.Call):
+        return _callee_name(func.func)
+    return None
 
 
 def _get_decorator_name_for_guards(node: ast.expr) -> str:
@@ -327,6 +358,7 @@ def scan_path(
     target = Path(target)
     files = _collect_files(target, include_globs, exclude_globs)
     findings: list[Finding] = []
+    analysis_errors: list[tuple[str, str]] = []
 
     # Auto-detect self_package from pyproject.toml if not provided
     if self_package is None:
@@ -340,65 +372,80 @@ def scan_path(
         except (SyntaxError, UnicodeDecodeError):
             continue
 
-        sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
-        # Detect declarative guards (class attributes, decorators, constructor params)
-        declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
-        parent_map = _build_parent_map_for_engine(tree)
+        # Defensive per-file wrapper: a single malformed AST node, an
+        # unexpected ast shape, or a bug in any detector must NOT zero out
+        # the rest of the repo. Record the error and move on. This is the
+        # lesson from v0.2.2 where one AttributeError in
+        # _find_declarative_guarded_classes crashed 7 of 14 scanned repos.
+        try:
+            sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
+            # Detect declarative guards (class attributes, decorators, constructor params)
+            declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
+            parent_map = _build_parent_map_for_engine(tree)
 
-        for sf in sink_findings:
-            reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
-            if reach.confidence == "none":
-                continue  # not agent-reachable — skip
+            for sf in sink_findings:
+                reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
+                if reach.confidence == "none":
+                    continue  # not agent-reachable — skip
 
-            guarded = is_guarded(tree, sf.line, rules.guard_patterns)
-            if guarded:
-                continue  # guarded by inline guard call — no finding
+                guarded = is_guarded(tree, sf.line, rules.guard_patterns)
+                if guarded:
+                    continue  # guarded by inline guard call — no finding
 
-            # Check declarative guards (class-level authorization)
-            declarative_suppressed = _is_in_declarative_guarded_class(
-                tree, sf.line, declarative_guarded_classes, parent_map
-            )
+                # Check declarative guards (class-level authorization)
+                declarative_suppressed = _is_in_declarative_guarded_class(
+                    tree, sf.line, declarative_guarded_classes, parent_map
+                )
 
-            severity = sf.severity
-            if reach.confidence == "medium":
-                severity = _downgrade_severity(severity)
+                severity = sf.severity
+                if reach.confidence == "medium":
+                    severity = _downgrade_severity(severity)
 
-            snippet_hash = _compute_snippet_hash(source, sf.line)
+                snippet_hash = _compute_snippet_hash(source, sf.line)
 
-            finding = Finding(
-                file=rel,
-                line=sf.line,
-                col=sf.col,
-                rule_id=sf.rule_id,
-                category=sf.category,
-                severity=severity,
-                confidence=reach.confidence,
-                description=sf.description,
-                call_text=sf.call_text,
-                remediation=_remediation_hint(sf.category),
-                snippet_hash=snippet_hash,
-                tier=_assign_tier(rel),
-            )
+                finding = Finding(
+                    file=rel,
+                    line=sf.line,
+                    col=sf.col,
+                    rule_id=sf.rule_id,
+                    category=sf.category,
+                    severity=severity,
+                    confidence=reach.confidence,
+                    description=sf.description,
+                    call_text=sf.call_text,
+                    remediation=_remediation_hint(sf.category),
+                    snippet_hash=snippet_hash,
+                    tier=_assign_tier(rel),
+                )
 
-            # Apply declarative guard suppression
-            if declarative_suppressed:
-                finding.suppressed = True
-                finding.suppression_reason = f"declarative_guard:{declarative_suppressed}"
-
-            # Check inline suppression
-            if suppressions and (rel, sf.rule_id) in suppressions:
-                finding.suppressed = True
-                finding.suppression_reason = "inline_suppression"
-
-            # Check baseline
-            if baseline_findings:
-                file_baselines = baseline_findings.get(rel, set())
-                if snippet_hash in file_baselines:
+                # Apply declarative guard suppression
+                if declarative_suppressed:
                     finding.suppressed = True
+                    finding.suppression_reason = f"declarative_guard:{declarative_suppressed}"
 
-            findings.append(finding)
+                # Check inline suppression
+                if suppressions and (rel, sf.rule_id) in suppressions:
+                    finding.suppressed = True
+                    finding.suppression_reason = "inline_suppression"
 
-    return ScanResult(findings=findings, files_scanned=len(files), rules_used=rules)
+                # Check baseline
+                if baseline_findings:
+                    file_baselines = baseline_findings.get(rel, set())
+                    if snippet_hash in file_baselines:
+                        finding.suppressed = True
+
+                findings.append(finding)
+        except Exception as exc:
+            # Record and continue — never let one file kill the repo scan.
+            analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+            continue
+
+    return ScanResult(
+        findings=findings,
+        files_scanned=len(files),
+        rules_used=rules,
+        analysis_errors=analysis_errors,
+    )
 
 
 def _collect_files(

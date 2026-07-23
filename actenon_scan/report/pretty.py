@@ -29,4 +29,14 @@ def format_pretty(result: ScanResult) -> str:
             lines.append(f"            confidence: {f.confidence}")
             lines.append(f"            {f.remediation}")
             lines.append("")
+
+    # Surface any per-file analysis errors so the user knows the scan was
+    # partial. Empty list = clean run; non-empty = something was skipped.
+    if result.analysis_errors:
+        lines.append(f"analysis errors: {len(result.analysis_errors)} file(s) skipped")
+        for rel, err in result.analysis_errors[:20]:
+            lines.append(f"  {rel}: {err}")
+        if len(result.analysis_errors) > 20:
+            lines.append(f"  ... and {len(result.analysis_errors) - 20} more")
+        lines.append("")
     return "\n".join(lines) + "\n"
