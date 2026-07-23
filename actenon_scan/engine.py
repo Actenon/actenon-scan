@@ -155,10 +155,29 @@ def _collect_files(
     if not include_globs:
         include_globs = ["**/*.py"]
 
+    # Default excludes: virtual envs, build dirs, and dependency dirs.
+    # These always cause false positives (vendored code, installed packages,
+    # build artifacts) and should never be scanned unless the user explicitly
+    # includes them.
+    default_dir_excludes = [
+        ".git/**", ".hg/**", ".svn/**",
+        ".venv/**", "venv/**", "env/**", ".env/**",
+        ".actenon-env/**", ".scan-env/**", ".tox/**",
+        "node_modules/**", "bower_components/**",
+        "__pycache__/**", "*.pyc",
+        "build/**", "dist/**", "target/**",
+        ".eggs/**", "*.egg-info/**",
+        ".mypy_cache/**", ".pytest_cache/**", ".ruff_cache/**",
+        ".coverage/**", "htmlcov/**",
+        # Actenon's own shipped test fixtures (defensive — the wheel also
+        # excludes them now, but this catches source-checkout scans).
+        "**/tests/fixtures/**",
+    ]
+
     # Default excludes: test files (unless user explicitly includes them)
     # We exclude test_*.py and *_test.py files, and conftest.py, but NOT
     # directories named tests/ (they may contain agent tool fixtures)
-    default_excludes = [
+    default_test_excludes = [
         "*/tests/test_*.py", "*/test/test_*.py",
         "*/tests/*_test.py", "*/test/*_test.py",
         "tests/test_*.py", "test/test_*.py",
@@ -168,9 +187,14 @@ def _collect_files(
     ]
     exclude = list(exclude_globs or [])
 
+    # Always exclude venv/build/dependency dirs (user can't override via
+    # --include; if they really want to scan a venv, they should point
+    # scan_path directly at it).
+    exclude.extend(default_dir_excludes)
+
     # Only add default test excludes if the user didn't explicitly include test files
     if not any("test" in g.lower() for g in (include_globs or [])):
-        exclude.extend(default_excludes)
+        exclude.extend(default_test_excludes)
 
     files = []
     for filepath in all_py_files:
@@ -202,12 +226,42 @@ def _glob_match(rel_path: str, pattern: str) -> bool:
     """Match a relative path against a glob pattern.
 
     Handles ** patterns (recursive) that fnmatch doesn't support natively.
+    Also handles directory-prefix excludes like `.venv/**` (match anything
+    under .venv/) and `**/tests/fixtures/**` (match anywhere in the tree).
     """
     import fnmatch as _fnmatch
 
     # Normalize: **/*.py matches everything ending in .py
     if pattern == "**/*.py":
         return rel_path.endswith(".py")
+
+    # Handle **/dir/** and **/dir/subdir/** patterns — match anywhere in the
+    # tree under the named directory. Must be checked BEFORE the dir/** branch
+    # because both end with /**.
+    if pattern.startswith("**/") and pattern.endswith("/**"):
+        middle = pattern[3:-3]  # strip **/ and /**
+        parts = rel_path.split("/")
+        # middle may be a multi-segment path like "tests/fixtures"
+        middle_parts = middle.split("/")
+        # Check if middle_parts appears as a contiguous subsequence in parts
+        for i in range(len(parts) - len(middle_parts) + 1):
+            if parts[i : i + len(middle_parts)] == middle_parts:
+                return True
+        return False
+
+    # Handle dir/** patterns — match anything under that directory
+    if pattern.endswith("/**"):
+        prefix = pattern[:-3]  # strip the /**
+        # Match if the path is inside the prefix directory
+        parts = rel_path.split("/")
+        for i, part in enumerate(parts[:-1]):  # don't match the last part (filename)
+            if "/".join(parts[: i + 1]) == prefix:
+                return True
+        # Also match if the prefix itself appears as a path segment anywhere
+        if prefix in rel_path.split("/"):
+            return True
+        return False
+
     # Convert ** to a wildcard that fnmatch can handle
     normalized_pattern = pattern.replace("**/", "")
     return _fnmatch.fnmatch(rel_path, normalized_pattern) or _fnmatch.fnmatch(rel_path, pattern)

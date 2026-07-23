@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "actenon-scan"
-version = "0.1.5"
+version = "0.1.6"
 description = "Defensive static-analysis scanner for the AI-agent execution gap."
 readme = "README.md"
 license = "Apache-2.0"
@@ -42,8 +42,13 @@ dev = [
 [project.scripts]
 actenon-scan = "actenon_scan.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
+[tool.setuptools]
+packages = [
+    "actenon_scan",
+    "actenon_scan.detectors",
+    "actenon_scan.report",
+    "actenon_scan.rules",
+]
 
 [tool.setuptools.package-data]
 "actenon_scan.rules" = ["default_rules.json"]
