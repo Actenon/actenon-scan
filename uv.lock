@@ -8,18 +8,22 @@ resolution-markers = [
 
 [[package]]
 name = "actenon-protocol"
-version = "1.0.0"
-source = { git = "https://github.com/Actenon/actenon-protocol.git?rev=v1.0.0#f395f0b5d919d943488df0a106866e0aee5afe54" }
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rfc8785" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/83/5b/c886710d55e03146f3b94ad9391ce9fd9d2daba0f6bd29b04d083d58dd05/actenon_protocol-1.1.0.tar.gz", hash = "sha256:94395185508a0cbb23ea375c7079c70ed40a12ee73111971360ef21d61802994", size = 36700, upload-time = "2026-07-22T19:09:52.618Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/35/9bf7b40600fe725295125e6a554ec6bcd12fb1060b287feb7f19118a72f3/actenon_protocol-1.1.0-py3-none-any.whl", hash = "sha256:ee6d1dbf8bd5c8a01a942d6e3e852d3d3e1f90aa6b83112631f0102d2643682c", size = 45902, upload-time = "2026-07-22T19:09:51.29Z" },
+]
 
 [[package]]
 name = "actenon-scan"
-version = "0.1.3"
+version = "0.1.6"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -35,7 +39,7 @@ yaml = [
 
 [package.metadata]
 requires-dist = [
-    { name = "actenon-protocol", marker = "extra == 'dev'", git = "https://github.com/Actenon/actenon-protocol.git?rev=v1.0.0" },
+    { name = "actenon-protocol", marker = "extra == 'dev'", specifier = ">=1.1.0,<2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6.0" },

@@ -6,182 +6,479 @@
       "category": "payments",
       "severity": "high",
       "description": "Stripe refund/payout/charge call in agent tool",
-      "match": {"type": "attr_call", "module_patterns": ["stripe", "stripe.Refund", "stripe.Charge", "stripe.Payout", "stripe.Transfer"], "func_patterns": ["refund", "create", "capture", "charge", "payout", "transfer"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "stripe",
+          "stripe.Refund",
+          "stripe.Charge",
+          "stripe.Payout",
+          "stripe.Transfer"
+        ],
+        "func_patterns": [
+          "refund",
+          "create",
+          "capture",
+          "charge",
+          "payout",
+          "transfer"
+        ]
+      }
     },
     {
       "id": "PAY-GENERIC-REFUND",
       "category": "payments",
       "severity": "high",
       "description": "Generic payment refund/charge/payout call",
-      "match": {"type": "name_call", "func_patterns": ["refund", "charge", "capture", "payout", "transfer", "create_charge", "create_refund", "issue_refund", "process_refund"]}
+      "match": {
+        "type": "name_call",
+        "func_patterns": [
+          "refund",
+          "charge",
+          "capture",
+          "payout",
+          "transfer",
+          "create_charge",
+          "create_refund",
+          "issue_refund",
+          "process_refund"
+        ]
+      }
     },
     {
       "id": "PAY-BRAINTREE",
       "category": "payments",
       "severity": "high",
       "description": "Braintree/Adyen/PayPal payment call",
-      "match": {"type": "attr_call", "module_patterns": ["braintree", "adyen", "paypal"], "func_patterns": ["refund", "sale", "capture", "void"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "braintree",
+          "adyen",
+          "paypal"
+        ],
+        "func_patterns": [
+          "refund",
+          "sale",
+          "capture",
+          "void"
+        ]
+      }
     },
     {
       "id": "DATA-DELETE-SQL",
       "category": "data_destruction",
       "severity": "high",
       "description": "Dangerous SQL DELETE/DROP string literal passed to execute/cursor",
-      "match": {"type": "sql_execute_pattern", "patterns": ["\\bDELETE\\s+FROM\\b", "\\bDROP\\s+(TABLE|DATABASE)\\b"]}
+      "match": {
+        "type": "sql_execute_pattern",
+        "patterns": [
+          "\\bDELETE\\s+FROM\\b",
+          "\\bDROP\\s+(TABLE|DATABASE)\\b"
+        ]
+      }
     },
     {
       "id": "DATA-DELETE-SQL-RAW",
       "category": "data_destruction",
       "severity": "high",
       "description": "Dangerous SQL DELETE/DROP in f-string or string concat passed to execute/cursor",
-      "match": {"type": "sql_fstring_pattern", "patterns": ["\\bDELETE\\s+FROM\\b", "\\bDROP\\s+(TABLE|DATABASE)\\b"]}
+      "match": {
+        "type": "sql_fstring_pattern",
+        "patterns": [
+          "\\bDELETE\\s+FROM\\b",
+          "\\bDROP\\s+(TABLE|DATABASE)\\b"
+        ]
+      }
     },
     {
       "id": "DATA-DELETE-FILE",
       "category": "data_destruction",
       "severity": "high",
       "description": "File/directory deletion call (bare function name)",
-      "match": {"type": "name_call", "func_patterns": ["delete", "destroy", "drop", "remove", "unlink", "rmtree"]}
+      "match": {
+        "type": "name_call",
+        "func_patterns": [
+          "delete",
+          "destroy",
+          "drop",
+          "remove",
+          "unlink",
+          "rmtree"
+        ]
+      }
     },
     {
       "id": "DATA-DELETE-OS",
       "category": "data_destruction",
       "severity": "high",
       "description": "File/directory deletion via os/shutil/pathlib module calls",
-      "match": {"type": "attr_call", "module_patterns": ["os", "shutil", "pathlib", "Path"], "func_patterns": ["remove", "unlink", "rmtree", "rmdir", "removedirs"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "os",
+          "shutil",
+          "pathlib",
+          "Path"
+        ],
+        "func_patterns": [
+          "remove",
+          "unlink",
+          "rmtree",
+          "rmdir",
+          "removedirs"
+        ]
+      }
     },
     {
       "id": "DATA-DELETE-OBJ",
       "category": "data_destruction",
       "severity": "high",
       "description": "Object deletion via cloud SDK",
-      "match": {"type": "attr_call", "module_patterns": ["boto3", "s3", "dynamodb"], "func_patterns": ["delete_object", "delete_bucket", "delete_item", "delete_table"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "boto3",
+          "s3",
+          "dynamodb"
+        ],
+        "func_patterns": [
+          "delete_object",
+          "delete_bucket",
+          "delete_item",
+          "delete_table"
+        ]
+      }
     },
     {
       "id": "DEPLOY-SUBPROCESS",
       "category": "deployment",
       "severity": "high",
       "description": "Deployment command via subprocess/os.system",
-      "match": {"type": "subprocess_deploy"}
+      "match": {
+        "type": "subprocess_deploy"
+      }
     },
     {
       "id": "ACCESS-CONTROL-MUTATE",
       "category": "access_control",
       "severity": "high",
       "description": "Permission/access grant call",
-      "match": {"type": "name_call", "func_patterns": ["put_user_policy", "attach_role_policy", "add_user_to_group", "create_access_key", "set_iam_policy", "put_bucket_policy", "put_role_policy", "create_policy", "attach_user_policy"]}
+      "match": {
+        "type": "name_call",
+        "func_patterns": [
+          "put_user_policy",
+          "attach_role_policy",
+          "add_user_to_group",
+          "create_access_key",
+          "set_iam_policy",
+          "put_bucket_policy",
+          "put_role_policy",
+          "create_policy",
+          "attach_user_policy"
+        ]
+      }
     },
     {
       "id": "COMMUNICATION-SEND",
       "category": "communication",
       "severity": "medium",
       "description": "Message/email send on behalf of user",
-      "match": {"type": "attr_call", "module_patterns": ["smtplib", "email", "twilio", "slack", "webhook"], "func_patterns": ["sendmail", "send_message", "create", "postMessage", "post_message"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "smtplib",
+          "email",
+          "twilio",
+          "slack",
+          "webhook"
+        ],
+        "func_patterns": [
+          "sendmail",
+          "send_message",
+          "create",
+          "postMessage",
+          "post_message"
+        ]
+      }
     },
     {
       "id": "COMMUNICATION-SEND-NAME",
       "category": "communication",
       "severity": "medium",
       "description": "Bare sendmail/send_message call",
-      "match": {"type": "name_call", "func_patterns": ["sendmail", "send_message", "chat_postMessage", "chat_postMessage"]}
+      "match": {
+        "type": "name_call",
+        "func_patterns": [
+          "sendmail",
+          "send_message",
+          "chat_postMessage",
+          "chat_postMessage"
+        ]
+      }
     },
     {
       "id": "PROVIDER-SDK-CALL",
       "category": "provider_sdk",
       "severity": "medium",
       "description": "Provider SDK call that may have side effects (GitHub, Slack, AWS, GCP, Azure)",
-      "match": {"type": "attr_call", "module_patterns": ["github", "Github", "slack_sdk", "WebClient", "boto3", "googleapiclient", "azure"], "func_patterns": ["create", "update", "delete", "patch", "put", "post"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "github",
+          "Github",
+          "slack_sdk",
+          "WebClient",
+          "boto3",
+          "googleapiclient",
+          "azure"
+        ],
+        "func_patterns": [
+          "create",
+          "update",
+          "delete",
+          "patch",
+          "put",
+          "post"
+        ]
+      }
     },
     {
       "id": "DATABASE-MUTATE",
       "category": "database_mutation",
       "severity": "high",
       "description": "Database INSERT/UPDATE via ORM or raw SQL",
-      "match": {"type": "sql_execute_pattern", "patterns": ["\\bINSERT\\s+INTO\\b", "\\bUPDATE\\s+\\b", "\\bTRUNCATE\\b"]}
+      "match": {
+        "type": "sql_execute_pattern",
+        "patterns": [
+          "\\bINSERT\\s+INTO\\b",
+          "\\bUPDATE\\s+\\b",
+          "\\bTRUNCATE\\b"
+        ]
+      }
     },
     {
       "id": "DATABASE-ORM-MUTATE",
       "category": "database_mutation",
       "severity": "medium",
       "description": "ORM save/update/delete call",
-      "match": {"type": "attr_call", "module_patterns": ["db", "session", "objects", "query"], "func_patterns": ["save", "update", "delete", "create", "bulk_create", "bulk_update"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "db",
+          "session",
+          "objects"
+        ],
+        "func_patterns": [
+          "save",
+          "update",
+          "delete",
+          "create",
+          "bulk_create",
+          "bulk_update"
+        ]
+      }
     },
     {
       "id": "IDENTITY-CHANGE",
       "category": "identity_change",
       "severity": "high",
       "description": "Identity/IAM mutation (create user, assign role, modify group)",
-      "match": {"type": "name_call", "func_patterns": ["create_user", "delete_user", "assign_role", "revoke_role", "add_role", "remove_role", "update_user", "create_group", "delete_group"]}
+      "match": {
+        "type": "name_call",
+        "func_patterns": [
+          "create_user",
+          "delete_user",
+          "assign_role",
+          "revoke_role",
+          "add_role",
+          "remove_role",
+          "update_user",
+          "create_group",
+          "delete_group"
+        ]
+      }
     },
     {
       "id": "IDENTITY-IAM-MUTATE",
       "category": "identity_change",
       "severity": "high",
       "description": "Cloud IAM identity mutation",
-      "match": {"type": "attr_call", "module_patterns": ["iam", "cognito", "okta", "auth0"], "func_patterns": ["create_user", "delete_user", "create_group", "add_user_to_group", "create_role", "attach_role_policy"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "iam",
+          "cognito",
+          "okta",
+          "auth0"
+        ],
+        "func_patterns": [
+          "create_user",
+          "delete_user",
+          "create_group",
+          "add_user_to_group",
+          "create_role",
+          "attach_role_policy"
+        ]
+      }
     },
     {
       "id": "DEPLOY-K8S",
       "category": "deployment",
       "severity": "high",
       "description": "Kubernetes deployment mutation",
-      "match": {"type": "attr_call", "module_patterns": ["kubernetes", "k8s", "client"], "func_patterns": ["create_namespaced_deployment", "delete_namespaced_deployment", "patch_namespaced_deployment", "create_pod", "delete_pod"]}
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "kubernetes",
+          "k8s",
+          "client"
+        ],
+        "func_patterns": [
+          "create_namespaced_deployment",
+          "delete_namespaced_deployment",
+          "patch_namespaced_deployment",
+          "create_pod",
+          "delete_pod"
+        ]
+      }
     },
     {
       "id": "DEPLOY-TERRAFORM",
       "category": "deployment",
       "severity": "high",
       "description": "Terraform/infrastructure-as-code apply/destroy",
-      "match": {"type": "name_call", "func_patterns": ["terraform_apply", "terraform_destroy", "tf_apply", "tf_destroy", "apply_terraform", "destroy_terraform"]}
+      "match": {
+        "type": "name_call",
+        "func_patterns": [
+          "terraform_apply",
+          "terraform_destroy",
+          "tf_apply",
+          "tf_destroy",
+          "apply_terraform",
+          "destroy_terraform"
+        ]
+      }
     }
   ],
   "guards": [
     {
       "comment": "Generic authority checks recognised as boundary guards. These are vendor-neutral and cover the most common naming conventions across frameworks.",
       "patterns": [
-        "verify", "verify_proof", "require_proof",
-        "check_permission", "authorize", "require_approval",
-        "assert_authorized", "has_permission",
-        "check_idempotency", "seen_before", "replay_guard",
-        "require_authorization", "validate_authorization",
-        "verify_signature", "verify_token",
-        "requires_scope", "oauth_scope", "requires_roles",
-        "roles_required", "has_role", "requires_role",
-        "jwt_required", "verify_jwt", "decode_jwt",
-        "opa_eval", "check_opa_policy", "authorize_with_opa",
-        "enforce", "casbin_enforce",
-        "verify_iam", "iam_authorize",
-        "cf_access", "verify_cf_jwt",
-        "verify_api_key", "check_api_key",
-        "verify_mtls", "require_client_cert",
-        "check_relation", "check_capability"
+        "verify",
+        "verify_proof",
+        "require_proof",
+        "check_permission",
+        "authorize",
+        "require_approval",
+        "assert_authorized",
+        "has_permission",
+        "check_idempotency",
+        "seen_before",
+        "replay_guard",
+        "require_authorization",
+        "validate_authorization",
+        "verify_signature",
+        "verify_token",
+        "requires_scope",
+        "oauth_scope",
+        "requires_roles",
+        "roles_required",
+        "has_role",
+        "requires_role",
+        "jwt_required",
+        "verify_jwt",
+        "decode_jwt",
+        "opa_eval",
+        "check_opa_policy",
+        "authorize_with_opa",
+        "enforce",
+        "casbin_enforce",
+        "verify_iam",
+        "iam_authorize",
+        "cf_access",
+        "verify_cf_jwt",
+        "verify_api_key",
+        "check_api_key",
+        "verify_mtls",
+        "require_client_cert",
+        "check_relation",
+        "check_capability"
       ]
     },
     {
-      "comment": "Actenon-specific guards. NOTE: only the Kernel's proof-verification surface counts as a boundary guard. Permit calls (permit_check, permit_authorize, permit_validate) are NOT guards — Permit issues authority, the Kernel verifies it. Treating Permit calls as guards would collapse the trust boundary (audit S-01). They have been removed.",
+      "comment": "Actenon-specific guards. NOTE: only the Kernel's proof-verification surface counts as a boundary guard. Permit calls (permit_check, permit_authorize, permit_validate) are NOT guards \u2014 Permit issues authority, the Kernel verifies it. Treating Permit calls as guards would collapse the trust boundary (audit S-01). They have been removed.",
       "patterns": [
-        "actenon_verify", "actenon_check", "actenon_require",
+        "actenon_verify",
+        "actenon_check",
+        "actenon_require",
         "kernel_verify",
-        "PCCBVerifier", "ProtectedExecutor", "ActenonGate",
-        "ProtectedEndpointMiddleware", "verify_pccb",
-        "Actenon", "ActenonClient", "BrokeredExecutionCoordinator",
-        "ResourceOwnedSubmissionClient", "IntentManager",
-        "Broker", "execute_via_adapter",
-        "verify_pccb_at_edge", "Gateway"
+        "PCCBVerifier",
+        "ProtectedExecutor",
+        "ActenonGate",
+        "ProtectedEndpointMiddleware",
+        "verify_pccb",
+        "Actenon",
+        "ActenonClient",
+        "BrokeredExecutionCoordinator",
+        "ResourceOwnedSubmissionClient",
+        "IntentManager",
+        "Broker",
+        "execute_via_adapter",
+        "verify_pccb_at_edge",
+        "Gateway"
       ]
     },
     {
-      "comment": "Permit-named functions that are NOT boundary guards. These appear in the rules so that scan can recognise them and flag paths that use Permit WITHOUT a Kernel verification as a PERMIT_WITHOUT_KERNEL_PROOF finding (planned for v1.1). For now, they are NOT in the guard patterns — a path that calls only permit_authorize() will be flagged as unguarded.",
+      "comment": "Permit-named functions that are NOT boundary guards. These appear in the rules so that scan can recognise them and flag paths that use Permit WITHOUT a Kernel verification as a PERMIT_WITHOUT_KERNEL_PROOF finding (planned for v1.1). For now, they are NOT in the guard patterns \u2014 a path that calls only permit_authorize() will be flagged as unguarded.",
       "permit_non_guard_patterns": [
-        "permit_check", "permit_authorize", "permit_validate"
+        "permit_check",
+        "permit_authorize",
+        "permit_validate"
       ]
     }
   ],
   "reachability": {
-    "tool_decorators": ["tool", "mcp.tool", "server.tool", "function_tool", "langchain_tool", "structured_tool", "call_tool"],
-    "tool_wrappers": ["Tool.from_function", "FunctionTool.from_defaults", "StructuredTool.from_function", "tool"],
-    "tool_base_classes": ["BaseTool", "AgentTool", "MCPTool"],
-    "tool_methods": ["_run", "_arun", "_execute"],
-    "agent_frameworks": ["langchain", "llama_index", "mcp", "openai", "autogen", "crewai"]
+    "tool_decorators": [
+      "tool",
+      "Tool",
+      "Agent.tool",
+      "mcp.tool",
+      "server.tool",
+      "function_tool",
+      "langchain_tool",
+      "structured_tool",
+      "call_tool",
+      "FunctionTool",
+      "StructuredTool"
+    ],
+    "tool_wrappers": [
+      "Tool.from_function",
+      "FunctionTool.from_defaults",
+      "StructuredTool.from_function",
+      "tool"
+    ],
+    "tool_base_classes": [
+      "BaseTool",
+      "AgentTool",
+      "MCPTool",
+      "Tool",
+      "FunctionTool",
+      "StructuredTool",
+      "BaseTool"
+    ],
+    "tool_methods": [
+      "_run",
+      "_arun",
+      "_execute"
+    ],
+    "agent_frameworks": [
+      "langchain",
+      "llama_index",
+      "mcp",
+      "openai",
+      "autogen",
+      "crewai"
+    ]
   }
 }

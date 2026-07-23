@@ -191,15 +191,13 @@ def _collect_files(
         default_dir_excludes.append(f"{venv_dir}/**")
 
     # Default excludes: test files (unless user explicitly includes them)
-    # We exclude test_*.py and *_test.py files, and conftest.py, but NOT
-    # directories named tests/ (they may contain agent tool fixtures)
+    # We exclude test_*.py and *_test.py files at ANY depth in the tree,
+    # plus conftest.py. We do NOT exclude tests/ directories themselves
+    # (they may contain agent tool fixtures that aren't named test_*.py).
     default_test_excludes = [
-        "*/tests/test_*.py", "*/test/test_*.py",
-        "*/tests/*_test.py", "*/test/*_test.py",
-        "tests/test_*.py", "test/test_*.py",
-        "tests/*_test.py", "test/*_test.py",
-        "test_*.py", "*_test.py",
-        "*conftest.py",
+        "**/test_*.py",
+        "**/*_test.py",
+        "**/conftest.py",
     ]
     exclude = list(exclude_globs or [])
 
@@ -250,6 +248,20 @@ def _glob_match(rel_path: str, pattern: str) -> bool:
     # Normalize: **/*.py matches everything ending in .py
     if pattern == "**/*.py":
         return rel_path.endswith(".py")
+
+    # Handle **/filename patterns — match the filename anywhere in the tree
+    # e.g. **/test_*.py matches lib/tests/rag/test_csv_loader.py
+    if pattern.startswith("**/") and not pattern.endswith("/**"):
+        # Strip the **/ prefix and use fnmatch on the basename + full path
+        file_pattern = pattern[3:]
+        # Match against the full path (fnmatch * crosses /)
+        if _fnmatch.fnmatch(rel_path, f"*/{file_pattern}") or _fnmatch.fnmatch(rel_path, file_pattern):
+            return True
+        # Also match against just the basename for deep paths
+        basename = rel_path.split("/")[-1]
+        if _fnmatch.fnmatch(basename, file_pattern):
+            return True
+        return False
 
     # Handle **/dir/** and **/dir/subdir/** patterns — match anywhere in the
     # tree under the named directory. Must be checked BEFORE the dir/** branch

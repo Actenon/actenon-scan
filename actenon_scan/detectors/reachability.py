@@ -25,6 +25,16 @@ def detect_reachability(
     """Determine if the sink at sink_line is agent-reachable.
 
     Checks the enclosing function and module for agent/tool signals.
+
+    Confidence levels:
+    - HIGH: sink is inside a @tool-decorated function, a tool-wrapper function,
+      or a method of a class subclassing a tool base class.
+    - MEDIUM: sink is at MODULE LEVEL (not inside any function) and the module
+      imports an agent framework. This catches bare calls in framework-importing
+      scripts. Sinks inside NON-TOOL functions do NOT get MEDIUM confidence —
+      a regular internal function that happens to be in a framework's own repo
+      is not agent-reachable just because the file imports the framework.
+    - none: sink is inside a non-tool function, or no agent signals found.
     """
     result = ReachabilityResult()
 
@@ -58,13 +68,10 @@ def detect_reachability(
         result.signals.append("tool_base_class_method")
         return result
 
-    # Check for MEDIUM confidence: module imports an agent framework
-    agent_frameworks = reachability_cfg.get("agent_frameworks", [])
-    if _imports_agent_framework(tree, agent_frameworks):
-        result.confidence = "medium"
-        result.signals.append("agent_framework_import")
-        return result
-
+    # The sink is inside a NON-TOOL function. Even if the module imports an
+    # agent framework, a regular internal function is not agent-reachable.
+    # Without this gate, every file in a framework's own repo (where every
+    # file imports the framework) would have all its sinks flagged.
     return result
 
 

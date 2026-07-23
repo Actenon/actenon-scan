@@ -31,10 +31,16 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
     """
     findings: list[SinkFinding] = []
 
+    # Build a simple variable-type map from assignments like:
+    #   p = Path(...)       → p maps to "Path"
+    #   session = Session() → session maps to "Session"
+    # This lets us match p.unlink() against the "Path" module pattern.
+    var_types = _build_var_type_map(tree)
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             for rule in rules:
-                if _match_call(node, rule):
+                if _match_call(node, rule, var_types):
                     findings.append(SinkFinding(
                         rule_id=rule.id,
                         category=rule.category,
@@ -88,12 +94,45 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
     return findings
 
 
-def _match_call(node: ast.Call, rule: SinkRule) -> bool:
+def _build_var_type_map(tree: ast.Module) -> dict[str, str]:
+    """Build a map of variable names to their inferred type names.
+
+    Handles simple assignments like:
+        p = Path(...)       → {"p": "Path"}
+        session = Session() → {"session": "Session"}
+        db = Database()     → {"db": "Database"}
+
+    This is NOT full type inference — it only catches direct constructor
+    assignments. But it covers the common case of `p = Path(...)` followed
+    by `p.unlink()`.
+    """
+    var_types: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            if isinstance(node.value, ast.Call):
+                type_name = _get_call_name(node.value)
+                if type_name:
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            var_types[target.id] = type_name
+    return var_types
+
+
+def _get_call_name(node: ast.Call) -> str:
+    """Get the name of a call target (e.g., Path from Path(...))."""
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    if isinstance(node.func, ast.Attribute):
+        return _get_attr_chain(node.func)
+    return ""
+
+
+def _match_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None = None) -> bool:
     match_type = rule.match.get("type", "")
     if match_type == "name_call":
         return _match_name_call(node, rule)
     elif match_type == "attr_call":
-        return _match_attr_call(node, rule)
+        return _match_attr_call(node, rule, var_types)
     elif match_type == "subprocess_deploy":
         return _match_subprocess_deploy(node)
     return False
@@ -108,8 +147,16 @@ def _match_name_call(node: ast.Call, rule: SinkRule) -> bool:
     return func_name in patterns
 
 
-def _match_attr_call(node: ast.Call, rule: SinkRule) -> bool:
-    """Match attribute calls like stripe.Refund.create()."""
+def _match_attr_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None = None) -> bool:
+    """Match attribute calls like stripe.Refund.create().
+
+    The module_patterns are matched against SEGMENTS of the attribute chain,
+    not as substrings. This prevents false positives like "db" matching
+    "sandbox.delete" (where "db" appears inside "sandbox" as a substring).
+
+    Variable-type tracking: if var_types maps the root variable to a type
+    name (e.g., p → Path), that type name is also checked against module_patterns.
+    """
     if not isinstance(node.func, ast.Attribute):
         return False
     func_name = node.func.attr
@@ -124,15 +171,28 @@ def _match_attr_call(node: ast.Call, rule: SinkRule) -> bool:
 
     # Walk the attribute chain to get the full name
     full_name = _get_attr_chain(node.func)
+    chain_segments = full_name.split(".")
+
+    # Match if any segment of the chain exactly equals a module pattern.
     for mod_pattern in module_patterns:
-        if full_name.startswith(mod_pattern) or mod_pattern in full_name:
-            return True
-    # Also check if it's a simple variable match (e.g., `stripe` variable)
-    if isinstance(node.func.value, ast.Name):
-        var_name = node.func.value.id
-        for mod_pattern in module_patterns:
-            if var_name == mod_pattern or mod_pattern.startswith(var_name):
+        for segment in chain_segments:
+            if segment == mod_pattern:
                 return True
+
+    # Check variable-type map: if p = Path(...), then p.unlink() should
+    # match the "Path" module pattern.
+    if var_types and isinstance(node.func.value, ast.Name):
+        var_name = node.func.value.id
+        inferred_type = var_types.get(var_name)
+        if inferred_type:
+            # Check the type name and its last segment (e.g., "pathlib.Path" → "Path")
+            type_segments = inferred_type.split(".")
+            for mod_pattern in module_patterns:
+                if inferred_type == mod_pattern:
+                    return True
+                if type_segments[-1] == mod_pattern:
+                    return True
+
     return False
 
 
