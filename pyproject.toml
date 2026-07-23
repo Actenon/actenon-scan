@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "actenon-scan"
-version = "0.1.4"
+version = "0.1.5"
 description = "Defensive static-analysis scanner for the AI-agent execution gap."
 readme = "README.md"
 license = "Apache-2.0"
@@ -36,7 +36,7 @@ dev = [
   # drift gate (tests/test_protocol_drift.py) to verify that scan's
   # guard vocabulary and refusal-code references stay in sync with the
   # protocol's catalogue.
-  "actenon-protocol @ git+https://github.com/Actenon/actenon-protocol.git@v1.0.0",
+  "actenon-protocol>=1.1.0,<2",
 ]
 
 [project.scripts]
