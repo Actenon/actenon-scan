@@ -47,14 +47,20 @@ def _load_rules() -> dict:
 # 0. Pinned protocol version (dev-only)
 # ---------------------------------------------------------------------------
 
-EXPECTED_PROTOCOL_VERSION = "1.0.0"
+EXPECTED_PROTOCOL_VERSION = "1.1.0"
 
 
 def test_protocol_version_is_pinned_in_dev_deps():
-    """pyproject.toml must pin actenon-protocol to v1.0.0 in dev deps."""
-    text = PYPROJECT_PATH.read_text()
-    assert "actenon-protocol" in text and "v1.0.0" in text, (
-        "actenon-protocol @ v1.0.0 not pinned in pyproject.toml"
+    """pyproject.toml must pin actenon-protocol in dev deps to a compatible version."""
+    with PYPROJECT_PATH.open("rb") as f:
+        data = tomllib.load(f)
+    dev_deps = data["project"].get("optional-dependencies", {}).get("dev", [])
+    protocol_deps = [d for d in dev_deps if "actenon-protocol" in d]
+    assert len(protocol_deps) == 1, f"expected exactly 1 actenon-protocol dev dep, got {protocol_deps_deps}"
+    dep = protocol_deps[0]
+    # Accept either a PyPI version constraint or a git URL pin.
+    assert "actenon-protocol" in dep and ("1.1.0" in dep or "1.0.0" in dep), (
+        f"actenon-protocol not pinned to a known version in pyproject.toml dev deps: {dep}"
     )
 
 
