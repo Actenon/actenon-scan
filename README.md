@@ -3,7 +3,9 @@
 > The independent static-analysis scanner for the AI-agent execution gap. **Zero runtime dependencies.** Detects consequential actions reachable from agent tool boundaries and checks whether they're guarded. Runs without Cloud, Permit, Kernel, or Protocol.
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+<!-- PYTHON-BADGE:START -->
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+<!-- PYTHON-BADGE:END -->
 [![PyPI: actenon-scan](https://img.shields.io/pypi/v/actenon-scan?label=PyPI)](https://pypi.org/project/actenon-scan/)
 [![Dependencies: 0](https://img.shields.io/badge/Dependencies-0-success.svg)](pyproject.toml)
 [![GitHub Action](https://img.shields.io/badge/GitHub%20Action-v1-blue.svg)](#github-action)
