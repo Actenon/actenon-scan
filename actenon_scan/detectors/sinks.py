@@ -20,6 +20,9 @@ class SinkFinding:
     line: int
     col: int
     call_text: str
+    suppressed: bool = False
+    suppression_reason: str = ""
+    tier: str = "production"
 
 
 def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list[SinkFinding]:
@@ -31,20 +34,39 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
     """
     findings: list[SinkFinding] = []
 
+    # Sort rules by priority (lower = evaluated first) so that more specific
+    # rules (qualified_call, priority 10) are checked before less specific
+    # rules (attr_call, priority 20). This ensures session.delete(url) matches
+    # NET-EGRESS (qualified, priority 10) before DATA-DELETE-OBJ (priority 20).
+    sorted_rules = sorted(rules, key=lambda r: r.priority)
+
     # Build a simple variable-type map from assignments like:
     #   p = Path(...)       → p maps to "Path"
     #   session = Session() → session maps to "Session"
     # This lets us match p.unlink() against the "Path" module pattern.
     var_types = _build_var_type_map(tree)
 
+    # Build a parent-pointer map so we can find the enclosing function
+    # for any node (needed for arg_is_tainted escalation and declarative
+    # guard detection).
+    parent_map = _build_parent_map(tree)
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
-            for rule in rules:
+            for rule in sorted_rules:
                 if _match_call(node, rule, var_types):
+                    severity = rule.severity
+                    # Check for escalation: if the rule has an escalate_when
+                    # block and the condition matches, upgrade severity.
+                    if rule.escalate_when:
+                        enclosing_func = _find_enclosing_function_with_parents(node, parent_map)
+                        if _check_escalate(node, rule.escalate_when, enclosing_func):
+                            severity = rule.escalate_when.get("severity", "high")
+
                     findings.append(SinkFinding(
                         rule_id=rule.id,
                         category=rule.category,
-                        severity=rule.severity,
+                        severity=severity,
                         description=rule.description,
                         line=node.lineno,
                         col=node.col_offset,
@@ -53,7 +75,7 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
                     break  # one finding per call
 
             # Check if this is a cursor.execute("DELETE FROM ...") call
-            for rule in rules:
+            for rule in sorted_rules:
                 mt = rule.match.get("type", "")
                 if mt in ("sql_execute_pattern", "sql_fstring_pattern"):
                     if _is_sql_execute_call(node, rule):
@@ -69,7 +91,7 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
                         break
 
             # Check if this is an open(path, "w") / open(path, mode="w") call
-            for rule in rules:
+            for rule in sorted_rules:
                 if rule.match.get("type") == "open_write":
                     if _is_open_write_call(node):
                         findings.append(SinkFinding(
@@ -85,7 +107,7 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
 
         # Only match raw string_pattern on strings assigned to query-like vars
         elif isinstance(node, ast.Assign):
-            for rule in rules:
+            for rule in sorted_rules:
                 if rule.match.get("type") == "string_pattern":
                     # Check if target is a query-like variable name
                     for target in node.targets:
@@ -107,6 +129,121 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
                                         break
 
     return findings
+
+
+def _build_parent_map(tree: ast.Module) -> dict[int, ast.AST]:
+    """Build a map from node id() to parent node, for walking up the tree."""
+    parent_map: dict[int, ast.AST] = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parent_map[id(child)] = parent
+    return parent_map
+
+
+def _find_enclosing_function_with_parents(
+    node: ast.AST, parent_map: dict[int, ast.AST]
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    """Walk up the parent chain to find the enclosing function."""
+    current = node
+    while current is not None:
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return current
+        current = parent_map.get(id(current))
+    return None
+
+
+def _check_escalate(
+    node: ast.Call,
+    escalate: dict[str, Any],
+    enclosing_func: ast.FunctionDef | ast.AsyncFunctionDef | None,
+) -> bool:
+    """Check if the escalate_when condition is met.
+
+    Currently supports:
+      - type="arg_is_tainted": checks if the argument at the specified
+        position or keyword derives from a parameter of the enclosing function.
+    """
+    if enclosing_func is None:
+        return False
+
+    esc_type = escalate.get("type", "")
+    if esc_type == "arg_is_tainted":
+        arg_positions = escalate.get("arg_positions", [])
+        arg_keywords = escalate.get("arg_keywords", [])
+
+        # Collect parameter names of the enclosing function
+        param_names = set()
+        for arg in enclosing_func.args.args:
+            param_names.add(arg.arg)
+        for arg in enclosing_func.args.posonlyargs:
+            param_names.add(arg.arg)
+        for arg in enclosing_func.args.kwonlyargs:
+            param_names.add(arg.arg)
+        if enclosing_func.args.vararg:
+            param_names.add(enclosing_func.args.vararg.arg)
+        if enclosing_func.args.kwarg:
+            param_names.add(enclosing_func.args.kwarg.arg)
+
+        # Check positional args
+        for pos in arg_positions:
+            if pos < len(node.args):
+                if _is_tainted(node.args[pos], param_names):
+                    return True
+
+        # Check keyword args
+        for kw in node.keywords:
+            if kw.arg in arg_keywords:
+                if _is_tainted(kw.value, param_names):
+                    return True
+
+    return False
+
+
+def _is_tainted(node: ast.expr, param_names: set[str]) -> bool:
+    """Check if an AST expression is tainted (derives from a function parameter).
+
+    Tainted:
+      - A Name node matching a parameter: url, host, etc.
+      - An f-string containing a parameter: f"https://{host}/api"
+      - A BinOp string concat containing a parameter: "https://" + host
+      - An attribute access rooted at a parameter: req.url
+      - A method call on a parameter: url.strip()
+
+    Not tainted:
+      - String literals: "https://api.vendor.com/..."
+      - Module-level constants (Name nodes not in param_names)
+      - self.attr (unless self is a param AND attr is tainted — rare)
+    """
+    if isinstance(node, ast.Name):
+        return node.id in param_names
+
+    if isinstance(node, ast.JoinedStr):
+        # f-string — check all interpolated values
+        for val in node.values:
+            if isinstance(val, ast.FormattedValue):
+                if _is_tainted(val.value, param_names):
+                    return True
+        return False
+
+    if isinstance(node, ast.BinOp):
+        return _is_tainted(node.left, param_names) or _is_tainted(node.right, param_names)
+
+    if isinstance(node, ast.Attribute):
+        # e.g., req.url — check if the root is a parameter
+        root = node
+        while isinstance(root.value, ast.Attribute):
+            root = root.value
+        if isinstance(root.value, ast.Name):
+            return root.value.id in param_names
+        return False
+
+    if isinstance(node, ast.Call):
+        # Method call on a parameter: url.strip(), url.replace(...)
+        if isinstance(node.func, ast.Attribute):
+            return _is_tainted(node.func.value, param_names)
+        return False
+
+    return False
 
 
 def _build_var_type_map(tree: ast.Module) -> dict[str, str]:

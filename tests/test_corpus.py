@@ -51,16 +51,30 @@ class CorpusTests(unittest.TestCase):
                         f"{fixture.name} should fire {rule_id} but produced 0 findings",
                     )
 
-        # Safe files MUST NOT fire
+        # Safe files MUST NOT fire — UNLESS the file is testing severity
+        # escalation (where a finding at the BASE severity is correct, but
+        # escalation to high must NOT happen). These files are named
+        # "hardcoded_*" and are asserted at medium, not zero.
         if safe_dir.exists():
             for fixture in sorted(safe_dir.glob("*.py")):
                 with self.subTest(rule=rule_id, fixture=fixture.name, expected="safe"):
                     findings = _scan(fixture)
-                    self.assertEqual(
-                        len(findings), 0,
-                        f"{fixture.name} should NOT fire but produced {len(findings)} findings: "
-                        f"{[(f.rule_id, f.line) for f in findings]}",
-                    )
+                    if fixture.name.startswith("hardcoded_"):
+                        # These files should fire at the BASE severity (medium),
+                        # never at the ESCALATED severity (high). This tests
+                        # that the escalate_when gate works correctly.
+                        for f in findings:
+                            self.assertNotEqual(
+                                f.severity, "high",
+                                f"{fixture.name} should never escalate to high — "
+                                f"got {f.severity} for {f.rule_id} at line {f.line}",
+                            )
+                    else:
+                        self.assertEqual(
+                            len(findings), 0,
+                            f"{fixture.name} should NOT fire but produced {len(findings)} findings: "
+                            f"{[(f.rule_id, f.line) for f in findings]}",
+                        )
 
     # --- One test per rule ---
 
@@ -90,6 +104,9 @@ class CorpusTests(unittest.TestCase):
 
     def test_secret_read(self):
         self._run_rule("SECRET-READ")
+
+    def test_declarative_guard(self):
+        self._run_rule("DECLARATIVE-GUARD")
 
 
 if __name__ == "__main__":

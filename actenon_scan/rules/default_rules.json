@@ -25,7 +25,8 @@
           "payout",
           "transfer"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "PAY-GENERIC-REFUND",
@@ -47,7 +48,8 @@
           "issue_refund",
           "process_refund"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "PAY-BRAINTREE",
@@ -69,7 +71,8 @@
           "capture",
           "void"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "DATA-DELETE-SQL",
@@ -84,7 +87,8 @@
           "\\bDELETE\\s+FROM\\b",
           "\\bDROP\\s+(TABLE|DATABASE)\\b"
         ]
-      }
+      },
+      "priority": 30
     },
     {
       "id": "DATA-DELETE-SQL-RAW",
@@ -99,7 +103,8 @@
           "\\bDELETE\\s+FROM\\b",
           "\\bDROP\\s+(TABLE|DATABASE)\\b"
         ]
-      }
+      },
+      "priority": 30
     },
     {
       "id": "DATA-DELETE-FILE",
@@ -118,7 +123,8 @@
           "unlink",
           "rmtree"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "DATA-DELETE-OS",
@@ -142,7 +148,8 @@
           "rmdir",
           "removedirs"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "DATA-DELETE-OBJ",
@@ -152,16 +159,17 @@
       "owasp": "LLM06",
       "description": "ORM/object delete call",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "db",
-          "session",
-          "objects"
-        ],
-        "func_patterns": [
-          "delete"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "db.delete",
+          "session.delete",
+          "objects.delete",
+          "db.session.delete",
+          "session.merge",
+          "objects.remove"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "DEPLOY-SUBPROCESS",
@@ -172,7 +180,8 @@
       "description": "Subprocess/deployment command execution",
       "match": {
         "type": "subprocess_deploy"
-      }
+      },
+      "priority": 30
     },
     {
       "id": "ACCESS-CONTROL-MUTATE",
@@ -205,7 +214,8 @@
           "update_permissions",
           "rotate_keys"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "COMMUNICATION-SEND",
@@ -233,7 +243,8 @@
           "create",
           "publish"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "COMMUNICATION-SEND-NAME",
@@ -252,7 +263,8 @@
           "notify",
           "broadcast"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "PROVIDER-SDK-CALL",
@@ -291,7 +303,8 @@
           "create_pull_request",
           "create_user"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "DATABASE-MUTATE",
@@ -307,7 +320,8 @@
           "\\bUPDATE\\s+.*\\s+SET\\b",
           "\\bTRUNCATE\\b"
         ]
-      }
+      },
+      "priority": 30
     },
     {
       "id": "DATABASE-ORM-MUTATE",
@@ -331,7 +345,8 @@
           "bulk_create",
           "bulk_update"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "IDENTITY-CHANGE",
@@ -348,7 +363,8 @@
           "rotate_keys",
           "update_permissions"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "IDENTITY-IAM-MUTATE",
@@ -388,7 +404,8 @@
           "create_group",
           "delete_group"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "DEPLOY-K8S",
@@ -411,7 +428,8 @@
           "replace",
           "patch"
         ]
-      }
+      },
+      "priority": 20
     },
     {
       "id": "DEPLOY-TERRAFORM",
@@ -422,7 +440,8 @@
       "description": "Terraform infrastructure change",
       "match": {
         "type": "subprocess_deploy"
-      }
+      },
+      "priority": 30
     },
     {
       "id": "EXEC-CODE",
@@ -437,7 +456,8 @@
           "exec",
           "eval"
         ]
-      }
+      },
+      "priority": 10
     },
     {
       "id": "EXEC-SHELL",
@@ -466,7 +486,8 @@
           "asyncio.create_subprocess_exec",
           "pty.spawn"
         ]
-      }
+      },
+      "priority": 10
     },
     {
       "id": "EXEC-CONTAINER",
@@ -484,7 +505,8 @@
           "containers.create",
           "containers.get"
         ]
-      }
+      },
+      "priority": 10
     },
     {
       "id": "BROWSER-ACTION",
@@ -522,7 +544,8 @@
           "driver.find_element",
           "driver.get"
         ]
-      }
+      },
+      "priority": 10
     },
     {
       "id": "FILE-WRITE",
@@ -551,7 +574,8 @@
           "shutil.move",
           "shutil.rmtree"
         ]
-      }
+      },
+      "priority": 10
     },
     {
       "id": "FILE-OPEN-WRITE",
@@ -562,7 +586,8 @@
       "description": "File open in write/append mode",
       "match": {
         "type": "open_write"
-      }
+      },
+      "priority": 10
     },
     {
       "id": "NET-EGRESS",
@@ -596,7 +621,20 @@
           "client.patch",
           "client.delete"
         ]
-      }
+      },
+      "escalate_when": {
+        "type": "arg_is_tainted",
+        "arg_positions": [
+          0
+        ],
+        "arg_keywords": [
+          "url",
+          "endpoint",
+          "uri"
+        ],
+        "severity": "high"
+      },
+      "priority": 10
     },
     {
       "id": "GIT-MUTATE",
@@ -618,7 +656,8 @@
           "git.commit",
           "git.reset"
         ]
-      }
+      },
+      "priority": 10
     },
     {
       "id": "SECRET-READ",
@@ -636,7 +675,8 @@
           "get_secret",
           "read_secret_data"
         ]
-      }
+      },
+      "priority": 10
     }
   ],
   "reachability": {
@@ -711,7 +751,45 @@
       "langgraph",
       "playwright",
       "selenium"
-    ]
+    ],
+    "declarative_guards": {
+      "class_attributes": [
+        "requires_auth",
+        "require_auth",
+        "auth_required",
+        "requires_permission",
+        "permission_required",
+        "requires_approval",
+        "requires_confirmation",
+        "requires_human_approval",
+        "needs_confirmation",
+        "is_dangerous",
+        "human_in_the_loop",
+        "requires_consent"
+      ],
+      "decorators": [
+        "requires_auth",
+        "require_auth",
+        "requires_permission",
+        "require_permission",
+        "authenticated",
+        "login_required",
+        "permission_required",
+        "requires_approval",
+        "requires_confirmation",
+        "human_in_the_loop",
+        "authorize",
+        "authorized"
+      ],
+      "constructor_params": [
+        "dependencies",
+        "permission_classes",
+        "authentication_classes",
+        "auth",
+        "authorizer",
+        "permissions"
+      ]
+    }
   },
   "guard_patterns": [
     "verify_pccb",

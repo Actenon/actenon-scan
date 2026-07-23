@@ -1,0 +1,12 @@
+{
+  "crewai":          {"sha": "main", "files": 951, "production": 12, "high": 1},
+  "semantic-kernel": {"sha": "main", "files": 570, "production": 3,  "high": 3},
+  "autogen":         {"sha": "main", "files": 365, "production": 3,  "high": 0},
+  "openhands":       {"sha": "main", "files": 639, "production": 0,  "high": 0},
+  "openai-agents":   {"sha": "main", "files": 531, "production": 0,  "high": 0},
+  "langgraph":       {"sha": "main", "files": 273, "production": 0,  "high": 0},
+  "pydantic-ai":     {"sha": "main", "files": 402, "production": 0,  "high": 0},
+  "smolagents":      {"sha": "main", "files": 50,  "production": 1,  "high": 1},
+  "agno":            {"sha": "main", "files": 3450, "production": 2, "high": 2},
+  "mastra":          {"sha": "main", "files": 0,   "production": 0,  "high": 0}
+}

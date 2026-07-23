@@ -17,6 +17,8 @@ class SinkRule:
     match: dict[str, Any]
     cwe: str = ""
     owasp: str = ""
+    escalate_when: dict[str, Any] | None = None
+    priority: int = 20
 
 
 @dataclass
@@ -91,6 +93,8 @@ def _parse_rules_dict(raw: dict[str, Any]) -> Ruleset:
             match=s.get("match", {}),
             cwe=s.get("cwe", ""),
             owasp=s.get("owasp", ""),
+            escalate_when=s.get("escalate_when"),
+            priority=s.get("priority", 20),
         )
         for s in raw.get("sinks", [])
     ]

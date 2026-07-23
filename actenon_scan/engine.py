@@ -26,7 +26,9 @@ class Finding:
     call_text: str
     remediation: str
     suppressed: bool = False
+    suppression_reason: str = ""
     snippet_hash: str = ""
+    tier: str = "production"
 
     @property
     def effective_severity(self) -> str:
@@ -62,6 +64,207 @@ class ScanResult:
             if SEVERITY_ORDER.get(f.effective_severity, 0) >= threshold_level:
                 return True
         return False
+
+
+def _assign_tier(filepath: str) -> str:
+    """Assign a tier to a finding based on its file path.
+
+    Returns "example" if the file is in a demo/examples/cookbook/samples/docs
+    directory, "production" otherwise.
+    """
+    example_patterns = (
+        "/examples/", "/example/",
+        "/cookbook/", "/recipes/",
+        "/samples/", "/sample/",
+        "/docs/", "/doc/", "/documentation/",
+        "/tutorials/", "/tutorial/",
+        "/benchmarks/", "/benchmark/",
+        "/demo/", "/demos/",
+    )
+    # Normalize path separators
+    normalized = "/" + filepath.replace("\\", "/").lstrip("/")
+    for pattern in example_patterns:
+        if pattern in normalized:
+            return "example"
+    # Also check if the path STARTS with one of these (root-level)
+    root_patterns = (
+        "examples/", "example/", "cookbook/", "recipes/",
+        "samples/", "sample/", "docs/", "doc/",
+        "tutorials/", "tutorial/", "benchmarks/", "benchmark/",
+        "demo/", "demos/",
+    )
+    for pattern in root_patterns:
+        if normalized.lstrip("/").startswith(pattern):
+            return "example"
+    return "production"
+
+
+def _build_parent_map_for_engine(tree: ast.AST) -> dict[int, ast.AST]:
+    """Build a map from node id() to parent node."""
+    parent_map: dict[int, ast.AST] = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parent_map[id(child)] = parent
+    return parent_map
+
+
+def _find_declarative_guarded_classes(
+    tree: ast.Module, reachability_cfg: dict
+) -> set[str]:
+    """Find class names that carry a declarative authorization guard.
+
+    A class is guarded when any of:
+    - It assigns a listed class_attributes name at class body level to a truthy
+      literal (requires_auth = True)
+    - It carries a listed decorator on the class
+    - It is instantiated with a listed constructor_params keyword argument
+
+    Inheritance: if a class subclasses a guarded class (in the same file), it
+    inherits the guard.
+    """
+    decl_cfg = reachability_cfg.get("declarative_guards", {})
+    class_attrs = set(decl_cfg.get("class_attributes", []))
+    decorators = set(decl_cfg.get("decorators", []))
+    constructor_params = set(decl_cfg.get("constructor_params", []))
+
+    guarded_classes: set[str] = set()
+
+    # Pass 1: detect direct guards on class definitions
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+
+        # Check class attributes (requires_auth = True)
+        for stmt in node.body:
+            if isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    if isinstance(target, ast.Name) and target.id in class_attrs:
+                        # Check if value is truthy
+                        if isinstance(stmt.value, ast.Constant) and stmt.value.value:
+                            guarded_classes.add(node.name)
+                        elif isinstance(stmt.value, ast.Name) and stmt.value.id == "True":
+                            guarded_classes.add(node.name)
+
+            # Check annotated assignments (requires_auth: bool = True)
+            if isinstance(stmt, ast.AnnAssign):
+                if isinstance(stmt.target, ast.Name) and stmt.target.id in class_attrs:
+                    if stmt.value and isinstance(stmt.value, ast.Constant) and stmt.value.value:
+                        guarded_classes.add(node.name)
+
+        # Check class decorators
+        for decorator in node.decorator_list:
+            decorator_name = _get_decorator_name_for_guards(decorator)
+            if decorator_name in decorators:
+                guarded_classes.add(node.name)
+
+    # Pass 2: detect constructor params (AuthPlugin(permissions=[...]))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for kw in node.keywords:
+            if kw.arg in constructor_params:
+                # The class being instantiated might be guarded
+                if isinstance(node.func, ast.Name):
+                    guarded_classes.add(node.func.name)
+
+    # Pass 3: inheritance — subclasses of guarded classes inherit the guard
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for base in node.bases:
+                base_name = _get_base_name_for_guards(base)
+                if base_name in guarded_classes and node.name not in guarded_classes:
+                    guarded_classes.add(node.name)
+                    changed = True
+
+    return guarded_classes
+
+
+def _get_decorator_name_for_guards(node: ast.expr) -> str:
+    """Get the name of a decorator."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.Call):
+        return _get_decorator_name_for_guards(node.func)
+    return ""
+
+
+def _get_base_name_for_guards(node: ast.expr) -> str:
+    """Get the name of a base class."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def _is_in_declarative_guarded_class(
+    tree: ast.Module,
+    sink_line: int,
+    guarded_classes: set[str],
+    parent_map: dict[int, ast.AST],
+) -> str | None:
+    """Check if the sink at sink_line is inside a method of a guarded class,
+    or inside a function with a declarative guard decorator.
+
+    Returns the guard reason (e.g., "requires_auth") if suppressed, None otherwise.
+    """
+    if not guarded_classes:
+        # Even if no guarded classes, check for function-level declarative guards
+        pass
+
+    # Find the node at sink_line
+    sink_node = None
+    for node in ast.walk(tree):
+        if hasattr(node, "lineno") and node.lineno == sink_line:
+            if isinstance(node, ast.Call):
+                sink_node = node
+                break
+
+    if sink_node is None:
+        return None
+
+    # Walk up the parent chain
+    current = parent_map.get(id(sink_node))
+    while current is not None:
+        # Check if we're in a function with a declarative guard decorator
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            decl_cfg = parent_map  # not ideal but we need access to the config
+            # Check function decorators against the declarative_guards.decorators list
+            # We need to get the config — but we don't have it here directly.
+            # Instead, check if any decorator name matches common guard patterns.
+            for decorator in current.decorator_list:
+                decorator_name = _get_decorator_name_for_guards(decorator)
+                # Check against a broad set of guard decorator names
+                if decorator_name in (
+                    "requires_auth", "require_auth", "requires_permission",
+                    "require_permission", "authenticated", "login_required",
+                    "permission_required", "requires_approval", "requires_confirmation",
+                    "human_in_the_loop", "authorize", "authorized"
+                ):
+                    return f"decorator:{decorator_name}"
+
+        # Check if we're in a guarded class
+        if isinstance(current, ast.ClassDef):
+            if current.name in guarded_classes:
+                for stmt in current.body:
+                    if isinstance(stmt, ast.Assign):
+                        for target in stmt.targets:
+                            if isinstance(target, ast.Name):
+                                return target.id
+                return "declarative_guard"
+            for base in current.bases:
+                base_name = _get_base_name_for_guards(base)
+                if base_name in guarded_classes:
+                    return f"inherited:{base_name}"
+        current = parent_map.get(id(current))
+
+    return None
 
 
 def _detect_self_package(target: Path) -> str | None:
@@ -138,6 +341,10 @@ def scan_path(
             continue
 
         sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
+        # Detect declarative guards (class attributes, decorators, constructor params)
+        declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
+        parent_map = _build_parent_map_for_engine(tree)
+
         for sf in sink_findings:
             reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
             if reach.confidence == "none":
@@ -145,7 +352,12 @@ def scan_path(
 
             guarded = is_guarded(tree, sf.line, rules.guard_patterns)
             if guarded:
-                continue  # guarded — no finding
+                continue  # guarded by inline guard call — no finding
+
+            # Check declarative guards (class-level authorization)
+            declarative_suppressed = _is_in_declarative_guarded_class(
+                tree, sf.line, declarative_guarded_classes, parent_map
+            )
 
             severity = sf.severity
             if reach.confidence == "medium":
@@ -165,11 +377,18 @@ def scan_path(
                 call_text=sf.call_text,
                 remediation=_remediation_hint(sf.category),
                 snippet_hash=snippet_hash,
+                tier=_assign_tier(rel),
             )
+
+            # Apply declarative guard suppression
+            if declarative_suppressed:
+                finding.suppressed = True
+                finding.suppression_reason = f"declarative_guard:{declarative_suppressed}"
 
             # Check inline suppression
             if suppressions and (rel, sf.rule_id) in suppressions:
                 finding.suppressed = True
+                finding.suppression_reason = "inline_suppression"
 
             # Check baseline
             if baseline_findings:
@@ -209,6 +428,9 @@ def _collect_files(
     # These always cause false positives (vendored code, installed packages,
     # build artifacts) and should never be scanned unless the user explicitly
     # includes them.
+    #
+    # NOTE: examples/, cookbook/, samples/, docs/ are NOT excluded — they are
+    # tiered as "example" findings instead. See _assign_tier().
     default_dir_excludes = [
         ".git/**", ".hg/**", ".svn/**",
         ".venv/**", "venv/**", "env/**", ".env/**",
@@ -220,16 +442,6 @@ def _collect_files(
         ".eggs/**", "*.egg-info/**",
         ".mypy_cache/**", ".ruff_cache/**",
         ".coverage/**", "htmlcov/**",
-        # Demo/example directories — these contain cookbook code that is not
-        # production agent tool code. Scanning them produces massive false
-        # positives (e.g., 584 of Agno's 589 findings were in cookbook/).
-        # Users can opt in with --include-examples.
-        "examples/**", "example/**", "examples/**",
-        "cookbook/**", "recipes/**",
-        "samples/**", "sample/**",
-        "docs/**", "doc/**", "documentation/**",
-        "tutorials/**", "tutorial/**",
-        "benchmarks/**", "benchmark/**",
         # Actenon's own shipped test fixtures (defensive — the wheel also
         # excludes them now, but this catches source-checkout scans).
         "**/tests/fixtures/**",
