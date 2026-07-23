@@ -1,10 +1,12 @@
 {
-  "version": "2",
+  "version": "3",
   "sinks": [
     {
       "id": "PAY-STRIPE-REFUND",
       "category": "payments",
       "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
       "description": "Stripe refund/payout/charge call in agent tool",
       "match": {
         "type": "attr_call",
@@ -29,6 +31,8 @@
       "id": "PAY-GENERIC-REFUND",
       "category": "payments",
       "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
       "description": "Generic payment refund/charge/payout call",
       "match": {
         "type": "name_call",
@@ -49,6 +53,8 @@
       "id": "PAY-BRAINTREE",
       "category": "payments",
       "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
       "description": "Braintree/Adyen/PayPal payment call",
       "match": {
         "type": "attr_call",
@@ -69,6 +75,8 @@
       "id": "DATA-DELETE-SQL",
       "category": "data_destruction",
       "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
       "description": "Dangerous SQL DELETE/DROP string literal passed to execute/cursor",
       "match": {
         "type": "sql_execute_pattern",
@@ -82,9 +90,11 @@
       "id": "DATA-DELETE-SQL-RAW",
       "category": "data_destruction",
       "severity": "high",
-      "description": "Dangerous SQL DELETE/DROP in f-string or string concat passed to execute/cursor",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Dangerous SQL DELETE/DROP assigned to query/sql/statement variable",
       "match": {
-        "type": "sql_fstring_pattern",
+        "type": "string_pattern",
         "patterns": [
           "\\bDELETE\\s+FROM\\b",
           "\\bDROP\\s+(TABLE|DATABASE)\\b"
@@ -95,6 +105,8 @@
       "id": "DATA-DELETE-FILE",
       "category": "data_destruction",
       "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
       "description": "File/directory deletion call (bare function name)",
       "match": {
         "type": "name_call",
@@ -112,6 +124,8 @@
       "id": "DATA-DELETE-OS",
       "category": "data_destruction",
       "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
       "description": "File/directory deletion via os/shutil/pathlib module calls",
       "match": {
         "type": "attr_call",
@@ -134,19 +148,18 @@
       "id": "DATA-DELETE-OBJ",
       "category": "data_destruction",
       "severity": "high",
-      "description": "Object deletion via cloud SDK",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "ORM/object delete call",
       "match": {
         "type": "attr_call",
         "module_patterns": [
-          "boto3",
-          "s3",
-          "dynamodb"
+          "db",
+          "session",
+          "objects"
         ],
         "func_patterns": [
-          "delete_object",
-          "delete_bucket",
-          "delete_item",
-          "delete_table"
+          "delete"
         ]
       }
     },
@@ -154,7 +167,9 @@
       "id": "DEPLOY-SUBPROCESS",
       "category": "deployment",
       "severity": "high",
-      "description": "Deployment command via subprocess/os.system",
+      "cwe": "CWE-78",
+      "owasp": "LLM06",
+      "description": "Subprocess/deployment command execution",
       "match": {
         "type": "subprocess_deploy"
       }
@@ -163,19 +178,32 @@
       "id": "ACCESS-CONTROL-MUTATE",
       "category": "access_control",
       "severity": "high",
-      "description": "Permission/access grant call",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Access control / permission mutation call",
       "match": {
-        "type": "name_call",
+        "type": "attr_call",
+        "module_patterns": [
+          "iam",
+          "policy",
+          "role",
+          "user",
+          "group"
+        ],
         "func_patterns": [
           "put_user_policy",
-          "attach_role_policy",
+          "attach_user_policy",
           "add_user_to_group",
           "create_access_key",
-          "set_iam_policy",
-          "put_bucket_policy",
+          "update_assume_role_policy",
           "put_role_policy",
+          "attach_role_policy",
           "create_policy",
-          "attach_user_policy"
+          "create_role",
+          "create_user",
+          "assign_role",
+          "update_permissions",
+          "rotate_keys"
         ]
       }
     },
@@ -183,22 +211,27 @@
       "id": "COMMUNICATION-SEND",
       "category": "communication",
       "severity": "medium",
-      "description": "Message/email send on behalf of user",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Email/Slack/messaging send call",
       "match": {
         "type": "attr_call",
         "module_patterns": [
-          "smtplib",
+          "mail",
           "email",
-          "twilio",
+          "message",
           "slack",
-          "webhook"
+          "twilio",
+          "sns",
+          "ses"
         ],
         "func_patterns": [
+          "send",
           "sendmail",
           "send_message",
-          "create",
           "postMessage",
-          "post_message"
+          "create",
+          "publish"
         ]
       }
     },
@@ -206,14 +239,18 @@
       "id": "COMMUNICATION-SEND-NAME",
       "category": "communication",
       "severity": "medium",
-      "description": "Bare sendmail/send_message call",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Email/messaging send (bare function name)",
       "match": {
         "type": "name_call",
         "func_patterns": [
           "sendmail",
+          "send_email",
           "send_message",
-          "chat_postMessage",
-          "chat_postMessage"
+          "post_message",
+          "notify",
+          "broadcast"
         ]
       }
     },
@@ -221,25 +258,38 @@
       "id": "PROVIDER-SDK-CALL",
       "category": "provider_sdk",
       "severity": "medium",
-      "description": "Provider SDK call that may have side effects (GitHub, Slack, AWS, GCP, Azure)",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Provider SDK mutation call (AWS/GCP/Azure/GitHub)",
       "match": {
         "type": "attr_call",
         "module_patterns": [
-          "github",
-          "Github",
-          "slack_sdk",
-          "WebClient",
           "boto3",
-          "googleapiclient",
-          "azure"
+          "s3",
+          "ec2",
+          "rds",
+          "lambda",
+          "github",
+          "octokit",
+          "azure",
+          "gcp",
+          "storage"
         ],
         "func_patterns": [
+          "delete_object",
+          "delete_bucket",
+          "delete_instance",
+          "terminate_instances",
+          "delete_function",
+          "delete_repo",
+          "delete_blob",
+          "delete_file",
           "create",
-          "update",
-          "delete",
-          "patch",
-          "put",
-          "post"
+          "create_issue",
+          "create_repo",
+          "create_branch",
+          "create_pull_request",
+          "create_user"
         ]
       }
     },
@@ -247,12 +297,14 @@
       "id": "DATABASE-MUTATE",
       "category": "database_mutation",
       "severity": "high",
-      "description": "Database INSERT/UPDATE via ORM or raw SQL",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Raw SQL INSERT/UPDATE/DELETE via execute/cursor",
       "match": {
         "type": "sql_execute_pattern",
         "patterns": [
           "\\bINSERT\\s+INTO\\b",
-          "\\bUPDATE\\s+\\b",
+          "\\bUPDATE\\s+.*\\s+SET\\b",
           "\\bTRUNCATE\\b"
         ]
       }
@@ -261,6 +313,8 @@
       "id": "DATABASE-ORM-MUTATE",
       "category": "database_mutation",
       "severity": "medium",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
       "description": "ORM save/update/delete call",
       "match": {
         "type": "attr_call",
@@ -283,19 +337,16 @@
       "id": "IDENTITY-CHANGE",
       "category": "identity_change",
       "severity": "high",
-      "description": "Identity/IAM mutation (create user, assign role, modify group)",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Identity/account creation or role assignment",
       "match": {
         "type": "name_call",
         "func_patterns": [
           "create_user",
-          "delete_user",
           "assign_role",
-          "revoke_role",
-          "add_role",
-          "remove_role",
-          "update_user",
-          "create_group",
-          "delete_group"
+          "rotate_keys",
+          "update_permissions"
         ]
       }
     },
@@ -303,22 +354,39 @@
       "id": "IDENTITY-IAM-MUTATE",
       "category": "identity_change",
       "severity": "high",
-      "description": "Cloud IAM identity mutation",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "IAM policy/role/user mutation (AWS/GCP/Azure)",
       "match": {
         "type": "attr_call",
         "module_patterns": [
           "iam",
-          "cognito",
-          "okta",
-          "auth0"
+          "policy",
+          "role",
+          "user",
+          "group"
         ],
         "func_patterns": [
+          "put_user_policy",
+          "attach_user_policy",
+          "add_user_to_group",
+          "create_access_key",
+          "update_assume_role_policy",
+          "put_role_policy",
+          "attach_role_policy",
+          "create_policy",
+          "create_role",
           "create_user",
           "delete_user",
+          "delete_role",
+          "delete_policy",
+          "remove_user_from_group",
+          "delete_access_key",
+          "update_user",
+          "update_role",
+          "update_policy",
           "create_group",
-          "add_user_to_group",
-          "create_role",
-          "attach_role_policy"
+          "delete_group"
         ]
       }
     },
@@ -326,20 +394,22 @@
       "id": "DEPLOY-K8S",
       "category": "deployment",
       "severity": "high",
-      "description": "Kubernetes deployment mutation",
+      "cwe": "CWE-78",
+      "owasp": "LLM06",
+      "description": "Kubernetes deployment via kubectl/client",
       "match": {
         "type": "attr_call",
         "module_patterns": [
+          "kubectl",
           "kubernetes",
-          "k8s",
           "client"
         ],
         "func_patterns": [
-          "create_namespaced_deployment",
-          "delete_namespaced_deployment",
-          "patch_namespaced_deployment",
-          "create_pod",
-          "delete_pod"
+          "apply",
+          "create",
+          "delete",
+          "replace",
+          "patch"
         ]
       }
     },
@@ -347,95 +417,227 @@
       "id": "DEPLOY-TERRAFORM",
       "category": "deployment",
       "severity": "high",
-      "description": "Terraform/infrastructure-as-code apply/destroy",
+      "cwe": "CWE-78",
+      "owasp": "LLM06",
+      "description": "Terraform infrastructure change",
+      "match": {
+        "type": "subprocess_deploy"
+      }
+    },
+    {
+      "id": "EXEC-CODE",
+      "category": "code_execution",
+      "severity": "high",
+      "cwe": "CWE-94",
+      "owasp": "LLM06",
+      "description": "Arbitrary code execution (exec/eval/compile) from an agent tool",
       "match": {
         "type": "name_call",
         "func_patterns": [
-          "terraform_apply",
-          "terraform_destroy",
-          "tf_apply",
-          "tf_destroy",
-          "apply_terraform",
-          "destroy_terraform"
+          "exec",
+          "eval",
+          "compile"
         ]
       }
-    }
-  ],
-  "guards": [
-    {
-      "comment": "Generic authority checks recognised as boundary guards. These are vendor-neutral and cover the most common naming conventions across frameworks.",
-      "patterns": [
-        "verify",
-        "verify_proof",
-        "require_proof",
-        "check_permission",
-        "authorize",
-        "require_approval",
-        "assert_authorized",
-        "has_permission",
-        "check_idempotency",
-        "seen_before",
-        "replay_guard",
-        "require_authorization",
-        "validate_authorization",
-        "verify_signature",
-        "verify_token",
-        "requires_scope",
-        "oauth_scope",
-        "requires_roles",
-        "roles_required",
-        "has_role",
-        "requires_role",
-        "jwt_required",
-        "verify_jwt",
-        "decode_jwt",
-        "opa_eval",
-        "check_opa_policy",
-        "authorize_with_opa",
-        "enforce",
-        "casbin_enforce",
-        "verify_iam",
-        "iam_authorize",
-        "cf_access",
-        "verify_cf_jwt",
-        "verify_api_key",
-        "check_api_key",
-        "verify_mtls",
-        "require_client_cert",
-        "check_relation",
-        "check_capability"
-      ]
     },
     {
-      "comment": "Actenon-specific guards. NOTE: only the Kernel's proof-verification surface counts as a boundary guard. Permit calls (permit_check, permit_authorize, permit_validate) are NOT guards \u2014 Permit issues authority, the Kernel verifies it. Treating Permit calls as guards would collapse the trust boundary (audit S-01). They have been removed.",
-      "patterns": [
-        "actenon_verify",
-        "actenon_check",
-        "actenon_require",
-        "kernel_verify",
-        "PCCBVerifier",
-        "ProtectedExecutor",
-        "ActenonGate",
-        "ProtectedEndpointMiddleware",
-        "verify_pccb",
-        "Actenon",
-        "ActenonClient",
-        "BrokeredExecutionCoordinator",
-        "ResourceOwnedSubmissionClient",
-        "IntentManager",
-        "Broker",
-        "execute_via_adapter",
-        "verify_pccb_at_edge",
-        "Gateway"
-      ]
+      "id": "EXEC-SHELL",
+      "category": "shell_execution",
+      "severity": "high",
+      "cwe": "CWE-78",
+      "owasp": "LLM06",
+      "description": "Shell/command execution via subprocess/os/asyncio",
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "subprocess",
+          "os",
+          "asyncio",
+          "pty"
+        ],
+        "func_patterns": [
+          "run",
+          "Popen",
+          "call",
+          "check_call",
+          "check_output",
+          "system",
+          "popen",
+          "spawn",
+          "create_subprocess_shell",
+          "create_subprocess_exec"
+        ]
+      }
     },
     {
-      "comment": "Permit-named functions that are NOT boundary guards. These appear in the rules so that scan can recognise them and flag paths that use Permit WITHOUT a Kernel verification as a PERMIT_WITHOUT_KERNEL_PROOF finding (planned for v1.1). For now, they are NOT in the guard patterns \u2014 a path that calls only permit_authorize() will be flagged as unguarded.",
-      "permit_non_guard_patterns": [
-        "permit_check",
-        "permit_authorize",
-        "permit_validate"
-      ]
+      "id": "EXEC-CONTAINER",
+      "category": "code_execution",
+      "severity": "high",
+      "cwe": "CWE-94",
+      "owasp": "LLM06",
+      "description": "Code execution inside a container (docker exec)",
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "docker",
+          "container",
+          "containers"
+        ],
+        "func_patterns": [
+          "exec_run",
+          "run",
+          "create"
+        ]
+      }
+    },
+    {
+      "id": "BROWSER-ACTION",
+      "category": "browser_action",
+      "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Browser interaction (click/fill/submit) on an authenticated session",
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "page",
+          "frame",
+          "driver",
+          "element",
+          "locator"
+        ],
+        "func_patterns": [
+          "click",
+          "fill",
+          "type",
+          "press",
+          "select_option",
+          "set_input_files",
+          "check",
+          "uncheck",
+          "submit",
+          "send_keys",
+          "goto",
+          "navigate"
+        ]
+      }
+    },
+    {
+      "id": "FILE-WRITE",
+      "category": "file_mutation",
+      "severity": "high",
+      "cwe": "CWE-73",
+      "owasp": "LLM06",
+      "description": "File write/move/permission change",
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "Path",
+          "os",
+          "shutil",
+          "pathlib"
+        ],
+        "func_patterns": [
+          "write_text",
+          "write_bytes",
+          "rename",
+          "replace",
+          "chmod",
+          "chown",
+          "copy",
+          "copy2",
+          "move",
+          "symlink_to"
+        ]
+      }
+    },
+    {
+      "id": "FILE-OPEN-WRITE",
+      "category": "file_mutation",
+      "severity": "high",
+      "cwe": "CWE-73",
+      "owasp": "LLM06",
+      "description": "File open in write/append mode",
+      "match": {
+        "type": "open_write"
+      }
+    },
+    {
+      "id": "NET-EGRESS",
+      "category": "network_egress",
+      "severity": "medium",
+      "cwe": "CWE-918",
+      "owasp": "LLM06",
+      "description": "Outbound HTTP request with side effects (POST/PUT/PATCH/DELETE)",
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "requests",
+          "httpx",
+          "aiohttp",
+          "urllib",
+          "session",
+          "client"
+        ],
+        "func_patterns": [
+          "post",
+          "put",
+          "patch",
+          "delete",
+          "urlopen"
+        ]
+      }
+    },
+    {
+      "id": "GIT-MUTATE",
+      "category": "vcs_mutation",
+      "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Repository mutation (push/commit/reset/force-push)",
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "repo",
+          "git",
+          "origin",
+          "remote"
+        ],
+        "func_patterns": [
+          "push",
+          "commit",
+          "reset",
+          "force_push",
+          "delete_head",
+          "rm"
+        ]
+      }
+    },
+    {
+      "id": "SECRET-READ",
+      "category": "credential_access",
+      "severity": "high",
+      "cwe": "CWE-200",
+      "owasp": "LLM06",
+      "description": "Secret/credential retrieval from secrets manager",
+      "match": {
+        "type": "attr_call",
+        "module_patterns": [
+          "secretsmanager",
+          "ssm",
+          "vault",
+          "keyvault",
+          "secrets",
+          "hvac",
+          "Client"
+        ],
+        "func_patterns": [
+          "get_secret_value",
+          "get_parameter",
+          "read_secret",
+          "get_secret"
+        ]
+      }
     }
   ],
   "reachability": {
@@ -443,6 +645,8 @@
       "tool",
       "Tool",
       "Agent.tool",
+      "agent.tool",
+      "agent.tool_plain",
       "mcp.tool",
       "server.tool",
       "function_tool",
@@ -450,13 +654,23 @@
       "structured_tool",
       "call_tool",
       "FunctionTool",
-      "StructuredTool"
+      "StructuredTool",
+      "kernel_function",
+      "register_function",
+      "register_for_llm",
+      "register_for_execution",
+      "fast.tool",
+      "app.tool"
     ],
     "tool_wrappers": [
       "Tool.from_function",
       "FunctionTool.from_defaults",
       "StructuredTool.from_function",
-      "tool"
+      "tool",
+      "add_node",
+      "register_tool",
+      "FunctionTool",
+      "Tool.from_defaults"
     ],
     "tool_base_classes": [
       "BaseTool",
@@ -464,13 +678,18 @@
       "MCPTool",
       "Tool",
       "FunctionTool",
-      "StructuredTool",
-      "BaseTool"
+      "StructuredTool"
     ],
     "tool_methods": [
       "_run",
       "_arun",
       "_execute"
+    ],
+    "tool_list_params": [
+      "tools",
+      "toolkits",
+      "functions",
+      "plugins"
     ],
     "agent_frameworks": [
       "langchain",
@@ -478,7 +697,68 @@
       "mcp",
       "openai",
       "autogen",
-      "crewai"
+      "crewai",
+      "semantic_kernel",
+      "pydantic_ai",
+      "smolagents",
+      "agno",
+      "langgraph",
+      "playwright",
+      "selenium"
     ]
-  }
+  },
+  "guard_patterns": [
+    "verify_pccb",
+    "PCCBVerifier",
+    "PCCBVerifier.verify",
+    "ProtectedExecutor",
+    "ProtectedExecutor.execute",
+    "ActenonGate",
+    "verify_proof",
+    "verify_token",
+    "verify_signature",
+    "authorize",
+    "check_permission",
+    "require_permission",
+    "has_role",
+    "require_role",
+    "require_auth",
+    "require_authz",
+    "auth_required",
+    "authorize_request",
+    "authorize_action",
+    "can",
+    "may",
+    "is_allowed",
+    "check_access",
+    "jwt_required",
+    "require_jwt",
+    "validate_jwt",
+    "verify_jwt",
+    "decode_jwt",
+    "opa_eval",
+    "casbin_enforce",
+    "cedar_authorize",
+    "check_opa_policy",
+    "verify_api_key",
+    "verify_mtls",
+    "verify_client_cert",
+    "require_client_cert",
+    "oauth_scope",
+    "requires_scope",
+    "roles_required",
+    "requires_roles",
+    "enforce",
+    "Actenon",
+    "Actenon.local",
+    "Actenon.cloud",
+    "Broker",
+    "Broker.execute",
+    "Broker.execute_via_adapter",
+    "Gateway",
+    "Gateway.execute",
+    "BoundaryMiddleware",
+    "BoundaryVerifier",
+    "BoundaryVerifier.verify_boundary"
+  ]
 }

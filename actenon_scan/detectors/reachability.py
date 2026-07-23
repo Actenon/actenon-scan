@@ -21,6 +21,8 @@ def detect_reachability(
     tree: ast.Module,
     sink_line: int,
     reachability_cfg: dict[str, Any],
+    *,
+    self_package: str | None = None,
 ) -> ReachabilityResult:
     """Determine if the sink at sink_line is agent-reachable.
 
@@ -28,13 +30,19 @@ def detect_reachability(
 
     Confidence levels:
     - HIGH: sink is inside a @tool-decorated function, a tool-wrapper function,
-      or a method of a class subclassing a tool base class.
+      a method of a class subclassing a tool base class, or a function passed
+      in a tools=[...] list to an agent constructor.
     - MEDIUM: sink is at MODULE LEVEL (not inside any function) and the module
       imports an agent framework. This catches bare calls in framework-importing
       scripts. Sinks inside NON-TOOL functions do NOT get MEDIUM confidence —
       a regular internal function that happens to be in a framework's own repo
       is not agent-reachable just because the file imports the framework.
     - none: sink is inside a non-tool function, or no agent signals found.
+
+    Self-scan suppression: if self_package is set and the module imports that
+    package, the agent_framework_import signal is suppressed. This prevents
+    scanning a framework's own repo from generating noise on every internal
+    function.
     """
     result = ReachabilityResult()
 
@@ -42,7 +50,7 @@ def detect_reachability(
     func_node = _find_enclosing_function(tree, sink_line)
     if func_node is None:
         # Not in a function — check module-level signals
-        return _check_module_signals(tree, reachability_cfg)
+        return _check_module_signals(tree, reachability_cfg, self_package)
 
     # Check for HIGH confidence: tool decorators on the function
     tool_decorators = reachability_cfg.get("tool_decorators", [])
@@ -52,8 +60,6 @@ def detect_reachability(
         return result
 
     # Check for HIGH confidence: tool wrapper calls (Tool.from_function, etc.)
-    # These appear at module level, not on the function itself
-    # We check if the function name is referenced in a tool wrapper call
     tool_wrappers = reachability_cfg.get("tool_wrappers", [])
     if _is_wrapped_as_tool(tree, func_node.name, tool_wrappers):
         result.confidence = "high"
@@ -66,6 +72,15 @@ def detect_reachability(
     if _is_tool_method(tree, func_node, tool_base_classes, tool_methods):
         result.confidence = "high"
         result.signals.append("tool_base_class_method")
+        return result
+
+    # Check for HIGH confidence: function passed in a tools=[...] / plugins=[...]
+    # argument to any constructor call. This is how Agno, smolagents, CrewAI,
+    # and OpenAI Agents SDK register tools.
+    tool_list_params = reachability_cfg.get("tool_list_params", [])
+    if tool_list_params and _is_in_tool_list(tree, func_node.name, tool_list_params):
+        result.confidence = "high"
+        result.signals.append("tool_list_param")
         return result
 
     # The sink is inside a NON-TOOL function. Even if the module imports an
@@ -195,9 +210,49 @@ def _imports_agent_framework(tree: ast.Module, frameworks: list[str]) -> bool:
     return False
 
 
-def _check_module_signals(tree: ast.Module, reachability_cfg: dict[str, Any]) -> ReachabilityResult:
-    """Check module-level signals when the sink is not in a function."""
+def _is_in_tool_list(tree: ast.Module, func_name: str, tool_list_params: list[str]) -> bool:
+    """Check if the function is referenced inside a tools=[...] / plugins=[...]
+    argument to any constructor call.
+
+    This detects the Agno/smolagents/CrewAI/OpenAI Agents SDK pattern:
+        agent = Agent(tools=[my_tool_func, other_tool])
+        agent = Agno(toolkits=[my_toolkit])
+
+    The function name must appear as a bare Name reference inside one of the
+    list/tuple arguments named in tool_list_params.
+    """
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for kw in node.keywords:
+            if kw.arg in tool_list_params and isinstance(kw.value, (ast.List, ast.Tuple)):
+                for elt in kw.value.elts:
+                    if isinstance(elt, ast.Name) and elt.id == func_name:
+                        return True
+                    # Also handle Tool(func_name) wrapper inside the list
+                    if isinstance(elt, ast.Call):
+                        for arg in elt.args:
+                            if isinstance(arg, ast.Name) and arg.id == func_name:
+                                return True
+    return False
+
+
+def _check_module_signals(
+    tree: ast.Module,
+    reachability_cfg: dict[str, Any],
+    self_package: str | None = None,
+) -> ReachabilityResult:
+    """Check module-level signals when the sink is not in a function.
+
+    Self-scan suppression: if self_package is set and the module imports that
+    package, the agent_framework_import signal is suppressed. This prevents
+    scanning a framework's own repo (e.g., scanning crewai's own codebase)
+    from generating noise on every internal module.
+    """
     agent_frameworks = reachability_cfg.get("agent_frameworks", [])
+    if self_package:
+        # Remove the self-package from the frameworks list for this check
+        agent_frameworks = [fw for fw in agent_frameworks if fw != self_package]
     if _imports_agent_framework(tree, agent_frameworks):
         return ReachabilityResult(confidence="medium", signals=["module_level_agent_import"])
     return ReachabilityResult()

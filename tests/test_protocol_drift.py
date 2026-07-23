@@ -135,9 +135,13 @@ def test_scan_recognises_non_actenon_guards():
     """
     rules = _load_rules()
     guard_patterns = set()
+    # Support both the old "guards" array format and the newer top-level
+    # "guard_patterns" array format.
     for guard_group in rules.get("guards", []):
         for p in guard_group.get("patterns", []):
             guard_patterns.add(p)
+    for p in rules.get("guard_patterns", []):
+        guard_patterns.add(p)
 
     required_families = {
         "OAuth": {"requires_scope", "oauth_scope"},
@@ -166,6 +170,8 @@ def test_scan_recognises_kernel_class_api():
     for guard_group in rules.get("guards", []):
         for p in guard_group.get("patterns", []):
             guard_patterns.add(p)
+    for p in rules.get("guard_patterns", []):
+        guard_patterns.add(p)
     required_class_patterns = {"PCCBVerifier", "ProtectedExecutor", "ActenonGate"}
     missing = required_class_patterns - guard_patterns
     assert not missing, (

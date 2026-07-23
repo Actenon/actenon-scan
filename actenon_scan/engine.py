@@ -64,6 +64,43 @@ class ScanResult:
         return False
 
 
+def _detect_self_package(target: Path) -> str | None:
+    """Auto-detect the package name of the repo being scanned.
+
+    Looks for pyproject.toml at the target root and extracts the package name.
+    This is used for self-scan suppression: when scanning a framework's own
+    repo (e.g., crewAI), the agent_framework_import signal is suppressed for
+    that package so internal functions don't get false-positive reachability.
+    """
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore
+        except ImportError:
+            return None
+
+    # Look for pyproject.toml at the target root (or parent dirs)
+    search_dir = target if target.is_dir() else target.parent
+    for _ in range(3):  # check up to 3 levels up
+        pyproject = search_dir / "pyproject.toml"
+        if pyproject.exists():
+            try:
+                with open(pyproject, "rb") as f:
+                    data = tomllib.load(f)
+                name = data.get("project", {}).get("name", "")
+                if name:
+                    # Normalize: "actenon-scan" → "actenon_scan"
+                    return name.replace("-", "_")
+            except Exception:
+                pass
+            break
+        if search_dir.parent == search_dir:
+            break
+        search_dir = search_dir.parent
+    return None
+
+
 def scan_path(
     target: str | Path,
     *,
@@ -72,12 +109,25 @@ def scan_path(
     exclude_globs: list[str] | None = None,
     suppressions: set[tuple[str, str]] | None = None,
     baseline_findings: dict[str, set[str]] | None = None,
+    self_package: str | None = None,
 ) -> ScanResult:
-    """Scan a file or directory for the execution gap."""
+    """Scan a file or directory for the execution gap.
+
+    Args:
+        self_package: The package name of the repo being scanned (e.g., "crewai"
+            when scanning the crewAI repo). When set, the agent_framework_import
+            reachability signal is suppressed for that package, preventing
+            self-scan noise (every file in a framework's own repo imports the
+            framework). Auto-detected from pyproject.toml if not provided.
+    """
     rules = load_rules(config)
     target = Path(target)
     files = _collect_files(target, include_globs, exclude_globs)
     findings: list[Finding] = []
+
+    # Auto-detect self_package from pyproject.toml if not provided
+    if self_package is None:
+        self_package = _detect_self_package(target)
 
     for filepath in files:
         rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
@@ -89,7 +139,7 @@ def scan_path(
 
         sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
         for sf in sink_findings:
-            reach = detect_reachability(tree, sf.line, rules.reachability)
+            reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
             if reach.confidence == "none":
                 continue  # not agent-reachable — skip
 

@@ -15,6 +15,8 @@ class SinkRule:
     severity: str
     description: str
     match: dict[str, Any]
+    cwe: str = ""
+    owasp: str = ""
 
 
 @dataclass
@@ -87,12 +89,17 @@ def _parse_rules_dict(raw: dict[str, Any]) -> Ruleset:
             severity=s["severity"],
             description=s.get("description", ""),
             match=s.get("match", {}),
+            cwe=s.get("cwe", ""),
+            owasp=s.get("owasp", ""),
         )
         for s in raw.get("sinks", [])
     ]
     guard_patterns = []
+    # Support both the old "guards" array format and the newer top-level
+    # "guard_patterns" array format.
     for g in raw.get("guards", []):
         guard_patterns.extend(g.get("patterns", []))
+    guard_patterns.extend(raw.get("guard_patterns", []))
     return Ruleset(
         version=raw.get("version", "1"),
         sinks=sinks,

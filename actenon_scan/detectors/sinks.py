@@ -68,6 +68,21 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
                         ))
                         break
 
+            # Check if this is an open(path, "w") / open(path, mode="w") call
+            for rule in rules:
+                if rule.match.get("type") == "open_write":
+                    if _is_open_write_call(node):
+                        findings.append(SinkFinding(
+                            rule_id=rule.id,
+                            category=rule.category,
+                            severity=rule.severity,
+                            description=rule.description,
+                            line=node.lineno,
+                            col=node.col_offset,
+                            call_text=_call_to_text(node),
+                        ))
+                        break
+
         # Only match raw string_pattern on strings assigned to query-like vars
         elif isinstance(node, ast.Assign):
             for rule in rules:
@@ -97,14 +112,15 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
 def _build_var_type_map(tree: ast.Module) -> dict[str, str]:
     """Build a map of variable names to their inferred type names.
 
-    Handles simple assignments like:
-        p = Path(...)       → {"p": "Path"}
-        session = Session() → {"session": "Session"}
-        db = Database()     → {"db": "Database"}
+    Handles:
+        p = Path(...)              → {"p": "Path"}
+        session = Session()        → {"session": "Session"}
+        client = boto3.client("s3") → {"client": "s3"}  (factory-call pattern)
+        client = boto3.client("secretsmanager") → {"client": "secretsmanager"}
 
     This is NOT full type inference — it only catches direct constructor
-    assignments. But it covers the common case of `p = Path(...)` followed
-    by `p.unlink()`.
+    assignments and the common boto3/factory pattern. But it covers the
+    common cases for sink matching.
     """
     var_types: dict[str, str] = {}
     for node in ast.walk(tree):
@@ -115,6 +131,20 @@ def _build_var_type_map(tree: ast.Module) -> dict[str, str]:
                     for target in node.targets:
                         if isinstance(target, ast.Name):
                             var_types[target.id] = type_name
+
+                # Also handle the factory-call pattern:
+                # client = boto3.client("secretsmanager")
+                # Here the "type" is the string argument, not the method name.
+                # This is how boto3, google-cloud, etc. create service clients.
+                if (isinstance(node.value.func, ast.Attribute)
+                        and node.value.func.attr in ("client", "Client")):
+                    # The first argument is the service name
+                    if node.value.args:
+                        arg = node.value.args[0]
+                        if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                            for target in node.targets:
+                                if isinstance(target, ast.Name):
+                                    var_types[target.id] = arg.value
     return var_types
 
 
@@ -135,6 +165,7 @@ def _match_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None
         return _match_attr_call(node, rule, var_types)
     elif match_type == "subprocess_deploy":
         return _match_subprocess_deploy(node)
+    # open_write and sql_execute_pattern are handled in the main detect_sinks loop
     return False
 
 
@@ -156,6 +187,11 @@ def _match_attr_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] |
 
     Variable-type tracking: if var_types maps the root variable to a type
     name (e.g., p → Path), that type name is also checked against module_patterns.
+
+    Chained-call resolution: if the attribute chain starts with a Call node
+    (e.g., boto3.client("s3").delete_object()), the inner call's dotted name
+    (boto3.client) is added to the segments to check. This catches the common
+    idiom of factory-call-then-method.
     """
     if not isinstance(node.func, ast.Attribute):
         return False
@@ -193,7 +229,65 @@ def _match_attr_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] |
                 if type_segments[-1] == mod_pattern:
                     return True
 
+    # Chained-call resolution: if the attribute chain starts with a Call
+    # (e.g., boto3.client("s3").delete_object()), resolve the inner call's
+    # dotted name and check its segments against module_patterns.
+    # This catches the very common factory-then-method idiom that would
+    # otherwise be a silent miss.
+    if isinstance(node.func.value, ast.Call):
+        inner_call = node.func.value
+        inner_name = _get_call_name(inner_call)
+        if inner_name:
+            inner_segments = inner_name.split(".")
+            for mod_pattern in module_patterns:
+                for segment in inner_segments:
+                    if segment == mod_pattern:
+                        return True
+
     return False
+
+
+def _is_open_write_call(node: ast.Call) -> bool:
+    """Check if this is an open() call in write/append mode.
+
+    Matches:
+        open(path, "w")
+        open(path, "wb")
+        open(path, "a")
+        open(path, "ab")
+        open(path, "w+")
+        open(path, mode="w")
+        open(path, mode="wb")
+
+    Does NOT match:
+        open(path)           # read-only (default)
+        open(path, "r")
+        open(path, "rb")
+    """
+    if not isinstance(node.func, ast.Name):
+        return False
+    if node.func.id != "open":
+        return False
+
+    # Check positional args (2nd arg is mode)
+    if len(node.args) >= 2:
+        mode = _extract_string_from_node(node.args[1])
+        if mode and _is_write_mode(mode):
+            return True
+
+    # Check keyword args (mode=...)
+    for kw in node.keywords:
+        if kw.arg == "mode":
+            mode = _extract_string_from_node(kw.value)
+            if mode and _is_write_mode(mode):
+                return True
+
+    return False
+
+
+def _is_write_mode(mode: str) -> bool:
+    """Check if a file mode string indicates write/append."""
+    return any(m in mode for m in ("w", "a", "x", "+"))
 
 
 def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
