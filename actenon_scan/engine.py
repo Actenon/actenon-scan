@@ -164,8 +164,9 @@ def _find_declarative_guarded_classes(
         for kw in node.keywords:
             if kw.arg in constructor_params:
                 # The class being instantiated might be guarded
-                if isinstance(node.func, ast.Name):
-                    guarded_classes.add(node.func.name)
+                name = _callee_name(node.func)
+                if name:
+                    guarded_classes.add(name)
 
     # Pass 3: inheritance — subclasses of guarded classes inherit the guard
     changed = True
@@ -192,6 +193,22 @@ def _get_decorator_name_for_guards(node: ast.expr) -> str:
     if isinstance(node, ast.Call):
         return _get_decorator_name_for_guards(node.func)
     return ""
+
+
+def _callee_name(func: ast.expr) -> str | None:
+    """Get the name of a call target, handling Name, Attribute, and Call.
+
+    ast.Name has .id, NOT .name. Only ClassDef/FunctionDef have .name.
+    This helper prevents the AttributeError that crashed v0.2.2 on any
+    plain constructor call like Tool(dependencies=[...]).
+    """
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    if isinstance(func, ast.Call):
+        return _callee_name(func.func)  # chained: Foo()(...)
+    return None
 
 
 def _get_base_name_for_guards(node: ast.expr) -> str:
@@ -340,63 +357,71 @@ def scan_path(
         except (SyntaxError, UnicodeDecodeError):
             continue
 
-        sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
-        # Detect declarative guards (class attributes, decorators, constructor params)
-        declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
-        parent_map = _build_parent_map_for_engine(tree)
+        # Wrap per-file analysis in try/except so one malformed node never
+        # zeros out an entire repo (lesson from v0.2.2 crash on ast.Name.name).
+        try:
+            sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
+            # Detect declarative guards (class attributes, decorators, constructor params)
+            declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
+            parent_map = _build_parent_map_for_engine(tree)
 
-        for sf in sink_findings:
-            reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
-            if reach.confidence == "none":
-                continue  # not agent-reachable — skip
+            for sf in sink_findings:
+                reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
+                if reach.confidence == "none":
+                    continue  # not agent-reachable — skip
 
-            guarded = is_guarded(tree, sf.line, rules.guard_patterns)
-            if guarded:
-                continue  # guarded by inline guard call — no finding
+                guarded = is_guarded(tree, sf.line, rules.guard_patterns)
+                if guarded:
+                    continue  # guarded by inline guard call — no finding
 
-            # Check declarative guards (class-level authorization)
-            declarative_suppressed = _is_in_declarative_guarded_class(
-                tree, sf.line, declarative_guarded_classes, parent_map
-            )
+                # Check declarative guards (class-level authorization)
+                declarative_suppressed = _is_in_declarative_guarded_class(
+                    tree, sf.line, declarative_guarded_classes, parent_map
+                )
 
-            severity = sf.severity
-            if reach.confidence == "medium":
-                severity = _downgrade_severity(severity)
+                severity = sf.severity
+                if reach.confidence == "medium":
+                    severity = _downgrade_severity(severity)
 
-            snippet_hash = _compute_snippet_hash(source, sf.line)
+                snippet_hash = _compute_snippet_hash(source, sf.line)
 
-            finding = Finding(
-                file=rel,
-                line=sf.line,
-                col=sf.col,
-                rule_id=sf.rule_id,
-                category=sf.category,
-                severity=severity,
-                confidence=reach.confidence,
-                description=sf.description,
-                call_text=sf.call_text,
-                remediation=_remediation_hint(sf.category),
-                snippet_hash=snippet_hash,
-                tier=_assign_tier(rel),
-            )
+                finding = Finding(
+                    file=rel,
+                    line=sf.line,
+                    col=sf.col,
+                    rule_id=sf.rule_id,
+                    category=sf.category,
+                    severity=severity,
+                    confidence=reach.confidence,
+                    description=sf.description,
+                    call_text=sf.call_text,
+                    remediation=_remediation_hint(sf.category),
+                    snippet_hash=snippet_hash,
+                    tier=_assign_tier(rel),
+                )
 
-            # Apply declarative guard suppression
-            if declarative_suppressed:
-                finding.suppressed = True
-                finding.suppression_reason = f"declarative_guard:{declarative_suppressed}"
-
-            # Check inline suppression
-            if suppressions and (rel, sf.rule_id) in suppressions:
-                finding.suppressed = True
-                finding.suppression_reason = "inline_suppression"
-
-            # Check baseline
-            if baseline_findings:
-                file_baselines = baseline_findings.get(rel, set())
-                if snippet_hash in file_baselines:
+                # Apply declarative guard suppression
+                if declarative_suppressed:
                     finding.suppressed = True
+                    finding.suppression_reason = f"declarative_guard:{declarative_suppressed}"
 
-            findings.append(finding)
+                # Check inline suppression
+                if suppressions and (rel, sf.rule_id) in suppressions:
+                    finding.suppressed = True
+                    finding.suppression_reason = "inline_suppression"
+
+                # Check baseline
+                if baseline_findings:
+                    file_baselines = baseline_findings.get(rel, set())
+                    if snippet_hash in file_baselines:
+                        finding.suppressed = True
+
+                findings.append(finding)
+        except Exception:
+            # One malformed file should never zero out an entire repo.
+            # Log to stderr and continue to the next file.
+            import sys
+            print(f"actenon-scan: warning: analysis error in {rel}, skipping", file=sys.stderr)
 
     return ScanResult(findings=findings, files_scanned=len(files), rules_used=rules)
 

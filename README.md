@@ -46,7 +46,7 @@ Most agent code today reaches consequential side effects — `stripe.Refund.crea
 
 Scan exists to make that gap **visible** before it ships. It does not require you to adopt Actenon to be useful — it requires you to *see* where your agent code can reach money movement, data destruction, deployment, access-control change, communication, provider mutation, database mutation, or identity change without an enforceable guard.
 
-The canonical problem statement lives in [`actenon-kernel/THE_EXECUTION_GAP.md`](https://github.com/Actenon/actenon-kernel/blob/main/THE_EXECUTION_GAP.md). Scan is the local adoption tool for detecting it; conformance (in the Kernel) is the public compatibility target.
+The canonical problem statement lives in [`actenon-kernel/docs/THE_EXECUTION_GAP.md`](https://github.com/Actenon/actenon-kernel/blob/main/docs/THE_EXECUTION_GAP.md). Scan is the local adoption tool for detecting it; conformance (in the Kernel) is the public compatibility target.
 
 ## Install
 
@@ -179,7 +179,7 @@ This is the part that makes Scan trustworthy in a vendor-neutral CI:
 - **Does NOT report a repo as unsafe merely because a non-Actenon guard is used.** `@jwt_required` on a refund endpoint is a real guard. Scan recognises it.
 - **Does NOT make Actenon the only remedy.** Each finding ships with 7 remediation routes — only 2 mention Actenon.
 - **Does NOT inspect prompts, model output, or in-band response content.** It is a static-analysis tool, not a runtime filter.
-- **Does NOT replace conformance.** Scan is the local adoption tool; conformance (in the Kernel) is the public compatibility target. See [`actenon-kernel/EXECUTION_GAP_SCANNER.md`](https://github.com/Actenon/actenon-kernel/blob/main/EXECUTION_GAP_SCANNER.md).
+- **Does NOT replace conformance.** Scan is the local adoption tool; conformance (in the Kernel) is the public compatibility target. See [`actenon-kernel/docs/EXECUTION_GAP_SCANNER.md`](https://github.com/Actenon/actenon-kernel/blob/main/docs/EXECUTION_GAP_SCANNER.md).
 - **Does NOT make a runtime-safety claim.** A guarded sink is "lexically guarded", not "provably safe at runtime". The v1 lexical-precedence heuristic is documented in [`actenon_scan/detectors/guards.py`](actenon_scan/detectors/guards.py).
 
 ## GitHub Action
