@@ -51,6 +51,12 @@ class ScanResult:
     findings: list[Finding] = field(default_factory=list)
     files_scanned: int = 0
     rules_used: Ruleset | None = None
+    # Per-file analysis errors caught by the defensive wrapper in scan_path.
+    # Each entry is a (relative_path, error_message) tuple. A non-empty list
+    # means part of the repo was skipped due to a detector crash, not
+    # correctly suppressed. Tests in test_corpus.py and test_guards.py
+    # assert on this; reporters in pretty.py and json_out.py render it.
+    analysis_errors: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def finding_count(self) -> int:
@@ -344,6 +350,7 @@ def scan_path(
     target = Path(target)
     files = _collect_files(target, include_globs, exclude_globs)
     findings: list[Finding] = []
+    analysis_errors: list[tuple[str, str]] = []
 
     # Auto-detect self_package from pyproject.toml if not provided
     if self_package is None:
@@ -354,7 +361,11 @@ def scan_path(
         try:
             source = filepath.read_text(encoding="utf-8")
             tree = ast.parse(source, filename=str(filepath))
-        except (SyntaxError, UnicodeDecodeError):
+        except (SyntaxError, UnicodeDecodeError) as exc:
+            # File is not valid Python or not valid UTF-8. Record it so
+            # users see what got skipped; a non-empty analysis_errors list
+            # means part of the repo wasn't actually scanned.
+            analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
             continue
 
         # Wrap per-file analysis in try/except so one malformed node never
@@ -417,13 +428,20 @@ def scan_path(
                         finding.suppressed = True
 
                 findings.append(finding)
-        except Exception:
+        except Exception as exc:
             # One malformed file should never zero out an entire repo.
-            # Log to stderr and continue to the next file.
+            # Record the error so users see what got skipped (and tests
+            # can assert on it via result.analysis_errors).
+            analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
             import sys
             print(f"actenon-scan: warning: analysis error in {rel}, skipping", file=sys.stderr)
 
-    return ScanResult(findings=findings, files_scanned=len(files), rules_used=rules)
+    return ScanResult(
+        findings=findings,
+        files_scanned=len(files),
+        rules_used=rules,
+        analysis_errors=analysis_errors,
+    )
 
 
 def _collect_files(
