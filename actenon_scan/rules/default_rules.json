@@ -430,13 +430,12 @@
       "severity": "high",
       "cwe": "CWE-94",
       "owasp": "LLM06",
-      "description": "Arbitrary code execution (exec/eval/compile) from an agent tool",
+      "description": "Arbitrary code execution (exec/eval) from an agent tool",
       "match": {
-        "type": "name_call",
-        "func_patterns": [
+        "type": "qualified_call",
+        "qualified_patterns": [
           "exec",
-          "eval",
-          "compile"
+          "eval"
         ]
       }
     },
@@ -446,26 +445,26 @@
       "severity": "high",
       "cwe": "CWE-78",
       "owasp": "LLM06",
-      "description": "Shell/command execution via subprocess/os/asyncio",
+      "description": "Shell/command execution via subprocess/os",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "subprocess",
-          "os",
-          "asyncio",
-          "pty"
-        ],
-        "func_patterns": [
-          "run",
-          "Popen",
-          "call",
-          "check_call",
-          "check_output",
-          "system",
-          "popen",
-          "spawn",
-          "create_subprocess_shell",
-          "create_subprocess_exec"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "subprocess.run",
+          "subprocess.Popen",
+          "subprocess.call",
+          "subprocess.check_call",
+          "subprocess.check_output",
+          "os.system",
+          "os.popen",
+          "os.execv",
+          "os.execve",
+          "os.spawnl",
+          "os.spawnle",
+          "os.spawnv",
+          "os.spawnvp",
+          "asyncio.create_subprocess_shell",
+          "asyncio.create_subprocess_exec",
+          "pty.spawn"
         ]
       }
     },
@@ -477,16 +476,13 @@
       "owasp": "LLM06",
       "description": "Code execution inside a container (docker exec)",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "docker",
-          "container",
-          "containers"
-        ],
-        "func_patterns": [
-          "exec_run",
-          "run",
-          "create"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "container.exec_run",
+          "containers.exec_run",
+          "containers.run",
+          "containers.create",
+          "containers.get"
         ]
       }
     },
@@ -498,27 +494,33 @@
       "owasp": "LLM06",
       "description": "Browser interaction (click/fill/submit) on an authenticated session",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "page",
-          "frame",
-          "driver",
-          "element",
-          "locator"
-        ],
-        "func_patterns": [
-          "click",
-          "fill",
-          "type",
-          "press",
-          "select_option",
-          "set_input_files",
-          "check",
-          "uncheck",
-          "submit",
-          "send_keys",
-          "goto",
-          "navigate"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "page.click",
+          "page.fill",
+          "page.type",
+          "page.press",
+          "page.select_option",
+          "page.set_input_files",
+          "page.check",
+          "page.uncheck",
+          "page.submit",
+          "page.goto",
+          "page.navigate",
+          "frame.click",
+          "frame.fill",
+          "frame.type",
+          "frame.press",
+          "frame.goto",
+          "element.click",
+          "element.send_keys",
+          "element.submit",
+          "locator.click",
+          "locator.fill",
+          "locator.press",
+          "driver.click",
+          "driver.find_element",
+          "driver.get"
         ]
       }
     },
@@ -528,26 +530,26 @@
       "severity": "high",
       "cwe": "CWE-73",
       "owasp": "LLM06",
-      "description": "File write/move/permission change",
+      "description": "File write/move/permission change via os/shutil/Path",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "Path",
-          "os",
-          "shutil",
-          "pathlib"
-        ],
-        "func_patterns": [
-          "write_text",
-          "write_bytes",
-          "rename",
-          "replace",
-          "chmod",
-          "chown",
-          "copy",
-          "copy2",
-          "move",
-          "symlink_to"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "Path.write_text",
+          "Path.write_bytes",
+          "Path.rename",
+          "Path.replace",
+          "Path.chmod",
+          "Path.symlink_to",
+          "os.chmod",
+          "os.chown",
+          "os.rename",
+          "os.replace",
+          "os.symlink",
+          "shutil.copy",
+          "shutil.copy2",
+          "shutil.copyfile",
+          "shutil.move",
+          "shutil.rmtree"
         ]
       }
     },
@@ -570,21 +572,29 @@
       "owasp": "LLM06",
       "description": "Outbound HTTP request with side effects (POST/PUT/PATCH/DELETE)",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "requests",
-          "httpx",
-          "aiohttp",
-          "urllib",
-          "session",
-          "client"
-        ],
-        "func_patterns": [
-          "post",
-          "put",
-          "patch",
-          "delete",
-          "urlopen"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "requests.post",
+          "requests.put",
+          "requests.patch",
+          "requests.delete",
+          "httpx.post",
+          "httpx.put",
+          "httpx.patch",
+          "httpx.delete",
+          "aiohttp.post",
+          "aiohttp.put",
+          "aiohttp.patch",
+          "aiohttp.delete",
+          "urllib.request.urlopen",
+          "session.post",
+          "session.put",
+          "session.patch",
+          "session.delete",
+          "client.post",
+          "client.put",
+          "client.patch",
+          "client.delete"
         ]
       }
     },
@@ -596,20 +606,17 @@
       "owasp": "LLM06",
       "description": "Repository mutation (push/commit/reset/force-push)",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "repo",
-          "git",
-          "origin",
-          "remote"
-        ],
-        "func_patterns": [
-          "push",
-          "commit",
-          "reset",
-          "force_push",
-          "delete_head",
-          "rm"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "repo.push",
+          "repo.commit",
+          "repo.reset",
+          "repo.index.commit",
+          "remote.push",
+          "origin.push",
+          "git.push",
+          "git.commit",
+          "git.reset"
         ]
       }
     },
@@ -621,21 +628,13 @@
       "owasp": "LLM06",
       "description": "Secret/credential retrieval from secrets manager",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "secretsmanager",
-          "ssm",
-          "vault",
-          "keyvault",
-          "secrets",
-          "hvac",
-          "Client"
-        ],
-        "func_patterns": [
+        "type": "qualified_call",
+        "qualified_patterns": [
           "get_secret_value",
           "get_parameter",
           "read_secret",
-          "get_secret"
+          "get_secret",
+          "read_secret_data"
         ]
       }
     }
@@ -678,12 +677,19 @@
       "MCPTool",
       "Tool",
       "FunctionTool",
-      "StructuredTool"
+      "StructuredTool",
+      "Action",
+      "AgentAction",
+      "BaseAction"
     ],
     "tool_methods": [
       "_run",
       "_arun",
-      "_execute"
+      "_execute",
+      "run",
+      "execute",
+      "call",
+      "forward"
     ],
     "tool_list_params": [
       "tools",

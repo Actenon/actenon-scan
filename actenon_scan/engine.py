@@ -220,6 +220,16 @@ def _collect_files(
         ".eggs/**", "*.egg-info/**",
         ".mypy_cache/**", ".ruff_cache/**",
         ".coverage/**", "htmlcov/**",
+        # Demo/example directories — these contain cookbook code that is not
+        # production agent tool code. Scanning them produces massive false
+        # positives (e.g., 584 of Agno's 589 findings were in cookbook/).
+        # Users can opt in with --include-examples.
+        "examples/**", "example/**", "examples/**",
+        "cookbook/**", "recipes/**",
+        "samples/**", "sample/**",
+        "docs/**", "doc/**", "documentation/**",
+        "tutorials/**", "tutorial/**",
+        "benchmarks/**", "benchmark/**",
         # Actenon's own shipped test fixtures (defensive — the wheel also
         # excludes them now, but this catches source-checkout scans).
         "**/tests/fixtures/**",

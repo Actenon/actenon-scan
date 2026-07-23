@@ -163,9 +163,84 @@ def _match_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None
         return _match_name_call(node, rule)
     elif match_type == "attr_call":
         return _match_attr_call(node, rule, var_types)
+    elif match_type == "qualified_call":
+        return _match_qualified_call(node, rule, var_types)
     elif match_type == "subprocess_deploy":
         return _match_subprocess_deploy(node)
     # open_write and sql_execute_pattern are handled in the main detect_sinks loop
+    return False
+
+
+def _match_qualified_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None = None) -> bool:
+    """Match calls by their full qualified dotted name (e.g., subprocess.run).
+
+    This is the SAFE replacement for the cross-product matching in attr_call.
+    Instead of matching module_patterns × func_patterns (which produces false
+    positives like asyncio.run matching EXEC-SHELL because asyncio is a module
+    and run is a func), qualified_call matches the FULL dotted name of the call
+    against an explicit list of known-dangerous qualified names.
+
+    Supports:
+      - Direct qualified calls: subprocess.run(...), os.system(...)
+      - Variable-type tracking: p = Path(...); p.unlink() matches Path.unlink
+      - Chained calls: boto3.client("s3").delete_object() matches boto3.client
+    """
+    qualified_patterns = rule.match.get("qualified_patterns", [])
+    if not qualified_patterns:
+        return False
+
+    # Get the full dotted name of the call
+    if isinstance(node.func, ast.Name):
+        call_name = node.func.id
+    elif isinstance(node.func, ast.Attribute):
+        call_name = _get_attr_chain(node.func)
+    else:
+        return False
+
+    # Direct match against qualified patterns
+    for pattern in qualified_patterns:
+        if call_name == pattern:
+            return True
+        # Also match if the call name ends with the pattern (e.g., pattern is
+        # "system" and call is "os.system")
+        if call_name.endswith("." + pattern):
+            return True
+
+    # Variable-type tracking: if p = Path(...), then p.unlink() matches "Path.unlink"
+    if var_types and isinstance(node.func, ast.Attribute):
+        root = node.func
+        while isinstance(root.value, ast.Attribute):
+            root = root.value
+        if isinstance(root.value, ast.Name):
+            var_name = root.value.id
+            inferred_type = var_types.get(var_name)
+            if inferred_type:
+                # Replace the variable name with its inferred type
+                typed_name = call_name.replace(var_name, inferred_type, 1)
+                for pattern in qualified_patterns:
+                    if typed_name == pattern:
+                        return True
+                    if typed_name.endswith("." + pattern):
+                        return True
+                # Also check just the type.method part
+                if "." in call_name:
+                    method = call_name.split(".")[-1]
+                    type_method = f"{inferred_type.split('.')[-1]}.{method}"
+                    for pattern in qualified_patterns:
+                        if type_method == pattern:
+                            return True
+
+    # Chained-call resolution: boto3.client("s3").delete_object()
+    if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Call):
+        inner_call = node.func.value
+        if isinstance(inner_call.func, ast.Attribute):
+            inner_name = _get_attr_chain(inner_call.func)
+            method = node.func.attr
+            full = f"{inner_name}.{method}"
+            for pattern in qualified_patterns:
+                if full == pattern or full.endswith("." + pattern):
+                    return True
+
     return False
 
 
