@@ -57,6 +57,12 @@ class ScanResult:
     # correctly suppressed. Tests in test_corpus.py and test_guards.py
     # assert on this; reporters in pretty.py and json_out.py render it.
     analysis_errors: list[tuple[str, str]] = field(default_factory=list)
+    # Files recognised as source but with no analyser available (e.g. .ts
+    # files when the [typescript] extra is not installed). Each entry is
+    # (relative_path, language). A non-empty list means part of the repo
+    # was never examined — reporting "No findings" in that case is a safety
+    # defect because the user reads it as clean.
+    unsupported_files: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def finding_count(self) -> int:
@@ -349,6 +355,7 @@ def scan_path(
     rules = load_rules(config)
     target = Path(target)
     files = _collect_files(target, include_globs, exclude_globs)
+    unsupported_files = _collect_unsupported_files(target, include_globs, exclude_globs)
     findings: list[Finding] = []
     analysis_errors: list[tuple[str, str]] = []
 
@@ -441,6 +448,7 @@ def scan_path(
         files_scanned=len(files),
         rules_used=rules,
         analysis_errors=analysis_errors,
+        unsupported_files=unsupported_files,
     )
 
 
@@ -549,6 +557,105 @@ def _collect_files(
             files.append(filepath)
 
     return files
+
+
+# File extensions recognised as source but not analysable by the base install.
+# The [typescript] extra adds support for the TypeScript/JavaScript family.
+# Entries map suffix -> (language_name, extra_required).
+_UNSUPPORTED_SUFFIXES: dict[str, tuple[str, str]] = {
+    ".ts": ("TypeScript", "typescript"),
+    ".tsx": ("TypeScript (TSX)", "typescript"),
+    ".mts": ("TypeScript", "typescript"),
+    ".cts": ("TypeScript", "typescript"),
+    ".js": ("JavaScript", "typescript"),
+    ".jsx": ("JavaScript (JSX)", "typescript"),
+    ".mjs": ("JavaScript", "typescript"),
+    ".cjs": ("JavaScript", "typescript"),
+}
+
+
+def _is_typescript_extra_available() -> bool:
+    """Check whether the [typescript] extra is installed (tree-sitter available)."""
+    try:
+        import tree_sitter  # noqa: F401
+        import tree_sitter_typesscript  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def _collect_unsupported_files(
+    target: Path,
+    include_globs: list[str] | None,
+    exclude_globs: list[str] | None,
+) -> list[tuple[str, str]]:
+    """Collect recognised source files that have no analyser available.
+
+    Returns a list of (relative_path, language) tuples. These are files the
+    scanner knows are source code but cannot analyse — either because the
+    language analyser is behind an extra that is not installed, or because
+    the language is recognised but not yet supported.
+
+    Reporting these separately from "scanned 0" is a safety fix: a user who
+    sees "No findings. Scanned 0 file(s)" on a directory of .ts files reads
+    it as clean, when in fact nothing was examined.
+    """
+    if target.is_file():
+        suffix = target.suffix.lower()
+        if suffix in _UNSUPPORTED_SUFFIXES:
+            lang, extra = _UNSUPPORTED_SUFFIXES[suffix]
+            # If the extra is installed, these files ARE supported — don't report them.
+            if extra == "typescript" and _is_typescript_extra_available():
+                return []
+            return [(target.name, lang)]
+        return []
+
+    # For directories, collect all files with unsupported suffixes
+    unsupported: list[tuple[str, str]] = []
+    ts_available = _is_typescript_extra_available()
+
+    # Use the same exclude logic as _collect_files
+    default_dir_excludes = [
+        ".git/**", ".hg/**", ".svn/**",
+        ".venv/**", "venv/**", "env/**", ".env/**",
+        ".actenon-env/**", ".scan-env/**", ".scan-venv/**", ".tox/**",
+        ".cache/**", ".pytest_cache/**",
+        "node_modules/**", "bower_components/**",
+        "__pycache__/**", "*.pyc",
+        "build/**", "dist/**", "target/**",
+        ".eggs/**", "*.egg-info/**",
+        ".mypy_cache/**", ".ruff_cache/**",
+        ".coverage/**", "htmlcov/**",
+    ]
+
+    exclude = list(exclude_globs or [])
+    exclude.extend(default_dir_excludes)
+
+    for filepath in target.rglob("*"):
+        if not filepath.is_file():
+            continue
+        suffix = filepath.suffix.lower()
+        if suffix not in _UNSUPPORTED_SUFFIXES:
+            continue
+
+        lang, extra = _UNSUPPORTED_SUFFIXES[suffix]
+        # If the extra is installed, these files ARE supported
+        if extra == "typescript" and ts_available:
+            continue
+
+        rel = str(filepath.relative_to(target))
+        # Check excludes
+        excluded = False
+        for pattern in exclude:
+            if _glob_match(rel, pattern):
+                excluded = True
+                break
+        if excluded:
+            continue
+
+        unsupported.append((rel, lang))
+
+    return unsupported
 
 
 def _glob_match(rel_path: str, pattern: str) -> bool:
