@@ -37,7 +37,7 @@ dev = [
   # drift gate (tests/test_protocol_drift.py) to verify that scan's
   # guard vocabulary and refusal-code references stay in sync with the
   # protocol's catalogue.
-  "actenon-protocol>=1.1.0,<2",
+  "actenon-protocol[types]>=1.1.0,<2",
 ]
 
 [project.scripts]
