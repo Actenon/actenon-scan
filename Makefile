@@ -17,9 +17,14 @@ lint:
 verify-claims:
 	@echo "==> Verifying zero runtime dependencies"
 	@python -c "import tomllib,sys; \
-		d=tomllib.load(open('pyproject.toml','rb')); \
-		deps=d['project'].get('dependencies',[]); \
-		sys.exit(1) if deps else print('OK: zero runtime deps')"
+	        d=tomllib.load(open('pyproject.toml','rb')); \
+	        deps=d['project'].get('dependencies',[]); \
+	        sys.exit(1) if deps else print('OK: zero runtime deps')"
+	@echo "==> Verifying __version__ matches pyproject.toml"
+	@python -c "import tomllib; from actenon_scan import __version__; \
+	        pv=tomllib.load(open('pyproject.toml','rb'))['project']['version']; \
+	        assert __version__ == pv, f'__version__={__version__!r} but pyproject={pv!r}'; \
+	        print(f'OK: __version__={__version__} matches pyproject')"
 	@echo "==> Verifying Python badge in sync"
 	@python scripts/sync_badges.py --check
 	@echo "==> Verifying README install instructions"
