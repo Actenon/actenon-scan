@@ -223,25 +223,24 @@
       "severity": "medium",
       "cwe": "CWE-862",
       "owasp": "LLM06",
-      "description": "Email/Slack/messaging send call",
+      "description": "Communication send: email, SMS, Slack, Twilio, SNS, SES",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "mail",
-          "email",
-          "message",
-          "slack",
-          "twilio",
-          "sns",
-          "ses"
-        ],
-        "func_patterns": [
-          "send",
+        "type": "qualified_call",
+        "qualified_patterns": [
           "sendmail",
+          "send_email",
           "send_message",
-          "postMessage",
-          "create",
-          "publish"
+          "send_sms",
+          "post_message",
+          "slack.post_message",
+          "slack.chat_postMessage",
+          "webclient.chat_postMessage",
+          "twilio.messages.create",
+          "sns.publish",
+          "ses.send_email",
+          "ses.send_raw_email",
+          "chat_postMessage",
+          "WebClient.chat_postMessage"
         ]
       },
       "priority": 20
@@ -329,21 +328,25 @@
       "severity": "medium",
       "cwe": "CWE-862",
       "owasp": "LLM06",
-      "description": "ORM save/update/delete call",
+      "description": "ORM mutation: Django objects.create, SQLAlchemy session.add, etc.",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "db",
-          "session",
-          "objects"
-        ],
-        "func_patterns": [
-          "save",
-          "update",
-          "delete",
-          "create",
-          "bulk_create",
-          "bulk_update"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "objects.create",
+          "objects.update",
+          "objects.delete",
+          "objects.bulk_create",
+          "objects.bulk_update",
+          "session.add",
+          "session.delete",
+          "session.merge",
+          "session.flush",
+          "Model.create",
+          "Model.delete",
+          "filter.create",
+          "prisma.create",
+          "prisma.delete",
+          "prisma.update"
         ]
       },
       "priority": 20
@@ -413,20 +416,47 @@
       "severity": "high",
       "cwe": "CWE-78",
       "owasp": "LLM06",
-      "description": "Kubernetes deployment via kubectl/client",
+      "description": "Kubernetes deployment via kubectl or kubernetes-client",
       "match": {
-        "type": "attr_call",
-        "module_patterns": [
-          "kubectl",
-          "kubernetes",
-          "client"
-        ],
-        "func_patterns": [
-          "apply",
-          "create",
-          "delete",
-          "replace",
-          "patch"
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "kubectl.apply",
+          "kubectl.create",
+          "kubectl.delete",
+          "kubectl.replace",
+          "kubectl.patch",
+          "kubectl.rollout",
+          "kubectl.scale",
+          "create_namespaced_deployment",
+          "create_namespaced_pod",
+          "create_namespaced_service",
+          "create_namespaced_config_map",
+          "create_namespaced_secret",
+          "create_namespaced_job",
+          "create_namespaced_cron_job",
+          "create_namespaced_stateful_set",
+          "create_namespaced_daemon_set",
+          "create_namespaces",
+          "patch_namespaced_deployment",
+          "patch_namespaced_pod",
+          "patch_namespaced_config_map",
+          "patch_namespaced_secret",
+          "delete_namespaced_deployment",
+          "delete_namespaced_pod",
+          "delete_namespaced_service",
+          "delete_namespaced_config_map",
+          "delete_namespaced_secret",
+          "delete_namespaces",
+          "replace_namespaced_deployment",
+          "replace_namespaced_pod",
+          "replace_namespaced_service",
+          "AppsV1Api.create_namespaced_deployment",
+          "CoreV1Api.create_namespaced_pod",
+          "CoreV1Api.create_namespaced_service",
+          "CoreV1Api.delete_namespaced_pod",
+          "BatchV1Api.create_namespaced_job",
+          "kubernetes.client.create_namespaced_deployment",
+          "kubernetes.client.delete_namespaced_pod"
         ]
       },
       "priority": 20
