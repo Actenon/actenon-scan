@@ -1,0 +1,42 @@
+name: Version coherence
+
+# Three-way version gate: pyproject.toml / newest release tag / PyPI.
+# Replaces the one-directional version-drift gate (WO-19 4.5), which a
+# rollback trivially satisfied. See scripts/check_version_coherence.py
+# for the assertions.
+#
+# The daily schedule matters: a publish can fail silently after a tag is
+# pushed, and no PR will exist to catch it.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  version-coherence:
+    name: pyproject / tag / PyPI agree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install packaging
+
+      - name: Check version coherence
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            MODE=pr
+          else
+            MODE=main
+          fi
+          python scripts/check_version_coherence.py --mode "$MODE"
