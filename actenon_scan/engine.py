@@ -443,13 +443,138 @@ def scan_path(
             import sys
             print(f"actenon-scan: warning: analysis error in {rel}, skipping", file=sys.stderr)
 
+    # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
+    ts_findings, ts_scanned, ts_errors = _scan_typescript_files(target, include_globs, exclude_globs)
+    if ts_findings:
+        for tf in ts_findings:
+            findings.append(Finding(
+                file=tf.file,
+                line=tf.line,
+                col=tf.col,
+                rule_id=tf.rule_id,
+                category=tf.category,
+                severity=tf.severity,
+                confidence=tf.confidence,
+                description=tf.description,
+                call_text=tf.call_text,
+                remediation=_remediation_hint(tf.category),
+                snippet_hash="",
+                tier=_assign_tier(tf.file),
+            ))
+    analysis_errors.extend(ts_errors)
+
+    # Count TypeScript files as scanned (they were actually analysed)
+    total_scanned = len(files) + ts_scanned
+
+    # If TypeScript was scanned, remove those files from unsupported_files
+    if ts_scanned > 0:
+        ts_file_set = {f for f, _ in unsupported_files if f.endswith((".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"))}
+        unsupported_files = [(f, l) for f, l in unsupported_files if f not in ts_file_set]
+
     return ScanResult(
         findings=findings,
-        files_scanned=len(files),
+        files_scanned=total_scanned,
         rules_used=rules,
         analysis_errors=analysis_errors,
         unsupported_files=unsupported_files,
     )
+
+
+@dataclass
+class TSFindingWithFile:
+    """TSFinding with file path and confidence for the engine."""
+    file: str
+    rule_id: str
+    category: str
+    severity: str
+    description: str
+    line: int
+    col: int
+    call_text: str
+    confidence: str = "high"
+
+
+def _scan_typescript_files(
+    target: Path,
+    include_globs: list[str] | None,
+    exclude_globs: list[str] | None,
+) -> tuple[list, int, list[tuple[str, str]]]:
+    """Scan TypeScript/JavaScript files if the [typescript] extra is installed.
+
+    Returns (findings, files_scanned, errors). If the extra is not installed,
+    returns ([], 0, []).
+    """
+    try:
+        from actenon_scan.detectors.typescript import (
+            is_typescript_extra_available,
+            analyze_typescript_file,
+            TSFinding,
+        )
+    except ImportError:
+        return ([], 0, [])
+
+    if not is_typescript_extra_available():
+        return ([], 0, [])
+
+    # Collect TS/JS files
+    ts_suffixes = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
+    ts_files: list[Path] = []
+
+    if target.is_file():
+        if target.suffix.lower() in ts_suffixes:
+            ts_files = [target]
+    else:
+        # Use the same exclude logic as _collect_files
+        default_dir_excludes = [
+            ".git/**", ".hg/**", ".svn/**",
+            ".venv/**", "venv/**", "env/**", ".env/**",
+            "node_modules/**", "bower_components/**",
+            "__pycache__/**", "*.pyc",
+            "build/**", "dist/**", "target/**",
+            ".eggs/**", "*.egg-info/**",
+            ".mypy_cache/**", ".ruff_cache/**",
+        ]
+        exclude = list(exclude_globs or [])
+        exclude.extend(default_dir_excludes)
+
+        for filepath in target.rglob("*"):
+            if not filepath.is_file():
+                continue
+            if filepath.suffix.lower() not in ts_suffixes:
+                continue
+            rel = str(filepath.relative_to(target))
+            excluded = False
+            for pattern in exclude:
+                if _glob_match(rel, pattern):
+                    excluded = True
+                    break
+            if excluded:
+                continue
+            ts_files.append(filepath)
+
+    all_findings: list[TSFindingWithFile] = []
+    errors: list[tuple[str, str]] = []
+
+    for filepath in ts_files:
+        rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
+        ts_findings, file_errors = analyze_typescript_file(filepath)
+        for f in ts_findings:
+            all_findings.append(TSFindingWithFile(
+                file=rel,
+                rule_id=f.rule_id,
+                category=f.category,
+                severity=f.severity,
+                description=f.description,
+                line=f.line,
+                col=f.col,
+                call_text=f.call_text,
+                confidence="high",
+            ))
+        errors.extend(file_errors)
+
+    return (all_findings, len(ts_files), errors)
+
+
 
 
 def _collect_files(

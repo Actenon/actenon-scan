@@ -78,6 +78,16 @@ The canonical problem statement lives in [`actenon-kernel/docs/THE_EXECUTION_GAP
 pip install actenon-scan
 ```
 
+For TypeScript/JavaScript support:
+
+```bash
+pip install "actenon-scan[typescript]"
+```
+
+The base install has **zero runtime dependencies**. TypeScript support
+is behind an optional extra to preserve the zero-dep property — scan's
+value is that it installs into a codebase that has adopted nothing.
+
 Or use the GitHub Action (no install required) — see [below](#github-action).
 
 ## Use
@@ -205,6 +215,7 @@ This is the part that makes Scan trustworthy in a vendor-neutral CI:
 - **Does NOT inspect prompts, model output, or in-band response content.** It is a static-analysis tool, not a runtime filter.
 - **Does NOT replace conformance.** Scan is the local adoption tool; conformance (in the Kernel) is the public compatibility target. See [`actenon-kernel/docs/EXECUTION_GAP_SCANNER.md`](https://github.com/Actenon/actenon-kernel/blob/main/docs/EXECUTION_GAP_SCANNER.md).
 - **Does NOT make a runtime-safety claim.** A guarded sink is "lexically guarded", not "provably safe at runtime". The v1 lexical-precedence heuristic is documented in [`actenon_scan/detectors/guards.py`](actenon_scan/detectors/guards.py).
+- **Does NOT do interprocedural reachability.** TypeScript analysis (like Python) is single-function and lexical. A concrete worked example: LangChain's `ShellToolMiddleware` exposes an `@tool`-decorated shell executor whose sink is three method hops away behind a policy object (`@tool shell_tool` → `self._run_shell_tool()` → `self._policy.spawn()`). Scan reports no findings on that file. This is the documented single-function limitation — a named, honest limitation is worth more to a security reviewer than a vague caveat.
 
 ## GitHub Action
 

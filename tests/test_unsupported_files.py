@@ -2,12 +2,18 @@
 
 A scanner that stays silent about files it cannot parse is dangerous —
 a user reads "No findings" as clean when nothing was examined.
+
+These tests handle two cases:
+  1. When the [typescript] extra is NOT installed: .ts files are unsupported.
+  2. When the [typescript] extra IS installed: .ts files are scanned.
+
+The Part 1 safety fix applies to case 1. When the extra is installed,
+.ts files are properly scanned (tested in test_typescript_support.py).
 """
 
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -49,9 +55,26 @@ def mixed_dir(tmp_path):
     return tmp_path
 
 
-class TestUnsupportedFileReporting:
-    """Scanning a directory of only-.ts files with the extra absent
-    produces a non-zero unsupported count and the install hint in stdout."""
+def _ts_extra_available() -> bool:
+    """Check if the [typescript] extra is installed."""
+    try:
+        import tree_sitter  # noqa: F401
+        import tree_sitter_typescript  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+TS_EXTRA_AVAILABLE = _ts_extra_available()
+
+
+@pytest.mark.skipif(TS_EXTRA_AVAILABLE, reason="TypeScript extra is installed; .ts files are scanned, not unsupported")
+class TestUnsupportedFileReportingWithoutExtra:
+    """When the [typescript] extra is NOT installed, .ts files are unsupported.
+
+    These tests verify the Part 1 safety fix: unsupported files are reported,
+    not silently ignored.
+    """
 
     def test_ts_only_dir_reports_unsupported(self, ts_only_dir):
         result = scan_path(ts_only_dir)
@@ -82,17 +105,9 @@ class TestUnsupportedFileReporting:
         """When findings exist AND unsupported files exist, both are reported."""
         result = scan_path(mixed_dir)
         output = format_pretty(result)
-        # The Python file should produce a finding
         if result.findings:
             assert "finding" in output.lower()
-        # The .ts file should still be reported as unsupported
         assert "unsupported" in output.lower() or "NOT scanned" in output
-
-    def test_no_unsupported_for_py_only_dir(self, tmp_path):
-        """A .py-only directory has zero unsupported files."""
-        (tmp_path / "agent.py").write_text("x = 1\n")
-        result = scan_path(tmp_path)
-        assert len(result.unsupported_files) == 0
 
     def test_exit_code_zero_for_unsupported_only(self, ts_only_dir, capsys):
         """Unsupported files alone must NOT fail the build (default)."""
@@ -105,6 +120,16 @@ class TestUnsupportedFileReporting:
         from actenon_scan.cli import main
         rc = main(["scan", str(ts_only_dir), "--fail-on-unsupported"])
         assert rc == 1
+
+
+class TestUnsupportedFileReportingAlways:
+    """Tests that apply regardless of whether the TS extra is installed."""
+
+    def test_no_unsupported_for_py_only_dir(self, tmp_path):
+        """A .py-only directory has zero unsupported files."""
+        (tmp_path / "agent.py").write_text("x = 1\n")
+        result = scan_path(tmp_path)
+        assert len(result.unsupported_files) == 0
 
     def test_errored_files_tracked_separately(self, tmp_path):
         """A .py file that fails to parse is tracked as errored, not unsupported."""

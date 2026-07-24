@@ -5,6 +5,50 @@ All notable changes to `actenon-scan` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-07-24
+
+### Added
+
+- **TypeScript and JavaScript analysis** behind the `[typescript]` extra.
+  Install with `pip install "actenon-scan[typescript]"`. Uses tree-sitter
+  with prebuilt wheels (~1 MB, no compiler, no Node). The base install
+  remains zero-runtime-dependency. Covers .ts, .tsx, .mts, .cts, .js,
+  .jsx, .mjs, .cjs. Same rule IDs and categories as Python — output is
+  language-agnostic. Sink detection, reachability (MCP/LangChain.js),
+  and guard detection ported from Python.
+- **Unsupported-file reporting** (safety fix). Scanning a directory of
+  .ts files without the extra now reports "N file(s) NOT scanned —
+  install with pip install actenon-scan[typescript]" instead of the
+  dangerous "No findings. Scanned 0 file(s)." New `--fail-on-unsupported`
+  flag (default off). JSON output gains `scanned`, `unsupported`, and
+  `errored` top-level keys.
+- **Base-install CI job** that verifies the zero-runtime-dependency
+  guarantee on every PR.
+
+### Fixed
+
+- **DEPLOY-K8S false positive** — was matching `client.X.create` on ANY
+  object named `client`. Now constrained to genuine Kubernetes surfaces
+  (kubernetes client API methods, kubectl CLI). Real-world false positives
+  in crewai and langchain fixed.
+- **DATABASE-ORM-MUTATE false positive** — was matching generic `session.create`,
+  `db.create`. Now uses qualified_call with specific ORM method signatures.
+- **COMMUNICATION-SEND false positive** — was matching `message.create` with
+  generic `create` func pattern. Now uses specific communication SDK methods.
+- **DATA-DELETE-SQL risk-model inversion** — was matching the SQL literal
+  text and missing variable SQL (the strictly more dangerous case). Now
+  matches the SINK (.execute/.executemany/.executescript) regardless of
+  whether the SQL is literal or variable. Literal SELECT-only not reported.
+- **s3.delete_objects** and other boto3 destructive calls now detected.
+  Added: delete_objects, delete_db_instance, delete_table, delete_stack,
+  delete_topic, delete_queue, and more.
+
+### Changed
+
+- Rule audit completed: every attr_call rule checked for the same
+  loose-pattern defect as DEPLOY-K8S. Results documented in
+  `tests/test_rule_audit.py`.
+
 ## [0.2.3] — 2026-07-24
 
 ### Fixed (release-blocking)

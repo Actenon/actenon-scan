@@ -33,5 +33,38 @@ jobs:
       - name: Test
         run: python -m pytest tests/ -v
 
+  # Part 6.4: CI matrix must run the test suite BOTH with and without
+  # the [typescript] extra. The base-install job is what protects RULE 4
+  # (the zero-runtime-dependency guarantee).
+  base-install-test:
+    name: Base install (no extras) — zero-dep guarantee
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install with NO extras
+        run: |
+          python -m venv /tmp/base
+          /tmp/base/bin/pip install --upgrade pip
+          /tmp/base/bin/pip install pytest
+          /tmp/base/bin/pip install -e .
+      - name: Verify NO third-party runtime deps
+        run: |
+          # The base install must have zero third-party runtime deps.
+          # actenon-scan and its only transitive deps should be stdlib-only.
+          if /tmp/base/bin/pip list | grep -iE "tree.sitter|pyyaml|cryptography"; then
+            echo "FAIL: base install has third-party runtime deps"
+            /tmp/base/bin/pip list
+            exit 1
+          fi
+          echo "OK: zero third-party runtime deps"
+      - name: Verify import works without extra
+        run: /tmp/base/bin/python -c "import actenon_scan; print('OK')"
+      - name: Run tests (skipping TS-specific and dev-dep tests)
+        run: /tmp/base/bin/python -m pytest tests/ -v --ignore=tests/test_protocol_drift.py
+
+
   # The verify-claims job moved to verify-claims.yml so the README
   # badge can link to a dedicated gate.
