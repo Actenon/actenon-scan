@@ -50,7 +50,7 @@ def detect_reachability(
     func_node = _find_enclosing_function(tree, sink_line)
     if func_node is None:
         # Not in a function — check module-level signals
-        return _check_module_signals(tree, reachability_cfg, self_package)
+        return _check_module_signals(tree, reachability_cfg, self_package, sink_line=sink_line)
 
     # Check for HIGH confidence: tool decorators on the function
     tool_decorators = reachability_cfg.get("tool_decorators", [])
@@ -103,6 +103,53 @@ def _find_enclosing_function(tree: ast.Module, line: int) -> ast.FunctionDef | a
                     if hasattr(child, "lineno") and child.lineno >= line:
                         return node
     return None
+
+
+def _is_inside_main_block(tree: ast.Module, line: int) -> bool:
+    """Check if a line is inside an `if __name__ == "__main__":` block.
+
+    Entry-point code in __main__ blocks is NOT agent-reachable — it runs
+    when the script is executed directly, not when an agent calls a tool.
+    This fixes 5 of 8 false positives in the corpus validation.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If):
+            # Check if the test is `__name__ == "__main__"`
+            test = node.test
+            if isinstance(test, ast.Compare):
+                if isinstance(test.left, ast.Name) and test.left.id == "__name__":
+                    for comp in test.comparators:
+                        if isinstance(comp, ast.Constant) and comp.value == "__main__":
+                            # Check if the sink line is inside this if block
+                            if node.lineno <= line:
+                                end_line = getattr(node, "end_lineno", None)
+                                if end_line is not None and line <= end_line:
+                                    return True
+    return False
+
+
+def _is_inside_class_body(tree: ast.Module, line: int) -> bool:
+    """Check if a line is inside a class body (not in a method).
+
+    Sinks in class-body assignments (e.g., Pydantic ConfigDict with
+    lambda serializers) are not agent-reachable. The lambda has no
+    enclosing FunctionDef, so it appears to be at module level — but
+    it's actually in a class body.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            if node.lineno <= line:
+                end_line = getattr(node, "end_lineno", None)
+                if end_line is not None and line <= end_line:
+                    # Check it's NOT inside a method (FunctionDef within the class)
+                    for child in ast.walk(node):
+                        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            if child.lineno <= line:
+                                child_end = getattr(child, "end_lineno", None)
+                                if child_end is not None and line <= child_end:
+                                    return False  # It's inside a method, not class body
+                    return True
+    return False
 
 
 def _has_tool_decorator(func_node: ast.FunctionDef | ast.AsyncFunctionDef, tool_decorators: list[str]) -> bool:
@@ -241,6 +288,7 @@ def _check_module_signals(
     tree: ast.Module,
     reachability_cfg: dict[str, Any],
     self_package: str | None = None,
+    sink_line: int | None = None,
 ) -> ReachabilityResult:
     """Check module-level signals when the sink is not in a function.
 
@@ -248,7 +296,21 @@ def _check_module_signals(
     package, the agent_framework_import signal is suppressed. This prevents
     scanning a framework's own repo (e.g., scanning crewai's own codebase)
     from generating noise on every internal module.
+
+    __main__ block exclusion: sinks inside `if __name__ == "__main__":`
+    are NOT agent-reachable. Entry-point code runs when the script is
+    executed directly, not when an agent calls a tool.
+
+    Class-body exclusion: sinks in class-body assignments (e.g., Pydantic
+    ConfigDict with lambda serializers) are NOT agent-reachable.
     """
+    # If we know the sink line, check exclusions
+    if sink_line is not None:
+        if _is_inside_main_block(tree, sink_line):
+            return ReachabilityResult()
+        if _is_inside_class_body(tree, sink_line):
+            return ReachabilityResult()
+
     agent_frameworks = reachability_cfg.get("agent_frameworks", [])
     if self_package:
         # Remove the self-package from the frameworks list for this check
