@@ -62,8 +62,8 @@ jobs:
           echo "OK: zero third-party runtime deps"
       - name: Verify import works without extra
         run: /tmp/base/bin/python -c "import actenon_scan; print('OK')"
-      - name: Run tests (skipping TS-specific tests)
-        run: /tmp/base/bin/python -m pytest tests/ -v
+      - name: Run tests (skipping TS-specific and dev-dep tests)
+        run: /tmp/base/bin/python -m pytest tests/ -v --ignore=tests/test_protocol_drift.py
 
 
   # The verify-claims job moved to verify-claims.yml so the README
