@@ -5,6 +5,23 @@ All notable changes to `actenon-scan` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-07-24
+
+### Fixed
+
+- **TypeScript test-file exclusion** — `.test.ts`, `.spec.ts`, `.test.js`,
+  `.spec.js`, and files in `__tests__/` / `__mocks__/` directories are now
+  excluded from scanning, matching the Python analyser's `test_*.py` /
+  `*_test.py` exclusion. The three TypeScript false positives in the
+  official MCP servers repo were all in `structured-content.test.ts`
+  (beforeEach/afterEach cleanup using `fs.writeFile` and `fs.rm`).
+  With this fix, the triaged rate on the MCP servers repo goes from
+  2 TP / 3 FP to **2 TP / 0 FP**.
+- **`__version__` hardcoded to 0.2.3** — `actenon-scan --version` reported
+  0.2.3 while `pip show` and `importlib.metadata` said 0.3.0. Now derived
+  from `importlib.metadata.version("actenon-scan")`. Added to the
+  `verify-claims` gate so this class of drift cannot recur.
+
 ## [0.3.0] — 2026-07-24
 
 ### Added

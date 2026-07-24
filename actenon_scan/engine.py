@@ -537,6 +537,37 @@ def _scan_typescript_files(
         exclude = list(exclude_globs or [])
         exclude.extend(default_dir_excludes)
 
+        # TS/JS test-file exclusion — mirrors the Python analyser's
+        # test_*.py / *_test.py exclusion. The three TS false positives
+        # in the MCP servers repo were all in .test.ts files
+        # (beforeEach/afterEach cleanup using fs.writeFile and fs.rm).
+        # These are test fixtures, not agent tool code.
+        ts_test_excludes = [
+            "**/__tests__/**",
+            "**/__mocks__/**",
+            "**/*.test.ts",
+            "**/*.test.tsx",
+            "**/*.test.mts",
+            "**/*.test.cts",
+            "**/*.test.js",
+            "**/*.test.jsx",
+            "**/*.test.mjs",
+            "**/*.test.cjs",
+            "**/*.spec.ts",
+            "**/*.spec.tsx",
+            "**/*.spec.mts",
+            "**/*.spec.cts",
+            "**/*.spec.js",
+            "**/*.spec.jsx",
+            "**/*.spec.mjs",
+            "**/*.spec.cjs",
+            "**/*.bench.ts",
+            "**/*.bench.js",
+        ]
+        # Only add test excludes if the user didn't explicitly include test files
+        if not any("test" in (g or "").lower() or "spec" in (g or "").lower() for g in (include_globs or [])):
+            exclude.extend(ts_test_excludes)
+
         for filepath in target.rglob("*"):
             if not filepath.is_file():
                 continue
@@ -755,6 +786,19 @@ def _collect_unsupported_files(
 
     exclude = list(exclude_globs or [])
     exclude.extend(default_dir_excludes)
+
+    # Also apply TS test-file exclusions here so .test.ts files are not
+    # reported as unsupported when the extra is absent.
+    ts_test_excludes_for_unsupported = [
+        "**/__tests__/**", "**/__mocks__/**",
+        "**/*.test.ts", "**/*.test.tsx", "**/*.test.mts", "**/*.test.cts",
+        "**/*.test.js", "**/*.test.jsx", "**/*.test.mjs", "**/*.test.cjs",
+        "**/*.spec.ts", "**/*.spec.tsx", "**/*.spec.mts", "**/*.spec.cts",
+        "**/*.spec.js", "**/*.spec.jsx", "**/*.spec.mjs", "**/*.spec.cjs",
+        "**/*.bench.ts", "**/*.bench.js",
+    ]
+    if not any("test" in (g or "").lower() or "spec" in (g or "").lower() for g in (include_globs or [])):
+        exclude.extend(ts_test_excludes_for_unsupported)
 
     for filepath in target.rglob("*"):
         if not filepath.is_file():
