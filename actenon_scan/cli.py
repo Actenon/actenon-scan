@@ -33,6 +33,13 @@ def main(argv: list[str] | None = None) -> int:
     scan_parser.add_argument("--baseline", help="Path to baseline.json for known-findings suppression.")
     scan_parser.add_argument("--include", action="append", default=None, help="Glob pattern to include (repeatable).")
     scan_parser.add_argument("--exclude", action="append", default=None, help="Glob pattern to exclude (repeatable).")
+    scan_parser.add_argument(
+        "--fail-on-unsupported",
+        action="store_true",
+        default=False,
+        help="Exit non-zero if any unsupported source files were found (e.g. .ts without [typescript] extra). "
+        "Default off — unsupported files alone do not fail the build.",
+    )
     scan_parser.add_argument("--output", "-o", default=None, help="Write output to file instead of stdout.")
 
     # rules
@@ -115,6 +122,10 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         print(output, end="")
 
     # Exit code
+    # Unsupported files alone do NOT fail the build (default). Use
+    # --fail-on-unsupported to opt in.
+    if args.fail_on_unsupported and result.unsupported_files:
+        return 1
     if args.fail_on == "none":
         return 0
     if result.has_findings_at_or_above(args.fail_on):
