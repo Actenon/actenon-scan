@@ -11,8 +11,27 @@
 [![GitHub Action](https://img.shields.io/badge/GitHub%20Action-v1-blue.svg)](#github-action)
 [![SARIF](https://img.shields.io/badge/Output-SARIF-orange.svg)](#output-formats)
 [![CI](https://github.com/Actenon/actenon-scan/actions/workflows/ci.yml/badge.svg)](https://github.com/Actenon/actenon-scan/actions/workflows/ci.yml)
+[![Claims: machine-verified](https://img.shields.io/badge/claims-machine--verified-2ea44f.svg)](https://github.com/Actenon/actenon-scan/actions/workflows/verify-claims.yml)
 [![Code style: ruff](https://img.shields.io/badge/Code%20style-ruff-black.svg)](https://docs.astral.sh/ruff/)
 [![Vendor-neutral](https://img.shields.io/badge/Stance-vendor%20neutral-2ea44f.svg)](#what-scan-does-not-do)
+
+### Every claim above is machine-verified
+
+The `claims: machine-verified` badge links to a CI gate
+([`verify-claims.yml`](.github/workflows/verify-claims.yml)) that fails on
+every PR, push to `main`, and once a day if any factual claim this README
+makes about the package stops being true:
+
+- **Zero runtime dependencies** — scan's single most important credibility
+  claim (it is what lets a security team deploy scan unilaterally into a
+  codebase that has adopted nothing). Read from `pyproject.toml`, not prose.
+- **Install commands** — every `pip install` in this README is resolved
+  against the live registry; the Python version badge is generated, not
+  hand-edited.
+- **The ecosystem table** — rendered from the protocol's `ecosystem.yaml`,
+  never hand-edited.
+
+If a claim drifts, the badge goes red before a human notices.
 
 ---
 
