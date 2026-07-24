@@ -329,11 +329,47 @@ def analyze_typescript_file(filepath: str | Path) -> tuple[list[TSFinding], list
 
 
 def _check_reachability(tree, lang, source: str) -> bool:
-    """Check if the file contains any agent-tool reachability signal."""
-    # Simple text-based check for reachability signals.
-    # This is the same approach as the Python analyser's lexical check.
+    """Check if the file contains any agent-tool reachability signal.
+
+    Uses text-based detection for tool registration patterns. This is
+    the same approach as the Python analyser's lexical check.
+
+    To avoid false positives from example scripts that merely import a
+    framework (e.g., `import { tool } from "langchain"`) but don't
+    register any tools, we check for actual USAGE of the signal, not
+    just the import. Specifically:
+    - `setRequestHandler` must appear as a function call
+    - `server.tool(` must appear as a call
+    - `DynamicStructuredTool` must appear with `func:` or `execute:`
+    - `execute:` as a property in an object literal passed to a tool
+    """
     for signal in TS_REACHABILITY_SIGNALS:
         if signal in source:
+            # For import-only signals like "@modelcontextprotocol/sdk",
+            # require an actual tool registration in the file too.
+            # For "tool(" we need to distinguish from import statements.
+            if signal == "tool(":
+                # Must be a call, not an import like `import { tool } from`
+                # Check that "tool(" appears outside of import context
+                lines = source.split("\n")
+                for line in lines:
+                    stripped = line.strip()
+                    if stripped.startswith("import ") or stripped.startswith("from "):
+                        continue
+                    if "tool(" in stripped and not stripped.startswith("//"):
+                        return True
+                continue
+            if signal == "execute:":
+                # "execute:" in an object literal is a reachability signal,
+                # but only if it's not in a comment
+                for line in source.split("\n"):
+                    stripped = line.strip()
+                    if stripped.startswith("//"):
+                        continue
+                    if "execute:" in stripped or "execute :" in stripped:
+                        return True
+                continue
+            # For other signals, the text match is sufficient
             return True
     return False
 
