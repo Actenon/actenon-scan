@@ -5,6 +5,39 @@ All notable changes to `actenon-scan` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-07-24
+
+### Fixed — the adoption blocker
+
+- **Guard vocabulary expanded from ~50 to 145 patterns.** The original
+  ~12 generic guard names (`authorize`, `check_permission`, etc.) caused
+  100% false positives on security-mature teams using their own naming
+  conventions (`assert_can`, `policy_gate`, `audit_and_allow`, `can_user`,
+  `enforce_policy`, `guard_action`). This was the single highest-churn
+  defect: the most security-mature teams — the best prospects — got the
+  worst experience and uninstalled. The expanded vocabulary covers:
+  - Assertion-style: `assert_can`, `assert_allowed`, `assert_authorized`, etc.
+  - Policy gates: `policy_gate`, `guard_action`, `audit_and_allow`, etc.
+  - MCP-native approval: `ctx.elicit`, `elicitation`, `request_elicitation`
+  - LangChain.js: `HumanApprovalCallbackHandler`, `HumanInTheLoopMiddleware`
+  - Vercel AI SDK: `requireConfirmation`, `confirm_action`
+  - Framework-specific: `Depends`, `current_user`, `require_admin`, etc.
+
+- **Config errors never crash.** Three plausible config attempts that
+  previously crashed with raw tracebacks now produce clean messages with
+  the accepted schema:
+  - `{"guards": {"patterns": [...]}}` — now parsed correctly (was crash)
+  - `{"guard_patterns": [...]}` — works (was already correct)
+  - TOML files — rejected with "use JSON or YAML" (was crash)
+  - Invalid JSON — prints schema hint, not traceback
+
+### Changed
+
+- The remediation hint in findings now says "register it with
+  `scan --config`" with the accepted schema available on any config error.
+- `ConfigError` is a new exception class that carries the schema example.
+  The CLI catches it and exits with code 2 (not 0 or 1).
+
 ## [0.3.1] — 2026-07-24
 
 ### Fixed
