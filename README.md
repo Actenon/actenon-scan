@@ -11,7 +11,7 @@
 [![GitHub Action](https://img.shields.io/badge/GitHub%20Action-v1-blue.svg)](#github-action)
 [![SARIF](https://img.shields.io/badge/Output-SARIF-orange.svg)](#output-formats)
 [![CI](https://github.com/Actenon/actenon-scan/actions/workflows/ci.yml/badge.svg)](https://github.com/Actenon/actenon-scan/actions/workflows/ci.yml)
-[![Claims: machine-verified](https://img.shields.io/badge/claims-machine--verified-2ea44f.svg)](https://github.com/Actenon/actenon-scan/actions/workflows/verify-claims.yml)
+[![claims: machine-verified](https://img.shields.io/github/actions/workflow/status/Actenon/actenon-scan/verify-claims.yml?branch=main&label=claims%3A%20machine-verified)](https://github.com/Actenon/actenon-scan/actions/workflows/verify-claims.yml)
 [![Code style: ruff](https://img.shields.io/badge/Code%20style-ruff-black.svg)](https://docs.astral.sh/ruff/)
 [![Vendor-neutral](https://img.shields.io/badge/Stance-vendor%20neutral-2ea44f.svg)](#what-scan-does-not-do)
 
