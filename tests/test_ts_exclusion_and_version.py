@@ -103,7 +103,14 @@ class TestVersionDerivation:
 
     def test_version_matches_pyproject(self):
         """__version__ must match pyproject.toml's version field."""
-        import tomllib
+        import sys
+        if sys.version_info >= (3, 11):
+            import tomllib
+        else:
+            try:
+                import tomli as tomllib
+            except ImportError:
+                pytest.skip("tomli not installed on Python 3.10")
         from actenon_scan import __version__
 
         with open("pyproject.toml", "rb") as f:
