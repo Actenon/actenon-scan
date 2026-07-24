@@ -99,14 +99,23 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         for filepath in target.rglob("*.py"):
             suppressions.update(collect_suppressions_from_file(filepath))
 
-    result = scan_path(
-        target,
-        config=args.config,
-        include_globs=args.include,
-        exclude_globs=args.exclude,
-        suppressions=suppressions,
-        baseline_findings=baseline,
-    )
+    try:
+        result = scan_path(
+            target,
+            config=args.config,
+            include_globs=args.include,
+            exclude_globs=args.exclude,
+            suppressions=suppressions,
+            baseline_findings=baseline,
+        )
+    except Exception as e:
+        # Catch ConfigError and other config-loading errors gracefully.
+        # Never crash with a raw traceback on a config mistake.
+        from actenon_scan.rules.loader import ConfigError
+        if isinstance(e, ConfigError):
+            print(f"actenon-scan: {e}", file=sys.stderr)
+            return 2
+        raise
 
     # Format output
     if args.format == "json":
