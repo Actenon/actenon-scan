@@ -300,7 +300,20 @@
           "create_repo",
           "create_branch",
           "create_pull_request",
-          "create_user"
+          "create_user",
+          "delete_objects",
+          "stop_instances",
+          "delete_db_instance",
+          "delete_db_cluster",
+          "delete_table",
+          "delete_item",
+          "delete_user",
+          "delete_role",
+          "delete_policy",
+          "delete_access_key",
+          "delete_stack",
+          "delete_topic",
+          "delete_queue"
         ]
       },
       "priority": 20

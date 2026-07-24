@@ -503,24 +503,47 @@ def _is_write_mode(mode: str) -> bool:
 
 
 def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
-    """Check if this is a cursor.execute() or cursor.executemany() call
-    with a SQL string argument containing dangerous patterns.
+    """Check if this is a cursor.execute() or cursor.executemany() call.
+
+    The SINK is the execute/executemany/executescript method call itself.
+    The SQL argument's content is a SEVERITY MODIFIER, not a gate:
+
+      literal SQL containing DROP/DELETE/TRUNCATE/ALTER  -> HIGH (destructive)
+      non-literal SQL (variable, f-string, concatenation) -> HIGH (caller-controlled)
+      literal SELECT-only                                 -> not reported
+
+    The previous implementation only matched when the SQL literal contained
+    dangerous text — it missed the strictly more dangerous case where the
+    SQL is a variable (agent-controlled). This fix inverts the risk model
+    to match the sink, not the literal.
     """
     if not isinstance(node.func, ast.Attribute):
         return False
     method_name = node.func.attr
-    if method_name not in ("execute", "executemany", "executescript"):
+    if method_name not in ("execute", "executemany", "executescript", "exec"):
         return False
 
-    # Check args for dangerous SQL patterns
+    # Must have at least one argument (the SQL)
+    if not node.args:
+        return False
+
     patterns = rule.match.get("patterns", [])
-    for arg in node.args:
-        text = _extract_string_from_node(arg)
-        if text:
-            for pattern in patterns:
-                if re.search(pattern, text, re.IGNORECASE):
-                    return True
-    return False
+    first_arg = node.args[0]
+
+    # Check if the first arg is a string literal
+    text = _extract_string_from_node(first_arg)
+    if text:
+        # Literal SQL — check if it contains dangerous patterns
+        for pattern in patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                return True
+        # Literal SELECT-only — not reported
+        return False
+
+    # Non-literal SQL (variable, f-string, concatenation) — this is the
+    # CALLER-CONTROLLED case. It is strictly more dangerous than a literal
+    # because the agent controls the SQL. Always report.
+    return True
 
 
 def _extract_string_from_node(node: ast.expr) -> str | None:
