@@ -5,6 +5,86 @@ All notable changes to `actenon-scan` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-07-25
+
+### What changed for you
+
+- **Scans are roughly twice as fast** on machines with 8 or more cores, and
+  ~30% faster everywhere else. A 1,954-file repository (langchain) goes from
+  2.8s to 0.96s on a 10-core machine, and from ~7.4s to ~5.7s on a 4-core CI
+  runner.
+- **Three classes of false positive are gone.** If scan previously flagged
+  documentation scripts, cookbook setup code, or agent-to-agent messaging, it
+  no longer does.
+- **A guard that returns a decision you ignore is now caught.** Previously
+  some of these were reported clean.
+- **`--changed-only` is fast enough for a pre-commit hook**: ~150ms for a
+  1-3 file diff, down from ~720ms.
+
+### Fixed — false positives
+
+Measured across 25 pinned real repositories (21,308 Python files, 2,168
+TypeScript). As shipped, v0.7.0 produced 63 findings on that corpus, 12 of
+them in non-agent control libraries. It now produces 30, all hand-triaged
+true positives, and **zero** in the controls.
+
+- **Documentation and tooling scripts.** `playwright` and `selenium` were
+  treated as agent frameworks, so every screenshot script that imported them
+  and started a dev server was flagged. Driving a browser is not agent
+  reachability. (12 findings, all in FastAPI.)
+- **Module-level setup code.** A sink at module scope in a file that imports
+  an agent framework was reported. Module-level code runs at import time and
+  cannot be selected by an LLM, so it is not agent-reachable — the same
+  reasoning already applied to `if __name__ == "__main__":` blocks. This
+  signal produced 19 findings on the corpus and **none** of them were real.
+  Recoverable with `reachability.module_level_reachability`. (19 findings.)
+- **Agent-to-agent messaging.** `send_message` on an A2A client or an internal
+  event bus is inter-agent transport, not a consequential side effect.
+  Genuine Slack and email sends still fire. (2 findings.)
+
+### Fixed — false negatives
+
+- **Guard style is resolved by definition, not by name.** A guard whose result
+  you discard is safe only if it raises. The same function name is written
+  both ways in real code — `check_permission` that returns a bool and
+  `check_permission` that raises — so classifying by name reported the
+  returning-and-ignored form as clean. Scan now reads the guard's body. When
+  the guard is imported and cannot be read, it resolves to WEAK rather than
+  being assumed safe.
+
+### Performance
+
+- Roughly 2x faster on the serial path: a detector pass was running on every
+  file and having its result discarded on two thirds of them, and an identical
+  parent-map was being built twice per file.
+- `--jobs N` for parallel scanning, defaulting to automatic. **It parallelises
+  only where that was measured to help** — 8+ cores and 250+ files — because
+  parallel-by-default was ~10% *slower* on 2-4 core CI runners. `--jobs N`
+  always overrides. Findings are identical in either mode.
+- `--changed-only` no longer walks the whole repository before filtering to
+  the diff.
+
+### Added — verification
+
+- A 25-repository precision corpus pinned by commit SHA, with every finding
+  hand-triaged and a CI gate that fails on any false positive, any untriaged
+  finding, or any finding in a control library.
+- `docs/COVERAGE.md` is now a contract CI enforces: an architecture may be
+  marked COVERED only when a hand-triaged true positive exists on real code.
+  A synthetic fixture is not sufficient.
+- A perf gate that fails if the default scan mode is ever slower than serial.
+- A monthly corpus-freshness job that diffs the pinned SHAs against upstream
+  HEAD and files a tracking issue. It never edits a pin or a verdict.
+
+### Known limitations
+
+- Corpus-demonstrated recall is **3 of 7** architectures. The other four fire
+  on synthetic fixtures but have not yet been shown to fire on real code, and
+  are documented as PARTIAL or NOT COVERED rather than counted.
+- Scan cannot verify that a guard is *bound* to the action it precedes. That
+  binding is cryptographic and can only be checked at execution time. See
+  `docs/COVERAGE.md`.
+
 ## [0.4.0] — 2026-07-24
 
 ### Fixed — the adoption blocker
