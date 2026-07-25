@@ -501,3 +501,61 @@ The A2A exclusion (Part 1) requires receiver-origin evidence:
   not in exclude_receiver_types)
 - `a2a_client = smtplib.SMTP("host"); a2a_client.send_message(...)` → fires
   (origin is smtplib.SMTP despite the misleading variable name)
+
+## Work Order 1 — campaign target validation
+
+### Pinned corpus scan (Part 5)
+
+The new W01 rules (REPOSITORY-MUTATION, GITHUB-REST-MUTATION,
+EMAIL-PROVIDER-SEND) were validated against the pinned campaign
+corpus:
+
+| Repo | Category | New W01 findings |
+|------|----------|------------------|
+| mcp-servers | mcp_server | 0 |
+| mcp-python-sdk | mcp_server | 0 |
+| github-mcp-server | mcp_server | 0 (Go unsupported) |
+| mcp-atlassian | mcp_server | 0 |
+| browser-use | application | 0 |
+| crewai | framework | 0 |
+| semantic-kernel | framework | 0 |
+| agno | framework | 0 |
+| metagpt | application | 0 |
+| superagi | application | 0 |
+| requests | control | 0 |
+| flask | control | 0 |
+| fastapi | control | 0 |
+| click | control | 0 |
+| rich | control | 0 |
+
+Zero new findings. All 5 control repos at 0. The new rules fire on
+fixtures but not on the existing corpus. This is expected: the
+pinned corpus repos don't use PyGithub, raw GitHub REST mutation, or
+SendGrid/Mailgun SDKs in agent-reachable Python tools.
+
+### Limitation: Go-based MCP servers
+
+The official GitHub MCP server (github/github-mcp-server) implements
+its mutation tools in Go. The scanner supports Python and TypeScript
+but not Go. The 4 TypeScript files in the repo are frontend UI code.
+This is recorded as NOT SUPPORTED for Go.
+
+### Coverage verdicts for W01 surfaces
+
+| Surface | Status |
+|---------|--------|
+| PyGithub repository mutation (Python) | PARTIAL — fixture-verified, no corpus TP yet |
+| Raw GitHub REST mutation (Python/TS) | PARTIAL — fixture-verified, no corpus TP yet |
+| GitPython force-push (Python) | COVERED — GIT-MUTATE, corpus TP (SuperAGI) |
+| GitHub CLI shell (Python) | COVERED — EXEC-SHELL, corpus TP |
+| SMTP sendmail/send_message (Python) | COVERED — fixture-verified, r08 recall fixture |
+| SMTP_SSL send_message (Python) | COVERED — fixture-verified |
+| AWS SES send_email/send_raw_email (Python) | COVERED — fixture-verified |
+| SendGrid send (Python) | COVERED — fixture-verified (EMAIL-PROVIDER-SEND) |
+| Resend Emails.send (Python) | COVERED — fixture-verified |
+| Postmark send_email (Python) | COVERED — fixture-verified |
+| Mailgun messages.create (Python SDK) | PARTIAL — fixture-verified, SDK not in corpus |
+| Mailgun raw HTTP (Python requests) | COVERED — NET-EGRESS |
+| Chained psycopg2 execute (Python) | COVERED — fixture-verified (Part 2.9) |
+| Go-based MCP mutation tools | NOT SUPPORTED |
+| GitLab/Bitbucket equivalents | UNVALIDATED |

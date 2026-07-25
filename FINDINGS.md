@@ -545,3 +545,60 @@ REGRESSION FOUND → FIXED.
   - tests/corpus/DATA-DELETE-SQL/safe/04_non_db_execute.py
     (non-DB step.execute() must stay clean)
 
+
+## Part 5 — Campaign target validation
+
+### Pinned corpus scan results
+
+Scanned all available pinned MCP servers + computer-use agent with the
+new W01 rules (REPOSITORY-MUTATION, GITHUB-REST-MUTATION,
+EMAIL-PROVIDER-SEND):
+
+| Repo | Category | Files | New W01 findings |
+|------|----------|-------|------------------|
+| mcp-servers (modelcontextprotocol/servers) | mcp_server | 14 py + 65 ts | 0 (1 existing FILE-WRITE) |
+| mcp-python-sdk | mcp_server | 819 py | 0 (1 existing NET-EGRESS) |
+| github-mcp-server | mcp_server | 208 go + 4 ts | 0 (Go unsupported; 4 TS files are UI) |
+| mcp-atlassian | mcp_server | 283 py | 0 |
+| browser-use | application (computer-use) | 370 py | 0 |
+
+### Hand-triage of new findings
+
+ZERO new findings from the W01 rules across the scanned campaign
+targets. The new rules fire on fixtures but not on the existing
+pinned corpus.
+
+### Why the GitHub MCP server produced zero findings
+
+The official GitHub MCP server (github/github-mcp-server) implements
+its mutation tools (create_file, delete_file, create_pull, etc.) in
+Go. The actenon-scan scanner supports Python and TypeScript but not
+Go. The 4 TypeScript files in the repo are frontend UI code
+(vite.config.ts, vite-env.d.ts, useMcpApp.ts, toolResult.ts) — none
+contain MCP tool definitions or mutation sinks.
+
+This is a recorded limitation: the scanner cannot detect
+repository-mutation surfaces in Go-based MCP servers. The
+REPOSITORY-MUTATION and GITHUB-REST-MUTATION rules are validated
+against Python (PyGithub) and Python/TS (raw requests/httpx) fixtures
+respectively, but no corpus true positive exists yet for a Go-based
+GitHub mutation tool.
+
+### Control repositories
+
+All 5 control repositories (requests, flask, fastapi, click, rich)
+remain at 0 findings across all W01 rules.
+
+### Campaign readiness
+
+The scanner can detect:
+- PyGithub mutation in agent-reachable Python tools (fixture-verified)
+- Raw GitHub REST mutation in agent-reachable Python tools (fixture-verified)
+- SMTP email send in agent-reachable Python tools (fixture-verified)
+- SendGrid/Resend/SES/Postmark email send in agent-reachable Python tools (fixture-verified)
+- Chained psycopg2 database mutation in agent-reachable Python tools (fixture-verified)
+
+The scanner cannot detect (recorded as residual risk):
+- Go-based MCP server mutation tools (language unsupported)
+- GitLab/Bitbucket equivalents (no real-world occurrence validated)
+
