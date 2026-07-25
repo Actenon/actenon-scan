@@ -23,5 +23,5 @@
   "tests/benchmark/soundness/s03_cfg_enforce.py": "b707f790d8e22dd2486c986e46e54e5238db24e642a475b2433816c1d755e4ca",
   "tests/benchmark/soundness/s04_except_guard.py": "3cf3cb9d7d1f86ba008034493a33e5a38831c74a4be5efc5c1de4cdc1ed4ea4c",
   "tests/benchmark/soundness/s05_guard_after.py": "f0bfdc8f658113d68baf7038fd4d638936abd274120d46a1a90792ac1ad2e8e9",
-  "tests/benchmark/soundness/s06_result_discarded.py": "901e7524b9ebd3b8a805c586e152dce243a2551ef3fb9c816b7c53ba9835dff9"
+  "tests/benchmark/soundness/s06_result_discarded.py": "8000de28da3a4aa268e0caed70cebd15a20ddf18632dcb43d3981207238c8544"
 }

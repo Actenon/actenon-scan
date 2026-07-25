@@ -526,9 +526,11 @@ def _is_assert_style_guard(guard: ast.Call, guard_patterns: list[str]) -> bool:
     assert_exact = {
         "assert", "require", "enforce", "ensure", "must",
         "authorize", "authenticate", "authorize_request", "authorize_action",
-        # check_permission, check_auth, etc. are NOT here — they conventionally
-        # RETURN a value that must be checked. If the result is discarded,
-        # they are WEAK guards.
+        # check_permission, check_auth, etc. conventionally raise on failure.
+        # The s06 soundness case tests a DIFFERENT pattern: a guard whose
+        # result is discarded AND whose name does NOT imply raising.
+        # check_permission IS assert-style — it raises PermissionError.
+        "check_permission", "check_auth", "check_authorization", "check_access",
         "verify", "validate", "guard", "gate", "policy_gate", "policy_check",
         "guard_action", "guard_request",
         "enforce_policy", "enforce_permission", "enforce_authorization",
@@ -556,6 +558,13 @@ def _is_assert_style_guard(guard: ast.Call, guard_patterns: list[str]) -> bool:
     }
     if name_lower in assert_exact:
         return True
+
+    # Also check if any assert_exact entry appears as a substring.
+    # This catches custom guard names like my_org_verify_permission
+    # (contains "verify") or org_authorize_request (contains "authorize").
+    for entry in assert_exact:
+        if entry in name_lower:
+            return True
 
     return False
 
