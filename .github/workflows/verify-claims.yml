@@ -69,3 +69,8 @@ jobs:
           fi
           echo "OK: self-scan reports clean"
 
+      - name: CORPUS_STUDY.md is current
+        # Work Order 3, Part 5.3: the corpus study must not drift from the
+        # triage data. This check fails if the document is stale.
+        run: python scripts/generate_corpus_study.py --check
+
