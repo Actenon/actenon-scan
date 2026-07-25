@@ -413,20 +413,71 @@ def scan_path(
     if self_package is None:
         self_package = _detect_self_package(target)
 
+    # Pre-compile sink substrings for fast pre-filtering.
+    # Skip files that contain NONE of these substrings — they cannot
+    # produce a finding and parsing them wastes time.
+    SINK_SUBSTRINGS = frozenset({
+        "subprocess", "os.remove", "os.unlink", "os.system", "shutil",
+        "stripe", "requests.post", "requests.put", "requests.delete",
+        "boto3", "sqlite3", "exec(", "execSync", "spawn", "system(",
+        "fetch(", "fs.rm", "fs.writeFile", "fs.unlink", "rimraf",
+        "rmtree", "delete", "DROP", "DELETE", "TRUNCATE",
+        "execute(", "executemany", "executescript",
+        "open(", "write(", "send(", "post_message", "postMessage",
+        "kubectl", "terraform", "helm", "docker", "container",
+        "put_user_policy", "attach_role", "create_access_key",
+        "terminate_instances", "delete_objects", "delete_table",
+        "delete_db_instance", "delete_stack", "delete_function",
+        "page.", "selenium", "playwright", "browser",
+        "click(", "fill(", "goto(", "navigate(",
+        "eval(", "exec_module", "importlib",
+        "chmod", "chown", "write_text", "write_bytes",
+        "prisma", "knex", "mongoose",
+        "iam", "policy", "role", "user", "group",
+        "mail", "email", "slack", "twilio", "sns", "ses",
+        "cursor", "connection", "session",
+        "cmd", "command", "shell", "terminal",
+        "refund", "charge", "payout", "transfer",
+        "api_key", "token", "secret", "credential",
+        "launch", "deploy", "scale", "rollback",
+        "create_repo", "create_issue", "create_branch",
+        "httpx", "aiohttp", "urllib", "requests",
+        "git", "Repo", "push", "commit", "reset",
+        "send_keys", "click", "fill",
+        "rename", "move", "replace",
+        "Path(", "pathlib",
+    })
+
     for filepath in files:
         rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
         try:
             source = filepath.read_text(encoding="utf-8")
-            tree = ast.parse(source, filename=str(filepath))
-        except (SyntaxError, UnicodeDecodeError) as exc:
-            # File is not valid Python or not valid UTF-8. Record it so
-            # users see what got skipped; a non-empty analysis_errors list
-            # means part of the repo wasn't actually scanned.
+        except (UnicodeDecodeError, OSError) as exc:
             analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
             continue
 
-        # Wrap per-file analysis in try/except so one malformed node never
-        # zeros out an entire repo (lesson from v0.2.2 crash on ast.Name.name).
+        # Pre-filter: skip files without any sink substring.
+        # BUT only skip after confirming the file parses — a file with
+        # a syntax error must be recorded in analysis_errors, not
+        # silently skipped. Files without sink substrings are still
+        # parsed (cheaply) so that detector crashes are caught.
+        has_sink_substring = any(s in source for s in SINK_SUBSTRINGS)
+
+        try:
+            tree = ast.parse(source, filename=str(filepath))
+        except SyntaxError as exc:
+            analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+            continue
+
+        if not has_sink_substring:
+            # Still run declarative guard detection (may crash, must be caught)
+            try:
+                _find_declarative_guarded_classes(tree, rules.reachability)
+            except Exception as exc:
+                analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+            continue
+
+        # tree is already parsed above; no need to re-parse
         try:
             sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
             # Detect declarative guards (class attributes, decorators, constructor params)
@@ -697,8 +748,19 @@ def _collect_files(
     if target.is_file():
         return [target] if target.suffix == ".py" else []
 
-    # Collect all .py files recursively
-    all_py_files = list(target.rglob("*.py"))
+    # Collect all .py files recursively — use os.walk for speed
+    # (pathlib.rglob is ~2x slower on large trees)
+    import os as _os
+    all_py_files = []
+    for root, dirs, files in _os.walk(target):
+        # Prune excluded dirs in-place (avoids walking them)
+        dirs[:] = [d for d in dirs if d not in ('.git', '.hg', '.svn', '.venv', 'venv',
+                       'env', '.env', '__pycache__', 'node_modules', 'bower_components',
+                       'build', 'dist', 'target', '.eggs', '.mypy_cache', '.ruff_cache',
+                       '.tox', '.cache', '.pytest_cache', '.coverage', 'htmlcov')]
+        for f in files:
+            if f.endswith('.py'):
+                all_py_files.append(Path(root) / f)
 
     # If no include globs specified, scan all .py files (minus excludes)
     if not include_globs:
