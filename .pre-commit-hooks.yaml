@@ -1,0 +1,8 @@
+- id: actenon-scan
+  name: actenon-scan
+  description: "Defensive static-analysis scanner for the AI-agent execution gap."
+  entry: actenon-scan scan
+  language: python
+  types: [python]
+  args: ["--fail-on", "medium"]
+  require_serial: true

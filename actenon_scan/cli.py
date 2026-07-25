@@ -41,6 +41,18 @@ def main(argv: list[str] | None = None) -> int:
         "Default off — unsupported files alone do not fail the build.",
     )
     scan_parser.add_argument("--output", "-o", default=None, help="Write output to file instead of stdout.")
+    scan_parser.add_argument(
+        "--changed-only",
+        default=None,
+        metavar="GIT_REF",
+        help="Only scan files changed since GIT_REF (e.g., HEAD~1, main, origin/main). Requires git.",
+    )
+    scan_parser.add_argument(
+        "--guard",
+        action="append",
+        default=None,
+        help="Register a guard pattern by name (repeatable). No config file needed.",
+    )
 
     # rules
     _rules_parser = subparsers.add_parser("rules", help="List active rules.")
@@ -99,11 +111,32 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         for filepath in target.rglob("*.py"):
             suppressions.update(collect_suppressions_from_file(filepath))
 
+    # --guard: register guard patterns without a config file
+    config_path = args.config
+    if args.guard and not config_path:
+    # Write a temporary config with the guard patterns
+        import tempfile, json
+        tmp_config = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False,
+            prefix="actenon-scan-guards-",
+        )
+        json.dump({"guard_patterns": args.guard}, tmp_config)
+        tmp_config.close()
+        config_path = tmp_config.name
+
+    # --changed-only: filter to files changed since git ref
+    include_globs = args.include
+    if args.changed_only:
+        changed_files = _get_changed_files(args.changed_only, target)
+        if changed_files:
+            # Convert to include globs
+            include_globs = changed_files
+
     try:
         result = scan_path(
             target,
-            config=args.config,
-            include_globs=args.include,
+            config=config_path,
+            include_globs=include_globs,
             exclude_globs=args.exclude,
             suppressions=suppressions,
             baseline_findings=baseline,
@@ -159,45 +192,74 @@ def _cmd_rules(args: argparse.Namespace) -> int:
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
+    """Write a starter .actenon-scan.json config.
+
+    If the current directory contains Python files with guard-shaped
+    function names not in the default vocabulary, they are pre-populated
+    as suggestions.
+    """
+    # Scan for unrecognised guard-shaped names in the current directory
+    suggested_guards: list[str] = []
+    try:
+        from actenon_scan.engine import scan_path, _find_declarative_guarded_classes
+        from actenon_scan.rules.loader import load_default_rules
+        import ast as _ast
+        from pathlib import Path as _Path
+
+        rules = load_default_rules()
+        known_guards = set(rules.guard_patterns)
+        guard_shape_words = {"authorize", "check", "verify", "guard", "gate",
+                             "permission", "auth", "policy", "enforce", "allow",
+                             "approve", "confirm", "validate", "require"}
+
+        for pyfile in _Path(".").rglob("*.py"):
+            if "__pycache__" in pyfile.parts or pyfile.name.startswith("test_"):
+                continue
+            try:
+                source = pyfile.read_text(encoding="utf-8")
+                tree = _ast.parse(source, filename=str(pyfile))
+            except Exception:
+                continue
+            for node in _ast.walk(tree):
+                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                    name_lower = node.name.lower()
+                    # Check if it looks guard-shaped but is not in known_guards
+                    if any(word in name_lower for word in guard_shape_words):
+                        if node.name not in known_guards and node.name not in suggested_guards:
+                            suggested_guards.append(node.name)
+            if len(suggested_guards) >= 20:
+                break
+    except Exception:
+        pass  # Don't fail --init if scanning fails
+
     config = {
         "version": "1",
-        "sinks": [],
-        "guards": [
-            {"patterns": ["my_custom_authorize", "my_org_verify_permission"]}
-        ],
-        "reachability": {
-            "tool_decorators": [],
-            "tool_wrappers": [],
-            "tool_base_classes": [],
-            "tool_methods": [],
-            "agent_frameworks": []
-        }
+        "guard_patterns": suggested_guards if suggested_guards else [],
     }
+
     if args.format == "json":
-        path = "actenon-scan.json"
+        path = ".actenon-scan.json"
         content = json.dumps(config, indent=2) + "\n"
     else:
-        path = "actenon-scan.yml"
+        path = ".actenon-scan.yml"
         lines = ["# actenon-scan configuration", ""]
-        lines.append("# Add your custom guard patterns here:")
-        lines.append("guards:")
-        lines.append("  - patterns:")
-        lines.append("      - my_custom_authorize")
-        lines.append("      - my_org_verify_permission")
+        if suggested_guards:
+            lines.append("# Suggested guard patterns found in your codebase:")
+            lines.append("guard_patterns:")
+            for g in suggested_guards:
+                lines.append(f'  - "{g}"')
+        else:
+            lines.append("# Add your custom guard patterns here:")
+            lines.append('guard_patterns: []')
         lines.append("")
-        lines.append("# Add your custom sink rules here:")
-        lines.append("# sinks:")
-        lines.append("#   - id: CUSTOM-SINK")
-        lines.append("#     category: custom")
-        lines.append("#     severity: high")
-        lines.append("#     description: Custom sink")
-        lines.append("#     match:")
-        lines.append("#       type: name_call")
-        lines.append("#       func_patterns: [\"my_dangerous_function\"]")
         content = "\n".join(lines) + "\n"
 
     Path(path).write_text(content)
-    print(f"Wrote default config to {path}")
+    print(f"Wrote config to {path}")
+    if suggested_guards:
+        print(f"Found {len(suggested_guards)} suggested guard(s): {', '.join(suggested_guards[:5])}{'...' if len(suggested_guards) > 5 else ''}")
+    else:
+        print("No unrecognised guard-shaped names found. Add patterns manually if needed.")
     return 0
 
 
@@ -291,3 +353,23 @@ def _cmd_adopt(args: argparse.Namespace) -> int:
     print("  3. Re-scan after remediation: actenon-scan scan <path>")
     print("  4. Create a baseline for accepted findings: actenon-scan baseline <path>")
     return 1 if result.has_findings_at_or_above("medium") else 0
+
+
+def _get_changed_files(git_ref: str, target: Path) -> list[str]:
+    """Get files changed since a git ref, relative to target."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "--relative", git_ref],
+            capture_output=True, text=True, cwd=str(target),
+            timeout=10,
+        )
+        if result.returncode != 0:
+            print(f"Warning: git diff failed: {result.stderr}", file=sys.stderr)
+            return None
+        # Filter to .py files only
+        changed = [f.strip() for f in result.stdout.splitlines() if f.strip().endswith(".py")]
+        return changed if changed else None
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        print(f"Warning: --changed-only requires git: {e}", file=sys.stderr)
+        return None

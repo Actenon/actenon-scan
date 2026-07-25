@@ -80,7 +80,8 @@ class CliTests(unittest.TestCase):
                     capture_output=True, text=True,
                 )
                 self.assertEqual(0, result.returncode)
-                self.assertTrue(Path("actenon-scan.json").exists())
+                # v5: --init now writes .actenon-scan.json (with dot prefix)
+                self.assertTrue(Path(".actenon-scan.json").exists())
             finally:
                 os.chdir(old_cwd)
 
