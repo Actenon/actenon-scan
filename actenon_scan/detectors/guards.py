@@ -99,67 +99,51 @@ def check_guard(
 
     # Severity mapping:
     # Assert-style guards (authorize, verify_pccb, etc.) conventionally raise
-    # on failure. For these, full binding is not required — the guard raises
-    # regardless of what it inspects. BUT a guard called with ONLY literal
-    # arguments (no variable names) cannot be bound to anything the sink
-    # acts on. It's checking a constant.
+    # on failure. For these, full binding is NOT required — the guard raises
+    # regardless of what it inspects, and requiring binding would flag
+    # legitimate idioms:
     #
-    # This narrower rule separates:
-    #   verify_pccb(proof, intent, action)  -> 3 Name args -> guarded
-    #   authorize("refund")                  -> 0 Name args -> UNBOUND (literal-only)
+    #   authorize("refund")                     -- authorizes by action name
+    #   casbin_enforce("user", "record", "del") -- Casbin's subject/object/action
+    #   verify_pccb(proof, intent, action)      -- Actenon's own PCCB pattern
     #
-    # The deeper observation: Actenon's own PCCB guard pattern doesn't exhibit
-    # syntactic parameter binding — the binding lives inside the PCCB object,
-    # invisible at the call site. This is an argument FOR the runtime kernel:
-    # the thing scan cannot verify is precisely what the kernel enforces.
+    # None of these share an identifier with the sink they guard, and all
+    # three are correct. Binding intersection cannot separate them from a
+    # defeated guard, so assert-style guards are exempt from it.
+    #
+    # There is one case that IS separable: COUNTERFEIT BINDING. A guard that
+    # passes variables — thereby appearing to inspect runtime data — where
+    # every one of those variables provably resolves to a compile-time
+    # constant, and none of them is the data the sink acts on:
+    #
+    #   attacker = "evil_intent"
+    #   authorize(attacker)                     -- looks bound; inspects nothing
+    #   stripe.Refund.create(payment_intent=pi)
+    #
+    # `attacker` is not a parameter and is assigned only from a literal, so
+    # the guard's apparent data-dependence is fake. This is distinguishable
+    # from all three legitimate idioms above, none of which pass variables at
+    # all (authorize/casbin_enforce) or pass function parameters (verify_pccb).
+    #
+    # Note what remains undetectable: an assert-style guard passing REAL
+    # parameters that happen to be the wrong ones. `verify_pccb(proof, intent,
+    # action)` and a hypothetical `verify_pccb(wrong, wrong2, wrong3)` are
+    # syntactically identical. See docs/COVERAGE.md — the binding that makes
+    # PCCB sound is cryptographic, inside the proof object, and invisible to
+    # any static reader of the call site.
     if is_assert_style:
-        # Check if the guard has at least one variable (Name) argument AND
-        # the sink also has at least one variable argument. A guard called
-        # with only literal arguments while the sink takes variables is
-        # checking a constant — it cannot be bound to the sink's parameters.
-        #
-        # But if BOTH guard and sink use only literals (e.g., authorize("refund")
-        # guarding stripe.Refund.create(payment_intent=pi) where pi is the
-        # function parameter), the guard is still valid — it's authorizing
-        # the action type, not the specific parameter value. This is the
-        # common pattern: authorize("action_name") before executing that action.
-        #
-        # The UNBOUND finding is only produced when the guard has NO variables
-        # AND the guard is not checking an action-type constant. We determine
-        # "action-type constant" by checking if the guard's literal argument
-        # matches the sink's action/category — but since we don't have that
-        # context here, we use a simpler heuristic: if the sink has variable
-        # args and the guard has only literal args, AND the guard has more
-        # than one literal arg (suggesting it's checking a specific target,
-        # not just an action name), then it's UNBOUND.
-        #
-        # s02: authorize(attacker) — 1 Name arg -> guarded (has variables)
-        # p01: authorize("refund") — 0 Name args, 1 literal -> guarded
-        #       (single literal = action name authorization)
-        # s02-alt: verify_proof(action="refund", target="unrelated", amount=1)
-        #       — 0 Name args, 3 literals -> UNBOUND (checking specific values)
-        guard_has_variables = _guard_has_variable_args(guard)
-        if not guard_has_variables:
-            # Count literal arguments
-            literal_count = len(guard.args) + len(guard.keywords)
-            if literal_count <= 1:
-                # Single literal argument — this is action-name authorization
-                # (e.g., authorize("refund")). This is the common, valid pattern.
-                return GuardCheckResult(
-                    guarded=True,
-                    message="assert-style guard dominates and authorizes by action name (single literal argument)",
-                )
-            else:
-                # Multiple literal arguments — the guard is checking specific
-                # constant values (e.g., verify_proof(action="refund", target="x", amount=1)).
-                # It's not bound to the sink's variable parameters.
-                return GuardCheckResult(
-                    unbound=True,
-                    message="assert-style guard dominates but is called with only literal arguments — it cannot be bound to the sink's parameters",
-                )
+        if not is_bound and _is_counterfeit_binding(guard, sink_node, func_node):
+            return GuardCheckResult(
+                unbound=True,
+                message=(
+                    "assert-style guard dominates, but every variable it inspects "
+                    "resolves to a compile-time constant — it is not bound to the "
+                    "data the sink acts on"
+                ),
+            )
         return GuardCheckResult(
             guarded=True,
-            message="assert-style guard dominates, has variable arguments, and conventionally raises on failure",
+            message="assert-style guard dominates and conventionally raises on failure",
         )
     elif is_bound and result_used:
         return GuardCheckResult(
@@ -346,26 +330,171 @@ def _build_alias_map(func_node: ast.AST) -> dict[str, set[str]]:
     return aliases
 
 
-def _guard_has_variable_args(guard: ast.Call) -> bool:
-    """Check if a guard call has at least one variable (ast.Name) argument.
+# Sentinel for a name whose value cannot be resolved statically.
+_UNRESOLVABLE = object()
 
-    A guard called with only literal arguments (strings, numbers, etc.)
-    cannot be bound to anything the sink acts on — it's checking a constant.
+
+def _is_counterfeit_binding(
+    guard: ast.Call,
+    sink_node: ast.Call | None,
+    func_node: ast.AST,
+) -> bool:
+    """Detect a guard that fakes data-dependence on the sink's parameters.
+
+    Returns True only when ALL of the following hold:
+
+      1. the guard passes at least one variable (so it *appears* bound),
+      2. the sink acts on at least one variable (so there is real data to bind to),
+      3. every argument the guard passes is a literal or a name that provably
+         resolves to a compile-time constant, and
+      4. (checked by the caller) the guard shares no identifier with the sink.
+
+    Condition 3 is what separates this from a legitimate guard. A guard
+    holding a function parameter, an attribute, a call result, or any name
+    this analysis cannot resolve is treated as genuinely data-dependent and
+    is NOT counterfeit — the conservative direction, since a false UNBOUND on
+    a real guard is a precision loss.
 
     Examples:
-      authorize("refund")              -> False (only literal "refund")
-      authorize(pi)                    -> True  (variable pi)
-      verify_pccb(proof, intent, action) -> True  (three variables)
-      check_permission("file:delete")  -> False (only literal)
-      policy_gate("delete", path)      -> True  (variable path)
+      attacker = "evil_intent"; authorize(attacker)  -> True  (constant laundered)
+      authorize("refund")                            -> False (no variables; cond 1)
+      casbin_enforce("user", "record", "delete")     -> False (no variables; cond 1)
+      verify_pccb(proof, intent, action)             -> False (parameters; cond 3)
+      policy_gate("delete", path)                    -> False (parameter; cond 3)
     """
-    for arg in guard.args:
-        if isinstance(arg, ast.Name):
-            return True
-    for kw in guard.keywords:
-        if isinstance(kw.value, ast.Name):
-            return True
-    return False
+    if sink_node is None:
+        return False
+
+    # (1) the guard must appear to inspect runtime data
+    if not _collect_arg_names(guard):
+        return False
+
+    # (2) the sink must act on runtime data
+    if not _collect_arg_names(sink_node):
+        return False
+
+    # (3) every guard argument must be a provable compile-time constant
+    params = _function_params(func_node)
+    bindings = _collect_name_bindings(func_node)
+
+    guard_values = list(guard.args) + [kw.value for kw in guard.keywords]
+    for value in guard_values:
+        if isinstance(value, ast.Constant):
+            continue
+        if isinstance(value, ast.Name) and _name_is_constant(value.id, params, bindings):
+            continue
+        return False
+
+    return True
+
+
+def _function_params(func_node: ast.AST) -> set[str]:
+    """Collect every parameter name bound by a function definition."""
+    params: set[str] = set()
+    if not isinstance(func_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return params
+    a = func_node.args
+    for arg in [*a.posonlyargs, *a.args, *a.kwonlyargs]:
+        params.add(arg.arg)
+    if a.vararg is not None:
+        params.add(a.vararg.arg)
+    if a.kwarg is not None:
+        params.add(a.kwarg.arg)
+    return params
+
+
+def _collect_name_bindings(func_node: ast.AST) -> dict[str, list]:
+    """Map each locally-bound name to every value expression assigned to it.
+
+    Bindings this analysis cannot follow (loop targets, `with ... as`,
+    `except ... as`, augmented assignment, `global`/`nonlocal`, tuple
+    unpacking) record the _UNRESOLVABLE sentinel, which forces the name to be
+    treated as non-constant.
+    """
+    bindings: dict[str, list] = {}
+
+    def bind(name: str, value: object) -> None:
+        bindings.setdefault(name, []).append(value)
+
+    def bind_target_unresolvable(target: ast.AST) -> None:
+        for sub in ast.walk(target):
+            if isinstance(sub, ast.Name):
+                bind(sub.id, _UNRESOLVABLE)
+
+    for node in ast.walk(func_node):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    bind(target.id, node.value)
+                else:
+                    # tuple/list unpacking, subscript, attribute
+                    bind_target_unresolvable(target)
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name):
+                bind(node.target.id, node.value if node.value is not None else _UNRESOLVABLE)
+        elif isinstance(node, ast.AugAssign):
+            bind_target_unresolvable(node.target)
+        elif isinstance(node, ast.NamedExpr):
+            if isinstance(node.target, ast.Name):
+                bind(node.target.id, node.value)
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            bind_target_unresolvable(node.target)
+        elif isinstance(node, ast.comprehension):
+            bind_target_unresolvable(node.target)
+        elif isinstance(node, ast.withitem):
+            if node.optional_vars is not None:
+                bind_target_unresolvable(node.optional_vars)
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name:
+                bind(node.name, _UNRESOLVABLE)
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            for name in node.names:
+                bind(name, _UNRESOLVABLE)
+
+    return bindings
+
+
+def _name_is_constant(
+    name: str,
+    params: set[str],
+    bindings: dict[str, list],
+    seen: set[str] | None = None,
+) -> bool:
+    """Check whether a name provably holds a compile-time constant.
+
+    Conservative in every unknown direction: a parameter, an unbound name
+    (global or closure), a name bound by an unfollowable construct, or an
+    assignment cycle all return False.
+    """
+    if seen is None:
+        seen = set()
+    if name in seen:
+        return False
+    seen.add(name)
+
+    # A parameter carries caller-controlled data by definition.
+    if name in params:
+        return False
+
+    values = bindings.get(name)
+    if not values:
+        # Never assigned locally — a global, closure or import. Unknown.
+        return False
+
+    for value in values:
+        if value is _UNRESOLVABLE:
+            return False
+        if isinstance(value, ast.Constant):
+            continue
+        if isinstance(value, ast.Name) and _name_is_constant(value.id, params, bindings, seen):
+            continue
+        if isinstance(value, (ast.Tuple, ast.List, ast.Set)) and all(
+            isinstance(elt, ast.Constant) for elt in value.elts
+        ):
+            continue
+        return False
+
+    return True
 
 
 def _is_assert_style_guard(guard: ast.Call, guard_patterns: list[str]) -> bool:
