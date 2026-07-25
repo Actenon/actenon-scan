@@ -120,6 +120,48 @@ def _build_parent_map_for_engine(tree: ast.AST) -> dict[int, ast.AST]:
     return parent_map
 
 
+def _is_in_finally_cleanup(tree: ast.Module, sink_line: int, source: str) -> bool:
+    """Check if a sink is inside a `finally` block AND the enclosing function
+    creates a temp file (tempfile.mkstemp, NamedTemporaryFile, etc.).
+
+    This suppresses false positives from temp-file cleanup:
+      fd, path = tempfile.mkstemp(...)
+      script = Path(path)
+      try:
+          script.write_text(source)
+          ...
+      finally:
+          script.unlink(missing_ok=True)  # ← this is cleanup, not a consequential action
+
+    Only suppresses if:
+    1. The sink is inside a `finally` block
+    2. The enclosing function contains a tempfile call
+    3. The sink is a file deletion (unlink, rmtree, remove, rmdir)
+    """
+    # Check if the sink is inside a finally block
+    in_finally = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Try):
+            if node.finalbody:
+                for finally_node in node.finalbody:
+                    if hasattr(finally_node, "lineno") and hasattr(finally_node, "end_lineno"):
+                        if finally_node.lineno <= sink_line <= getattr(finally_node, "end_lineno", sink_line):
+                            in_finally = True
+                            break
+
+    if not in_finally:
+        return False
+
+    # Check if the source contains tempfile creation
+    tempfile_indicators = [
+        "tempfile.", "mkstemp", "mkdtemp", "NamedTemporaryFile",
+        "TemporaryDirectory", "tempfile.mkstemp", "tempfile.mkdtemp",
+    ]
+    has_tempfile = any(ind in source for ind in tempfile_indicators)
+
+    return has_tempfile
+
+
 def _find_declarative_guarded_classes(
     tree: ast.Module, reachability_cfg: dict
 ) -> set[str]:
@@ -387,6 +429,13 @@ def scan_path(
                 reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
                 if reach.confidence == "none":
                     continue  # not agent-reachable — skip
+
+                # Suppress file-deletion findings inside `finally` blocks
+                # when the deleted path is a temp file (created with
+                # tempfile in the same function). This is cleanup, not
+                # a consequential action.
+                if sf.category in ("data_destruction", "file_mutation") and _is_in_finally_cleanup(tree, sf.line, source):
+                    continue
 
                 guarded = is_guarded(tree, sf.line, rules.guard_patterns)
                 if guarded:
