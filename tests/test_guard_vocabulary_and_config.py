@@ -38,10 +38,7 @@ def refund(pi: str):
     import stripe; stripe.Refund.create(payment_intent=pi)
 '''
         findings = _scan_source(source)
-        # v2: assert_can("user", "refund") has only literal args.
-        # May produce UNBOUND (medium). OK as long as not HIGH.
-        high_findings = [f for f in findings if f.severity == "high"]
-        assert len(high_findings) == 0, f"assert_can should not produce HIGH: {high_findings}"
+        assert len(findings) == 0, f"assert_can should be a guard: {findings}"
 
     def test_policy_gate(self):
         source = '''import shutil
@@ -76,11 +73,7 @@ def refund(pi: str):
     import stripe; stripe.Refund.create(payment_intent=pi)
 '''
         findings = _scan_source(source)
-        # v2: can_user("user", "refund") has only literal args.
-        # It may produce an UNBOUND finding (medium severity) — that's OK
-        # as long as it's not HIGH (which would fail --fail-on high).
-        high_findings = [f for f in findings if f.severity == "high"]
-        assert len(high_findings) == 0, f"can_user should not produce HIGH findings: {high_findings}"
+        assert len(findings) == 0, f"can_user should be a guard: {findings}"
 
     def test_enforce_policy(self):
         source = '''from mcp.server.fastmcp import FastMCP
@@ -143,8 +136,8 @@ def delete(path: str):
     def test_original_guards_still_work(self):
         """Original guard names (authorize, check_permission) still work.
 
-        v2: authorize is assert-style (raises) -> fully guarded.
-        check_permission returns a value -> WEAK (low severity) if discarded.
+        authorize("refund") is assert-style with a single literal -> guarded.
+        check_permission("refund") is non-assert with discarded result -> WEAK (low).
         """
         source = '''from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("x")
@@ -158,13 +151,11 @@ def refund2(pi: str):
     import stripe; stripe.Refund.create(payment_intent=pi)
 '''
         findings = _scan_source(source)
-        # authorize is assert-style -> 0 findings
+        # authorize is assert-style with single literal -> guarded -> 0 findings for that function
         # check_permission with discarded result -> WEAK (low severity)
-        high_or_medium = [f for f in findings if f.severity in ("high", "medium")]
-        assert len(high_or_medium) == 0, f"Should not have high/medium findings: {high_or_medium}"
-        # WEAK findings are OK (low severity)
-        for f in findings:
-            assert f.severity == "low", f"check_permission should be WEAK (low), got {f.severity}"
+        assert len(findings) == 0 or all(
+            f.severity == "low" for f in findings
+        ), f"Should be clean or WEAK (low), got {[(f.rule_id, f.severity) for f in findings]}"
 
     def test_no_guard_still_finds(self):
         """Without a guard, findings still appear."""
