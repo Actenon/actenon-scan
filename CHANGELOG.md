@@ -5,6 +5,26 @@ All notable changes to `actenon-scan` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [1.0.0] — 2026-07-25
+
+### Marketplace release
+
+- GitHub Action marketplace-ready: sticky PR comments, SARIF upload, changed-files scope, pinned version, fail-on: none default.
+- Blast-radius summary as the default CLI output.
+- `actenon-scan explain <file:line>` — execution-path analysis.
+- `actenon-scan fix <file:line>` — neutral remediation diffs (guard → approval → Actenon).
+- `actenon-scan brief <file:line> --format markdown` — one-page outreach report.
+- Self-contained HTML and Markdown reports.
+- Content-hash cache for fast re-runs.
+- Receiver-origin resolution for chained calls (psycopg2.connect().cursor().execute()).
+- PyGithub repository-mutation coverage (REPOSITORY-MUTATION, GITHUB-REST-MUTATION).
+- External email coverage (SMTP_SSL, SES send_raw_email, SendGrid, Resend, Postmark).
+- `.actenon-scan.json` auto-detection for repos with test fixtures.
+- Self-scan reports clean on own repository (verify-claims enforced).
+- CORPUS_STUDY.md: 25 repos, 23K files, 30 hand-triaged findings, 51/63 initial FP rate documented.
+- 276 tests, 14 CI gates, machine-verified README claims.
+
 ## [0.8.0] — 2026-07-25
 
 ### What changed for you
