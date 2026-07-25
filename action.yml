@@ -1,5 +1,5 @@
 name: "actenon-scan"
-description: "Find where agent-controlled intent reaches consequential actions without an enforceable authority check. Python + TypeScript. Zero config."
+description: "Find where agent-controlled intent reaches consequential actions without an authority check. Python + TypeScript."
 branding:
   icon: "shield"
   color: "blue"
