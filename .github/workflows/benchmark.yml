@@ -1,0 +1,30 @@
+name: Benchmark
+
+# Ratcheting benchmark: precision must be 100%, recall and soundness
+# must not decrease from the committed baseline.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  benchmark:
+    name: Recall / Precision / Soundness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install with dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run benchmark
+        run: python scripts/benchmark.py --check
