@@ -141,6 +141,8 @@ def delete(path: str):
         """
         source = '''from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("x")
+def check_permission(action: str):
+    raise PermissionError("denied")
 @mcp.tool()
 def refund(pi: str):
     authorize("refund")

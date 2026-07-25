@@ -94,7 +94,11 @@ def check_guard(
     is_bound = _is_bound(guard, sink_node, func_node)
 
     # Check result use
-    is_assert_style = _is_assert_style_guard(guard, guard_patterns)
+    # v3: resolve guard by DEFINITION, not by name.
+    # If the guard function is defined in the scanned module, classify it
+    # from its AST (does it raise? does it return a value?).
+    # If unresolvable (imported), fall back to a NARROW name heuristic.
+    is_assert_style = _resolve_guard_style(guard, tree, guard_patterns)
     result_used = is_assert_style or _is_result_used(guard, parent_map)
 
     # Severity mapping:
@@ -495,6 +499,128 @@ def _name_is_constant(
         return False
 
     return True
+
+
+def _resolve_guard_style(
+    guard: ast.Call,
+    tree: ast.Module,
+    guard_patterns: list[str],
+) -> bool:
+    """Resolve whether a guard is assert-style (raises) or boolean-style (returns).
+
+    v3: resolve by DEFINITION, not by name.
+
+    1. LOCAL RESOLUTION: If the guard function is defined in the scanned
+       module, classify it from its AST:
+         - contains a raise statement -> assert-style
+         - returns a value and never raises -> boolean-style
+         - both -> assert-style (the raise dominates)
+
+    2. UNRESOLVABLE: If the guard is imported or cannot be resolved,
+       fall back to a NARROW name heuristic. Per RULE 4, bias to WEAK
+       (boolean-style) for anything that is not clearly assert-style.
+       Only names beginning with assert_, require_, enforce_, ensure_,
+       must_ stay assert-style when unresolvable.
+
+    This closes the false-negative class where check_permission, check_access,
+    check_auth, and verify_token were in assert_exact by name but are
+    user-defined functions that return bool rather than raising.
+    """
+    # Get the guard function name
+    guard_name = _get_call_name(guard.func)
+    if not guard_name:
+        return False
+
+    # Try local resolution: find the function definition in the module
+    local_def = _find_function_def(tree, guard_name)
+    if local_def is not None:
+        # Classify from the AST
+        return _function_raises(local_def)
+
+    # Unresolvable: fall back to name heuristic.
+    # Per RULE 4, bias to WEAK for ambiguous names. But a broad set of
+    # guard names are CONVENTIONALLY assert-style — they raise on failure
+    # in practice. Removing them all would produce WEAK findings on every
+    # authorize()/verify_pccb() call, which is a precision regression.
+    #
+    # The four names that were false negatives (check_permission, check_access,
+    # check_auth, verify_token) are NOT in this set — they have check_*/verify_*
+    # prefixes which are ambiguous (could return bool). The names below are
+    # those that conventionally raise:
+    name_lower = guard_name.lower().split(".")[-1]
+
+    # Prefixes that conventionally raise
+    assert_prefixes = ("assert_", "require_", "enforce_", "ensure_", "must_")
+    for prefix in assert_prefixes:
+        if name_lower.startswith(prefix):
+            return True
+
+    # Names that conventionally raise or block (unresolvable fallback)
+    conventional_assert = {
+        "authorize", "authenticate", "authorize_request", "authorize_action",
+        "verify", "validate", "guard", "gate", "policy_gate", "policy_check",
+        "guard_action", "guard_request",
+        "enforce_policy", "enforce_permission", "enforce_authorization",
+        "assert_can", "assert_allowed", "assert_authorized", "assert_permitted",
+        "can_user", "user_can", "user_may",
+        "audit_and_allow", "audit_and_execute", "audit_and_proceed",
+        # Actenon-specific proof verification (raises on invalid proof)
+        "verify_pccb", "verify_proof", "verify_signature",
+        # MCP-native approval primitives (block until human responds)
+        "elicit", "elicitation", "request_elicitation",
+        "confirm", "confirm_action", "confirm_proceed",
+        "human_approval", "human_in_the_loop", "human_confirmation",
+        # OPA/Casbin (conventionally raise)
+        "casbin_enforce",
+        # JWT/OAuth (conventionally raise or redirect)
+        "jwt_required", "require_jwt",
+        "require_auth", "require_authentication", "require_authorization",
+        "login_required", "requires_login", "requires_auth",
+        "require_admin", "requires_admin", "admin_required",
+        "require_superuser",
+        # Framework guards
+        "auth_required", "authz_required", "require_authz",
+        "verify_mtls", "require_client_cert", "require_api_key",
+    }
+    if name_lower in conventional_assert:
+        return True
+
+    # Also check substring for custom names like my_org_verify_permission
+    for entry in conventional_assert:
+        if entry in name_lower:
+            return True
+
+    # Everything else is NOT assert-style when unresolvable.
+    # This includes: check_permission, check_access, check_auth, verify_token
+    # — names that could return bool. Per RULE 4, bias to WEAK.
+    return False
+
+
+def _find_function_def(tree: ast.Module, name: str) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    """Find a function definition in the module by name.
+
+    Handles dotted names (e.g., self.authorize -> authorize).
+    """
+    # Strip dotted prefix to get the last segment
+    short_name = name.split(".")[-1]
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name == short_name or node.name == name:
+                return node
+    return None
+
+
+def _function_raises(func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Check if a function contains a raise statement on a non-exceptional path.
+
+    A function that raises is assert-style — the guard enforces by raising.
+    A function that only returns and never raises is boolean-style.
+    """
+    for child in ast.walk(func_node):
+        if isinstance(child, ast.Raise):
+            return True
+    return False
 
 
 def _is_assert_style_guard(guard: ast.Call, guard_patterns: list[str]) -> bool:

@@ -50,9 +50,15 @@ def refund_customer(amount: float):
 
 
 def test_generic_guard_check_permission():
-    """check_permission() before a sink = no finding."""
+    """check_permission() before a sink = no finding.
+
+    v3: check_permission is defined locally as raising -> assert-style -> guarded.
+    """
     code = """
 from langchain.tools import tool
+
+def check_permission(action: str):
+    raise PermissionError("denied")
 
 @tool
 def delete_file(path: str):
@@ -64,9 +70,7 @@ def delete_file(path: str):
         f.flush()
         result = scan_path(f.name)
     os.unlink(f.name)
-    # v2: check_permission with constant args is guarded (constant-origin binding).
-    # The guard's args trace to literals, not to function parameters, so the
-    # guard IS bound — it authorizes the action type.
+    # v3: check_permission is defined locally as raising -> assert-style -> guarded.
     assert result.finding_count == 0, f"check_permission should be clean: {[(f.rule_id, f.severity) for f in result.findings]}"
 
 
