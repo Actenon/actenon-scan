@@ -486,10 +486,19 @@ def _is_name_in_tool_registration(func_name: str, source: str) -> bool:
       server.tool("name", myHandler)
       setRequestHandler(Schema, myHandler)
       DynamicStructuredTool({ func: myHandler })
+
+    IMPORTANT: short parameter names (c, x, e, etc.) are NEVER treated as
+    function names for tool registration matching. These are arrow function
+    parameters (e.g., `c => handler.fetch(c.req.raw)`), not named functions
+    passed to tool registrations.
     """
+    # Reject short names that are clearly arrow function parameters, not
+    # named functions being passed to tool registrations
+    if len(func_name) <= 2:
+        return False
+
     for signal in TS_REACHABILITY_SIGNALS:
         if signal == "tool(":
-            # Check if func_name appears in a line containing tool(
             for line in source.split("\n"):
                 stripped = line.strip()
                 if stripped.startswith("import ") or stripped.startswith("from "):
@@ -500,11 +509,9 @@ def _is_name_in_tool_registration(func_name: str, source: str) -> bool:
                     return True
         elif signal == "setRequestHandler":
             if "setRequestHandler" in source and func_name in source:
-                # Check they appear on the same or adjacent lines
                 lines = source.split("\n")
                 for i, line in enumerate(lines):
                     if "setRequestHandler" in line:
-                        # Check this line and next 2 lines for func_name
                         for j in range(i, min(i + 3, len(lines))):
                             if func_name in lines[j]:
                                 return True
@@ -664,19 +671,34 @@ def _check_file_level_reachability_strict(source: str) -> bool:
     """Strict check for module-level sinks.
 
     Module-level sinks (not inside any function) are only reachable if
-    the file is an MCP server that registers request handlers directly
-    at module level. A file that merely calls tool() to define tools
-    but has the sink in the script body (e.g., fs.writeFile to save a
-    PNG in an example) is NOT agent-reachable.
+    the file is an MCP server that registers request handlers DIRECTLY
+    at module level (not inside a function). A file that defines a
+    buildServer() function containing setRequestHandler and then uses
+    handler.fetch at module level is NOT agent-reachable — the handler.fetch
+    is HTTP server plumbing, not a tool handler.
 
-    Only setRequestHandler and registerTool count as strong signals
-    for module-level reachability. tool() and DynamicStructuredTool
-    define tools but don't make module-level code agent-reachable.
+    Only setRequestHandler and registerTool count as strong signals.
+    They must appear at module level (indentation <= 2 spaces, i.e.,
+    not inside a function body).
     """
     strict_signals = ["setRequestHandler", "registerTool"]
-    for signal in strict_signals:
-        if signal in source:
-            return True
+    for line in source.split("\n"):
+        stripped = line.strip()
+        # Skip comments
+        if stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
+            continue
+        # Skip import lines
+        if stripped.startswith("import ") or stripped.startswith("from "):
+            continue
+        for signal in strict_signals:
+            if signal in stripped:
+                # Must be at true module level — check indentation
+                # Module-level code has 0 spaces of indentation.
+                # Code inside a function has 4+ spaces.
+                # Code inside a module-level if/else has 0-2 spaces.
+                leading_spaces = len(line) - len(line.lstrip())
+                if leading_spaces == 0:
+                    return True
     return False
 
 
