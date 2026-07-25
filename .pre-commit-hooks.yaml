@@ -4,5 +4,11 @@
   entry: actenon-scan scan
   language: python
   types: [python]
-  args: ["--fail-on", "medium"]
+  # Work Order 2, Part 5.4: scan changed files by default. The pre-commit
+  # framework passes only the changed files as arguments, so actenon-scan
+  # scans exactly those files. --fail-on none means findings do NOT block
+  # the commit by default — the developer sees the blast-radius summary
+  # and decides. To block on HIGH findings, override with:
+  #   args: [--fail-on, high]
+  args: ["--fail-on", "none", "--no-cache"]
   require_serial: true

@@ -69,6 +69,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Register a guard pattern by name (repeatable). No config file needed.",
     )
+    scan_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        default=False,
+        help="Disable the content-hash cache. Every file is scanned fresh.",
+    )
 
     # rules
     _rules_parser = subparsers.add_parser("rules", help="List active rules.")
@@ -250,6 +256,31 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         import time as _time
         _t0 = _time.perf_counter()
 
+        # ── Content-hash cache (Work Order 2, Part 4.4) ──
+        cache = None
+        if not args.no_cache:
+            from actenon_scan.cache import FileCache, get_default_cache_dir
+            cache_dir = get_default_cache_dir(target)
+            cache = FileCache(cache_dir)
+
+        # ── Progressive output (Work Order 2, Part 4.1) ──
+        # Stream findings to stderr as they are discovered, but ONLY for
+        # interactive terminal output (pretty format, stdout is a TTY).
+        # Machine formats (json/sarif/html/markdown) use stable
+        # non-progressive output.
+        on_finding = None
+        if (args.format == "pretty"
+                and not args.output
+                and sys.stderr.isatty()):
+            def _progressive(finding) -> None:
+                from actenon_scan.report.blast_radius import consequence_label, _extract_method_name
+                print(
+                    f"  [{finding.severity.upper()}] {consequence_label(finding.category):14s} "
+                    f"{finding.file}:{finding.line}  {_extract_method_name(finding.call_text)}()",
+                    file=sys.stderr,
+                )
+            on_finding = _progressive
+
         if jobs > 1 and explicit_files is None:
             result = scan_path_parallel(
                 target,
@@ -269,6 +300,8 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 explicit_files=explicit_files,
                 suppressions=suppressions,
                 baseline_findings=baseline,
+                cache=cache,
+                on_finding=on_finding,
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:
