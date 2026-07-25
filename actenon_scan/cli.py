@@ -10,7 +10,7 @@ from pathlib import Path
 
 from actenon_scan.engine import scan_path, scan_path_parallel
 from actenon_scan.report.json_out import format_json
-from actenon_scan.report.pretty import format_pretty
+from actenon_scan.report.pretty import format_pretty, format_list
 from actenon_scan.report.sarif import format_sarif
 from actenon_scan.suppress import collect_suppressions_from_file
 
@@ -28,7 +28,14 @@ def main(argv: list[str] | None = None) -> int:
     # scan
     scan_parser = subparsers.add_parser("scan", help="Scan a path for the execution gap.")
     scan_parser.add_argument("path", help="File or directory to scan.")
-    scan_parser.add_argument("--format", choices=["pretty", "json", "sarif"], default="pretty")
+    scan_parser.add_argument(
+        "--format",
+        choices=["pretty", "list", "json", "sarif", "html", "markdown"],
+        default="pretty",
+        help="Output format. 'pretty' = blast-radius summary (default). "
+             "'list' = linter-style list. 'json'/'sarif' = machine-readable. "
+             "'html'/'markdown' = shareable reports.",
+    )
     scan_parser.add_argument("--fail-on", choices=["none", "low", "medium", "high"], default="medium")
     scan_parser.add_argument("--config", help="Path to config file (JSON or YAML).")
     scan_parser.add_argument("--baseline", help="Path to baseline.json for known-findings suppression.")
@@ -106,6 +113,54 @@ def main(argv: list[str] | None = None) -> int:
         help="Output format: text (email) or markdown (issue/PR). Default: text.",
     )
 
+    # explain (Work Order 2, Part 2): execution-path explanation.
+    explain_parser = subparsers.add_parser(
+        "explain",
+        help="Show the analysed execution path for a finding.",
+    )
+    explain_parser.add_argument(
+        "location",
+        help="File:line location of the finding (e.g., path/to/file.py:42).",
+    )
+    explain_parser.add_argument(
+        "--rule",
+        default=None,
+        help="Rule ID to disambiguate when multiple rules fire at the same line.",
+    )
+
+    # fix (Work Order 2, Part 3): generate remediation diffs.
+    fix_parser = subparsers.add_parser(
+        "fix",
+        help="Generate a remediation diff for a finding.",
+    )
+    fix_parser.add_argument(
+        "location",
+        help="File:line location of the finding, or '.' for fix-all.",
+    )
+    fix_parser.add_argument(
+        "--rule",
+        default=None,
+        help="Rule ID to disambiguate when multiple rules fire at the same line.",
+    )
+    fix_parser.add_argument(
+        "--mode",
+        choices=["guard", "approval", "actenon"],
+        default=None,
+        help="Remediation mode. If omitted, auto-selects the best available.",
+    )
+    fix_parser.add_argument(
+        "--apply",
+        action="store_true",
+        default=False,
+        help="Apply the patch to the file. Without this flag, prints a diff only.",
+    )
+    fix_parser.add_argument(
+        "--fix-all",
+        action="store_true",
+        default=False,
+        help="With 'fix .', generate one diff covering every eligible finding.",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "scan":
@@ -118,6 +173,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_adopt(args)
     elif args.command == "brief":
         return _cmd_brief(args)
+    elif args.command == "explain":
+        return _cmd_explain(args)
+    elif args.command == "fix":
+        return _cmd_fix(args)
     else:
         parser.print_help()
         return 0
@@ -188,6 +247,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         elif jobs is None:
             jobs = 1
 
+        import time as _time
+        _t0 = _time.perf_counter()
+
         if jobs > 1 and explicit_files is None:
             result = scan_path_parallel(
                 target,
@@ -208,6 +270,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 suppressions=suppressions,
                 baseline_findings=baseline,
             )
+        result._elapsed = _time.perf_counter() - _t0
     except Exception as e:
         # Catch ConfigError and other config-loading errors gracefully.
         # Never crash with a raw traceback on a config mistake.
@@ -218,12 +281,23 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         raise
 
     # Format output
+    _elapsed = getattr(result, "_elapsed", None)
+
     if args.format == "json":
         output = format_json(result)
     elif args.format == "sarif":
         output = format_sarif(result)
+    elif args.format == "list":
+        output = format_list(result)
+    elif args.format == "html":
+        from actenon_scan.report.html_out import format_html
+        output = format_html(result, elapsed=_elapsed)
+    elif args.format == "markdown":
+        from actenon_scan.report.markdown_out import format_markdown
+        output = format_markdown(result, elapsed=_elapsed)
     else:
-        output = format_pretty(result)
+        # Default: blast-radius summary
+        output = format_pretty(result, elapsed=_elapsed)
 
     if args.output:
         Path(args.output).write_text(output)
@@ -490,4 +564,104 @@ def _cmd_brief(args: argparse.Namespace) -> int:
         print(format_brief_markdown(brief))
     else:
         print(format_brief_text(brief))
+    return 0
+
+
+def _parse_location(location: str) -> tuple[Path, int] | int:
+    """Parse a file:line location. Returns (path, line) or an exit code."""
+    if ":" not in location:
+        print(
+            f"Error: location must be in the form path/to/file.py:LINE",
+            file=sys.stderr,
+        )
+        return 2
+    file_str, _, line_str = location.rpartition(":")
+    try:
+        line = int(line_str)
+    except ValueError:
+        print(f"Error: line number must be an integer, got: {line_str}", file=sys.stderr)
+        return 2
+    file_path = Path(file_str)
+    if not file_path.exists():
+        print(f"Error: file not found: {file_path}", file=sys.stderr)
+        return 2
+    return (file_path, line)
+
+
+def _cmd_explain(args: argparse.Namespace) -> int:
+    """Show the analysed execution path for a finding (Part 2)."""
+    parsed = _parse_location(args.location)
+    if isinstance(parsed, int):
+        return parsed
+    file_path, line = parsed
+
+    from actenon_scan.brief import build_brief
+    from actenon_scan.explain import format_explain
+
+    brief = build_brief(str(file_path), line, rule_id=args.rule)
+    if brief is None:
+        print(
+            f"No finding at {file_path}:{line}"
+            + (f" with rule {args.rule}" if args.rule else "")
+            + ".",
+            file=sys.stderr,
+        )
+        return 1
+    print(format_explain(brief))
+    return 0
+
+
+def _cmd_fix(args: argparse.Namespace) -> int:
+    """Generate a remediation diff for a finding (Part 3)."""
+    if args.location == ".":
+        # Fix-all mode.
+        from actenon_scan.fix import generate_fix_all
+        results = generate_fix_all(".", mode=args.mode, apply=args.apply)
+        if not results:
+            print("No eligible findings to fix.")
+            return 0
+        for r in results:
+            if r.diff:
+                print(r.diff)
+            elif r.note:
+                print(f"# {r.note}")
+        print(f"\n{len(results)} finding(s) processed. Mode: {results[0].mode if results else 'n/a'}.")
+        if not args.apply:
+            print("Use --apply to write changes to files.")
+        return 0
+
+    parsed = _parse_location(args.location)
+    if isinstance(parsed, int):
+        return parsed
+    file_path, line = parsed
+
+    from actenon_scan.fix import generate_fix
+
+    fix = generate_fix(
+        str(file_path), line,
+        mode=args.mode, rule_id=args.rule, apply=args.apply,
+    )
+    if fix is None:
+        print(
+            f"No finding at {file_path}:{line}"
+            + (f" with rule {args.rule}" if args.rule else "")
+            + ".",
+            file=sys.stderr,
+        )
+        return 1
+
+    if fix.diff:
+        print(fix.diff)
+        if fix.applied:
+            print(f"# Applied {fix.mode} fix to {file_path}")
+        else:
+            print(f"# Mode: {fix.mode}. Use --apply to write this change.")
+    else:
+        print(f"# Automatic remediation was not generated.")
+        print(f"# {fix.note}")
+        print("# Available approaches:")
+        print("# 1. repository-native guard")
+        print("# 2. framework-native approval")
+        print("# 3. Actenon proof verification")
+        print("# Use --mode guard|approval|actenon to force a mode.")
     return 0
