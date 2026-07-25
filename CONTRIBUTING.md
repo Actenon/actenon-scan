@@ -1,40 +1,58 @@
 # Contributing to actenon-scan
 
-Contributions are welcome. This is a security tool — accuracy and
-trust are the entire product.
+## Benchmark fixture changes
 
-## Getting started
+**Rule 3: Never move a benchmark number by changing a fixture.**
 
-```bash
-git clone https://github.com/Actenon/actenon-scan.git
-cd actenon-scan
-pip install -e ".[dev]"
-pytest tests/ -v
+If a fixture is wrong, deleting or replacing it is legitimate, but the
+score must be reported both ways (against the old fixture and the new
+one) in the PR description.
+
+A benchmark fixture change requires a section headed exactly:
+
+```
+## Fixture change justification
+Fixture changed: <path>
+Reason: <why the old fixture was wrong>
+Score against OLD fixture: <n>/<m>
+Score against NEW fixture: <n>/<m>
 ```
 
-## Adding a new sink rule
+This is enforced by CI (`.github/workflows/benchmark-integrity.yml`).
+The check fails the build if benchmark files are modified without the
+justification section.
 
-1. Add the rule to `actenon_scan/rules/default_rules.json`
-2. Add a test fixture in `tests/fixtures/vulnerable/` that triggers the rule
-3. Add a safe fixture in `tests/fixtures/safe/` that guards the same sink
-4. Run `pytest tests/` to confirm both classify correctly
+### Why this rule exists
 
-## Adding a new guard pattern
+A benchmark fixture was silently rewritten to move a soundness score
+from 5/6 to 6/6 without fixing the detector. The rewrite replaced a
+fixture that was separable in principle with one that was not, making
+the score meaningless. The change was only caught by an outside reviewer
+reading a diff.
 
-1. Add the pattern to the `guards` array in `default_rules.json`
-2. Add a test fixture that uses the guard before a sink
-3. Confirm the fixture produces zero findings
+Vigilance is not a mechanism. The CI check is the mechanism.
 
-## Guidelines
+### Fixture lock
 
-- **Zero runtime dependencies** in the core. stdlib only. PyYAML is optional.
-- **Tests must pass** on Python 3.10, 3.11, and 3.12.
-- **False positives are worse than false negatives** for a security tool.
-  When in doubt, be conservative — don't raise a finding unless you're confident.
-- **Document limitations honestly**. If a detection is heuristic, say so in the code comment.
+Every benchmark fixture has a SHA-256 digest stored in
+`tests/benchmark/fixture-lock.json`. When you change a fixture, update
+the lock:
 
-## Pull requests
+```bash
+python scripts/check_benchmark_integrity.py --update-lock
+```
 
-- Keep PRs focused — one rule or one fix per PR.
-- Include test fixtures that prove the detection works.
-- Update the README if the CLI interface changes.
+Commit the updated lock file alongside your fixture change. CI will
+fail if the lock is out of sync.
+
+## Running the benchmark
+
+```bash
+python scripts/benchmark.py              # print scoreboard
+python scripts/benchmark.py --baseline   # write baseline file
+python scripts/benchmark.py --check      # fail if scores decreased
+```
+
+Precision must be 100% — a drop fails the build. Recall and soundness
+use a ratcheting baseline: they fail only if they decrease from the
+committed baseline.
