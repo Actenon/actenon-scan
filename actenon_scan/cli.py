@@ -85,6 +85,27 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline", help="Path to baseline.json for known-findings suppression.",
     )
 
+    # brief (Work Order 1, Part 6): one-page execution-boundary report.
+    brief_parser = subparsers.add_parser(
+        "brief",
+        help="Generate a one-page execution-boundary brief for a finding.",
+    )
+    brief_parser.add_argument(
+        "location",
+        help="File:line location of the finding (e.g., path/to/file.py:42).",
+    )
+    brief_parser.add_argument(
+        "--rule",
+        default=None,
+        help="Rule ID to disambiguate when multiple rules fire at the same line.",
+    )
+    brief_parser.add_argument(
+        "--format",
+        choices=["text", "markdown"],
+        default="text",
+        help="Output format: text (email) or markdown (issue/PR). Default: text.",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "scan":
@@ -95,6 +116,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_init(args)
     elif args.command == "adopt":
         return _cmd_adopt(args)
+    elif args.command == "brief":
+        return _cmd_brief(args)
     else:
         parser.print_help()
         return 0
@@ -417,3 +440,54 @@ def _get_changed_files(git_ref: str, target: Path) -> list[str]:
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         print(f"Warning: --changed-only requires git: {e}", file=sys.stderr)
         return None
+
+
+def _cmd_brief(args: argparse.Namespace) -> int:
+    """Generate a one-page execution-boundary brief for a finding.
+
+    Work Order 1, Part 6: the brief is a reusable, typed report for
+    responsible outreach. It consumes reusable internal objects (not
+    duplicated analysis) and supports text (email) + markdown (issue/PR)
+    output formats.
+
+    Safety (Part 6.6 + RULE 9 + RULE 10): the brief never includes
+    attack prompts, prompt-injection strings, exploitation payloads, or
+    credential values. A safety filter redacts credential-looking
+    patterns and asserts no forbidden pattern remains.
+    """
+    # Parse the file:line location.
+    if ":" not in args.location:
+        print(
+            f"Error: location must be in the form path/to/file.py:LINE",
+            file=sys.stderr,
+        )
+        return 2
+    file_str, _, line_str = args.location.rpartition(":")
+    try:
+        line = int(line_str)
+    except ValueError:
+        print(f"Error: line number must be an integer, got: {line_str}", file=sys.stderr)
+        return 2
+
+    file_path = Path(file_str)
+    if not file_path.exists():
+        print(f"Error: file not found: {file_path}", file=sys.stderr)
+        return 2
+
+    from actenon_scan.brief import build_brief, format_brief_text, format_brief_markdown
+
+    brief = build_brief(str(file_path), line, rule_id=args.rule)
+    if brief is None:
+        print(
+            f"No finding at {file_path}:{line}"
+            + (f" with rule {args.rule}" if args.rule else "")
+            + ". Run `actenon-scan scan` first to confirm the finding exists.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.format == "markdown":
+        print(format_brief_markdown(brief))
+    else:
+        print(format_brief_text(brief))
+    return 0
