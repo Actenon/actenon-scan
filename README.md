@@ -1,6 +1,6 @@
 # Actenon Scan
 
-> The independent static-analysis scanner for the AI-agent execution gap. **Zero runtime dependencies.** Detects consequential actions reachable from agent tool boundaries and checks whether they're guarded. Runs without Cloud, Permit, Kernel, or Protocol.
+> Find where agent-controlled intent reaches consequential actions without an enforceable authority check.
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 <!-- PYTHON-BADGE:START -->
@@ -14,6 +14,195 @@
 [![claims: machine-verified](https://img.shields.io/github/actions/workflow/status/Actenon/actenon-scan/verify-claims.yml?branch=main&label=claims%3A%20machine-verified)](https://github.com/Actenon/actenon-scan/actions/workflows/verify-claims.yml)
 [![Code style: ruff](https://img.shields.io/badge/Code%20style-ruff-black.svg)](https://docs.astral.sh/ruff/)
 [![Vendor-neutral](https://img.shields.io/badge/Stance-vendor%20neutral-2ea44f.svg)](#what-scan-does-not-do)
+
+## Quick start
+
+```bash
+uvx actenon-scan scan .
+```
+
+No install, no config, no cloud account. The first run produces a blast-radius
+summary:
+
+```
+Your agent can reach 12 consequential actions without a dominating authorization check.
+
+  REPOSITORY       4   create_file, merge, delete_ref, publish_release
+  MONEY            3   process_refund, issue_credit, charge_card
+  DATA LOSS        2   delete_s3_prefix, purge_workspace
+  EXECUTION        2   deploy, run_migration
+  EGRESS           1   notify_customers
+
+Most exposed: app/tools.py:47  process_refund()
+  Reachable by:              @mcp.tool()
+  Consequence:               MONEY
+  Guard evidence:            none found on the analysed path
+  Model-controlled inputs:   payment_intent, amount
+
+12 findings in 340 files (0.42s)
+Next:
+  actenon-scan explain app/tools.py:47
+  actenon-scan fix app/tools.py:47
+```
+
+Then dig deeper:
+
+```bash
+actenon-scan explain app/tools.py:47    # show the analysed execution path
+actenon-scan fix app/tools.py:47        # generate a remediation diff
+actenon-scan brief app/tools.py:47      # one-page report for outreach
+actenon-scan scan . --format html       # self-contained HTML report
+actenon-scan scan . --format markdown   # paste into a GitHub issue
+actenon-scan scan . --format sarif      # upload to GitHub code scanning
+```
+
+## What Actenon Scan detects
+
+Actenon Scan finds places where a model-controlled or agent-controlled
+parameter reaches a consequential action — a payment, a repository mutation,
+a file deletion, a shell command, a database write, an email send — without
+a dominating authority check in the analysed path.
+
+**Consequence categories detected:**
+
+| Category | Examples |
+|----------|----------|
+| REPOSITORY | PyGithub create_file/delete_file, raw GitHub REST, GitPython push/commit |
+| MONEY | Stripe refunds, Braintree charges, generic payment SDK calls |
+| DATA LOSS | SQL DELETE, s3.delete_objects, file deletion |
+| EXECUTION | subprocess, os.system, eval/exec, container creation |
+| DATABASE | psycopg2/sqlite3 execute with caller-controlled SQL |
+| EGRESS | requests/httpx POST/PUT/DELETE to external URLs |
+| MESSAGING | SMTP email, Slack, Twilio, SendGrid, Resend, SES |
+| IDENTITY | IAM mutations, access-control changes |
+| SECRETS | Secrets-manager reads |
+| DEPLOYMENT | kubectl, terraform, helm |
+| FILE | File writes, chmod, rename |
+
+## What it does not establish
+
+The scanner may establish that:
+- an agent or model-controlled parameter reaches a consequential action;
+- no dominating authority check was found in the analysed path;
+- a recognised sink is present.
+
+The scanner does **not** automatically establish that:
+- an attacker can externally reach the agent;
+- no guard exists outside the analysed file or supported architecture;
+- exploitation is practical;
+- the operation is irreversible;
+- the finding is a vulnerability.
+
+## How to explain a finding
+
+```bash
+actenon-scan explain path/to/file.py:42
+```
+
+Shows the analysed execution path: agent entry point → model-controlled
+inputs → execution path → guard evidence → consequence. Includes a
+mandatory "What this does NOT establish" section.
+
+## How to generate a fix
+
+```bash
+actenon-scan fix path/to/file.py:42              # auto-select mode, print diff
+actenon-scan fix path/to/file.py:42 --mode guard     # repository-native guard
+actenon-scan fix path/to/file.py:42 --mode approval  # framework approval
+actenon-scan fix path/to/file.py:42 --mode actenon   # Actenon proof verification
+actenon-scan fix path/to/file.py:42 --apply          # write the change
+```
+
+Remediation is offered in neutral order: repository-native guard first,
+framework-native approval second, Actenon proof verification third.
+Actenon is not forced into every recommendation.
+
+## How to add it to a PR
+
+### GitHub Action (sticky comment on PRs)
+
+```yaml
+# .github/workflows/actenon-scan.yml
+name: actenon-scan
+on:
+  pull_request:
+    paths:
+      - '**/*.py'
+      - '**/*.ts'
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install actenon-scan
+      - run: actenon-scan scan . --format sarif --output actenon.sarif --fail-on none
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: actenon.sarif
+```
+
+### SARIF upload (GitHub code scanning)
+
+The workflow above uploads SARIF to GitHub's Security tab. Findings render
+with file paths, line numbers, and rule metadata.
+
+### Pre-commit hook
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/Actenon/actenon-scan
+    rev: v0.8.0
+    hooks:
+      - id: actenon-scan
+        args: [--changed-only, HEAD]
+```
+
+The default workflow does **not** block merging solely because findings exist
+unless you explicitly configure a `--fail-on` threshold.
+
+## How to export reports
+
+```bash
+actenon-scan scan . --format html --output report.html     # self-contained HTML
+actenon-scan scan . --format markdown --output report.md    # GitHub issue / PR
+actenon-scan scan . --format sarif --output report.sarif    # GitHub code scanning
+actenon-scan scan . --format list                           # old linter-style list
+actenon-scan scan . --format json --output report.json      # machine-readable
+```
+
+HTML reports are self-contained (no external scripts, fonts, or assets),
+safe to open locally, and include the visible honesty statement:
+"What this scan verified / did not verify".
+
+## How to suppress or baseline known findings
+
+```bash
+# Suppress a single finding inline:
+# actenon-scan: suppress REPOSITORY-MUTATION
+
+# Baseline known findings:
+actenon-scan scan . --baseline known-findings.json
+```
+
+## How to configure custom guards
+
+```bash
+# Register a guard by name without a config file:
+actenon-scan scan . --guard my_authorize --guard require_permission
+
+# Or use a config file:
+actenon-scan scan . --config actenon-scan.json
+actenon-scan init --format json  # write a default config
+```
+
+---
 
 ### Every claim above is machine-verified
 
