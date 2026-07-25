@@ -1,0 +1,35 @@
+name: Advance v1 tag
+
+# Work Order 3, Part 2.4: maintain a moving major-version tag `v1` pointing
+# at the newest v1.x.x release, per marketplace convention. Users pin @v1
+# and expect fixes without updating their workflow.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  advance-v1:
+    name: Move v1 tag to latest release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Move v1 tag
+        run: |
+          # Get the release tag that was just published
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          echo "Release published: $RELEASE_TAG"
+
+          # Only advance v1 if this is a v1.x.x release
+          if [[ "$RELEASE_TAG" =~ ^v1\. ]]; then
+            echo "Advancing v1 tag to $RELEASE_TAG"
+            git tag -f v1 "$RELEASE_TAG"
+            git push origin v1 --force
+            echo "v1 now points at $RELEASE_TAG"
+          else
+            echo "Not a v1.x.x release ($RELEASE_TAG) — skipping v1 tag advance"
+          fi

@@ -1,49 +1,290 @@
 name: "actenon-scan"
-description: "Scan for the AI-agent execution gap — consequential actions reachable from agent tool boundaries without proof/authority guards."
+description: "Find where agent-controlled intent reaches consequential actions without an enforceable authority check. Python + TypeScript. Zero config."
 branding:
   icon: "shield"
   color: "blue"
+
 inputs:
   path:
     description: "Path to scan (file or directory)"
     required: false
     default: "."
   fail-on:
-    description: "Fail the check when findings meet this severity threshold"
+    description: "Fail the check when findings meet this severity threshold (none, low, medium, high). Default: none — report findings without failing the build. Set to 'high' once you've triaged your baseline."
     required: false
-    default: "medium"
+    default: "none"
   config:
-    description: "Path to config file"
+    description: "Path to config file (JSON or YAML)"
     required: false
     default: ""
   baseline:
     description: "Path to baseline.json for known-findings suppression"
     required: false
     default: ""
+  scan-scope:
+    description: "Scan scope: 'changed' (only files changed in the PR, default for pull_request), 'full' (entire repo, default for push/schedule), or 'auto' (detect event type)"
+    required: false
+    default: "auto"
+  comment-on-pr:
+    description: "Post a sticky blast-radius summary comment on pull requests (updated in place, never duplicated). Default: true"
+    required: false
+    default: "true"
+  upload-sarif:
+    description: "Upload SARIF to GitHub's Security tab. Default: true"
+    required: false
+    default: "true"
+  version:
+    description: "actenon-scan package version to install (e.g. '0.8.0'). Default: uses the action's own released version for reproducibility."
+    required: false
+    default: ""
+
+outputs:
+  findings-count:
+    description: "Total number of findings"
+  high-count:
+    description: "Number of HIGH-severity findings"
+  medium-count:
+    description: "Number of MEDIUM-severity findings"
+  low-count:
+    description: "Number of LOW-severity findings"
+  sarif-path:
+    description: "Path to the SARIF file (if generated)"
+
 runs:
   using: "composite"
   steps:
     - name: Install actenon-scan
-      run: pip install actenon-scan
       shell: bash
+      run: |
+        # Work Order 3, Part 1.2 + 1.3: install with typescript extra and
+        # pin to a specific version for reproducibility.
+        VERSION="${{ inputs.version }}"
+        if [ -z "$VERSION" ]; then
+          # Read the version from the action's own repo (pyproject.toml).
+          # This ensures a user pinning @v1 gets reproducible results.
+          VERSION=$(grep -m1 '^version' "${{ github.action_path }}/pyproject.toml" 2>/dev/null | sed 's/.*"\(.*\)"/\1/' || echo "")
+        fi
+        if [ -n "$VERSION" ]; then
+          echo "Installing actenon-scan[typescript]==$VERSION"
+          pip install "actenon-scan[typescript]==$VERSION"
+        else
+          echo "WARNING: could not determine version; installing latest"
+          pip install "actenon-scan[typescript]"
+        fi
+
+    - name: Determine scan scope
+      id: scope
+      shell: bash
+      run: |
+        # Work Order 3, Part 1.6: default to changed-files on PRs, full-tree otherwise.
+        SCOPE="${{ inputs.scan-scope }}"
+        if [ "$SCOPE" = "auto" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            SCOPE="changed"
+          else
+            SCOPE="full"
+          fi
+        fi
+        echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+        echo "Scan scope: $SCOPE (event: ${{ github.event_name }})"
+
     - name: Run actenon-scan
       id: scan
+      shell: bash
       run: |
         set +e
-        ARGS="actenon-scan scan ${{ inputs.path }} --format sarif --output results.sarif --fail-on ${{ inputs.fail-on }}"
+        # Build the scan command. Always produce SARIF + JSON for downstream steps.
+        SCAN_PATH="${{ inputs.path }}"
+        FAIL_ON="${{ inputs.fail-on }}"
+        ARGS="actenon-scan scan $SCAN_PATH --format sarif --output results.sarif --fail-on $FAIL_ON --format json --output results.json"
+
+        # --changed-only for PR scope
+        if [ "${{ steps.scope.outputs.scope }}" = "changed" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+          ARGS="$ARGS --changed-only origin/${{ github.base_ref }}"
+        fi
+
+        # Config and baseline
         if [ -n "${{ inputs.config }}" ]; then ARGS="$ARGS --config ${{ inputs.config }}"; fi
         if [ -n "${{ inputs.baseline }}" ]; then ARGS="$ARGS --baseline ${{ inputs.baseline }}"; fi
-        eval $ARGS
+
+        echo "Running: $ARGS"
+        # Run scan — don't let it fail the build yet (we handle fail-on below)
+        eval $ARGS 2>&1 | tee scan-output.txt
         EXIT_CODE=$?
         echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+        # Extract counts from JSON (if it exists)
+        if [ -f results.json ]; then
+          FINDINGS=$(python3 -c "import json; d=json.load(open('results.json')); print(len([f for f in d.get('findings',[]) if not f.get('suppressed')]))" 2>/dev/null || echo "0")
+          HIGH=$(python3 -c "import json; d=json.load(open('results.json')); print(len([f for f in d.get('findings',[]) if f.get('severity')=='high' and not f.get('suppressed')]))" 2>/dev/null || echo "0")
+          MEDIUM=$(python3 -c "import json; d=json.load(open('results.json')); print(len([f for f in d.get('findings',[]) if f.get('severity')=='medium' and not f.get('suppressed')]))" 2>/dev/null || echo "0")
+          LOW=$(python3 -c "import json; d=json.load(open('results.json')); print(len([f for f in d.get('findings',[]) if f.get('severity')=='low' and not f.get('suppressed')]))" 2>/dev/null || echo "0")
+        else
+          FINDINGS=0; HIGH=0; MEDIUM=0; LOW=0
+        fi
+        echo "findings-count=$FINDINGS" >> $GITHUB_OUTPUT
+        echo "high-count=$HIGH" >> $GITHUB_OUTPUT
+        echo "medium-count=$MEDIUM" >> $GITHUB_OUTPUT
+        echo "low-count=$LOW" >> $GITHUB_OUTPUT
+        echo "sarif-path=results.sarif" >> $GITHUB_OUTPUT
+        echo "Findings: $FINDINGS (high=$HIGH, medium=$MEDIUM, low=$LOW)"
+
+        # Check for unsupported files (RULE 7 — never silently scan nothing)
+        if grep -q "NOT scanned" scan-output.txt 2>/dev/null; then
+          echo "⚠️  Some files were NOT scanned (unsupported language). See output above." >&2
+        fi
+
         exit 0
-      shell: bash
+
     - name: Upload SARIF
-      if: always()
+      if: ${{ inputs.upload-sarif == 'true' && hashFiles('results.sarif') != '' }}
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: results.sarif
+        category: actenon-scan
+      continue-on-error: true
+
+    - name: Warn if SARIF upload was skipped
+      if: ${{ inputs.upload-sarif == 'true' && hashFiles('results.sarif') == '' }}
+      shell: bash
+      run: |
+        echo "⚠️  SARIF upload skipped: no results.sarif file was generated." >&2
+        echo "    This usually means the scan crashed before producing output." >&2
+        echo "    Check the scan step logs above for errors." >&2
+
+    - name: Post sticky PR comment
+      if: ${{ github.event_name == 'pull_request' && inputs.comment-on-pr == 'true' && steps.scan.outputs.findings-count != '0' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Work Order 3, Part 1.4: post a sticky blast-radius comment.
+        # Located by a hidden HTML marker; updated in place, never duplicated.
+        # Only comments when findings exist in changed files.
+        python3 - <<'PYTHON'
+        import json, os, subprocess, sys
+
+        findings_count = int(os.environ.get("FINDINGS_COUNT", "0"))
+        if findings_count == 0:
+            print("No findings — skipping PR comment")
+            sys.exit(0)
+
+        # Load JSON results for the blast-radius summary
+        try:
+            with open("results.json") as f:
+                data = json.load(f)
+        except Exception:
+            print("Could not load results.json — skipping comment")
+            sys.exit(0)
+
+        findings = [f for f in data.get("findings", []) if not f.get("suppressed")]
+        if not findings:
+            sys.exit(0)
+
+        # Group by consequence category
+        from collections import Counter
+        cat_counts = Counter()
+        cat_methods = {}
+        for f in findings:
+            cat = f.get("category", "unknown")
+            cat_counts[cat] += 1
+            # Extract method name from call_text
+            call = f.get("call_text", "")
+            if "(" in call:
+                before = call[:call.index("(")]
+                method = before.rsplit(".", 1)[-1] if "." in before else before
+            else:
+                method = call
+            if cat not in cat_methods:
+                cat_methods[cat] = []
+            if len(cat_methods[cat]) < 4:
+                cat_methods[cat].append(method)
+
+        # Build the comment body
+        lines = []
+        lines.append("<!-- actenon-scan-sticky-comment -->")
+        lines.append("")
+        lines.append("## Actenon Scan")
+        lines.append("")
+        lines.append(f"> Your agent can take **{len(findings)} consequential action(s)** without an authorization check.")
+        lines.append(">")
+        lines.append("> These are scanner **candidates**, not confirmed vulnerabilities. Each must be manually reviewed for reachability, caller control, and guard dominance.")
+        lines.append("")
+
+        # Consequence map
+        cat_labels = {
+            "repository_mutation": "REPOSITORY", "vcs_mutation": "REPOSITORY",
+            "payments": "MONEY", "data_destruction": "DATA LOSS",
+            "database_mutation": "DATABASE", "code_execution": "EXECUTION",
+            "shell_execution": "EXECUTION", "network_egress": "EGRESS",
+            "communication": "MESSAGING", "identity_change": "IDENTITY",
+            "access_control": "IDENTITY", "credential_access": "SECRETS",
+            "file_mutation": "FILE", "browser_action": "BROWSER",
+            "deployment": "DEPLOYMENT", "provider_sdk": "PROVIDER",
+        }
+
+        if cat_counts:
+            lines.append("")
+            for cat, count in cat_counts.most_common():
+                label = cat_labels.get(cat, cat.upper().replace("_", " "))
+                methods = ", ".join(cat_methods.get(cat, [])[:4])
+                lines.append(f"| {label} | {count} | {methods} |")
+            lines.append("")
+
+        # Most exposed (first finding)
+        if findings:
+            f = findings[0]
+            call = f.get("call_text", "")
+            method = call.rsplit(".", 1)[-1].split("(")[0] + "()" if "(" in call else call
+            lines.append(f"**Most exposed:** `{f.get('file','?')}:{f.get('line','?')}` — `{method}`")
+            lines.append(f"- Rule: `{f.get('rule_id','?')}` | Severity: {f.get('severity','?')} | Confidence: {f.get('confidence','?')}")
+            lines.append(f"- Guard evidence: none found on the analysed path")
+            lines.append("")
+
+        # Full findings in a collapsible section
+        lines.append("<details><summary>Full findings ({})</summary>".format(len(findings)))
+        lines.append("")
+        for f in findings:
+            lines.append(f"- `{f.get('file','?')}:{f.get('line','?')}` `{f.get('rule_id','?')}` — `{f.get('call_text','?')[:80]}`")
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
+        lines.append("---")
+        lines.append("_Updated automatically by `actenon-scan`. Use `actenon-scan explain <file:line>` locally for the full execution path._")
+
+        body = "\n".join(lines)
+
+        # Find existing comment
+        pr_number = os.environ.get("GITHUB_REF", "").split("/")[-1]
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+
+        result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/issues/{pr_number}/comments",
+             "--jq", '.[] | select(.body | contains("actenon-scan-sticky-comment")) | .id'],
+            capture_output=True, text=True, env={**os.environ, "GH_TOKEN": os.environ.get("GH_TOKEN","")}
+        )
+        existing_id = result.stdout.strip().split("\n")[0] if result.stdout.strip() else ""
+
+        if existing_id:
+            # Update existing comment
+            subprocess.run(
+                ["gh", "api", f"repos/{repo}/issues/comments/{existing_id}",
+                 "--method", "PATCH", "--field", f"body={body}"],
+                env={**os.environ, "GH_TOKEN": os.environ.get("GH_TOKEN","")}
+            )
+            print(f"Updated comment {existing_id}")
+        else:
+            # Create new comment
+            subprocess.run(
+                ["gh", "pr", "comment", pr_number, "--body", body],
+                env={**os.environ, "GH_TOKEN": os.environ.get("GH_TOKEN","")}
+            )
+            print("Created new comment")
+        PYTHON
+
     - name: Fail on findings
       if: ${{ steps.scan.outputs.exit_code == '1' }}
-      run: exit 1
       shell: bash
+      run: |
+        echo "Scan failed with exit code 1 (findings at or above --fail-on threshold)"
+        exit 1
