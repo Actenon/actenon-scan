@@ -512,10 +512,15 @@ def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
       non-literal SQL (variable, f-string, concatenation) -> HIGH (caller-controlled)
       literal SELECT-only                                 -> not reported
 
-    The previous implementation only matched when the SQL literal contained
-    dangerous text — it missed the strictly more dangerous case where the
-    SQL is a variable (agent-controlled). This fix inverts the risk model
-    to match the sink, not the literal.
+    RECEIVER CONSTRAINT: the call must be on a database receiver. A bare
+    .execute() on any object (e.g., step.execute(), task.execute()) does
+    NOT match. Evidence that the receiver is a DB connection or cursor:
+      - receiver name matches conn/cur/cursor/session/engine/db
+      - receiver was constructed from a known connect() call
+      - module imports a DB driver (sqlite3, psycopg2, asyncpg, sqlalchemy, pymysql)
+
+    This prevents false positives like agno's step.execute() matching
+    DATA-DELETE-SQL at HIGH severity.
     """
     if not isinstance(node.func, ast.Attribute):
         return False
@@ -525,6 +530,11 @@ def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
 
     # Must have at least one argument (the SQL)
     if not node.args:
+        return False
+
+    # RECEIVER CONSTRAINT: check that the receiver looks like a DB connection
+    receiver = node.func.value
+    if not _is_db_receiver(receiver):
         return False
 
     patterns = rule.match.get("patterns", [])
@@ -544,6 +554,82 @@ def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
     # CALLER-CONTROLLED case. It is strictly more dangerous than a literal
     # because the agent controls the SQL. Always report.
     return True
+
+
+# Names that indicate a database receiver.
+_DB_RECEIVER_NAMES = frozenset({
+    "conn", "connection", "cur", "cursor", "session", "engine",
+    "db", "database", "client", "cnx",
+})
+
+# DB driver module names that, if imported, indicate DB context.
+_DB_DRIVER_IMPORTS = frozenset({
+    "sqlite3", "psycopg2", "psycopg", "asyncpg", "sqlalchemy",
+    "pymysql", "mysql", "cx_Oracle", "pyodbc", "mongodb",
+    "pymongo", "redis", "cassandra",
+})
+
+# Names that look like DB connect() calls.
+_DB_CONNECT_NAMES = frozenset({
+    "connect", "create_engine", "create_async_engine",
+    "Connection", "Cursor",
+})
+
+
+def _is_db_receiver(receiver: ast.expr) -> bool:
+    """Check if a call receiver looks like a database connection or cursor.
+
+    Conservative: returns True only when there's positive evidence the
+    receiver is a DB object. This prevents false positives on generic
+    .execute() calls (step.execute(), task.execute(), etc.).
+    """
+    # Direct name: conn.execute(...), cursor.execute(...)
+    if isinstance(receiver, ast.Name):
+        name_lower = receiver.id.lower()
+        # Check if the name matches a DB receiver pattern
+        for db_name in _DB_RECEIVER_NAMES:
+            if name_lower == db_name or name_lower.startswith(db_name):
+                return True
+        # Also match compound names like db_conn, my_cursor
+        for db_name in _DB_RECEIVER_NAMES:
+            if db_name in name_lower:
+                return True
+        return False
+
+    # Chained call: sqlite3.connect("...").execute(...) or conn.cursor().execute(...)
+    if isinstance(receiver, ast.Call):
+        # Get the call's function name
+        call_func = receiver.func
+        if isinstance(call_func, ast.Name):
+            call_name = call_func.id
+        elif isinstance(call_func, ast.Attribute):
+            call_name = _get_attr_chain(call_func)
+        else:
+            call_name = ""
+
+        if call_name:
+            for connect_name in _DB_CONNECT_NAMES:
+                if call_name.endswith(connect_name):
+                    return True
+        # Check if the inner call's function is an attribute of a DB module
+        if isinstance(call_func, ast.Attribute):
+            module_name = ""
+            if isinstance(call_func.value, ast.Name):
+                module_name = call_func.value.id.lower()
+            for driver in _DB_DRIVER_IMPORTS:
+                if module_name == driver:
+                    return True
+        return False
+
+    # Attribute: self.conn.execute(...), self.cursor.execute(...)
+    if isinstance(receiver, ast.Attribute):
+        attr_lower = receiver.attr.lower()
+        for db_name in _DB_RECEIVER_NAMES:
+            if attr_lower == db_name or attr_lower.startswith(db_name):
+                return True
+        return False
+
+    return False
 
 
 def _extract_string_from_node(node: ast.expr) -> str | None:
