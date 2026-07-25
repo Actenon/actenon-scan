@@ -394,3 +394,211 @@ It records a failure, not a capability.
 
 These are now `tests/test_coverage_contract_gate.py` rather than a one-off
 demonstration, so the gate's own failure modes are regression-tested.
+
+---
+
+# Work Order 1 — Consequential-action coverage gaps
+
+## Baseline reproduction (recorded before any changes)
+
+Commit: 473c14fe1fcd3f6d40c9383dfd474390dff0872b
+Version: 0.8.0
+
+Three empirically established misses:
+
+1. `gh.get_repo(repo).create_file(path, "m", content, branch=branch)`
+   — NO FINDINGS (confirmed miss)
+2. `psycopg2.connect("x").cursor().execute(query)`
+   — NO FINDINGS (confirmed miss)
+3. `smtplib.SMTP("host").send_message(message)`
+   — FINDING (COMMUNICATION-SEND). NOTE: this case is NOT missed at
+   v0.8.0. The work order's premise that send_message is missed
+   appears to reference an earlier version. The architectural concern
+   (name-based exclusion is fragile) remains valid and is addressed
+   in Part 1.
+
+Four working cases (all confirmed firing at baseline):
+
+1. `requests.put(f"https://api.github.com/repos/{repo}/contents/{path}", ...)`
+   — NET-EGRESS (high)
+2. `WebClient("token").chat_postMessage(channel=channel, text=text)`
+   — COMMUNICATION-SEND (medium)
+3. `cursor.execute(query)` (variable literally named cursor)
+   — DATA-DELETE-SQL (high)
+4. `smtp.sendmail(sender, recipients, body)`
+   — COMMUNICATION-SEND (medium)
+
+## Part 1.3 — Precision-narrowing audit verdicts
+
+### _is_db_receiver — REGRESSION FOUND (fixed in Part 2.9)
+
+- False-positive case it was intended to remove: `step.execute(cmd)`
+  where `step` is a non-DB domain object. **Remains clean** ✓
+- Nearest legitimate consequential case it accidentally suppresses:
+  `psycopg2.connect("x").cursor().execute(query)` — the chained-call
+  form. **Suppressed** ✗ (the miss this work order targets).
+- Root cause: `_is_db_receiver` only handles ONE level of chaining.
+  For `psycopg2.connect("x").cursor().execute(query)`, the receiver
+  of `.execute()` is `psycopg2.connect("x").cursor()` (a Call). The
+  code checks if the inner call's function name ends with
+  `connect`/`create_engine`/etc., but the inner call's function is
+  `psycopg2.connect.cursor` (an Attribute on a Call), so
+  `call_name = "psycopg2.connect.cursor"` which does not end with
+  `connect`. Returns False → finding suppressed.
+- Fix: Part 2.9 rewrites `_is_db_receiver` to use receiver-origin
+  resolution, which walks the chain to the outermost constructor.
+- Regression fixture added: tests/corpus/DATA-DELETE-SQL/vulnerable/
+  04_chained_psycopg2.py (added in Part 2.9 commit).
+
+### BROWSER-ACTION narrowing — SAFE
+
+- False-positive case it was intended to remove: a non-agent
+  documentation script (`p12_playwright_docs_script.py`) driving
+  Playwright at module level. **Remains clean** ✓ (0 findings)
+- Nearest legitimate consequential case: `page.click(selector)` in
+  an MCP tool. **Still fires** ✓ (BROWSER-ACTION, browser_action)
+- Mechanism: BROWSER-ACTION uses `qualified_patterns` like
+  `page.click`, `frame.click`, `element.click`, `locator.click`,
+  `driver.click`. The full dotted name must match — a non-browser
+  `btn.click()` does not match because `btn.click != page.click`.
+- Regression fixture added: tests/corpus/BROWSER-ACTION/safe/
+  04_non_browser_click.py (non-browser `.click()` must stay clean).
+
+### COMMUNICATION-SEND A2A exclusion — SAFE (after Part 1 fix)
+
+- False-positive case it was intended to remove: Agno A2A
+  `weather_client.send_message(request)` where `weather_client` is
+  an `A2AClient`. **Remains clean** ✓ (0 findings, p13 fixture)
+- Nearest legitimate consequential case: `smtplib.SMTP("host")
+  .send_message(message)`. **Still fires** ✓ (COMMUNICATION-SEND)
+- Name-collision false-negative case (SMTP client named
+  `a2a_client`): **Now fires** ✓ (was previously suppressed by the
+  bare-name fallback `or recv.id`). This is the Part 1 fix.
+- Inline A2A constructor case (`A2AClient(...).send_message(...)`):
+  **Now correctly excluded** ✓ (was previously firing because no
+  var_types entry existed). This is a precision improvement.
+- Regression fixtures added:
+  - tests/benchmark/recall/r08_smtp_send_message.py (Part 1)
+  - tests/corpus/COMMUNICATION-SEND/vulnerable/04_smtp_named_a2a_client.py
+    (Part 1.3 audit)
+
+### COMMUNICATION-SEND-NAME exclude_receiver_types — DEAD CONFIG (harmless)
+
+- The rule has `type=name_call` (bare function calls like
+  `sendmail(...)`). `_match_name_call` does not check
+  `exclude_receiver_types` because a bare function call has no
+  receiver. The `exclude_receiver_types` key on this rule is dead
+  config — present but never read. Harmless: no behaviour change,
+  no false positive, no false negative. Documented for future
+  cleanup.
+
+### Other qualified_call rules (DATA-DELETE-OBJ, DATABASE-ORM-MUTATE,
+GIT-MUTATE, SECRET-READ) — NO EXCLUSION, NO NARROWING
+
+- These rules use `_match_qualified_call` with explicit
+  `qualified_patterns` and no `exclude_receiver_types`. They match
+  the full dotted name (e.g., `session.delete`, `repo.push`). There
+  is no name-based narrowing to audit.
+- Pre-existing precision note: `session.delete` matches BOTH
+  NET-EGRESS (priority 10) and DATABASE-ORM-MUTATE (priority 20).
+  NET-EGRESS wins by priority. A non-DB `session.delete()` (e.g.,
+  a cache session) fires as NET-EGRESS. This is out of scope for
+  this work order and recorded as a residual risk.
+
+
+## Part 2.10 — Corpus delta after receiver-origin resolution
+
+Re-ran the full pinned corpus (12 repos: the 7 with baseline findings
++ all 5 controls) against the rewritten _is_db_receiver and the new
+receiver-origin resolver.
+
+Results:
+  baseline findings: 30
+  w01 findings:      30
+  LOST:   0
+  GAINED: 0
+  Control repos (requests, flask, fastapi, click, rich): all 0 → 0
+
+The receiver-origin resolution is precision-neutral on the existing
+corpus. No false positives introduced, no true positives lost. The
+chained psycopg2 case is now detected (Part 2.9) without affecting
+any other finding.
+
+## Part 2.9 — _is_db_receiver rewrite verdict
+
+REGRESSION FOUND → FIXED.
+
+- The chained form `psycopg2.connect(dsn).cursor().execute(query)` was
+  suppressed at baseline. Root cause: _is_db_receiver only handled one
+  level of chaining.
+- Fix: _is_db_receiver now uses _resolve_receiver_origin to walk the
+  chain to the outermost constructor. For the chained form, the origin
+  resolves to `psycopg2.connect` (strong DB evidence).
+- Name-based heuristic preserved as a fallback for the common
+  `cursor.execute(query)` idiom where `cursor` is just a variable
+  name. This is acceptable because the sink itself (.execute with a
+  non-literal arg) is strong evidence; the name adds confirming
+  evidence rather than carrying the whole decision.
+- Paired fixtures:
+  - tests/corpus/DATA-DELETE-SQL/vulnerable/04_chained_psycopg2.py
+    (legitimate chained case must fire)
+  - tests/corpus/DATA-DELETE-SQL/safe/04_non_db_execute.py
+    (non-DB step.execute() must stay clean)
+
+
+## Part 5 — Campaign target validation
+
+### Pinned corpus scan results
+
+Scanned all available pinned MCP servers + computer-use agent with the
+new W01 rules (REPOSITORY-MUTATION, GITHUB-REST-MUTATION,
+EMAIL-PROVIDER-SEND):
+
+| Repo | Category | Files | New W01 findings |
+|------|----------|-------|------------------|
+| mcp-servers (modelcontextprotocol/servers) | mcp_server | 14 py + 65 ts | 0 (1 existing FILE-WRITE) |
+| mcp-python-sdk | mcp_server | 819 py | 0 (1 existing NET-EGRESS) |
+| github-mcp-server | mcp_server | 208 go + 4 ts | 0 (Go unsupported; 4 TS files are UI) |
+| mcp-atlassian | mcp_server | 283 py | 0 |
+| browser-use | application (computer-use) | 370 py | 0 |
+
+### Hand-triage of new findings
+
+ZERO new findings from the W01 rules across the scanned campaign
+targets. The new rules fire on fixtures but not on the existing
+pinned corpus.
+
+### Why the GitHub MCP server produced zero findings
+
+The official GitHub MCP server (github/github-mcp-server) implements
+its mutation tools (create_file, delete_file, create_pull, etc.) in
+Go. The actenon-scan scanner supports Python and TypeScript but not
+Go. The 4 TypeScript files in the repo are frontend UI code
+(vite.config.ts, vite-env.d.ts, useMcpApp.ts, toolResult.ts) — none
+contain MCP tool definitions or mutation sinks.
+
+This is a recorded limitation: the scanner cannot detect
+repository-mutation surfaces in Go-based MCP servers. The
+REPOSITORY-MUTATION and GITHUB-REST-MUTATION rules are validated
+against Python (PyGithub) and Python/TS (raw requests/httpx) fixtures
+respectively, but no corpus true positive exists yet for a Go-based
+GitHub mutation tool.
+
+### Control repositories
+
+All 5 control repositories (requests, flask, fastapi, click, rich)
+remain at 0 findings across all W01 rules.
+
+### Campaign readiness
+
+The scanner can detect:
+- PyGithub mutation in agent-reachable Python tools (fixture-verified)
+- Raw GitHub REST mutation in agent-reachable Python tools (fixture-verified)
+- SMTP email send in agent-reachable Python tools (fixture-verified)
+- SendGrid/Resend/SES/Postmark email send in agent-reachable Python tools (fixture-verified)
+- Chained psycopg2 database mutation in agent-reachable Python tools (fixture-verified)
+
+The scanner cannot detect (recorded as residual risk):
+- Go-based MCP server mutation tools (language unsupported)
+- GitLab/Bitbucket equivalents (no real-world occurrence validated)
+

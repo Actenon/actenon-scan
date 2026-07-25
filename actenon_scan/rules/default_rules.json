@@ -223,7 +223,7 @@
       "severity": "medium",
       "cwe": "CWE-862",
       "owasp": "LLM06",
-      "description": "Communication send: email, SMS, Slack, Twilio, SNS, SES",
+      "description": "Communication send: email, SMS, Slack, Twilio, SNS, SES, SendGrid, Resend, Postmark",
       "match": {
         "type": "qualified_call",
         "qualified_patterns": [
@@ -240,7 +240,10 @@
           "ses.send_email",
           "ses.send_raw_email",
           "chat_postMessage",
-          "WebClient.chat_postMessage"
+          "WebClient.chat_postMessage",
+          "send_raw_email",
+          "emails.send",
+          "Emails.send"
         ],
         "exclude_receiver_types": [
           "A2AClient",
@@ -258,6 +261,31 @@
         ]
       },
       "priority": 20
+    },
+    {
+      "id": "EMAIL-PROVIDER-SEND",
+      "category": "communication",
+      "severity": "medium",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Provider SDK email send gated by receiver origin (SendGrid send, Mailgun messages.create)",
+      "match": {
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "send",
+          "messages.create"
+        ],
+        "required_origin_constructors": [
+          "SendGridAPIClient",
+          "sendgrid.SendGridAPIClient",
+          "MailgunClient",
+          "mailgun.Client"
+        ],
+        "required_origin_chain_segments": [
+          "messages"
+        ]
+      },
+      "priority": 15
     },
     {
       "id": "COMMUNICATION-SEND-NAME",
@@ -729,6 +757,59 @@
         ]
       },
       "priority": 10
+    },
+    {
+      "id": "REPOSITORY-MUTATION",
+      "category": "repository_mutation",
+      "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "GitHub repository mutation via PyGithub or raw REST (create/update/delete file, merge, release, tag, ref, pull)",
+      "match": {
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "create_file",
+          "update_file",
+          "delete_file",
+          "create_git_release",
+          "create_git_tag",
+          "create_git_ref",
+          "create_pull",
+          "get_git_ref.delete",
+          "edit",
+          "delete"
+        ],
+        "required_origin_constructors": [
+          "Github",
+          "github.Github",
+          "github.MainClass.Github",
+          "Auth.Login",
+          "github.Auth.Login"
+        ],
+        "required_origin_chain_segments": [
+          "get_repo",
+          "get_organization",
+          "get_user",
+          "get_git_ref",
+          "get_branch",
+          "create_git_ref",
+          "create_pull",
+          "get_pull"
+        ]
+      },
+      "priority": 10
+    },
+    {
+      "id": "GITHUB-REST-MUTATION",
+      "category": "repository_mutation",
+      "severity": "high",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "GitHub REST API mutation (PUT/POST/PATCH/DELETE to api.github.com/repos/*/contents, refs, releases, pulls, merges)",
+      "match": {
+        "type": "github_rest_mutation"
+      },
+      "priority": 5
     },
     {
       "id": "SECRET-READ",

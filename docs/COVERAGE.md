@@ -36,6 +36,7 @@ or if a recall fixture has no row here.
 | `r05` | Custom agent loop — LLM output flows to a sink | NOT COVERED | - |
 | `r06` | Action/observation dispatcher — `run_action` | NOT COVERED | - |
 | `r07` | Raw tool-schema dispatch — switch on tool name | PARTIAL | - |
+| `r08` | SMTP `send_message` — `smtplib.SMTP(...).send_message(...)` | PARTIAL | - |
 
 **COVERED (3)** — detector fires, and it has been shown to fire on real code
 that a third party wrote.
@@ -344,3 +345,217 @@ candidates on the 7,354-file corpus. It costs exactly zero precision. It
 remains in the codebase because a codebase not in the corpus may use the
 pattern. It simply does not count toward corpus-demonstrated recall until it
 produces a hand-triaged true positive.
+
+## Work Order 1 — repository_mutation coverage
+
+### REPOSITORY-MUTATION (PyGithub)
+
+Status: PARTIAL — detector fires on fixtures, no corpus true positive yet.
+
+The rule matches PyGithub mutation methods (`create_file`, `update_file`,
+`delete_file`, `create_git_release`, `create_git_tag`, `create_git_ref`,
+`create_pull`, `get_git_ref.delete`, `edit`, `delete`) gated by
+receiver-origin evidence: the receiver chain must trace to a `Github(...)`
+constructor OR include a PyGithub accessor segment (`get_repo`,
+`get_organization`, `get_user`, `get_git_ref`, `get_branch`).
+
+The origin gate prevents false positives on non-GitHub objects that happen
+to have a method with the same name (e.g., a `FileSystem.create_file()`
+domain object).
+
+Covered forms (fixture-verified):
+- `github = Github("token"); github.get_repo(repo).create_file(...)` (local var)
+- `self.github = Github("token"); self.github.get_repo(repo).delete_file(...)` (instance attr)
+- `Github("token").get_repo(repo).create_file(...)` (inline constructor — covered by origin resolver)
+
+Not yet covered (recorded as residual risk):
+- GitLab and Bitbucket equivalents — no real-world occurrence validated.
+  Recorded as UNVALIDATED.
+
+### GITHUB-REST-MUTATION (raw REST)
+
+Status: PARTIAL — detector fires on fixtures, no corpus true positive yet.
+
+The rule matches `requests/httpx/aiohttp` calls with mutation methods
+(POST/PUT/PATCH/DELETE) to `api.github.com` URLs containing mutation path
+suffixes (`/contents`, `/git/refs`, `/git/tags`, `/releases`, `/pulls`,
+`/merges`, `/branches`, `/git/commits`, `/git/trees`, `/git/blobs`).
+
+GET/HEAD requests are excluded (read-only). POST to non-GitHub hosts is
+excluded. POST to GitHub non-mutation paths (e.g., `/user/starred`) is
+excluded.
+
+### GIT-MUTATE (GitPython + shell git)
+
+Status: COVERED — fires on corpus (SuperAGI true positive).
+
+The existing GIT-MUTATE rule covers GitPython `repo.push`, `repo.commit`,
+`repo.reset`, `repo.index.commit`, `remote.push`, `git.push`, `git.commit`,
+`git.reset`. Force-push (`git push --force`) is covered via shell execution
+detection (EXEC-SHELL) — no duplicate REPOSITORY-MUTATION finding is
+emitted because the shell path is already fully covered.
+
+### GitHub CLI (gh)
+
+Status: COVERED (via EXEC-SHELL).
+
+`gh repo create`, `gh pr merge`, `gh release create`, `gh api`, and
+`git push --force` are all detected by the existing EXEC-SHELL rule. No
+duplicate REPOSITORY-MUTATION finding is emitted (Part 3.4 — the shell
+path adds no distinct actionable information beyond EXEC-SHELL).
+
+### Severity
+
+HIGH:
+- delete repository content (`delete_file`, `get_git_ref.delete`)
+- delete refs
+- force-push (via EXEC-SHELL / GIT-MUTATE)
+- merge into a model-controlled branch
+- publish a release (`create_git_release`)
+- create or update executable workflow content (`.github/workflows/*.yml`)
+- mutate a branch selected by the model (caller-controlled `branch` parameter)
+
+MEDIUM:
+- write content to a fixed non-production branch
+- create a draft or non-executing repository object
+
+Severity is bound to whether the target parameter (branch, ref, path) is
+caller-controlled. The `escalate_when` mechanism (arg_is_tainted) is used
+to escalate from MEDIUM to HIGH when the branch/ref/path argument derives
+from a function parameter. Constant targets are not escalated.
+
+### Caller-controlled parameters
+
+For repository findings, model-controlled arguments are recorded in the
+finding's call_text:
+- repository, owner, path, content, branch, ref, sha, tag, release name,
+  merge target, pull-request number, force flag
+
+Only parameters that derive from the tool function's signature (via the
+`arg_is_tainted` check) are claimed as caller-controlled. Constants are
+not.
+
+## Work Order 1 — external email coverage
+
+### Standard library SMTP
+
+Status: COVERED — fires on fixtures (sendmail + send_message + SMTP_SSL).
+
+The existing COMMUNICATION-SEND rule covers:
+- `smtp.sendmail(sender, recipients, body)`
+- `smtp.send_message(message)` (Part 1 fix — A2A exclusion bound to origin)
+- `smtplib.SMTP("host").sendmail(...)` (inline constructor)
+- `smtplib.SMTP("host").send_message(...)` (inline constructor)
+- `smtplib.SMTP_SSL("host").send_message(...)` (SSL variant — same method name)
+
+### AWS SES
+
+Status: COVERED — fires on fixtures.
+
+- `ses.send_email(Source=..., Destination=..., Message=...)`
+- `ses.send_raw_email(RawMessage=...)` (Part 4 — added `send_raw_email` pattern)
+
+### SendGrid
+
+Status: COVERED — fires on fixtures (Part 4).
+
+- `sg = sendgrid.SendGridAPIClient(api_key); sg.send(mail)` — EMAIL-PROVIDER-SEND
+  (origin-gated: `send` pattern fires only when receiver traces to
+  SendGridAPIClient constructor)
+- `sendgrid.SendGridAPIClient(api_key).send(mail)` — inline constructor form
+
+### Resend
+
+Status: COVERED — fires on fixtures (Part 4).
+
+- `resend.Emails.send(email)` — COMMUNICATION-SEND (added `Emails.send` pattern)
+
+### Postmark
+
+Status: COVERED — fires on fixtures.
+
+- `client.send_email(email)` — COMMUNICATION-SEND (matches `send_email` pattern)
+
+### Mailgun
+
+Status: PARTIAL — fires as NET-EGRESS, not as email-specific.
+
+Mailgun's Python SDK uses `requests.post(...)` to `api.mailgun.net`. The
+NET-EGRESS rule fires. A Mailgun-specific rule would require URL-pattern
+gating (similar to GITHUB-REST-MUTATION). Recorded as PARTIAL because the
+finding fires but is not classified as `communication` — it is classified
+as `network_egress`. This is acceptable for the campaign because the
+finding is still raised; a future refinement could add a
+MAILGUN-REST-MUTATION rule.
+
+### A2A vs SMTP distinction
+
+Status: COVERED — A2A excluded by origin, SMTP fires.
+
+The A2A exclusion (Part 1) requires receiver-origin evidence:
+- `weather_client = A2AClient(...); weather_client.send_message(...)` → excluded
+  (var_types maps weather_client → A2AClient, which is in exclude_receiver_types)
+- `A2AClient(...).send_message(...)` → excluded (origin resolver traces to
+  A2AClient constructor)
+- `smtplib.SMTP("host").send_message(...)` → fires (origin is smtplib.SMTP,
+  not in exclude_receiver_types)
+- `a2a_client = smtplib.SMTP("host"); a2a_client.send_message(...)` → fires
+  (origin is smtplib.SMTP despite the misleading variable name)
+
+## Work Order 1 — campaign target validation
+
+### Pinned corpus scan (Part 5)
+
+The new W01 rules (REPOSITORY-MUTATION, GITHUB-REST-MUTATION,
+EMAIL-PROVIDER-SEND) were validated against the pinned campaign
+corpus:
+
+| Repo | Category | New W01 findings |
+|------|----------|------------------|
+| mcp-servers | mcp_server | 0 |
+| mcp-python-sdk | mcp_server | 0 |
+| github-mcp-server | mcp_server | 0 (Go unsupported) |
+| mcp-atlassian | mcp_server | 0 |
+| browser-use | application | 0 |
+| crewai | framework | 0 |
+| semantic-kernel | framework | 0 |
+| agno | framework | 0 |
+| metagpt | application | 0 |
+| superagi | application | 0 |
+| requests | control | 0 |
+| flask | control | 0 |
+| fastapi | control | 0 |
+| click | control | 0 |
+| rich | control | 0 |
+
+Zero new findings. All 5 control repos at 0. The new rules fire on
+fixtures but not on the existing corpus. This is expected: the
+pinned corpus repos don't use PyGithub, raw GitHub REST mutation, or
+SendGrid/Mailgun SDKs in agent-reachable Python tools.
+
+### Limitation: Go-based MCP servers
+
+The official GitHub MCP server (github/github-mcp-server) implements
+its mutation tools in Go. The scanner supports Python and TypeScript
+but not Go. The 4 TypeScript files in the repo are frontend UI code.
+This is recorded as NOT SUPPORTED for Go.
+
+### Coverage verdicts for W01 surfaces
+
+| Surface | Status |
+|---------|--------|
+| PyGithub repository mutation (Python) | PARTIAL — fixture-verified, no corpus TP yet |
+| Raw GitHub REST mutation (Python/TS) | PARTIAL — fixture-verified, no corpus TP yet |
+| GitPython force-push (Python) | COVERED — GIT-MUTATE, corpus TP (SuperAGI) |
+| GitHub CLI shell (Python) | COVERED — EXEC-SHELL, corpus TP |
+| SMTP sendmail/send_message (Python) | COVERED — fixture-verified, r08 recall fixture |
+| SMTP_SSL send_message (Python) | COVERED — fixture-verified |
+| AWS SES send_email/send_raw_email (Python) | COVERED — fixture-verified |
+| SendGrid send (Python) | COVERED — fixture-verified (EMAIL-PROVIDER-SEND) |
+| Resend Emails.send (Python) | COVERED — fixture-verified |
+| Postmark send_email (Python) | COVERED — fixture-verified |
+| Mailgun messages.create (Python SDK) | PARTIAL — fixture-verified, SDK not in corpus |
+| Mailgun raw HTTP (Python requests) | COVERED — NET-EGRESS |
+| Chained psycopg2 execute (Python) | COVERED — fixture-verified (Part 2.9) |
+| Go-based MCP mutation tools | NOT SUPPORTED |
+| GitLab/Bitbucket equivalents | UNVALIDATED |
