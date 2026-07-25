@@ -64,11 +64,10 @@ def delete_file(path: str):
         f.flush()
         result = scan_path(f.name)
     os.unlink(f.name)
-    # check_permission with discarded result is a WEAK finding (low severity).
-    # This is correct v2 behavior — the guard exists but doesn't enforce.
-    assert result.finding_count == 0 or all(
-        f.severity == "low" for f in result.findings
-    ), f"check_permission should be clean or WEAK (low), got {[f.severity for f in result.findings]}"
+    # v2: check_permission with constant args is guarded (constant-origin binding).
+    # The guard's args trace to literals, not to function parameters, so the
+    # guard IS bound — it authorizes the action type.
+    assert result.finding_count == 0, f"check_permission should be clean: {[(f.rule_id, f.severity) for f in result.findings]}"
 
 
 # ---------------------------------------------------------------------------
@@ -101,11 +100,10 @@ def refund_customer(amount: float):
         result = scan_path(f.name, config=cf.name)
     os.unlink(f.name)
     os.unlink(cf.name)
-    # custom guard with discarded result is a WEAK finding (low severity).
-    # This is correct v2 behavior.
-    assert result.finding_count == 0 or all(
-        f.severity == "low" for f in result.findings
-    ), f"custom guard should be clean or WEAK (low), got {[f.severity for f in result.findings]}"
+    # v2: constant-origin binding — the guard's arg traces to a literal,
+    # so it IS bound (authorizes the action type).
+    # my_org_verify_permission contains "verify" -> assert-style -> guarded.
+    assert result.finding_count == 0, f"custom guard should be clean: {[(f.rule_id, f.severity) for f in result.findings]}"
 
 
 def test_custom_guard_not_recognised_without_config():

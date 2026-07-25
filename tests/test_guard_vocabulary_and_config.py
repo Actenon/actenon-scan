@@ -151,11 +151,7 @@ def refund2(pi: str):
     import stripe; stripe.Refund.create(payment_intent=pi)
 '''
         findings = _scan_source(source)
-        # authorize is assert-style with single literal -> guarded -> 0 findings for that function
-        # check_permission with discarded result -> WEAK (low severity)
-        assert len(findings) == 0 or all(
-            f.severity == "low" for f in findings
-        ), f"Should be clean or WEAK (low), got {[(f.rule_id, f.severity) for f in findings]}"
+        assert len(findings) == 0, f"Guards should produce no findings: {findings}"
 
     def test_no_guard_still_finds(self):
         """Without a guard, findings still appear."""
