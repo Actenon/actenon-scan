@@ -505,3 +505,43 @@ GIT-MUTATE, SECRET-READ) — NO EXCLUSION, NO NARROWING
   a cache session) fires as NET-EGRESS. This is out of scope for
   this work order and recorded as a residual risk.
 
+
+## Part 2.10 — Corpus delta after receiver-origin resolution
+
+Re-ran the full pinned corpus (12 repos: the 7 with baseline findings
++ all 5 controls) against the rewritten _is_db_receiver and the new
+receiver-origin resolver.
+
+Results:
+  baseline findings: 30
+  w01 findings:      30
+  LOST:   0
+  GAINED: 0
+  Control repos (requests, flask, fastapi, click, rich): all 0 → 0
+
+The receiver-origin resolution is precision-neutral on the existing
+corpus. No false positives introduced, no true positives lost. The
+chained psycopg2 case is now detected (Part 2.9) without affecting
+any other finding.
+
+## Part 2.9 — _is_db_receiver rewrite verdict
+
+REGRESSION FOUND → FIXED.
+
+- The chained form `psycopg2.connect(dsn).cursor().execute(query)` was
+  suppressed at baseline. Root cause: _is_db_receiver only handled one
+  level of chaining.
+- Fix: _is_db_receiver now uses _resolve_receiver_origin to walk the
+  chain to the outermost constructor. For the chained form, the origin
+  resolves to `psycopg2.connect` (strong DB evidence).
+- Name-based heuristic preserved as a fallback for the common
+  `cursor.execute(query)` idiom where `cursor` is just a variable
+  name. This is acceptable because the sink itself (.execute with a
+  non-literal arg) is strong evidence; the name adds confirming
+  evidence rather than carrying the whole decision.
+- Paired fixtures:
+  - tests/corpus/DATA-DELETE-SQL/vulnerable/04_chained_psycopg2.py
+    (legitimate chained case must fire)
+  - tests/corpus/DATA-DELETE-SQL/safe/04_non_db_execute.py
+    (non-DB step.execute() must stay clean)
+

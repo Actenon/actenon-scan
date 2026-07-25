@@ -57,8 +57,12 @@ def detect_sinks(
     #                       `self.github = Github(...)` patterns.
     #   import_aliases    — maps `import psycopg2 as pg` so origin chains
     #                       can be normalised to canonical module names.
+    #   origin_cache      — per-file memoisation of _resolve_receiver_origin
+    #                       results, keyed by id(receiver_node). The maps
+    #                       above are per-file, so the cache must be too.
     self_attr_origins = _build_self_attr_origins(tree)
     import_aliases = _build_import_aliases(tree)
+    origin_cache: dict[int, ReceiverOrigin | None] = {}
 
     # Build a parent-pointer map so we can find the enclosing function
     # for any node (needed for arg_is_tainted escalation and declarative
@@ -76,6 +80,7 @@ def detect_sinks(
                     node, rule, var_types,
                     self_attr_origins=self_attr_origins,
                     import_aliases=import_aliases,
+                    origin_cache=origin_cache,
                 ):
                     severity = rule.severity
                     # Check for escalation: if the rule has an escalate_when
@@ -100,7 +105,13 @@ def detect_sinks(
             for rule in sorted_rules:
                 mt = rule.match.get("type", "")
                 if mt in ("sql_execute_pattern", "sql_fstring_pattern"):
-                    if _is_sql_execute_call(node, rule):
+                    if _is_sql_execute_call(
+                        node, rule,
+                        var_types=var_types,
+                        self_attr_origins=self_attr_origins,
+                        import_aliases=import_aliases,
+                        origin_cache=origin_cache,
+                    ):
                         findings.append(SinkFinding(
                             rule_id=rule.id,
                             category=rule.category,
@@ -385,6 +396,7 @@ def _resolve_receiver_origin(
     *,
     _depth: int = 0,
     _seen: set[int] | None = None,
+    _cache: dict[int, ReceiverOrigin | None] | None = None,
 ) -> ReceiverOrigin | None:
     """Resolve what produced a call receiver.
 
@@ -392,7 +404,34 @@ def _resolve_receiver_origin(
     ``ReceiverOrigin`` with ``confidence="heuristic"`` when only naming
     evidence is available — callers MUST treat heuristic evidence as weak
     (RULE 4).
+
+    Per-file caching: pass a ``_cache`` dict (keyed by ``id(receiver)``)
+    to avoid re-walking the same chain. The cache is per-file because
+    var_types / self_attr_origins / import_aliases are per-file. The cache
+    is only consulted at depth 0 to avoid merging caches across recursion.
     """
+    if _depth == 0 and _cache is not None and id(receiver) in _cache:
+        return _cache[id(receiver)]
+    result = _resolve_receiver_origin_uncached(
+        receiver, var_types, self_attr_origins, import_aliases,
+        _depth=_depth, _seen=_seen, _cache=_cache,
+    )
+    if _depth == 0 and _cache is not None:
+        _cache[id(receiver)] = result
+    return result
+
+
+def _resolve_receiver_origin_uncached(
+    receiver: ast.expr,
+    var_types: dict[str, str] | None,
+    self_attr_origins: dict[str, str] | None,
+    import_aliases: dict[str, str] | None,
+    *,
+    _depth: int = 0,
+    _seen: set[int] | None = None,
+    _cache: dict[int, ReceiverOrigin | None] | None = None,
+) -> ReceiverOrigin | None:
+    """Inner uncached resolver. Use _resolve_receiver_origin from callers."""
     if _depth > _RECEIVER_ORIGIN_MAX_DEPTH:
         return None
     if _seen is None:
@@ -405,11 +444,39 @@ def _resolve_receiver_origin(
     #   WebClient("token").chat_postMessage(...)
     #   psycopg2.connect("dsn").cursor()           <- receiver of .execute()
     if isinstance(receiver, ast.Call):
+        # Determine whether this is a SIMPLE constructor (WebClient("token"))
+        # or a CHAINED method call on a constructor (psycopg2.connect("x").cursor()).
+        # In the chained case, the Call's func is an Attribute whose .value is
+        # itself a Call — we recurse to get the constructor origin, then append
+        # the method hop to the chain. This is what makes
+        #   psycopg2.connect("x").cursor().execute(query)
+        # resolve to origin `psycopg2.connect` (strong) rather than `cursor`
+        # (which would be a meaningless heuristic).
+        call_func = receiver.func
+        if isinstance(call_func, ast.Attribute) and isinstance(call_func.value, ast.Call):
+            # Chained: <inner_call>.<method>(...)
+            inner = _resolve_receiver_origin(
+                call_func.value, var_types, self_attr_origins, import_aliases,
+                _depth=_depth + 1, _seen=_seen, _cache=_cache,
+            )
+            if inner is not None:
+                method_hop = f"{call_func.attr}()"
+                return ReceiverOrigin(
+                    expression=_short_expr(receiver),
+                    origin=inner.origin,
+                    chain=inner.chain + [method_hop],
+                    confidence="strong" if inner.is_strong else "heuristic",
+                )
+            # Fall through to the simple-constructor branch if inner resolution
+            # failed (rare; preserves existing behaviour for unknown shapes).
+        # Simple constructor: WebClient("token"), Github("token"), etc.
         label = _origin_label_for_call(receiver)
         origin = _get_call_name(receiver) or label
-        # Resolve the constructor's module through import aliases so that
-        # `import psycopg2 as pg; pg.connect(...)` reports origin
-        # `psycopg2.connect` rather than `pg.connect`.
+        # _get_call_name returns only the last attr for Attribute funcs
+        # (e.g., "cursor" for psycopg2.connect("x").cursor()). For the
+        # simple-constructor case the func is typically a Name or a short
+        # dotted attribute (github.Github), so this is correct. For chained
+        # calls the branch above already handled it.
         origin = _resolve_qualified_name_through_aliases(origin, import_aliases)
         return ReceiverOrigin(
             expression=_short_expr(receiver),
@@ -418,18 +485,14 @@ def _resolve_receiver_origin(
             confidence="strong",
         )
 
-    # Form 2.3: receiver is a chained method call on a constructor.
-    #   psycopg2.connect("dsn").cursor().execute(...)
-    # Here `receiver` is `psycopg2.connect("dsn").cursor()` (a Call), which
-    # is already handled by the branch above. The remaining chained form is
-    # an Attribute on a Call, e.g. `psycopg2.connect("dsn").cursor` — but
-    # that would be the receiver of `.execute()` only if written as
-    # `psycopg2.connect("dsn").cursor.execute(...)`, which is rare. The
-    # common form goes through the Call branch.
+    # Form 2.3 (attribute-on-call variant): receiver is an Attribute whose
+    # value is a Call, e.g. `psycopg2.connect("dsn").cursor` (without the
+    # trailing ()). This is rare as a direct receiver but handled for
+    # completeness.
     if isinstance(receiver, ast.Attribute) and isinstance(receiver.value, ast.Call):
         inner = _resolve_receiver_origin(
             receiver.value, var_types, self_attr_origins, import_aliases,
-            _depth=_depth + 1, _seen=_seen,
+            _depth=_depth + 1, _seen=_seen, _cache=_cache,
         )
         if inner is not None:
             return ReceiverOrigin(
@@ -442,6 +505,7 @@ def _resolve_receiver_origin(
     # Form 2.4 / 2.5: receiver is a bare Name (local or module-level var).
     #   github.get_repo(repo)             where github = Github("token")
     #   cursor.execute(query)             where cursor = conn.cursor()
+    #   requests.put(url)                 where requests is a module import
     if isinstance(receiver, ast.Name):
         var_name = receiver.id
         # Strong evidence: var_types maps the variable to a constructor.
@@ -458,10 +522,18 @@ def _resolve_receiver_origin(
                 chain=[f"{mapped}(...)"] if mapped else [],
                 confidence="strong",
             )
-        # Heuristic-only: variable name matches a known DB receiver name.
-        # This is the legacy fallback. It MUST be flagged heuristic so
-        # callers can bias to WEAK under ambiguity (RULE 4).
-        return None
+        # Form 2.1 fallback: the name might be a module import
+        # (requests.put(...), smtplib.SMTP(...)). We cannot prove this
+        # without tracking imports, so we return a HEURISTIC origin with
+        # the name itself. Callers that require strong evidence (like the
+        # A2A exclusion) will ignore this; callers that want to surface
+        # the receiver for reporting can use it.
+        return ReceiverOrigin(
+            expression=var_name,
+            origin=var_name,
+            chain=[var_name],
+            confidence="heuristic",
+        )
 
     # Form 2.6: receiver is `self.<attr>`.
     #   self.github.get_repo(...)
@@ -566,6 +638,7 @@ def _receiver_origin_is_excluded(
     var_types: dict[str, str] | None,
     self_attr_origins: dict[str, str] | None = None,
     import_aliases: dict[str, str] | None = None,
+    cache: dict[int, ReceiverOrigin | None] | None = None,
 ) -> bool:
     """Return True only when there is ORIGIN evidence that the receiver is
     a member of ``excluded_receivers``.
@@ -584,7 +657,7 @@ def _receiver_origin_is_excluded(
     `_resolve_receiver_origin` directly and inspect `.confidence`.
     """
     origin = _resolve_receiver_origin(
-        receiver, var_types, self_attr_origins, import_aliases
+        receiver, var_types, self_attr_origins, import_aliases, _cache=cache,
     )
     if origin is None or not origin.origin:
         return False
@@ -610,6 +683,7 @@ def _match_call(
     *,
     self_attr_origins: dict[str, str] | None = None,
     import_aliases: dict[str, str] | None = None,
+    origin_cache: dict[int, ReceiverOrigin | None] | None = None,
 ) -> bool:
     match_type = rule.match.get("type", "")
     if match_type == "name_call":
@@ -621,6 +695,7 @@ def _match_call(
             node, rule, var_types,
             self_attr_origins=self_attr_origins,
             import_aliases=import_aliases,
+            origin_cache=origin_cache,
         )
     elif match_type == "subprocess_deploy":
         return _match_subprocess_deploy(node)
@@ -635,6 +710,7 @@ def _match_qualified_call(
     *,
     self_attr_origins: dict[str, str] | None = None,
     import_aliases: dict[str, str] | None = None,
+    origin_cache: dict[int, ReceiverOrigin | None] | None = None,
 ) -> bool:
     """Match calls by their full qualified dotted name (e.g., subprocess.run).
 
@@ -679,6 +755,7 @@ def _match_qualified_call(
             node.func.value, excluded_receivers, var_types,
             self_attr_origins=self_attr_origins,
             import_aliases=import_aliases,
+            cache=origin_cache,
         ):
             return False
 
@@ -858,7 +935,15 @@ def _is_write_mode(mode: str) -> bool:
     return any(m in mode for m in ("w", "a", "x", "+"))
 
 
-def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
+def _is_sql_execute_call(
+    node: ast.Call,
+    rule: SinkRule,
+    *,
+    var_types: dict[str, str] | None = None,
+    self_attr_origins: dict[str, str] | None = None,
+    import_aliases: dict[str, str] | None = None,
+    origin_cache: dict[int, ReceiverOrigin | None] | None = None,
+) -> bool:
     """Check if this is a cursor.execute() or cursor.executemany() call.
 
     The SINK is the execute/executemany/executescript method call itself.
@@ -868,14 +953,27 @@ def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
       non-literal SQL (variable, f-string, concatenation) -> HIGH (caller-controlled)
       literal SELECT-only                                 -> not reported
 
-    RECEIVER CONSTRAINT: the call must be on a database receiver. A bare
-    .execute() on any object (e.g., step.execute(), task.execute()) does
-    NOT match. Evidence that the receiver is a DB connection or cursor:
-      - receiver name matches conn/cur/cursor/session/engine/db
-      - receiver was constructed from a known connect() call
-      - module imports a DB driver (sqlite3, psycopg2, asyncpg, sqlalchemy, pymysql)
+    RECEIVER CONSTRAINT (Work Order 1, Part 2.9): the call must be on a
+    database receiver. A bare ``.execute()`` on any object (e.g.,
+    ``step.execute()``, ``task.execute()``) does NOT match. Evidence that
+    the receiver is a DB connection or cursor is established via
+    receiver-origin resolution:
 
-    This prevents false positives like agno's step.execute() matching
+      - STRONG: the receiver origin traces to a known DB constructor or
+        DB-driver-prefixed name (``psycopg2.connect``, ``sqlite3.connect``,
+        ``create_engine``, ``Connection``, ``Cursor``, etc.). This covers
+        chained forms like ``psycopg2.connect(dsn).cursor().execute(q)``
+        that the previous name-based logic missed.
+      - HEURISTIC (fallback): the receiver variable name matches a known
+        DB receiver name (``conn``, ``cursor``, ``cur``, ``session``,
+        ``engine``, ``db``). This preserves existing recall on the common
+        ``cursor.execute(query)`` idiom where ``cursor`` is just a
+        variable name with no constructor trace. Heuristic matches are
+        acceptable here because the sink (.execute with a non-literal
+        arg) is itself strong evidence — the receiver name adds
+        confirming evidence rather than carrying the whole decision.
+
+    This prevents false positives like agno's ``step.execute()`` matching
     DATA-DELETE-SQL at HIGH severity.
     """
     if not isinstance(node.func, ast.Attribute):
@@ -890,7 +988,13 @@ def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
 
     # RECEIVER CONSTRAINT: check that the receiver looks like a DB connection
     receiver = node.func.value
-    if not _is_db_receiver(receiver):
+    if not _is_db_receiver(
+        receiver,
+        var_types=var_types,
+        self_attr_origins=self_attr_origins,
+        import_aliases=import_aliases,
+        origin_cache=origin_cache,
+    ):
         return False
 
     patterns = rule.match.get("patterns", [])
@@ -912,79 +1016,111 @@ def _is_sql_execute_call(node: ast.Call, rule: SinkRule) -> bool:
     return True
 
 
-# Names that indicate a database receiver.
+# Names that indicate a database receiver (heuristic fallback only).
 _DB_RECEIVER_NAMES = frozenset({
     "conn", "connection", "cur", "cursor", "session", "engine",
     "db", "database", "client", "cnx",
 })
 
-# DB driver module names that, if imported, indicate DB context.
+# DB driver module names that, if the receiver origin traces through one,
+# indicate DB context (strong evidence).
 _DB_DRIVER_IMPORTS = frozenset({
     "sqlite3", "psycopg2", "psycopg", "asyncpg", "sqlalchemy",
     "pymysql", "mysql", "cx_Oracle", "pyodbc", "mongodb",
     "pymongo", "redis", "cassandra",
 })
 
-# Names that look like DB connect() calls.
+# Constructor / factory names that, if the receiver origin traces to one,
+# indicate DB context (strong evidence). Matched on the final segment of
+# the resolved origin so dotted forms like ``psycopg2.connect`` match.
 _DB_CONNECT_NAMES = frozenset({
     "connect", "create_engine", "create_async_engine",
     "Connection", "Cursor",
 })
 
 
-def _is_db_receiver(receiver: ast.expr) -> bool:
+def _origin_is_db(origin: ReceiverOrigin) -> bool:
+    """Return True when a resolved origin is strong DB evidence."""
+    if not origin or not origin.is_strong:
+        return False
+    low = origin.origin.lower()
+    final = low.rsplit(".", 1)[-1]
+    # Driver-module prefix: psycopg2.connect, sqlite3.connect, sqlalchemy.create_engine
+    for driver in _DB_DRIVER_IMPORTS:
+        if low.startswith(driver + ".") or low == driver:
+            return True
+    # Constructor / factory name: connect, create_engine, Connection, Cursor
+    for connect_name in _DB_CONNECT_NAMES:
+        cn = connect_name.lower()
+        if final == cn or low.endswith("." + cn):
+            return True
+    return False
+
+
+def _name_looks_db(name: str) -> bool:
+    """Heuristic: does a variable/attribute name look DB-ish?
+
+    Used only as a fallback when origin resolution returns heuristic
+    evidence (RULE 4). The sink itself (.execute with a non-literal arg)
+    is strong evidence, so a DB-ish name is sufficient confirming
+    evidence here. Callers that need strict binding MUST use
+    _origin_is_db instead.
+    """
+    name_lower = name.lower()
+    for db_name in _DB_RECEIVER_NAMES:
+        if name_lower == db_name or name_lower.startswith(db_name):
+            return True
+    for db_name in _DB_RECEIVER_NAMES:
+        if db_name in name_lower:
+            return True
+    return False
+
+
+def _is_db_receiver(
+    receiver: ast.expr,
+    *,
+    var_types: dict[str, str] | None = None,
+    self_attr_origins: dict[str, str] | None = None,
+    import_aliases: dict[str, str] | None = None,
+    origin_cache: dict[int, ReceiverOrigin | None] | None = None,
+) -> bool:
     """Check if a call receiver looks like a database connection or cursor.
 
     Conservative: returns True only when there's positive evidence the
     receiver is a DB object. This prevents false positives on generic
     .execute() calls (step.execute(), task.execute(), etc.).
+
+    Resolution order (Work Order 1, Part 2.9):
+      1. Resolve the receiver origin. If STRONG and DB-tracing, return True.
+      2. If the origin is heuristic (name-only), apply the legacy
+         name-based heuristic as a fallback. This preserves recall on
+         ``cursor.execute(query)`` where ``cursor`` is just a variable
+         name. The fallback is acceptable because the sink itself
+         (.execute with a non-literal arg) is strong evidence.
+      3. Otherwise return False.
     """
-    # Direct name: conn.execute(...), cursor.execute(...)
+    # Resolve the origin first.
+    origin = _resolve_receiver_origin(
+        receiver, var_types, self_attr_origins, import_aliases,
+        _cache=origin_cache,
+    )
+
+    # Strong DB origin — accept.
+    if origin is not None and _origin_is_db(origin):
+        return True
+
+    # Heuristic fallback: name-based check on the receiver expression.
+    # This preserves the existing recall on cursor.execute(query) where
+    # cursor is a bare variable name with no constructor trace.
     if isinstance(receiver, ast.Name):
-        name_lower = receiver.id.lower()
-        # Check if the name matches a DB receiver pattern
-        for db_name in _DB_RECEIVER_NAMES:
-            if name_lower == db_name or name_lower.startswith(db_name):
-                return True
-        # Also match compound names like db_conn, my_cursor
-        for db_name in _DB_RECEIVER_NAMES:
-            if db_name in name_lower:
-                return True
-        return False
-
-    # Chained call: sqlite3.connect("...").execute(...) or conn.cursor().execute(...)
-    if isinstance(receiver, ast.Call):
-        # Get the call's function name
-        call_func = receiver.func
-        if isinstance(call_func, ast.Name):
-            call_name = call_func.id
-        elif isinstance(call_func, ast.Attribute):
-            call_name = _get_attr_chain(call_func)
-        else:
-            call_name = ""
-
-        if call_name:
-            for connect_name in _DB_CONNECT_NAMES:
-                if call_name.endswith(connect_name):
-                    return True
-        # Check if the inner call's function is an attribute of a DB module
-        if isinstance(call_func, ast.Attribute):
-            module_name = ""
-            if isinstance(call_func.value, ast.Name):
-                module_name = call_func.value.id.lower()
-            for driver in _DB_DRIVER_IMPORTS:
-                if module_name == driver:
-                    return True
-        return False
-
-    # Attribute: self.conn.execute(...), self.cursor.execute(...)
+        return _name_looks_db(receiver.id)
     if isinstance(receiver, ast.Attribute):
-        attr_lower = receiver.attr.lower()
-        for db_name in _DB_RECEIVER_NAMES:
-            if attr_lower == db_name or attr_lower.startswith(db_name):
-                return True
-        return False
-
+        # self.conn.execute(...), self.cursor.execute(...)
+        if isinstance(receiver.value, ast.Name) and receiver.value.id == "self":
+            return _name_looks_db(receiver.attr)
+        # connection.cursor().execute(...) — receiver is a Call handled above;
+        # if origin resolution returned heuristic, fall back to the attr name.
+        return _name_looks_db(receiver.attr)
     return False
 
 
