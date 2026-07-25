@@ -394,3 +394,114 @@ It records a failure, not a capability.
 
 These are now `tests/test_coverage_contract_gate.py` rather than a one-off
 demonstration, so the gate's own failure modes are regression-tested.
+
+---
+
+# Work Order 1 — Consequential-action coverage gaps
+
+## Baseline reproduction (recorded before any changes)
+
+Commit: 473c14fe1fcd3f6d40c9383dfd474390dff0872b
+Version: 0.8.0
+
+Three empirically established misses:
+
+1. `gh.get_repo(repo).create_file(path, "m", content, branch=branch)`
+   — NO FINDINGS (confirmed miss)
+2. `psycopg2.connect("x").cursor().execute(query)`
+   — NO FINDINGS (confirmed miss)
+3. `smtplib.SMTP("host").send_message(message)`
+   — FINDING (COMMUNICATION-SEND). NOTE: this case is NOT missed at
+   v0.8.0. The work order's premise that send_message is missed
+   appears to reference an earlier version. The architectural concern
+   (name-based exclusion is fragile) remains valid and is addressed
+   in Part 1.
+
+Four working cases (all confirmed firing at baseline):
+
+1. `requests.put(f"https://api.github.com/repos/{repo}/contents/{path}", ...)`
+   — NET-EGRESS (high)
+2. `WebClient("token").chat_postMessage(channel=channel, text=text)`
+   — COMMUNICATION-SEND (medium)
+3. `cursor.execute(query)` (variable literally named cursor)
+   — DATA-DELETE-SQL (high)
+4. `smtp.sendmail(sender, recipients, body)`
+   — COMMUNICATION-SEND (medium)
+
+## Part 1.3 — Precision-narrowing audit verdicts
+
+### _is_db_receiver — REGRESSION FOUND (fixed in Part 2.9)
+
+- False-positive case it was intended to remove: `step.execute(cmd)`
+  where `step` is a non-DB domain object. **Remains clean** ✓
+- Nearest legitimate consequential case it accidentally suppresses:
+  `psycopg2.connect("x").cursor().execute(query)` — the chained-call
+  form. **Suppressed** ✗ (the miss this work order targets).
+- Root cause: `_is_db_receiver` only handles ONE level of chaining.
+  For `psycopg2.connect("x").cursor().execute(query)`, the receiver
+  of `.execute()` is `psycopg2.connect("x").cursor()` (a Call). The
+  code checks if the inner call's function name ends with
+  `connect`/`create_engine`/etc., but the inner call's function is
+  `psycopg2.connect.cursor` (an Attribute on a Call), so
+  `call_name = "psycopg2.connect.cursor"` which does not end with
+  `connect`. Returns False → finding suppressed.
+- Fix: Part 2.9 rewrites `_is_db_receiver` to use receiver-origin
+  resolution, which walks the chain to the outermost constructor.
+- Regression fixture added: tests/corpus/DATA-DELETE-SQL/vulnerable/
+  04_chained_psycopg2.py (added in Part 2.9 commit).
+
+### BROWSER-ACTION narrowing — SAFE
+
+- False-positive case it was intended to remove: a non-agent
+  documentation script (`p12_playwright_docs_script.py`) driving
+  Playwright at module level. **Remains clean** ✓ (0 findings)
+- Nearest legitimate consequential case: `page.click(selector)` in
+  an MCP tool. **Still fires** ✓ (BROWSER-ACTION, browser_action)
+- Mechanism: BROWSER-ACTION uses `qualified_patterns` like
+  `page.click`, `frame.click`, `element.click`, `locator.click`,
+  `driver.click`. The full dotted name must match — a non-browser
+  `btn.click()` does not match because `btn.click != page.click`.
+- Regression fixture added: tests/corpus/BROWSER-ACTION/safe/
+  04_non_browser_click.py (non-browser `.click()` must stay clean).
+
+### COMMUNICATION-SEND A2A exclusion — SAFE (after Part 1 fix)
+
+- False-positive case it was intended to remove: Agno A2A
+  `weather_client.send_message(request)` where `weather_client` is
+  an `A2AClient`. **Remains clean** ✓ (0 findings, p13 fixture)
+- Nearest legitimate consequential case: `smtplib.SMTP("host")
+  .send_message(message)`. **Still fires** ✓ (COMMUNICATION-SEND)
+- Name-collision false-negative case (SMTP client named
+  `a2a_client`): **Now fires** ✓ (was previously suppressed by the
+  bare-name fallback `or recv.id`). This is the Part 1 fix.
+- Inline A2A constructor case (`A2AClient(...).send_message(...)`):
+  **Now correctly excluded** ✓ (was previously firing because no
+  var_types entry existed). This is a precision improvement.
+- Regression fixtures added:
+  - tests/benchmark/recall/r08_smtp_send_message.py (Part 1)
+  - tests/corpus/COMMUNICATION-SEND/vulnerable/04_smtp_named_a2a_client.py
+    (Part 1.3 audit)
+
+### COMMUNICATION-SEND-NAME exclude_receiver_types — DEAD CONFIG (harmless)
+
+- The rule has `type=name_call` (bare function calls like
+  `sendmail(...)`). `_match_name_call` does not check
+  `exclude_receiver_types` because a bare function call has no
+  receiver. The `exclude_receiver_types` key on this rule is dead
+  config — present but never read. Harmless: no behaviour change,
+  no false positive, no false negative. Documented for future
+  cleanup.
+
+### Other qualified_call rules (DATA-DELETE-OBJ, DATABASE-ORM-MUTATE,
+GIT-MUTATE, SECRET-READ) — NO EXCLUSION, NO NARROWING
+
+- These rules use `_match_qualified_call` with explicit
+  `qualified_patterns` and no `exclude_receiver_types`. They match
+  the full dotted name (e.g., `session.delete`, `repo.push`). There
+  is no name-based narrowing to audit.
+- Pre-existing precision note: `session.delete` matches BOTH
+  NET-EGRESS (priority 10) and DATABASE-ORM-MUTATE (priority 20).
+  NET-EGRESS wins by priority. A non-DB `session.delete()` (e.g.,
+  a cache session) fires as NET-EGRESS. This is out of scope for
+  this work order and recorded as a residual risk.
+
