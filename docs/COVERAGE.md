@@ -172,14 +172,19 @@ Python and TypeScript/JavaScript. Files in other languages are reported as
 
 ## Reading the benchmark honestly
 
-The three scores are not interchangeable, and only one of them is a hard gate.
+The scores are not interchangeable, and only some of them are hard gates.
 
-- **Precision (7/7)** must stay at 100%. A precision regression fails the
+- **Precision (11/11)** must stay at 100%. A precision regression fails the
   build. False positives are how a security tool gets uninstalled.
 - **Soundness (6/6)** counts defeated-guard patterns that scan correctly
   refuses to accept.
-- **Recall (4/7)** counts agent architectures scan can see. It ratchets: it
-  may not decrease.
+- **Recall (synthetic) (4/7)** counts agent architectures scan can see on
+  fixture files. Informational only — a number that moves on synthetic
+  fixtures without a corresponding real-world true positive encodes
+  capability that does not exist.
+- **Recall (corpus-demonstrated) (3/7)** counts architectures with a
+  hand-triaged true positive on a pinned commit of a real repository.
+  This is the number that gates CI. It ratchets: it may not decrease.
 
 One discipline matters more than the numbers: **the fixtures are the
 specification.** A benchmark case may be changed when it was wrong about the
@@ -189,3 +194,38 @@ candidate rule would pass it. The score read 6/6 and the original defect was
 still undetected — and the rule that "passed" it also flagged
 `casbin_enforce("user", "record", "delete")`, a correct Casbin call, as
 unbound. A benchmark edited to fit the implementation measures nothing.
+
+## Negative result: custom agent loop detection (r05)
+
+The custom agent loop strategy (2.1) was rejected after detection-only
+pre-triage on a 9-repo corpus. It produced 10/10 false positives across
+autogen wsbridge, agno A2A, semantic-kernel process routing, and OpenHands
+integrations. The dominant category was framework message-passing plumbing —
+`send_message` on internal event buses — which the heuristic matched because
+the signal decomposes into "module talks to an LLM" and "function runs what
+it was passed", which describes most of an agent framework.
+
+This is a useful negative result. The custom agent loop pattern is too broad
+to distinguish from framework internals without interprocedural dataflow
+analysis. The strategy is recorded as not-yet-viable rather than abandoned;
+a future version with interprocedural analysis may revisit it.
+
+## r06: action/observation classes (OpenHands)
+
+The r06 fixture models OpenHands' `CmdRunAction` shape: a dataclass with
+command/code/path fields consumed by a dispatcher method (`run_action`,
+`execute_action`). OpenHands has restructured away from this shape in its
+current main branch. The fixture is marked **historical** — it tests a
+pattern that was common in agent frameworks and may reappear. It is excluded
+from the synthetic recall denominator (7 → 6 effective) because the pattern
+no longer exists in the primary reference implementation. The detector code
+remains active and may fire on codebases that use the action/observation
+pattern.
+
+## r07: raw tool-schema dispatch
+
+The r07 detector (raw tool-schema dispatch) is active but produces zero
+candidates on the 7,354-file corpus. It costs exactly zero precision. It
+remains in the codebase because a codebase not in the corpus may use the
+pattern. It simply does not count toward corpus-demonstrated recall until it
+produces a hand-triaged true positive.

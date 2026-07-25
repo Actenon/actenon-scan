@@ -1,0 +1,31 @@
+{
+  "r01_mcp_tool": {
+    "repo": "modelcontextprotocol/python-sdk",
+    "file": "examples/mcpserver/text_me.py",
+    "line": 48,
+    "triage": "true_positive",
+    "finding": "NET-EGRESS: client.post('https://api.surgemsg.com/messages') inside @mcp.tool — agent sends SMS with no guard"
+  },
+  "r02_langchain_tool": {
+    "repo": "modelcontextprotocol/servers",
+    "file": "src/memory/index.ts",
+    "line": 117,
+    "triage": "true_positive",
+    "finding": "FILE-WRITE: fs.writeFile in MCP server with setRequestHandler — agent writes arbitrary files",
+    "note": "MCP servers use setRequestHandler which is the MCP-native tool registration. The memory server's fs.writeFile is inside a class method of a tool-registered server."
+  },
+  "r03_basetool": {
+    "repo": "SuperAGIInc/SuperAGI",
+    "file": "superagi/tools/file/delete_file.py",
+    "line": 61,
+    "triage": "true_positive",
+    "finding": "DATA-DELETE-OS: os.remove(final_path) in BaseTool subclass — agent deletes files"
+  },
+  "r04_openai_function_tool": {
+    "repo": "openai/openai-agents-python",
+    "file": "examples/mcp/streamablehttp_example/main.py",
+    "line": 91,
+    "triage": "false_positive",
+    "note": "subprocess.Popen in __main__ block — fixed by __main__ exclusion. No corpus TP found for this architecture yet."
+  }
+}

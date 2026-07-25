@@ -1,4 +1,5 @@
 {
+  "tests/benchmark/corpus-evidence.json": "34a7b14a67990fa5b2d565fe592adea664ad42afbe9d10860712d27a6f380ca8",
   "tests/benchmark/precision/p01_standard_guard.py": "2414391cf7fd4ba18af916f8881c6fc2453c2ed7088e0210411832fdd71e138d",
   "tests/benchmark/precision/p02_custom_convention.py": "bfcd77ee99739744eb09d02e0c66b9e7aefb34c2d307ee0336cc2d8f0515feba",
   "tests/benchmark/precision/p03_ctx_elicit.py": "b9426c182193f1fb95115c41ceced31b94bbd3fe0581f4b6a36efc6de249920e",
