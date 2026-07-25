@@ -223,7 +223,7 @@
       "severity": "medium",
       "cwe": "CWE-862",
       "owasp": "LLM06",
-      "description": "Communication send: email, SMS, Slack, Twilio, SNS, SES",
+      "description": "Communication send: email, SMS, Slack, Twilio, SNS, SES, SendGrid, Resend, Postmark",
       "match": {
         "type": "qualified_call",
         "qualified_patterns": [
@@ -240,7 +240,10 @@
           "ses.send_email",
           "ses.send_raw_email",
           "chat_postMessage",
-          "WebClient.chat_postMessage"
+          "WebClient.chat_postMessage",
+          "send_raw_email",
+          "emails.send",
+          "Emails.send"
         ],
         "exclude_receiver_types": [
           "A2AClient",
@@ -258,6 +261,31 @@
         ]
       },
       "priority": 20
+    },
+    {
+      "id": "EMAIL-PROVIDER-SEND",
+      "category": "communication",
+      "severity": "medium",
+      "cwe": "CWE-862",
+      "owasp": "LLM06",
+      "description": "Provider SDK email send gated by receiver origin (SendGrid send, Mailgun messages.create)",
+      "match": {
+        "type": "qualified_call",
+        "qualified_patterns": [
+          "send",
+          "messages.create"
+        ],
+        "required_origin_constructors": [
+          "SendGridAPIClient",
+          "sendgrid.SendGridAPIClient",
+          "MailgunClient",
+          "mailgun.Client"
+        ],
+        "required_origin_chain_segments": [
+          "messages"
+        ]
+      },
+      "priority": 15
     },
     {
       "id": "COMMUNICATION-SEND-NAME",

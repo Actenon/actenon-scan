@@ -502,6 +502,24 @@ def _resolve_receiver_origin_uncached(
                 confidence="strong" if inner.is_strong else "heuristic",
             )
 
+    # Form 2.3b: receiver is an Attribute on a bare Name (not self).
+    #   client.messages.create(...)   where client = mailgun.Client(...)
+    #   sg.mail.send(...)             where sg = SendGridAPIClient(...)
+    # The receiver of .create() is `client.messages` (Attribute on Name).
+    # We resolve the Name through var_types, then append the attr hop.
+    if isinstance(receiver, ast.Attribute) and isinstance(receiver.value, ast.Name) and receiver.value.id != "self":
+        inner = _resolve_receiver_origin(
+            receiver.value, var_types, self_attr_origins, import_aliases,
+            _depth=_depth + 1, _seen=_seen, _cache=_cache,
+        )
+        if inner is not None and inner.is_strong:
+            return ReceiverOrigin(
+                expression=_short_expr(receiver),
+                origin=inner.origin,
+                chain=inner.chain + [f"{receiver.attr}"],
+                confidence="strong",
+            )
+
     # Form 2.4 / 2.5: receiver is a bare Name (local or module-level var).
     #   github.get_repo(repo)             where github = Github("token")
     #   cursor.execute(query)             where cursor = conn.cursor()

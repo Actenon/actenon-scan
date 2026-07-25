@@ -434,3 +434,70 @@ finding's call_text:
 Only parameters that derive from the tool function's signature (via the
 `arg_is_tainted` check) are claimed as caller-controlled. Constants are
 not.
+
+## Work Order 1 — external email coverage
+
+### Standard library SMTP
+
+Status: COVERED — fires on fixtures (sendmail + send_message + SMTP_SSL).
+
+The existing COMMUNICATION-SEND rule covers:
+- `smtp.sendmail(sender, recipients, body)`
+- `smtp.send_message(message)` (Part 1 fix — A2A exclusion bound to origin)
+- `smtplib.SMTP("host").sendmail(...)` (inline constructor)
+- `smtplib.SMTP("host").send_message(...)` (inline constructor)
+- `smtplib.SMTP_SSL("host").send_message(...)` (SSL variant — same method name)
+
+### AWS SES
+
+Status: COVERED — fires on fixtures.
+
+- `ses.send_email(Source=..., Destination=..., Message=...)`
+- `ses.send_raw_email(RawMessage=...)` (Part 4 — added `send_raw_email` pattern)
+
+### SendGrid
+
+Status: COVERED — fires on fixtures (Part 4).
+
+- `sg = sendgrid.SendGridAPIClient(api_key); sg.send(mail)` — EMAIL-PROVIDER-SEND
+  (origin-gated: `send` pattern fires only when receiver traces to
+  SendGridAPIClient constructor)
+- `sendgrid.SendGridAPIClient(api_key).send(mail)` — inline constructor form
+
+### Resend
+
+Status: COVERED — fires on fixtures (Part 4).
+
+- `resend.Emails.send(email)` — COMMUNICATION-SEND (added `Emails.send` pattern)
+
+### Postmark
+
+Status: COVERED — fires on fixtures.
+
+- `client.send_email(email)` — COMMUNICATION-SEND (matches `send_email` pattern)
+
+### Mailgun
+
+Status: PARTIAL — fires as NET-EGRESS, not as email-specific.
+
+Mailgun's Python SDK uses `requests.post(...)` to `api.mailgun.net`. The
+NET-EGRESS rule fires. A Mailgun-specific rule would require URL-pattern
+gating (similar to GITHUB-REST-MUTATION). Recorded as PARTIAL because the
+finding fires but is not classified as `communication` — it is classified
+as `network_egress`. This is acceptable for the campaign because the
+finding is still raised; a future refinement could add a
+MAILGUN-REST-MUTATION rule.
+
+### A2A vs SMTP distinction
+
+Status: COVERED — A2A excluded by origin, SMTP fires.
+
+The A2A exclusion (Part 1) requires receiver-origin evidence:
+- `weather_client = A2AClient(...); weather_client.send_message(...)` → excluded
+  (var_types maps weather_client → A2AClient, which is in exclude_receiver_types)
+- `A2AClient(...).send_message(...)` → excluded (origin resolver traces to
+  A2AClient constructor)
+- `smtplib.SMTP("host").send_message(...)` → fires (origin is smtplib.SMTP,
+  not in exclude_receiver_types)
+- `a2a_client = smtplib.SMTP("host"); a2a_client.send_message(...)` → fires
+  (origin is smtplib.SMTP despite the misleading variable name)
