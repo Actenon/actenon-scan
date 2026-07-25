@@ -220,11 +220,38 @@ visible in this limitation rather than in spite of it.
 ### Agent-boundary recall
 
 Scan recognises MCP tool decorators, LangChain `@tool` and `BaseTool`
-subclasses, OpenAI `@function_tool`, and CrewAI tool patterns. Architectures
-that do not announce themselves through a decorator or base class are missed
-today — custom agent loops, action/observation dispatchers, raw tool-schema
-switches. These are recorded as failing recall cases (`r05`–`r07`) rather than
-quietly omitted; the benchmark reports 4/7 for exactly this reason.
+subclasses, OpenAI `@function_tool`, and CrewAI tool patterns. It also
+recognises two boundaries that carry no decorator:
+
+- **action/observation dispatch** — a sink that executes a payload carried by
+  a parameter annotated as an action type (`subprocess.run(action.command)`
+  where `action: CmdRunAction`);
+- **raw tool-schema dispatch** — a sink in a branch selected by a tool name
+  the module declares in an LLM tool-schema literal.
+
+Both require dataflow, not naming: the sink must consume the action's payload
+attribute, or sit in the branch the declared name selects. Fifteen negative
+cases in `tests/test_undecorated_boundaries.py` pin the near-misses — an
+unannotated parameter called `action`, a string-dispatch function with no
+schema, a sink elsewhere in the dispatcher — that must not fire.
+
+**Both were measured before shipping and both detect nothing on the current
+corpus.** Detection-only runs across 7,359 files of ten agent repos produced
+zero candidates for each, and a re-scan after wiring them in produced zero
+findings. They moved the benchmark from 4/7 to 6/7 on synthetic fixtures
+alone. They are shipped because the measured precision cost is exactly zero
+and both are real architectures — but their real-world recall contribution is
+**unproven, not demonstrated**. Read 6/7 accordingly.
+
+**Custom agent loops (`r05`) remain undetected, deliberately.** The candidate
+strategy — "LLM output flows into a sink" — was measured and rejected: a
+ten-sample hand-triage returned 10/10 false positives against a 5% threshold.
+The signal decomposes into "this module talks to an LLM" and "this function
+runs something it was passed", and agent frameworks are built almost entirely
+from code satisfying both; the triage caught build tooling, example scripts,
+and above all framework message-passing plumbing. Closing r05 needs real
+interprocedural dataflow, not a better vocabulary. Full triage table in
+`FINDINGS.md`.
 
 ### Interprocedural flow
 

@@ -83,6 +83,22 @@ def detect_reachability(
         result.signals.append("tool_list_param")
         return result
 
+    # HIGH confidence: the sink sits in a branch selected by a tool name that
+    # this module declares in an LLM tool-schema literal. Raw schema dispatch
+    # is a tool boundary with no decorator to announce it.
+    if _is_tool_schema_dispatch(tree, func_node, sink_line):
+        result.confidence = "high"
+        result.signals.append("tool_schema_dispatch")
+        return result
+
+    # HIGH confidence: the sink consumes an executable payload off a parameter
+    # annotated as an agent action type (CmdRunAction.command, etc.). The
+    # action/observation architecture dispatches through plain methods.
+    if _is_action_dispatch(func_node, sink_line):
+        result.confidence = "high"
+        result.signals.append("action_dispatch")
+        return result
+
     # The sink is inside a NON-TOOL function. Even if the module imports an
     # agent framework, a regular internal function is not agent-reachable.
     # Without this gate, every file in a framework's own repo (where every
@@ -282,6 +298,209 @@ def _is_in_tool_list(tree: ast.Module, func_name: str, tool_list_params: list[st
                             if isinstance(arg, ast.Name) and arg.id == func_name:
                                 return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Raw tool-schema dispatch (benchmark recall case r07)
+#
+# An agent boundary announced by a schema literal rather than a decorator:
+#
+#     TOOLS = [{"type": "function",
+#               "function": {"name": "run_command", "parameters": {...}}}]
+#
+#     def dispatch_tool(name, args):
+#         if name == "run_command":
+#             subprocess.run(args["command"], shell=True)   # <- the boundary
+#
+# Both halves are required: the schema literal supplies the tool name, and the
+# sink must sit in the branch that name selects. Detection-only measurement
+# across 7,359 files of the ten-repo corpus produced zero candidates, so this
+# adds no measured false positives — and no measured real detections either.
+# See docs/COVERAGE.md.
+# ---------------------------------------------------------------------------
+
+_SCHEMA_PARAM_KEYS = frozenset({"parameters", "input_schema", "inputSchema", "args_schema"})
+
+
+def _declared_tool_names(tree: ast.Module) -> set[str]:
+    """Tool names declared in an LLM tool-schema literal in this module.
+
+    Recognises the OpenAI nested form:
+        {"type": "function", "function": {"name": "run_command", ...}}
+    and the flat Anthropic / OpenAI-legacy form:
+        {"name": "run_command", "description": ..., "input_schema": {...}}
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Dict):
+            continue
+        keys = {
+            k.value for k in node.keys
+            if isinstance(k, ast.Constant) and isinstance(k.value, str)
+        }
+
+        if "type" in keys and "function" in keys:
+            for key, value in zip(node.keys, node.values):
+                if (
+                    isinstance(key, ast.Constant)
+                    and key.value == "function"
+                    and isinstance(value, ast.Dict)
+                ):
+                    names |= _dict_string_value(value, "name")
+
+        if "name" in keys and (keys & _SCHEMA_PARAM_KEYS):
+            names |= _dict_string_value(node, "name")
+
+    return names
+
+
+def _dict_string_value(node: ast.Dict, wanted: str) -> set[str]:
+    """Extract a string value for a given key from a dict literal."""
+    out: set[str] = set()
+    for key, value in zip(node.keys, node.values):
+        if (
+            isinstance(key, ast.Constant)
+            and key.value == wanted
+            and isinstance(value, ast.Constant)
+            and isinstance(value.value, str)
+        ):
+            out.add(value.value)
+    return out
+
+
+def _is_tool_schema_dispatch(
+    tree: ast.Module,
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    sink_line: int,
+) -> bool:
+    """Check if the sink sits in a branch selected by a declared tool name."""
+    declared = _declared_tool_names(tree)
+    if not declared:
+        return False
+
+    for node in ast.walk(func_node):
+        if isinstance(node, ast.If):
+            if _test_matches_declared_name(node.test, declared) and (
+                _stmts_contain_line(node.body, sink_line)
+                or _stmts_contain_line(node.orelse, sink_line)
+            ):
+                return True
+
+        elif isinstance(node, ast.Match):
+            for case in node.cases:
+                for sub in ast.walk(case.pattern):
+                    if (
+                        isinstance(sub, ast.MatchValue)
+                        and isinstance(sub.value, ast.Constant)
+                        and sub.value.value in declared
+                        and _stmts_contain_line(case.body, sink_line)
+                    ):
+                        return True
+
+    return False
+
+
+def _test_matches_declared_name(test: ast.expr, declared: set[str]) -> bool:
+    """Check if a branch test compares against a declared tool name."""
+    for node in ast.walk(test):
+        if not isinstance(node, ast.Compare):
+            continue
+        if any(isinstance(op, ast.Eq) for op in node.ops):
+            for side in [node.left, *node.comparators]:
+                if isinstance(side, ast.Constant) and side.value in declared:
+                    return True
+        if any(isinstance(op, ast.In) for op in node.ops):
+            for side in node.comparators:
+                if isinstance(side, (ast.List, ast.Tuple, ast.Set)):
+                    for elt in side.elts:
+                        if isinstance(elt, ast.Constant) and elt.value in declared:
+                            return True
+    return False
+
+
+def _stmts_contain_line(stmts: list, line: int) -> bool:
+    for stmt in stmts:
+        start = getattr(stmt, "lineno", None)
+        end = getattr(stmt, "end_lineno", None)
+        if start is not None and end is not None and start <= line <= end:
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Action / observation dispatch (benchmark recall case r06)
+#
+#     @dataclass
+#     class CmdRunAction:
+#         command: str
+#
+#     def _run_cmd(self, action: CmdRunAction):
+#         subprocess.run(action.command, shell=True)   # <- the boundary
+#
+# The anchor is dataflow, not naming: the parameter must be annotated with an
+# action-suffixed type AND the sink must read an executable-payload attribute
+# off that exact parameter. A method that merely takes an action and happens to
+# contain a sink does not qualify.
+#
+# Detection-only measurement across the ten-repo corpus produced zero
+# candidates. See docs/COVERAGE.md.
+# ---------------------------------------------------------------------------
+
+_ACTION_TYPE_SUFFIXES = ("Action", "Command", "Instruction", "Invocation", "ToolCall")
+
+_ACTION_PAYLOAD_FIELDS = frozenset({
+    "command", "cmd", "code", "script", "shell", "path", "file_path",
+    "content", "query", "url", "args", "arguments", "payload", "sql",
+})
+
+
+def _is_action_dispatch(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    sink_line: int,
+) -> bool:
+    """Check if the sink executes a payload carried by an action parameter."""
+    action_params = _action_typed_params(func_node)
+    if not action_params:
+        return False
+
+    for node in ast.walk(func_node):
+        if not isinstance(node, ast.Call) or getattr(node, "lineno", None) != sink_line:
+            continue
+        for arg in list(node.args) + [kw.value for kw in node.keywords]:
+            for sub in ast.walk(arg):
+                if (
+                    isinstance(sub, ast.Attribute)
+                    and isinstance(sub.value, ast.Name)
+                    and sub.value.id in action_params
+                    and sub.attr in _ACTION_PAYLOAD_FIELDS
+                ):
+                    return True
+    return False
+
+
+def _action_typed_params(func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Parameters annotated with a type whose name looks like an agent action.
+
+    The annotation is matched by name only, so an action class imported from
+    another module works exactly like one defined locally.
+    """
+    params: set[str] = set()
+    args = func_node.args
+    for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
+        if arg.annotation is None:
+            continue
+        for sub in ast.walk(arg.annotation):
+            name = None
+            if isinstance(sub, ast.Name):
+                name = sub.id
+            elif isinstance(sub, ast.Attribute):
+                name = sub.attr
+            elif isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                name = sub.value  # string annotation / forward reference
+            if name and name.endswith(_ACTION_TYPE_SUFFIXES):
+                params.add(arg.arg)
+                break
+    return params
 
 
 def _check_module_signals(
