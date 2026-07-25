@@ -134,7 +134,11 @@ def delete(path: str):
         assert len(findings) == 0, f"confirm_action should be a guard: {findings}"
 
     def test_original_guards_still_work(self):
-        """Original guard names (authorize, check_permission) still work."""
+        """Original guard names (authorize, check_permission) still work.
+
+        v2: authorize is assert-style (raises) -> fully guarded.
+        check_permission returns a value -> WEAK (low severity) if discarded.
+        """
         source = '''from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("x")
 @mcp.tool()
@@ -147,7 +151,13 @@ def refund2(pi: str):
     import stripe; stripe.Refund.create(payment_intent=pi)
 '''
         findings = _scan_source(source)
-        assert len(findings) == 0
+        # authorize is assert-style -> 0 findings
+        # check_permission with discarded result -> WEAK (low severity)
+        high_or_medium = [f for f in findings if f.severity in ("high", "medium")]
+        assert len(high_or_medium) == 0, f"Should not have high/medium findings: {high_or_medium}"
+        # WEAK findings are OK (low severity)
+        for f in findings:
+            assert f.severity == "low", f"check_permission should be WEAK (low), got {f.severity}"
 
     def test_no_guard_still_finds(self):
         """Without a guard, findings still appear."""
