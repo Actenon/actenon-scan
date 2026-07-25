@@ -1,0 +1,8 @@
+{
+  "_comment": "Exclude test fixtures from self-scan. These directories contain intentionally unguarded code used to test the scanner itself — they are NOT production code and should not produce findings. Without this exclusion, `actenon-scan scan .` on this repo reports 70+ findings from benchmark precision/recall fixtures, corpus vulnerable/safe pairs, and test fixtures. A maintainer who receives a finding from us will run our tool on our repo; they see the number before they read a single path.",
+  "exclude": [
+    "tests/benchmark/**",
+    "tests/corpus/**",
+    "tests/fixtures/**"
+  ]
+}
