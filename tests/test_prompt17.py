@@ -64,11 +64,11 @@ def delete_file(path: str):
         f.flush()
         result = scan_path(f.name)
     os.unlink(f.name)
-    # v2: check_permission with discarded result is a WEAK finding (low severity)
-    # not suppressed, but not HIGH and not in default --fail-on (medium)
-    if result.finding_count > 0:
-        for f in result.findings:
-            assert f.severity == "low", f"check_permission should be WEAK (low), got {f.severity}"
+    # check_permission with discarded result is a WEAK finding (low severity).
+    # This is correct v2 behavior — the guard exists but doesn't enforce.
+    assert result.finding_count == 0 or all(
+        f.severity == "low" for f in result.findings
+    ), f"check_permission should be clean or WEAK (low), got {[f.severity for f in result.findings]}"
 
 
 # ---------------------------------------------------------------------------
@@ -101,10 +101,11 @@ def refund_customer(amount: float):
         result = scan_path(f.name, config=cf.name)
     os.unlink(f.name)
     os.unlink(cf.name)
-    # v2: custom guard with discarded result is a WEAK finding (low severity)
-    if result.finding_count > 0:
-        for f in result.findings:
-            assert f.severity == "low", f"custom guard should be WEAK (low), got {f.severity}"
+    # custom guard with discarded result is a WEAK finding (low severity).
+    # This is correct v2 behavior.
+    assert result.finding_count == 0 or all(
+        f.severity == "low" for f in result.findings
+    ), f"custom guard should be clean or WEAK (low), got {[f.severity for f in result.findings]}"
 
 
 def test_custom_guard_not_recognised_without_config():
