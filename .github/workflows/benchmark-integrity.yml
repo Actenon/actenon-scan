@@ -1,0 +1,43 @@
+name: Benchmark integrity
+
+# Prevents silent benchmark fixture rewrites and score inflation.
+# A fixture change requires a "## Fixture change justification" section
+# in the PR body. See CONTRIBUTING.md.
+
+on:
+  pull_request:
+    paths:
+      - 'tests/benchmark/**'
+
+jobs:
+  integrity:
+    name: Fixture change audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Check benchmark integrity
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: python scripts/check_benchmark_integrity.py --check
+
+      - name: Check fixture lock
+        run: |
+          python scripts/check_benchmark_integrity.py --update-lock
+          if ! git diff --quiet tests/benchmark/fixture-lock.json; then
+            echo "FAIL: fixture-lock.json is out of date."
+            echo "Run: python scripts/check_benchmark_integrity.py --update-lock"
+            echo "Then commit the updated lock file."
+            exit 1
+          fi
+          echo "OK: fixture lock in sync"
