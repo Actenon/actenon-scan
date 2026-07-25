@@ -62,7 +62,7 @@ jobs:
           pip install -e ".[typescript,yaml]" --quiet
           OUTPUT=$(actenon-scan scan . --fail-on none 2>&1)
           echo "$OUTPUT"
-          if echo "$OUTPUT" | grep -q "consequential actions"; then
+          if echo "$OUTPUT" | grep -q "Your agent can reach"; then
             echo "FAIL: actenon-scan reports findings on its own repository." >&2
             echo "Either fix the production code or add the path to .actenon-scan.json excludes." >&2
             exit 1
