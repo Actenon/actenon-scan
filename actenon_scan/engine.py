@@ -6,11 +6,15 @@ import ast
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING, Callable
 
 from actenon_scan.detectors.guards import check_guard, GuardCheckResult
 from actenon_scan.detectors.reachability import detect_reachability
 from actenon_scan.detectors.sinks import detect_sinks
 from actenon_scan.rules.loader import Ruleset, load_rules
+
+if TYPE_CHECKING:
+    from actenon_scan.cache import FileCache
 
 
 @dataclass
@@ -582,6 +586,8 @@ def scan_path(
     baseline_findings: dict[str, set[str]] | None = None,
     self_package: str | None = None,
     explicit_files: list[Path] | None = None,
+    cache: "FileCache | None" = None,
+    on_finding: "Callable[[Finding], None] | None" = None,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -591,6 +597,16 @@ def scan_path(
             reachability signal is suppressed for that package, preventing
             self-scan noise (every file in a framework's own repo imports the
             framework). Auto-detected from pyproject.toml if not provided.
+        cache: Optional content-hash cache (Work Order 2, Part 4.4). When
+            provided, per-file findings are cached by content hash + config
+            hash + scanner version. A cache hit returns identical findings
+            (RULE 5: cache never changes findings). A cache miss falls
+            through to a fresh scan.
+        on_finding: Optional callback invoked for each finding as it is
+            discovered (Work Order 2, Part 4.1 — progressive output).
+            The callback receives a Finding object. Findings may arrive
+            in non-deterministic order; the final ScanResult.findings
+            list is sorted by file/line for stable output.
     """
     rules = load_rules(config)
     target = Path(target)
@@ -660,6 +676,24 @@ def scan_path(
             analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
             continue
 
+        # ── Cache lookup (Work Order 2, Part 4.4) ──
+        # Check the content-hash cache before running the full per-file
+        # analysis. A cache hit returns identical findings (RULE 5: cache
+        # never changes findings). A cache miss falls through to the
+        # fresh scan below, and the result is stored at the end.
+        _cached_file_error: str | None = None
+        if cache is not None:
+            cached = cache.findings_for(source, rel, rules)
+            if cached is not None:
+                cached_findings, _cached_file_error = cached
+                for cf in cached_findings:
+                    findings.append(cf)
+                    if on_finding is not None and not cf.suppressed:
+                        on_finding(cf)
+                if _cached_file_error:
+                    analysis_errors.append((rel, _cached_file_error))
+                continue  # cache hit — skip the rest of the per-file work
+
         # Pre-filter: skip files without any sink substring.
         # BUT only skip after confirming the file parses — a file with
         # a syntax error must be recorded in analysis_errors, not
@@ -671,6 +705,9 @@ def scan_path(
             tree = ast.parse(source, filename=str(filepath))
         except SyntaxError as exc:
             analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+            # Cache the error so subsequent runs don't re-parse this file.
+            if cache is not None:
+                cache.store(source, rel, rules, [], f"SyntaxError: {exc}")
             continue
 
         # Reachability short-circuit. If no token in this file could make any
@@ -686,7 +723,15 @@ def scan_path(
             # A file skipped here cannot produce a finding, so the only thing
             # lost is crash reporting on files that yield nothing. Recorded in
             # FINDINGS.md.
+            # Cache the empty result so subsequent runs skip this file too.
+            if cache is not None:
+                cache.store(source, rel, rules, [], None)
             continue
+
+        # Track per-file findings for caching. Findings for this file
+        # start at this index in the findings list.
+        _per_file_start = len(findings)
+        _per_file_error: str | None = None
 
         # tree is already parsed above; no need to re-parse
         try:
@@ -776,13 +821,26 @@ def scan_path(
                         finding.suppressed = True
 
                 findings.append(finding)
+                # ── Progressive output (Work Order 2, Part 4.1) ──
+                # Invoke the callback for each finding as it is discovered.
+                if on_finding is not None and not finding.suppressed:
+                    on_finding(finding)
         except Exception as exc:
             # One malformed file should never zero out an entire repo.
             # Record the error so users see what got skipped (and tests
             # can assert on it via result.analysis_errors).
             analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+            _per_file_error = f"{type(exc).__name__}: {exc}"
             import sys
             print(f"actenon-scan: warning: analysis error in {rel}, skipping", file=sys.stderr)
+
+        # ── Cache store (Work Order 2, Part 4.4) ──
+        # Store the per-file findings + error so subsequent runs get a
+        # cache hit. The cache key incorporates content hash + config
+        # hash + scanner version, so any change invalidates correctly.
+        if cache is not None:
+            _per_file_findings = findings[_per_file_start:]
+            cache.store(source, rel, rules, _per_file_findings, _per_file_error)
 
     # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
     if explicit_files is not None:
