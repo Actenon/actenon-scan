@@ -88,7 +88,7 @@ jobs:
           - category: "cloud-iac"
             repo: "aws-controllers-k8s/community"
           - category: "cloud-iac"
-            repo: "GoogleCloudPlatform/config-connector"
+            repo: "GoogleCloudPlatform/k8s-config-connector"
           - category: "resource-boundaries"
             repo: "kubernetes/kubernetes"
           - category: "resource-boundaries"

@@ -129,7 +129,7 @@
   },
   {
     "category": "cloud-iac",
-    "repository": "GoogleCloudPlatform/config-connector"
+    "repository": "GoogleCloudPlatform/k8s-config-connector"
   },
   {
     "category": "resource-boundaries",
