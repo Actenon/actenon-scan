@@ -26,5 +26,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Verify COVERAGE.md contract
+        # Every row marked COVERED must be backed by a hand-triaged corpus
+        # true positive. A capability claim in the docs cannot outrun the
+        # evidence for it.
+        run: python scripts/check_coverage_contract.py
+
+      - name: Verify corpus triage (zero false positives)
+        run: python scripts/check_corpus_triage.py
+
       - name: Run benchmark
         run: python scripts/benchmark.py --check
