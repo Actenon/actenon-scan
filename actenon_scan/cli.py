@@ -210,6 +210,26 @@ def _cmd_scan(args: argparse.Namespace) -> int:
 
     # --guard: register guard patterns without a config file
     config_path = args.config
+    # Auto-detect .actenon-scan.json at the target root (Work Order 3, Part 1.1).
+    # A repo that contains test fixtures can exclude them so `actenon-scan scan .`
+    # reports clean on its own code. This is the config the project itself ships
+    # to keep its self-scan honest.
+    auto_exclude: list[str] | None = None
+    if not config_path:
+        auto_config = target / ".actenon-scan.json" if target.is_dir() else target.parent / ".actenon-scan.json"
+        if auto_config.exists():
+            config_path = str(auto_config)
+            # Read exclude patterns from the auto-detected config. These are
+            # scan-level options, not ruleset options, so they need to be
+            # passed through separately from the ruleset loading.
+            import json as _json
+            try:
+                with open(auto_config) as f:
+                    auto_cfg = _json.load(f)
+                if isinstance(auto_cfg, dict) and "exclude" in auto_cfg:
+                    auto_exclude = auto_cfg["exclude"]
+            except (OSError, _json.JSONDecodeError):
+                pass
     if args.guard and not config_path:
     # Write a temporary config with the guard patterns
         import tempfile, json
@@ -224,6 +244,10 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     explicit_files = None
     # --changed-only: filter to files changed since git ref
     include_globs = args.include
+    # Merge auto-detected excludes with explicit --exclude flags
+    exclude_globs = list(args.exclude) if args.exclude else []
+    if auto_exclude:
+        exclude_globs.extend(auto_exclude)
     if args.changed_only:
         changed_files = _get_changed_files(args.changed_only, target)
         if changed_files:
@@ -249,7 +273,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         # would cost more than it saves, so it stays serial.
         if jobs is None and explicit_files is None:
             from actenon_scan.engine import _collect_files, auto_jobs
-            jobs = auto_jobs(len(_collect_files(target, include_globs, args.exclude)))
+            jobs = auto_jobs(len(_collect_files(target, include_globs, exclude_globs)))
         elif jobs is None:
             jobs = 1
 
@@ -287,7 +311,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 jobs=jobs,
                 config=config_path,
                 include_globs=include_globs,
-                exclude_globs=args.exclude,
+                exclude_globs=exclude_globs,
                 suppressions=suppressions,
                 baseline_findings=baseline,
             )
@@ -296,7 +320,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 target,
                 config=config_path,
                 include_globs=include_globs,
-                exclude_globs=args.exclude,
+                exclude_globs=exclude_globs,
                 explicit_files=explicit_files,
                 suppressions=suppressions,
                 baseline_findings=baseline,

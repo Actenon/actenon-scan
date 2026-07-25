@@ -53,3 +53,19 @@ jobs:
           pip install "actenon-protocol[yaml]" --quiet
           python -m actenon_protocol.ecosystem --check README.md --repo actenon-scan
 
+      - name: Self-scan reports clean on own repository
+        # Work Order 3, Part 1.3: the tool must report zero findings on its
+        # own repository. Test fixtures are excluded via .actenon-scan.json.
+        # If this check fails, either a real finding was introduced in
+        # production code, or the exclusion config was removed/broken.
+        run: |
+          pip install -e ".[typescript,yaml]" --quiet
+          OUTPUT=$(actenon-scan scan . --fail-on none 2>&1)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "consequential actions"; then
+            echo "FAIL: actenon-scan reports findings on its own repository." >&2
+            echo "Either fix the production code or add the path to .actenon-scan.json excludes." >&2
+            exit 1
+          fi
+          echo "OK: self-scan reports clean"
+

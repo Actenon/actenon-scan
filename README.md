@@ -191,6 +191,27 @@ safe to open locally, and include the visible honesty statement:
 actenon-scan scan . --baseline known-findings.json
 ```
 
+## Scanning a repo that contains test fixtures
+
+If your repo contains security test fixtures — deliberately unguarded code
+used to test the scanner or your own security controls — add an
+`.actenon-scan.json` at the repo root to exclude them:
+
+```json
+{
+  "_comment": "Exclude test fixtures that contain intentionally unguarded code.",
+  "exclude": [
+    "tests/benchmark/**",
+    "tests/corpus/**",
+    "tests/fixtures/**"
+  ]
+}
+```
+
+The file is auto-detected by `actenon-scan scan .` — no `--config` flag
+needed. This repo ships one itself; see
+[`.actenon-scan.json`](.actenon-scan.json).
+
 ## How to configure custom guards
 
 ```bash
