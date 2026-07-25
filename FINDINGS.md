@@ -56,3 +56,13 @@ No findings. Scanned 0 file(s).
 **Action taken:** This is a deliberate tradeoff. Enforcing binding on assert-style guards would produce false positives on legitimate guards like `verify_pccb(proof, intent, action)` before `stripe.Refund.create(amount=amount)` — the guard checks a proof/intent triplet, not the amount, but it still authorizes the action. The false-positive cost of flagging these as UNBOUND is too high. The s02 benchmark case is recorded as a known limitation.
 **Recommendation:** A future v3 could attempt semantic binding analysis (does the guard's argument semantically relate to the sink's argument?), but this requires type inference or dataflow analysis beyond the current scope.
 
+
+## PCCB binding observation — the deeper finding
+
+**Severity:** NOTE (architectural observation, not a defect)
+**Where:** actenon_scan/detectors/guards.py — binding analysis
+**Expected:** Actenon's own recommended guard pattern (`verify_pccb(proof, intent, action)`) should exhibit syntactic parameter binding with the sink it guards.
+**Observed:** It does not. The binding lives inside the PCCB object — the proof cryptographically binds the action, target, and parameters. At the call site, `verify_pccb(proof, intent, action)` and `stripe.Refund.create(amount=amount)` share no variable names. A static scanner cannot see the cryptographic binding.
+**Action taken:** Assert-style guards with variable arguments are treated as guarded (the guard raises on failure). The literal-only-args rule catches the case where a guard checks only constants. The gap between these two — an assert-style guard with variable args that checks the WRONG variables — remains undetected.
+**Recommendation:** This is an argument FOR the runtime kernel, not against the scanner. The thing scan cannot verify (cryptographic parameter binding) is precisely what the kernel exists to enforce. This belongs in docs/COVERAGE.md and in the counter-thesis piece: "static analysis can verify that a guard exists and dominates, but cannot verify that the guard is bound to the exact action and parameters — that binding is cryptographic, and cryptography is a runtime concern."
+

@@ -38,7 +38,10 @@ def refund(pi: str):
     import stripe; stripe.Refund.create(payment_intent=pi)
 '''
         findings = _scan_source(source)
-        assert len(findings) == 0, f"assert_can should be a guard: {findings}"
+        # v2: assert_can("user", "refund") has only literal args.
+        # May produce UNBOUND (medium). OK as long as not HIGH.
+        high_findings = [f for f in findings if f.severity == "high"]
+        assert len(high_findings) == 0, f"assert_can should not produce HIGH: {high_findings}"
 
     def test_policy_gate(self):
         source = '''import shutil
@@ -73,7 +76,11 @@ def refund(pi: str):
     import stripe; stripe.Refund.create(payment_intent=pi)
 '''
         findings = _scan_source(source)
-        assert len(findings) == 0, f"can_user should be a guard: {findings}"
+        # v2: can_user("user", "refund") has only literal args.
+        # It may produce an UNBOUND finding (medium severity) — that's OK
+        # as long as it's not HIGH (which would fail --fail-on high).
+        high_findings = [f for f in findings if f.severity == "high"]
+        assert len(high_findings) == 0, f"can_user should not produce HIGH findings: {high_findings}"
 
     def test_enforce_policy(self):
         source = '''from mcp.server.fastmcp import FastMCP

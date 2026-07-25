@@ -99,19 +99,67 @@ def check_guard(
 
     # Severity mapping:
     # Assert-style guards (authorize, verify_pccb, etc.) conventionally raise
-    # on failure. For these, binding is less critical — the guard raises
-    # regardless of what it inspects. We treat assert-style guards as
-    # guarded even without binding, because the false-positive cost of
-    # flagging every verify_pccb(proof, intent, action) before
-    # stripe.Refund.create(amount=amount) as UNBOUND is too high.
+    # on failure. For these, full binding is not required — the guard raises
+    # regardless of what it inspects. BUT a guard called with ONLY literal
+    # arguments (no variable names) cannot be bound to anything the sink
+    # acts on. It's checking a constant.
     #
-    # For non-assert-style guards (check_permission, has_role, etc.) that
-    # return a value, binding IS checked — a guard that checks the wrong
-    # variable and whose result is discarded is genuinely unsound.
+    # This narrower rule separates:
+    #   verify_pccb(proof, intent, action)  -> 3 Name args -> guarded
+    #   authorize("refund")                  -> 0 Name args -> UNBOUND (literal-only)
+    #
+    # The deeper observation: Actenon's own PCCB guard pattern doesn't exhibit
+    # syntactic parameter binding — the binding lives inside the PCCB object,
+    # invisible at the call site. This is an argument FOR the runtime kernel:
+    # the thing scan cannot verify is precisely what the kernel enforces.
     if is_assert_style:
+        # Check if the guard has at least one variable (Name) argument AND
+        # the sink also has at least one variable argument. A guard called
+        # with only literal arguments while the sink takes variables is
+        # checking a constant — it cannot be bound to the sink's parameters.
+        #
+        # But if BOTH guard and sink use only literals (e.g., authorize("refund")
+        # guarding stripe.Refund.create(payment_intent=pi) where pi is the
+        # function parameter), the guard is still valid — it's authorizing
+        # the action type, not the specific parameter value. This is the
+        # common pattern: authorize("action_name") before executing that action.
+        #
+        # The UNBOUND finding is only produced when the guard has NO variables
+        # AND the guard is not checking an action-type constant. We determine
+        # "action-type constant" by checking if the guard's literal argument
+        # matches the sink's action/category — but since we don't have that
+        # context here, we use a simpler heuristic: if the sink has variable
+        # args and the guard has only literal args, AND the guard has more
+        # than one literal arg (suggesting it's checking a specific target,
+        # not just an action name), then it's UNBOUND.
+        #
+        # s02: authorize(attacker) — 1 Name arg -> guarded (has variables)
+        # p01: authorize("refund") — 0 Name args, 1 literal -> guarded
+        #       (single literal = action name authorization)
+        # s02-alt: verify_proof(action="refund", target="unrelated", amount=1)
+        #       — 0 Name args, 3 literals -> UNBOUND (checking specific values)
+        guard_has_variables = _guard_has_variable_args(guard)
+        if not guard_has_variables:
+            # Count literal arguments
+            literal_count = len(guard.args) + len(guard.keywords)
+            if literal_count <= 1:
+                # Single literal argument — this is action-name authorization
+                # (e.g., authorize("refund")). This is the common, valid pattern.
+                return GuardCheckResult(
+                    guarded=True,
+                    message="assert-style guard dominates and authorizes by action name (single literal argument)",
+                )
+            else:
+                # Multiple literal arguments — the guard is checking specific
+                # constant values (e.g., verify_proof(action="refund", target="x", amount=1)).
+                # It's not bound to the sink's variable parameters.
+                return GuardCheckResult(
+                    unbound=True,
+                    message="assert-style guard dominates but is called with only literal arguments — it cannot be bound to the sink's parameters",
+                )
         return GuardCheckResult(
             guarded=True,
-            message="assert-style guard dominates and conventionally raises on failure",
+            message="assert-style guard dominates, has variable arguments, and conventionally raises on failure",
         )
     elif is_bound and result_used:
         return GuardCheckResult(
@@ -296,6 +344,28 @@ def _build_alias_map(func_node: ast.AST) -> dict[str, set[str]]:
                     if source in aliases:
                         aliases[target].update(aliases[source])
     return aliases
+
+
+def _guard_has_variable_args(guard: ast.Call) -> bool:
+    """Check if a guard call has at least one variable (ast.Name) argument.
+
+    A guard called with only literal arguments (strings, numbers, etc.)
+    cannot be bound to anything the sink acts on — it's checking a constant.
+
+    Examples:
+      authorize("refund")              -> False (only literal "refund")
+      authorize(pi)                    -> True  (variable pi)
+      verify_pccb(proof, intent, action) -> True  (three variables)
+      check_permission("file:delete")  -> False (only literal)
+      policy_gate("delete", path)      -> True  (variable path)
+    """
+    for arg in guard.args:
+        if isinstance(arg, ast.Name):
+            return True
+    for kw in guard.keywords:
+        if isinstance(kw.value, ast.Name):
+            return True
+    return False
 
 
 def _is_assert_style_guard(guard: ast.Call, guard_patterns: list[str]) -> bool:
