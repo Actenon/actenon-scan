@@ -1,0 +1,221 @@
+name: Actenon consequential-action industry scan
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/industry-consequential-scan
+    paths:
+      - ".github/workflows/actenon-industry-scan.yml"
+      - "research/industry-scan/**"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: ${{ matrix.target.category }} / ${{ matrix.target.repo }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        target:
+          - category: "agent-frameworks"
+            repo: "crewAIInc/crewAI"
+          - category: "agent-frameworks"
+            repo: "langchain-ai/langchain"
+          - category: "agent-frameworks"
+            repo: "microsoft/autogen"
+          - category: "agent-frameworks"
+            repo: "microsoft/semantic-kernel"
+          - category: "agent-frameworks"
+            repo: "run-llama/llama_index"
+          - category: "agent-frameworks"
+            repo: "geekan/MetaGPT"
+          - category: "agent-frameworks"
+            repo: "Significant-Gravitas/AutoGPT"
+          - category: "agent-frameworks"
+            repo: "All-Hands-AI/OpenHands"
+          - category: "agent-frameworks"
+            repo: "camel-ai/camel"
+          - category: "agent-frameworks"
+            repo: "pydantic/pydantic-ai"
+          - category: "computer-use"
+            repo: "browser-use/browser-use"
+          - category: "computer-use"
+            repo: "Skyvern-AI/skyvern"
+          - category: "computer-use"
+            repo: "browserbase/stagehand"
+          - category: "computer-use"
+            repo: "microsoft/OmniParser"
+          - category: "computer-use"
+            repo: "microsoft/UFO"
+          - category: "workflow-automation"
+            repo: "n8n-io/n8n"
+          - category: "workflow-automation"
+            repo: "apache/airflow"
+          - category: "workflow-automation"
+            repo: "PrefectHQ/prefect"
+          - category: "workflow-automation"
+            repo: "temporalio/sdk-python"
+          - category: "workflow-automation"
+            repo: "argoproj/argo-workflows"
+          - category: "workflow-automation"
+            repo: "dagster-io/dagster"
+          - category: "workflow-automation"
+            repo: "windmill-labs/windmill"
+          - category: "workflow-automation"
+            repo: "kestra-io/kestra"
+          - category: "mcp-tooling"
+            repo: "modelcontextprotocol/servers"
+          - category: "mcp-tooling"
+            repo: "jlowin/fastmcp"
+          - category: "mcp-tooling"
+            repo: "microsoft/mcp"
+          - category: "cloud-iac"
+            repo: "hashicorp/terraform"
+          - category: "cloud-iac"
+            repo: "pulumi/pulumi"
+          - category: "cloud-iac"
+            repo: "ansible/ansible"
+          - category: "cloud-iac"
+            repo: "saltstack/salt"
+          - category: "cloud-iac"
+            repo: "crossplane/crossplane"
+          - category: "cloud-iac"
+            repo: "aws-controllers-k8s/community"
+          - category: "cloud-iac"
+            repo: "GoogleCloudPlatform/config-connector"
+          - category: "resource-boundaries"
+            repo: "kubernetes/kubernetes"
+          - category: "resource-boundaries"
+            repo: "hashicorp/vault"
+          - category: "resource-boundaries"
+            repo: "open-policy-agent/opa"
+          - category: "resource-boundaries"
+            repo: "open-policy-agent/gatekeeper"
+          - category: "resource-boundaries"
+            repo: "kyverno/kyverno"
+          - category: "resource-boundaries"
+            repo: "envoyproxy/envoy"
+          - category: "resource-boundaries"
+            repo: "traefik/traefik"
+          - category: "resource-boundaries"
+            repo: "caddyserver/caddy"
+          - category: "resource-boundaries"
+            repo: "projectcalico/calico"
+          - category: "resource-boundaries"
+            repo: "cilium/cilium"
+          - category: "resource-boundaries"
+            repo: "istio/istio"
+          - category: "payments-finance"
+            repo: "stripe/stripe-python"
+          - category: "payments-finance"
+            repo: "stripe/stripe-node"
+          - category: "payments-finance"
+            repo: "adyen/adyen-python-api-library"
+          - category: "payments-finance"
+            repo: "paypal/PayPal-Python-SDK"
+          - category: "payments-finance"
+            repo: "plaid/plaid-python"
+          - category: "payments-finance"
+            repo: "firefly-iii/firefly-iii"
+          - category: "commerce"
+            repo: "medusajs/medusa"
+          - category: "commerce"
+            repo: "saleor/saleor"
+          - category: "commerce"
+            repo: "vendure-ecommerce/vendure"
+          - category: "communications"
+            repo: "twilio/twilio-python"
+          - category: "communications"
+            repo: "slackapi/python-slack-sdk"
+          - category: "communications"
+            repo: "sendgrid/sendgrid-python"
+          - category: "data-operations"
+            repo: "apache/superset"
+          - category: "data-operations"
+            repo: "apache/kafka"
+          - category: "data-operations"
+            repo: "elastic/elasticsearch"
+          - category: "data-operations"
+            repo: "redis/redis"
+          - category: "security-response"
+            repo: "wazuh/wazuh"
+          - category: "security-response"
+            repo: "TheHive-Project/TheHive"
+          - category: "security-response"
+            repo: "Shuffle/Shuffle"
+          - category: "security-response"
+            repo: "StackStorm/st2"
+
+    steps:
+      - name: Checkout actenon-scan
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install scanner
+        run: python -m pip install --upgrade ".[typescript,yaml]"
+
+      - name: Clone target at immutable commit
+        id: clone
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p target reports metadata
+          git clone --depth 1 "https://github.com/${{ matrix.target.repo }}.git" target/repo
+          SHA="$(git -C target/repo rev-parse HEAD)"
+          SAFE_REPO="${{ matrix.target.repo }}"
+          SAFE_REPO="${SAFE_REPO//\//__}"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "safe_repo=$SAFE_REPO" >> "$GITHUB_OUTPUT"
+          REPO="${{ matrix.target.repo }}" CATEGORY="${{ matrix.target.category }}" SHA="$SHA" python - <<'PY'
+          import json, os
+          payload = {
+              "repository": os.environ["REPO"],
+              "category": os.environ["CATEGORY"],
+              "commit": os.environ["SHA"],
+              "scanner_ref": os.environ["GITHUB_SHA"],
+          }
+          with open("metadata/scan.json", "w") as f:
+              json.dump(payload, f, indent=2)
+          PY
+
+      - name: Run JSON scan
+        shell: bash
+        run: |
+          set +e
+          actenon-scan scan target/repo             --format json             --fail-on none             --jobs 2             --exclude "**/.git/**"             --exclude "**/node_modules/**"             --exclude "**/vendor/**"             --exclude "**/dist/**"             --exclude "**/build/**"             --exclude "**/.venv/**"             --exclude "**/venv/**"             --output "reports/${{ steps.clone.outputs.safe_repo }}.json"
+          echo "$?" > reports/scanner-exit-code.txt
+          exit 0
+
+      - name: Run SARIF scan
+        shell: bash
+        run: |
+          set +e
+          actenon-scan scan target/repo             --format sarif             --fail-on none             --jobs 2             --exclude "**/.git/**"             --exclude "**/node_modules/**"             --exclude "**/vendor/**"             --exclude "**/dist/**"             --exclude "**/build/**"             --exclude "**/.venv/**"             --exclude "**/venv/**"             --output "reports/${{ steps.clone.outputs.safe_repo }}.sarif"
+          exit 0
+
+      - name: Summarise report
+        shell: bash
+        run: |
+          python research/industry-scan/summarise.py             "reports/${{ steps.clone.outputs.safe_repo }}.json"             metadata/scan.json             > reports/summary.md || true
+          cat reports/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload immutable evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: actenon-${{ matrix.target.category }}-${{ steps.clone.outputs.safe_repo }}
+          path: |
+            reports/
+            metadata/
+          if-no-files-found: error
+          retention-days: 90

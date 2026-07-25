@@ -1,0 +1,258 @@
+[
+  {
+    "category": "agent-frameworks",
+    "repository": "crewAIInc/crewAI"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "langchain-ai/langchain"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "microsoft/autogen"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "microsoft/semantic-kernel"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "run-llama/llama_index"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "geekan/MetaGPT"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "Significant-Gravitas/AutoGPT"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "All-Hands-AI/OpenHands"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "camel-ai/camel"
+  },
+  {
+    "category": "agent-frameworks",
+    "repository": "pydantic/pydantic-ai"
+  },
+  {
+    "category": "computer-use",
+    "repository": "browser-use/browser-use"
+  },
+  {
+    "category": "computer-use",
+    "repository": "Skyvern-AI/skyvern"
+  },
+  {
+    "category": "computer-use",
+    "repository": "browserbase/stagehand"
+  },
+  {
+    "category": "computer-use",
+    "repository": "microsoft/OmniParser"
+  },
+  {
+    "category": "computer-use",
+    "repository": "microsoft/UFO"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "n8n-io/n8n"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "apache/airflow"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "PrefectHQ/prefect"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "temporalio/sdk-python"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "argoproj/argo-workflows"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "dagster-io/dagster"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "windmill-labs/windmill"
+  },
+  {
+    "category": "workflow-automation",
+    "repository": "kestra-io/kestra"
+  },
+  {
+    "category": "mcp-tooling",
+    "repository": "modelcontextprotocol/servers"
+  },
+  {
+    "category": "mcp-tooling",
+    "repository": "jlowin/fastmcp"
+  },
+  {
+    "category": "mcp-tooling",
+    "repository": "microsoft/mcp"
+  },
+  {
+    "category": "cloud-iac",
+    "repository": "hashicorp/terraform"
+  },
+  {
+    "category": "cloud-iac",
+    "repository": "pulumi/pulumi"
+  },
+  {
+    "category": "cloud-iac",
+    "repository": "ansible/ansible"
+  },
+  {
+    "category": "cloud-iac",
+    "repository": "saltstack/salt"
+  },
+  {
+    "category": "cloud-iac",
+    "repository": "crossplane/crossplane"
+  },
+  {
+    "category": "cloud-iac",
+    "repository": "aws-controllers-k8s/community"
+  },
+  {
+    "category": "cloud-iac",
+    "repository": "GoogleCloudPlatform/config-connector"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "kubernetes/kubernetes"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "hashicorp/vault"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "open-policy-agent/opa"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "open-policy-agent/gatekeeper"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "kyverno/kyverno"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "envoyproxy/envoy"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "traefik/traefik"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "caddyserver/caddy"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "projectcalico/calico"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "cilium/cilium"
+  },
+  {
+    "category": "resource-boundaries",
+    "repository": "istio/istio"
+  },
+  {
+    "category": "payments-finance",
+    "repository": "stripe/stripe-python"
+  },
+  {
+    "category": "payments-finance",
+    "repository": "stripe/stripe-node"
+  },
+  {
+    "category": "payments-finance",
+    "repository": "adyen/adyen-python-api-library"
+  },
+  {
+    "category": "payments-finance",
+    "repository": "paypal/PayPal-Python-SDK"
+  },
+  {
+    "category": "payments-finance",
+    "repository": "plaid/plaid-python"
+  },
+  {
+    "category": "payments-finance",
+    "repository": "firefly-iii/firefly-iii"
+  },
+  {
+    "category": "commerce",
+    "repository": "medusajs/medusa"
+  },
+  {
+    "category": "commerce",
+    "repository": "saleor/saleor"
+  },
+  {
+    "category": "commerce",
+    "repository": "vendure-ecommerce/vendure"
+  },
+  {
+    "category": "communications",
+    "repository": "twilio/twilio-python"
+  },
+  {
+    "category": "communications",
+    "repository": "slackapi/python-slack-sdk"
+  },
+  {
+    "category": "communications",
+    "repository": "sendgrid/sendgrid-python"
+  },
+  {
+    "category": "data-operations",
+    "repository": "apache/superset"
+  },
+  {
+    "category": "data-operations",
+    "repository": "apache/kafka"
+  },
+  {
+    "category": "data-operations",
+    "repository": "elastic/elasticsearch"
+  },
+  {
+    "category": "data-operations",
+    "repository": "redis/redis"
+  },
+  {
+    "category": "security-response",
+    "repository": "wazuh/wazuh"
+  },
+  {
+    "category": "security-response",
+    "repository": "TheHive-Project/TheHive"
+  },
+  {
+    "category": "security-response",
+    "repository": "Shuffle/Shuffle"
+  },
+  {
+    "category": "security-response",
+    "repository": "StackStorm/st2"
+  }
+]
