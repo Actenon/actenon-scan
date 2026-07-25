@@ -12,6 +12,78 @@ them live in `tests/benchmark/{recall,precision,soundness}/`.
 
 ---
 
+---
+
+## The coverage contract
+
+Each agent architecture is a row. **A row may claim COVERED only when a
+hand-triaged true positive exists on a pinned commit of a real repository**,
+recorded in [`tests/benchmark/corpus-evidence.json`](../tests/benchmark/corpus-evidence.json).
+A synthetic fixture is not sufficient: it proves the detector fires on code we
+wrote, which is not evidence that it fires on code anyone else wrote.
+
+`scripts/check_coverage_contract.py` enforces this table in CI. It fails if a
+row claims COVERED without matching triaged evidence, if a non-COVERED row
+cites evidence, if the COVERED count disagrees with `baseline.recall_corpus`,
+or if a recall fixture has no row here.
+
+| ID | Architecture | Status | Corpus evidence |
+|---|---|---|---|
+| `r01` | MCP tool decorator — `@mcp.tool` | COVERED | `r01_mcp_tool` |
+| `r02` | MCP request handler — TS `setRequestHandler` | COVERED | `r02_langchain_tool` |
+| `r03` | Tool base class — `BaseTool` subclass `_run`/`_execute` | COVERED | `r03_basetool` |
+| `r04` | Function-tool decorator — `@function_tool` | PARTIAL | - |
+| `r05` | Custom agent loop — LLM output flows to a sink | NOT COVERED | - |
+| `r06` | Action/observation dispatcher — `run_action` | NOT COVERED | - |
+| `r07` | Raw tool-schema dispatch — switch on tool name | PARTIAL | - |
+
+**COVERED (3)** — detector fires, and it has been shown to fire on real code
+that a third party wrote.
+
+**PARTIAL (2)** — the detector exists and fires on its synthetic fixture, but
+no corpus true positive has been produced yet. `r04` fires on
+`r04_openai_function_tool.py`; the only corpus candidate found so far
+(openai-agents `streamablehttp_example/main.py:91`) was triaged a **false**
+positive and fixed by the `__main__` exclusion, so the architecture stays
+PARTIAL rather than being credited. `r07` produces zero candidates across
+21,308 corpus files at zero precision cost.
+
+**NOT COVERED (2)** — recorded negative results, detail below. These are
+listed rather than omitted because a missing row reads as "not applicable"
+when the truth is "tried, and it did not work".
+
+### Minimal examples
+
+```python
+# r01 — COVERED
+@mcp.tool()
+def run(cmd: str):
+    subprocess.run(cmd, shell=True)      # flagged
+
+# r03 — COVERED
+class DeleteFileTool(BaseTool):
+    def _execute(self, path: str):
+        os.remove(path)                  # flagged
+
+# r04 — PARTIAL (fires on fixture, no corpus TP yet)
+@function_tool
+def run(cmd: str):
+    subprocess.run(cmd, shell=True)      # flagged
+
+# r05 — NOT COVERED: indistinguishable from framework plumbing
+class Loop:
+    def chat(self, msg): return self.run(self.llm(msg))
+    def run(self, cmd): subprocess.run(cmd, shell=True)   # NOT flagged
+```
+
+```typescript
+// r02 — COVERED
+server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  await fs.writeFile(req.params.path, req.params.content);  // flagged
+});
+```
+
+
 ## What scan verifies
 
 For a consequential sink reachable from an agent tool boundary, scan answers
@@ -194,6 +266,49 @@ candidate rule would pass it. The score read 6/6 and the original defect was
 still undetected — and the rule that "passed" it also flagged
 `casbin_enforce("user", "record", "delete")`, a correct Casbin call, as
 unbound. A benchmark edited to fit the implementation measures nothing.
+
+## Closed: the guard false-negative class (v0.7.0)
+
+Recorded because the *reason* it was wrong outlives the fix.
+
+Guard style used to be inferred from the guard's **name**. Names in a fixed
+assert-style list (`authorize`, `require_*`, `enforce_*`, …) were assumed to
+raise on failure, so discarding their return value was fine. Everything else
+was predicate-style and had to be branched on.
+
+Name-based classification cannot work, because the same name is written both
+ways in real code:
+
+```python
+def check_permission(user, action):     # boolean-style
+    return user.role in ALLOWED         # discarding this enforces NOTHING
+
+def check_permission(user, action):     # assert-style
+    if user.role not in ALLOWED:
+        raise PermissionError           # discarding this is correct
+```
+
+`check_permission` was on the assert-style list, so the first form — a real
+defect — was reported clean. That is a false negative in the one place a
+security tool must not have one: a guard that runs, returns "no", and is
+ignored.
+
+v0.7.0 resolves guards **by definition** instead. When the guard is defined in
+the scanned module its AST decides: contains a `raise` → assert-style; returns
+a value and never raises → boolean-style, so a discarded result is `-WEAK`;
+both → assert-style, because the raise dominates.
+
+When the guard is imported and cannot be resolved, a deliberately **narrow**
+name heuristic applies. `check_permission`, `check_access`, `check_auth` and
+`verify_token` are excluded from it: they are ambiguous names that could
+return a bool. Per the operating rule that **ambiguity resolves to WEAK, never
+to clean**, an unresolvable ambiguous guard is reported WEAK rather than
+assumed safe.
+
+All six cases now behave correctly, including the imported-and-unresolvable
+one. The general lesson is the transferable part: **a guard's contract is a
+property of its body, not of its name**, and where the body cannot be seen the
+safe default is to doubt it.
 
 ## Negative result: custom agent loop detection (r05)
 
