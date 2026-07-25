@@ -1,0 +1,73 @@
+# Actenon Scan — SARIF upload workflow
+#
+# Work Order 2, Part 5.3: scans the repository and uploads SARIF to
+# GitHub's code-scanning interface. Findings render with file paths,
+# line numbers, and rule metadata in the Security tab.
+#
+# This workflow does NOT block merging (--fail-on none). Use the
+# repository's code-scanning settings to configure dismissal rules.
+
+name: actenon-scan-sarif
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - '**/*.py'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.js'
+      - '**/*.jsx'
+  schedule:
+    # Run nightly at 02:00 UTC to catch new findings from rule updates.
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  sarif:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install actenon-scan
+        run: |
+          python -m pip install --upgrade pip
+          pip install "actenon-scan[typescript,yaml]"
+
+      - name: Scan and produce SARIF
+        run: |
+          actenon-scan scan . --format sarif --output actenon.sarif --fail-on none --no-cache
+
+      - name: Validate SARIF
+        run: |
+          # Basic validation: the file exists and is valid JSON.
+          python -c "
+          import json, sys
+          with open('actenon.sarif') as f:
+              d = json.load(f)
+          assert d.get('runs'), 'SARIF must have at least one run'
+          print(f'SARIF valid: {len(d[\"runs\"])} run(s)')
+          "
+
+      - name: Upload SARIF to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: actenon.sarif
+          category: actenon-scan
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: actenon-sarif
+          path: actenon.sarif
+          retention-days: 30
