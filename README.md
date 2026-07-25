@@ -119,38 +119,65 @@ Actenon is not forced into every recommendation.
 
 ## How to add it to a PR
 
-### GitHub Action (sticky comment on PRs)
+### GitHub Action (sticky comment + SARIF, zero config)
 
 ```yaml
 # .github/workflows/actenon-scan.yml
 name: actenon-scan
 on:
   pull_request:
-    paths:
-      - '**/*.py'
-      - '**/*.ts'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * *'
 jobs:
   scan:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
+      pull-requests: write      # for the sticky comment
+      security-events: write    # for SARIF upload to Security tab
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install actenon-scan
-      - run: actenon-scan scan . --format sarif --output actenon.sarif --fail-on none
-      - uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: actenon.sarif
+      - uses: Actenon/actenon-scan@v1
 ```
 
-### SARIF upload (GitHub code scanning)
+That's it. The action:
+- Scans only changed files on PRs (full tree on push/schedule)
+- Posts a sticky blast-radius comment on PRs with findings (updated in place)
+- Uploads SARIF to the GitHub Security tab
+- Does **not** fail the build by default
 
-The workflow above uploads SARIF to GitHub's Security tab. Findings render
-with file paths, line numbers, and rule metadata.
+**Ready to enforce?** Add `fail-on: high` once you've triaged your baseline:
+
+```yaml
+      - uses: Actenon/actenon-scan@v1
+        with:
+          fail-on: high
+```
+
+### All inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `path` | `.` | Path to scan |
+| `fail-on` | `none` | Fail at this severity (none/low/medium/high). Default: none |
+| `config` | `""` | Path to config file |
+| `baseline` | `""` | Path to baseline.json for known-findings suppression |
+| `scan-scope` | `auto` | `changed` (PR only), `full` (entire repo), or `auto` |
+| `comment-on-pr` | `true` | Post sticky blast-radius comment on PRs |
+| `upload-sarif` | `true` | Upload SARIF to Security tab |
+| `version` | `""` | Pin scanner version (default: action's own version) |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `findings-count` | Total findings |
+| `high-count` | HIGH-severity findings |
+| `medium-count` | MEDIUM-severity findings |
+| `low-count` | LOW-severity findings |
+| `sarif-path` | Path to the SARIF file |
 
 ### Pre-commit hook
 
@@ -165,7 +192,7 @@ repos:
 ```
 
 The default workflow does **not** block merging solely because findings exist
-unless you explicitly configure a `--fail-on` threshold.
+unless you explicitly configure `fail-on: high`.
 
 ## How to export reports
 
