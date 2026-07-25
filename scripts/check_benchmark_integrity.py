@@ -230,3 +230,32 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def check_corpus_recall_matches_evidence(root: Path) -> list[str]:
+    """baseline.recall_corpus must equal the number of TRUE POSITIVE evidence entries.
+
+    corpus-evidence.json holds four entries but only three are true positives:
+    r04 is a recorded FALSE positive, kept deliberately as a negative result
+    (the __main__ exclusion). Nothing tied the two files together, so a reader
+    counting entries got 4 while the gating number said 3. This check is what
+    stops that drift recurring.
+    """
+    import json
+
+    problems: list[str] = []
+    baseline = json.loads((root / "tests/benchmark/baseline.json").read_text())
+    evidence = json.loads((root / "tests/benchmark/corpus-evidence.json").read_text())
+
+    true_positives = [k for k, v in evidence.items() if v.get("triage") == "true_positive"]
+    declared = baseline.get("recall_corpus")
+    if declared != len(true_positives):
+        problems.append(
+            f"baseline.recall_corpus={declared} but corpus-evidence.json has "
+            f"{len(true_positives)} true_positive entries ({sorted(true_positives)}). "
+            f"The gating number counts TRUE POSITIVES, not entries."
+        )
+    for key, entry in evidence.items():
+        if entry.get("triage") not in ("true_positive", "false_positive"):
+            problems.append(f"corpus-evidence entry {key} has no valid triage verdict")
+    return problems

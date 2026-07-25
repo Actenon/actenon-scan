@@ -35,6 +35,31 @@ If a claim drifts, the badge goes red before a human notices.
 
 ---
 
+
+## Performance
+
+Measured against a pinned real repository, not a synthetic tree:
+**langchain-ai/langchain @ `fa7ce76`**, 1,954 Python files scanned. The pin and
+the numbers live in [`tests/benchmark/perf-fixture.json`](tests/benchmark/perf-fixture.json)
+and a CI gate fails if they regress.
+
+| repository | files | serial | `--jobs` (10 cores) |
+|---|---|---|---|
+| langchain | 1,954 | 1.9s | **0.77s** |
+| crewai | 957 | 2.4s | **1.09s** |
+| openai-agents | 539 | 2.1s | **0.67s** |
+| autogen | 576 | 1.4s | **0.81s** |
+| mcp-python-sdk | 586 | 0.6s | **0.28s** |
+
+`--jobs` defaults to `os.cpu_count()`; `--jobs 1` forces the serial path.
+Findings are identical either way — that equivalence is a test, not a claim.
+
+Pre-commit path: `--changed-only` scans a 1–3 file diff in **~150ms**.
+
+Two repositories exceed 2s on the serial path and are listed rather than
+omitted. Numbers are from an Apple Silicon 10-core machine; your absolute
+figures will differ, the ratios should not.
+
 ## The Actenon ecosystem
 
 Scan is one of five independent repositories that together close the **execution gap** — the gap between *upstream authorization* and the *execution edge* that actually performs a consequential side effect.
@@ -50,7 +75,7 @@ Scan is one of five independent repositories that together close the **execution
 **Optional:** [`actenon-cloud`](https://github.com/Actenon/actenon-cloud) — a managed control plane (source-available; see its LICENSE). Not required by any component above; every capability in this ecosystem works without it.
 <!-- ECOSYSTEM-TABLE:END -->
 
-Scan is the **only** Actenon tool that should run in your CI on day one. It has zero dependencies, takes seconds to run, and tells you exactly where your agent code is reaching consequential side effects without proof-bound guards — whether or not you ever adopt the rest of the ecosystem.
+Scan is the **only** Actenon tool that should run in your CI on day one. It has zero dependencies, scans langchain in under a second (see [Performance](#performance)), and tells you exactly where your agent code is reaching consequential side effects without proof-bound guards — whether or not you ever adopt the rest of the ecosystem.
 
 ---
 

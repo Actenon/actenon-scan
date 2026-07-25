@@ -111,6 +111,36 @@ def _assign_tier(filepath: str) -> str:
     return "production"
 
 
+def _reachability_markers(reachability_cfg: dict) -> frozenset[str]:
+    """Every token that could make ANY sink in a file agent-reachable.
+
+    Derived from the same rule config `detect_reachability` consults, never
+    hand-written — a hand-written list would silently drift from the detector
+    and turn a sound skip into a false negative.
+
+    A file containing none of these tokens cannot produce a reachable sink:
+    every HIGH path needs a tool decorator, tool wrapper, tool base class,
+    tool method or tools=[...] parameter, and every MEDIUM path needs an
+    agent-framework import. So the whole rule pass can be skipped for it.
+    This follows from the reachability model, not from a substring guess.
+    """
+    markers: set[str] = set()
+    for key in (
+        "tool_decorators",
+        "tool_wrappers",
+        "tool_base_classes",
+        "tool_methods",
+        "tool_list_params",
+        "agent_framework_imports",
+    ):
+        for item in reachability_cfg.get(key) or []:
+            if isinstance(item, str):
+                # Match on the final attribute so "langchain.tools.tool"
+                # is caught by the token "tool" appearing in source.
+                markers.add(item.split(".")[-1])
+    return frozenset(m for m in markers if m)
+
+
 def _build_parent_map_for_engine(tree: ast.AST) -> dict[int, ast.AST]:
     """Build a map from node id() to parent node."""
     parent_map: dict[int, ast.AST] = {}
@@ -383,6 +413,119 @@ def _detect_self_package(target: Path) -> str | None:
     return None
 
 
+
+def _scan_shard(args: tuple) -> "ScanResult":
+    """Worker: scan one shard of the file list in a subprocess.
+
+    Reuses scan_path's explicit_files path verbatim rather than
+    reimplementing the per-file loop, so the parallel and serial paths
+    cannot drift apart in behaviour. The explicit_files path already skips
+    the TypeScript and unsupported-file passes, so shards do no ancillary
+    work and the parent does it exactly once.
+    """
+    target, shard, config, exclude_globs, self_package, suppressions, baseline = args
+    return scan_path(
+        target,
+        config=config,
+        exclude_globs=exclude_globs,
+        self_package=self_package,
+        suppressions=suppressions,
+        baseline_findings=baseline,
+        explicit_files=shard,
+    )
+
+
+def scan_path_parallel(
+    target: str | Path,
+    *,
+    jobs: int,
+    config: str | Path | None = None,
+    include_globs: list[str] | None = None,
+    exclude_globs: list[str] | None = None,
+    suppressions: set[tuple[str, str]] | None = None,
+    baseline_findings: dict[str, set[str]] | None = None,
+    self_package: str | None = None,
+) -> "ScanResult":
+    """Scan by sharding the file list across `jobs` processes."""
+    from concurrent.futures import ProcessPoolExecutor
+
+    target = Path(target)
+
+    def serial() -> ScanResult:
+        return scan_path(
+            target, config=config, include_globs=include_globs,
+            exclude_globs=exclude_globs, suppressions=suppressions,
+            baseline_findings=baseline_findings, self_package=self_package,
+        )
+
+    if jobs <= 1 or not target.is_dir():
+        return serial()
+
+    files = _collect_files(target, include_globs, exclude_globs)
+    # Below this size, process startup costs more than the parallelism saves.
+    if len(files) < 200:
+        return serial()
+
+    if self_package is None:
+        self_package = _detect_self_package(target)
+
+    shards: list[list[Path]] = [[] for _ in range(jobs)]
+    for i, f in enumerate(files):
+        shards[i % jobs].append(f)
+    shards = [sh for sh in shards if sh]
+
+    payload = [
+        (target, sh, config, exclude_globs, self_package, suppressions, baseline_findings)
+        for sh in shards
+    ]
+    try:
+        with ProcessPoolExecutor(max_workers=len(shards)) as pool:
+            results = list(pool.map(_scan_shard, payload))
+    except Exception:
+        # Any parallel failure falls back to the serial path rather than
+        # returning a partial scan. A scanner that silently examines less
+        # than it was asked to is worse than a slow one.
+        return serial()
+
+    merged = ScanResult()
+    for r in results:
+        merged.findings.extend(r.findings)
+        merged.analysis_errors.extend(r.analysis_errors)
+        merged.files_scanned += r.files_scanned
+        if merged.rules_used is None:
+            merged.rules_used = r.rules_used
+
+    # Ancillary passes run once in the parent: shards skipped them.
+    ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
+        target, include_globs, exclude_globs
+    )
+    for tf in ts_findings:
+        merged.findings.append(Finding(
+            file=tf.file,
+            line=tf.line,
+            col=tf.col,
+            rule_id=tf.rule_id,
+            category=tf.category,
+            severity=tf.severity,
+            confidence=tf.confidence,
+            description=tf.description,
+            call_text=tf.call_text,
+            remediation=_remediation_hint(tf.category),
+            snippet_hash="",
+            tier=_assign_tier(tf.file),
+        ))
+    merged.files_scanned += ts_scanned
+    merged.analysis_errors.extend(ts_errors)
+    unsupported = _collect_unsupported_files(target, include_globs, exclude_globs)
+    if ts_scanned > 0:
+        ts_exts = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+        ts_file_set = {f for f, _ in unsupported if f.endswith(ts_exts)}
+        unsupported = [(f, l) for f, l in unsupported if f not in ts_file_set]
+    merged.unsupported_files = unsupported
+    merged.findings.sort(key=lambda f: (f.file, f.line))
+    return merged
+
+
 def scan_path(
     target: str | Path,
     *,
@@ -392,6 +535,7 @@ def scan_path(
     suppressions: set[tuple[str, str]] | None = None,
     baseline_findings: dict[str, set[str]] | None = None,
     self_package: str | None = None,
+    explicit_files: list[Path] | None = None,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -404,8 +548,20 @@ def scan_path(
     """
     rules = load_rules(config)
     target = Path(target)
-    files = _collect_files(target, include_globs, exclude_globs)
-    unsupported_files = _collect_unsupported_files(target, include_globs, exclude_globs)
+    # --changed-only supplies the exact file list from the git diff. Walking
+    # the whole tree and then glob-filtering it down to 1-3 files was the fixed
+    # cost that dominated the pre-commit path.
+    if explicit_files is not None:
+        files = [f for f in explicit_files if f.exists() and f.suffix == ".py"]
+    else:
+        files = _collect_files(target, include_globs, exclude_globs)
+    # With an explicit file list (--changed-only) these two helpers must not
+    # rglob the whole tree: together they were 178ms of a 194ms single-file
+    # run, i.e. nearly all of the fixed cost the flag exists to avoid.
+    if explicit_files is not None:
+        unsupported_files = []
+    else:
+        unsupported_files = _collect_unsupported_files(target, include_globs, exclude_globs)
     findings: list[Finding] = []
     analysis_errors: list[tuple[str, str]] = []
 
@@ -448,6 +604,8 @@ def scan_path(
         "Path(", "pathlib",
     })
 
+    REACH_MARKERS = _reachability_markers(rules.reachability)
+
     for filepath in files:
         rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
         try:
@@ -469,20 +627,33 @@ def scan_path(
             analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
             continue
 
-        if not has_sink_substring:
-            # Still run declarative guard detection (may crash, must be caught)
-            try:
-                _find_declarative_guarded_classes(tree, rules.reachability)
-            except Exception as exc:
-                analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+        # Reachability short-circuit. If no token in this file could make any
+        # sink agent-reachable, no finding can survive detect_reachability, so
+        # the entire rule pass is skipped. Sound by construction: the marker
+        # set is derived from the same config the detector uses.
+        has_reach_marker = any(m in source for m in REACH_MARKERS)
+
+        if not has_sink_substring or not has_reach_marker:
+            # Previously this ran _find_declarative_guarded_classes here and
+            # threw the result away, purely so a detector crash would surface.
+            # Profiling put that discarded call at ~25% of a langchain scan.
+            # A file skipped here cannot produce a finding, so the only thing
+            # lost is crash reporting on files that yield nothing. Recorded in
+            # FINDINGS.md.
             continue
 
         # tree is already parsed above; no need to re-parse
         try:
-            sink_findings = detect_sinks(tree, str(filepath), rules.sinks)
+            # One parent map per file, shared with detect_sinks. Profiling
+            # showed the identical map being built twice (~12% of a scan).
+            parent_map = _build_parent_map_for_engine(tree)
+            sink_findings = detect_sinks(
+                tree, str(filepath), rules.sinks, parent_map=parent_map
+            )
+            if not sink_findings:
+                continue
             # Detect declarative guards (class attributes, decorators, constructor params)
             declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
-            parent_map = _build_parent_map_for_engine(tree)
 
             for sf in sink_findings:
                 reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
@@ -568,7 +739,16 @@ def scan_path(
             print(f"actenon-scan: warning: analysis error in {rel}, skipping", file=sys.stderr)
 
     # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
-    ts_findings, ts_scanned, ts_errors = _scan_typescript_files(target, include_globs, exclude_globs)
+    if explicit_files is not None:
+        ts_explicit = [f for f in explicit_files if f.suffix.lower() in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}]
+        if ts_explicit:
+            ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
+                target, include_globs, exclude_globs, explicit_files=ts_explicit
+            )
+        else:
+            ts_findings, ts_scanned, ts_errors = [], 0, []
+    else:
+        ts_findings, ts_scanned, ts_errors = _scan_typescript_files(target, include_globs, exclude_globs)
     if ts_findings:
         for tf in ts_findings:
             findings.append(Finding(
@@ -622,6 +802,7 @@ def _scan_typescript_files(
     target: Path,
     include_globs: list[str] | None,
     exclude_globs: list[str] | None,
+    explicit_files: list[Path] | None = None,
 ) -> tuple[list, int, list[tuple[str, str]]]:
     """Scan TypeScript/JavaScript files if the [typescript] extra is installed.
 
@@ -644,7 +825,10 @@ def _scan_typescript_files(
     ts_suffixes = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
     ts_files: list[Path] = []
 
-    if target.is_file():
+    if explicit_files is not None:
+        # --changed-only: never walk the tree, use the diff's own file list.
+        ts_files = [f for f in explicit_files if f.suffix.lower() in ts_suffixes and f.exists()]
+    elif target.is_file():
         if target.suffix.lower() in ts_suffixes:
             ts_files = [target]
     else:

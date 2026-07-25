@@ -1,0 +1,22 @@
+{
+  "_comment": "The canonical performance fixture. All perf claims are measured against this pinned tree. Never swap it for a more favourable repository: if a target is missed, the claim is revised, not the fixture.",
+  "repo": "langchain-ai/langchain",
+  "sha": "fa7ce760a26437a904a4c93db75333f01d65ed83",
+  "py_files_on_disk": 2536,
+  "py_files_scanned": 1954,
+  "note": "scanned < on-disk because vendored, test and build paths are excluded by _collect_files",
+  "targets": {
+    "serial_ms": 2000,
+    "parallel_ms": 1200,
+    "changed_only_1_3_files_ms": 200
+  },
+  "measured": {
+    "origin_main_serial_ms": 2809,
+    "optimised_serial_ms": 1917,
+    "optimised_parallel_ms": 774,
+    "changed_only_1_file_ms": 150,
+    "changed_only_3_files_ms": 165,
+    "hardware": "Apple Silicon, 10 cores, Python 3.14",
+    "note": "before/after measured on the same machine. The 6539ms in the v0.7.0 work order was the published package on different hardware and is not comparable."
+  }
+}

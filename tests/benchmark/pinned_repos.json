@@ -1,0 +1,206 @@
+{
+  "_comment": "The precision corpus, pinned by commit SHA. Controls are non-agent libraries that contain consequential sinks: ANY finding in a control repo is a precision failure by definition. Re-pin deliberately, never to make a number move.",
+  "fetch": "https://github.com/{repo}/archive/{sha}.tar.gz",
+  "repos": [
+    {
+      "repo": "modelcontextprotocol/servers",
+      "name": "mcp-servers",
+      "category": "mcp_server",
+      "sha": "d31124c982401739917fd817c2a59db344529c16",
+      "py_files": 14,
+      "ts_files": 65
+    },
+    {
+      "repo": "modelcontextprotocol/python-sdk",
+      "name": "mcp-python-sdk",
+      "category": "mcp_server",
+      "sha": "629ca297d24b24f8055bf191ea7ff046a5c32100",
+      "py_files": 819,
+      "ts_files": 0
+    },
+    {
+      "repo": "github/github-mcp-server",
+      "name": "github-mcp-server",
+      "category": "mcp_server",
+      "sha": "eb088dfe9d854dab6453a8d4ae5871a5ced20974",
+      "py_files": 0,
+      "ts_files": 11
+    },
+    {
+      "repo": "sooperset/mcp-atlassian",
+      "name": "mcp-atlassian",
+      "category": "mcp_server",
+      "sha": "1bd07dab87eb4f00b4e3661da0e48356f27cd085",
+      "py_files": 283,
+      "ts_files": 0
+    },
+    {
+      "repo": "langchain-ai/langchain",
+      "name": "langchain",
+      "category": "framework",
+      "sha": "fa7ce760a26437a904a4c93db75333f01d65ed83",
+      "py_files": 2536,
+      "ts_files": 0
+    },
+    {
+      "repo": "run-llama/llama_index",
+      "name": "llamaindex",
+      "category": "framework",
+      "sha": "199e9b5b130bbde72639358a08935b913e7132c0",
+      "py_files": 3832,
+      "ts_files": 0
+    },
+    {
+      "repo": "crewAIInc/crewAI",
+      "name": "crewai",
+      "category": "framework",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "py_files": 1269,
+      "ts_files": 0
+    },
+    {
+      "repo": "microsoft/autogen",
+      "name": "autogen",
+      "category": "framework",
+      "sha": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
+      "py_files": 546,
+      "ts_files": 125
+    },
+    {
+      "repo": "microsoft/semantic-kernel",
+      "name": "semantic-kernel",
+      "category": "framework",
+      "sha": "61a6b0c5fade87e1cc048fdfdf3993cc7b95d163",
+      "py_files": 1244,
+      "ts_files": 24
+    },
+    {
+      "repo": "deepset-ai/haystack",
+      "name": "haystack",
+      "category": "framework",
+      "sha": "757b3e2ce12e222748564ef9706c88c49e2e75d3",
+      "py_files": 527,
+      "ts_files": 9
+    },
+    {
+      "repo": "agno-agi/agno",
+      "name": "agno",
+      "category": "framework",
+      "sha": "a4a7e319e9124a00c50f7815e4cea2bb3cae28e5",
+      "py_files": 4255,
+      "ts_files": 0
+    },
+    {
+      "repo": "openai/openai-agents-python",
+      "name": "openai-agents",
+      "category": "framework",
+      "sha": "c1b423749e2bf8ca5f89cad13e2a144c9683a6ee",
+      "py_files": 840,
+      "ts_files": 0
+    },
+    {
+      "repo": "pydantic/pydantic-ai",
+      "name": "pydantic-ai",
+      "category": "framework",
+      "sha": "ed0f40c0e5061722f7d9f579ed7efff1b74e3ea5",
+      "py_files": 598,
+      "ts_files": 1
+    },
+    {
+      "repo": "openinterpreter/open-interpreter",
+      "name": "open-interpreter",
+      "category": "application",
+      "sha": "a4da0fc3cecef98f95264a9c66896ddb064dc377",
+      "py_files": 137,
+      "ts_files": 636
+    },
+    {
+      "repo": "All-Hands-AI/OpenHands",
+      "name": "openhands",
+      "category": "application",
+      "sha": "652503005093d18d1b2f48816c91d62e93f45970",
+      "py_files": 915,
+      "ts_files": 1287
+    },
+    {
+      "repo": "Aider-AI/aider",
+      "name": "aider",
+      "category": "application",
+      "sha": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "py_files": 147,
+      "ts_files": 2
+    },
+    {
+      "repo": "AntonOsika/gpt-engineer",
+      "name": "gpt-engineer",
+      "category": "application",
+      "sha": "a90fcd543eedcc0ff2c34561bc0785d2ba83c47e",
+      "py_files": 84,
+      "ts_files": 0
+    },
+    {
+      "repo": "browser-use/browser-use",
+      "name": "browser-use",
+      "category": "application",
+      "sha": "0964ad452a9f3fe249042a5ffb235e5f98519b2e",
+      "py_files": 370,
+      "ts_files": 0
+    },
+    {
+      "repo": "FoundationAgents/MetaGPT",
+      "name": "metagpt",
+      "category": "application",
+      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+      "py_files": 890,
+      "ts_files": 8
+    },
+    {
+      "repo": "TransformerOptimus/SuperAGI",
+      "name": "superagi",
+      "category": "application",
+      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+      "py_files": 461,
+      "ts_files": 0
+    },
+    {
+      "repo": "psf/requests",
+      "name": "requests",
+      "category": "control",
+      "sha": "69f84847045bef7a849cc994a26fe7ba8a169e95",
+      "py_files": 37,
+      "ts_files": 0
+    },
+    {
+      "repo": "pallets/flask",
+      "name": "flask",
+      "category": "control",
+      "sha": "36e4a824f340fdee7ed50937ba8e7f6bc7d17f81",
+      "py_files": 83,
+      "ts_files": 0
+    },
+    {
+      "repo": "fastapi/fastapi",
+      "name": "fastapi",
+      "category": "control",
+      "sha": "255b912928904e3ba5980425a54d6837c8bd1a1c",
+      "py_files": 1130,
+      "ts_files": 0
+    },
+    {
+      "repo": "pallets/click",
+      "name": "click",
+      "category": "control",
+      "sha": "00e592cea702e0b2caa0dee42489fdb1c22cd845",
+      "py_files": 78,
+      "ts_files": 0
+    },
+    {
+      "repo": "Textualize/rich",
+      "name": "rich",
+      "category": "control",
+      "sha": "9d8f9a372cc5916fd4781fec207ced7ddac2f08f",
+      "py_files": 213,
+      "ts_files": 0
+    }
+  ]
+}

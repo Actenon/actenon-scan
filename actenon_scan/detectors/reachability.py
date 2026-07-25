@@ -315,6 +315,20 @@ def _check_module_signals(
     if self_package:
         # Remove the self-package from the frameworks list for this check
         agent_frameworks = [fw for fw in agent_frameworks if fw != self_package]
-    if _imports_agent_framework(tree, agent_frameworks):
+    if not _imports_agent_framework(tree, agent_frameworks):
+        return ReachabilityResult()
+
+    # Module-level code runs at IMPORT time. An LLM cannot select or invoke
+    # it, so by the reachability model it is not agent-reachable — the same
+    # reasoning that already excludes `if __name__ == "__main__":` blocks
+    # above, applied consistently to all module scope.
+    #
+    # Measured: on the 25-repo corpus this signal produced 19 findings and
+    # all 19 were false positives — demo and cookbook setup (`os.remove`
+    # of a scratch db before constructing an Agent, `shutil.rmtree` of a
+    # seed directory). Precision 0/19. It is off by default and kept behind
+    # a flag rather than deleted, so the signal is recoverable for anyone
+    # who wants it. See FINDINGS.md.
+    if reachability_cfg.get("module_level_reachability", False):
         return ReachabilityResult(confidence="medium", signals=["module_level_agent_import"])
     return ReachabilityResult()

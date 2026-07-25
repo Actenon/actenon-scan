@@ -6,6 +6,12 @@ name: Benchmark integrity
 
 on:
   pull_request:
+    # `edited` matters: the gate reads the justification from the PR body via
+    # the event payload. Without it, adding the required section after the
+    # gate fails could never re-trigger the gate that asked for it — the only
+    # way to go green was an unrelated push. The control is now answerable in
+    # the way it tells you to answer it.
+    types: [opened, synchronize, reopened, edited]
     paths:
       - 'tests/benchmark/**'
 

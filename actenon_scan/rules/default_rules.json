@@ -241,6 +241,20 @@
           "ses.send_raw_email",
           "chat_postMessage",
           "WebClient.chat_postMessage"
+        ],
+        "exclude_receiver_types": [
+          "A2AClient",
+          "a2a_client",
+          "agent_client",
+          "AgentClient",
+          "event_bus",
+          "EventBus",
+          "message_bus",
+          "MessageBus",
+          "runtime",
+          "Runtime",
+          "wsbridge",
+          "WsBridge"
         ]
       },
       "priority": 20
@@ -261,6 +275,20 @@
           "post_message",
           "notify",
           "broadcast"
+        ],
+        "exclude_receiver_types": [
+          "A2AClient",
+          "a2a_client",
+          "agent_client",
+          "AgentClient",
+          "event_bus",
+          "EventBus",
+          "message_bus",
+          "MessageBus",
+          "runtime",
+          "Runtime",
+          "wsbridge",
+          "WsBridge"
         ]
       },
       "priority": 20
@@ -791,9 +819,7 @@
       "pydantic_ai",
       "smolagents",
       "agno",
-      "langgraph",
-      "playwright",
-      "selenium"
+      "langgraph"
     ],
     "declarative_guards": {
       "class_attributes": [
@@ -832,7 +858,8 @@
         "authorizer",
         "permissions"
       ]
-    }
+    },
+    "module_level_reachability": false
   },
   "guard_patterns": [
     "verify_pccb",

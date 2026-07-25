@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
-from actenon_scan.engine import scan_path
+from actenon_scan.engine import scan_path, scan_path_parallel
 from actenon_scan.report.json_out import format_json
 from actenon_scan.report.pretty import format_pretty
 from actenon_scan.report.sarif import format_sarif
@@ -41,6 +42,14 @@ def main(argv: list[str] | None = None) -> int:
         "Default off — unsupported files alone do not fail the build.",
     )
     scan_parser.add_argument("--output", "-o", default=None, help="Write output to file instead of stdout.")
+    scan_parser.add_argument(
+        "--jobs",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Scan with N parallel processes (default: os.cpu_count(); 1 disables). "
+             "Findings are identical to a serial scan.",
+    )
     scan_parser.add_argument(
         "--changed-only",
         default=None,
@@ -124,23 +133,45 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         tmp_config.close()
         config_path = tmp_config.name
 
+    explicit_files = None
     # --changed-only: filter to files changed since git ref
     include_globs = args.include
     if args.changed_only:
         changed_files = _get_changed_files(args.changed_only, target)
         if changed_files:
-            # Convert to include globs
-            include_globs = changed_files
+            # Pass the exact paths through rather than converting to include
+            # globs: globbing still walked the entire tree before filtering,
+            # which is the fixed cost --changed-only exists to avoid.
+            base = target if target.is_dir() else target.parent
+            explicit_files = [
+                (base / cf) if not Path(cf).is_absolute() else Path(cf)
+                for cf in changed_files
+            ]
 
     try:
-        result = scan_path(
-            target,
-            config=config_path,
-            include_globs=include_globs,
-            exclude_globs=args.exclude,
-            suppressions=suppressions,
-            baseline_findings=baseline,
-        )
+        jobs = args.jobs if args.jobs is not None else (os.cpu_count() or 1)
+        # --changed-only already scans a handful of files; process startup
+        # would cost more than it saves, so it stays serial.
+        if jobs > 1 and explicit_files is None:
+            result = scan_path_parallel(
+                target,
+                jobs=jobs,
+                config=config_path,
+                include_globs=include_globs,
+                exclude_globs=args.exclude,
+                suppressions=suppressions,
+                baseline_findings=baseline,
+            )
+        else:
+            result = scan_path(
+                target,
+                config=config_path,
+                include_globs=include_globs,
+                exclude_globs=args.exclude,
+                explicit_files=explicit_files,
+                suppressions=suppressions,
+                baseline_findings=baseline,
+            )
     except Exception as e:
         # Catch ConfigError and other config-loading errors gracefully.
         # Never crash with a raw traceback on a config mistake.

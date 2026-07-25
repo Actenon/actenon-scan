@@ -25,7 +25,13 @@ class SinkFinding:
     tier: str = "production"
 
 
-def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list[SinkFinding]:
+def detect_sinks(
+    tree: ast.Module,
+    filepath: str,
+    rules: list[SinkRule],
+    *,
+    parent_map: dict[int, ast.AST] | None = None,
+) -> list[SinkFinding]:
     """Walk the AST and find all sink calls matching the rules.
 
     SQL string patterns (type=string_pattern) are only matched on string
@@ -49,7 +55,11 @@ def detect_sinks(tree: ast.Module, filepath: str, rules: list[SinkRule]) -> list
     # Build a parent-pointer map so we can find the enclosing function
     # for any node (needed for arg_is_tainted escalation and declarative
     # guard detection).
-    parent_map = _build_parent_map(tree)
+    # Profiling showed this identical map was built twice per file — once
+    # here and once in the engine — costing ~12% of a langchain scan.
+    # Callers that already have one pass it in.
+    if parent_map is None:
+        parent_map = _build_parent_map(tree)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -325,6 +335,25 @@ def _match_qualified_call(node: ast.Call, rule: SinkRule, var_types: dict[str, s
     qualified_patterns = rule.match.get("qualified_patterns", [])
     if not qualified_patterns:
         return False
+
+    # RECEIVER EXCLUSION: some verbs are shared between a consequential
+    # external channel and internal framework plumbing. `send_message` is
+    # both "send a Slack message" and "hand a task to another agent over
+    # A2A". The second is inter-agent transport, not a side effect on the
+    # outside world, and it is the dominant false-positive category recorded
+    # in the r05 negative result. Mirrors the _is_db_receiver constraint.
+    excluded_receivers = rule.match.get("exclude_receiver_types", [])
+    if excluded_receivers and isinstance(node.func, ast.Attribute):
+        recv = node.func.value
+        recv_type = None
+        if isinstance(recv, ast.Name):
+            recv_type = (var_types or {}).get(recv.id) or recv.id
+        elif isinstance(recv, ast.Attribute):
+            recv_type = recv.attr
+        if recv_type:
+            low = recv_type.lower()
+            if any(x.lower() in low for x in excluded_receivers):
+                return False
 
     # Get the full dotted name of the call
     if isinstance(node.func, ast.Name):
