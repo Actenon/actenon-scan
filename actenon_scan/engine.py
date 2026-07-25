@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from actenon_scan.detectors.guards import is_guarded
+from actenon_scan.detectors.guards import check_guard, GuardCheckResult
 from actenon_scan.detectors.reachability import detect_reachability
 from actenon_scan.detectors.sinks import detect_sinks
 from actenon_scan.rules.loader import Ruleset, load_rules
@@ -118,6 +118,14 @@ def _build_parent_map_for_engine(tree: ast.AST) -> dict[int, ast.AST]:
         for child in ast.iter_child_nodes(parent):
             parent_map[id(child)] = parent
     return parent_map
+
+
+def _find_call_at_line(tree: ast.Module, line: int) -> ast.Call | None:
+    """Find the ast.Call node at the given line number."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and hasattr(node, "lineno") and node.lineno == line:
+            return node
+    return None
 
 
 def _is_in_finally_cleanup(tree: ast.Module, sink_line: int, source: str) -> bool:
@@ -437,9 +445,13 @@ def scan_path(
                 if sf.category in ("data_destruction", "file_mutation") and _is_in_finally_cleanup(tree, sf.line, source):
                     continue
 
-                guarded = is_guarded(tree, sf.line, rules.guard_patterns)
-                if guarded:
-                    continue  # guarded by inline guard call — no finding
+                # v2 guard check with dominance, binding, and result-use analysis
+                # Find the sink AST node for binding analysis
+                sink_node = _find_call_at_line(tree, sf.line)
+                guard_result = check_guard(tree, sf.line, rules.guard_patterns, sink_node=sink_node)
+                if guard_result.guarded:
+                    continue  # guard dominates, is bound, and result is used
+                # WEAK and UNBOUND findings are kept but with reduced severity
 
                 # Check declarative guards (class-level authorization)
                 declarative_suppressed = _is_in_declarative_guarded_class(
@@ -450,17 +462,29 @@ def scan_path(
                 if reach.confidence == "medium":
                     severity = _downgrade_severity(severity)
 
+                # Apply guard soundness severity modifiers
+                rule_id = sf.rule_id
+                description = sf.description
+                if guard_result.weak:
+                    severity = "low"
+                    rule_id = f"{sf.rule_id}-WEAK"
+                    description = f"{sf.description} (guard call found but return value discarded)"
+                elif guard_result.unbound:
+                    severity = "medium"
+                    rule_id = f"{sf.rule_id}-UNBOUND"
+                    description = f"{sf.description} (guard call found but not parameter-bound to sink)"
+
                 snippet_hash = _compute_snippet_hash(source, sf.line)
 
                 finding = Finding(
                     file=rel,
                     line=sf.line,
                     col=sf.col,
-                    rule_id=sf.rule_id,
+                    rule_id=rule_id,
                     category=sf.category,
                     severity=severity,
                     confidence=reach.confidence,
-                    description=sf.description,
+                    description=description,
                     call_text=sf.call_text,
                     remediation=_remediation_hint(sf.category),
                     snippet_hash=snippet_hash,

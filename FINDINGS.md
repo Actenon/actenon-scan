@@ -46,3 +46,13 @@ No findings. Scanned 0 file(s).
 **Action taken:** Part 4 adds boto3 destructive surface coverage.
 **Recommendation:** None — fix ships.
 
+
+## s02: assert-style guard checking wrong variable not detected
+
+**Severity:** NOTE
+**Where:** tests/benchmark/soundness/s02_unbound.py
+**Expected:** `authorize(attacker)` before `stripe.Refund.create(payment_intent=pi)` should be flagged because the guard checks `attacker`, not `pi`.
+**Observed:** The guard is treated as valid because `authorize` is an assert-style guard (conventionally raises on failure). Assert-style guards skip the binding check, so the fact that they check the wrong variable is not detected.
+**Action taken:** This is a deliberate tradeoff. Enforcing binding on assert-style guards would produce false positives on legitimate guards like `verify_pccb(proof, intent, action)` before `stripe.Refund.create(amount=amount)` — the guard checks a proof/intent triplet, not the amount, but it still authorizes the action. The false-positive cost of flagging these as UNBOUND is too high. The s02 benchmark case is recorded as a known limitation.
+**Recommendation:** A future v3 could attempt semantic binding analysis (does the guard's argument semantically relate to the sink's argument?), but this requires type inference or dataflow analysis beyond the current scope.
+
