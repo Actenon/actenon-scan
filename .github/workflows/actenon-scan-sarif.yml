@@ -42,7 +42,11 @@ jobs:
       - name: Install actenon-scan
         run: |
           python -m pip install --upgrade pip
-          pip install "actenon-scan[typescript,yaml]"
+          # Install from the repo source so the workflow uses the current
+          # version (including --no-cache, blast-radius summary, etc.).
+          # External repositories should replace this with:
+          #   pip install "actenon-scan[typescript,yaml]"
+          pip install -e ".[typescript,yaml]"
 
       - name: Scan and produce SARIF
         run: |
