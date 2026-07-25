@@ -1,0 +1,80 @@
+name: Corpus freshness
+
+# Monthly: diff the pinned corpus against each repository's current upstream
+# HEAD and surface the re-pin queue as a single tracking issue.
+#
+# The pinned corpus protects against regressions in scan. It cannot see new
+# patterns appearing upstream, because the SHAs never move. Re-pinning means
+# redoing the hand triage, which is real work — so this reports, and a human
+# decides.
+#
+# This job MUST NOT fail the build and MUST NOT modify a pinned SHA or a
+# triage verdict. A freshness check that edits the corpus it is auditing is
+# not a check.
+
+on:
+  schedule:
+    - cron: "17 4 1 * *"   # 04:17 UTC on the 1st
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  freshness:
+    name: Diff pinned corpus against upstream HEAD
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Diff pinned SHAs against upstream HEAD
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/corpus_freshness.py \
+            --work-dir "${RUNNER_TEMP}/corpus-freshness" \
+            --out corpus-freshness-report.md
+
+      - name: Confirm nothing was modified
+        # Belt and braces: if this job ever mutates the corpus it audits,
+        # fail loudly rather than committing a silent re-pin.
+        run: |
+          if ! git diff --quiet tests/benchmark/; then
+            echo "::error::corpus_freshness.py modified tests/benchmark/ — it must be read-only"
+            git diff --stat tests/benchmark/
+            exit 1
+          fi
+          echo "OK: pinned SHAs and triage verdicts untouched"
+
+      - name: Open or update the tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Corpus freshness: pinned SHAs vs upstream HEAD"
+          BODY_FILE=corpus-freshness-report.md
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number,title --jq ".[] | select(.title==\"$TITLE\") | .number" | head -1)
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --body-file "$BODY_FILE"
+            gh issue comment "$EXISTING" --body \
+              "Refreshed by [this run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) on $(date -u +%Y-%m-%d)."
+            echo "updated issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE" \
+              --label "corpus" 2>/dev/null \
+              || gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+            echo "opened a new tracking issue"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: corpus-freshness-report
+          path: corpus-freshness-report.md

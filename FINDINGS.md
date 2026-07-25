@@ -352,3 +352,45 @@ Repo and PyPI both sat at 0.7.0 while `main` carried guard resolution by
 definition, the ~2x serial speedup, three fixed false-positive classes, the
 25-repo measured corpus, and the coverage contract. Every one of those was
 invisible to every user. Released as 0.8.0.
+
+### CORPUS-02: the pinned corpus cannot see upstream drift
+
+The pins in `pinned_repos.json` are what make "30 findings, 30 true positives"
+reproducible — it is a statement about those exact trees. It is therefore also
+blind by construction: a new agent pattern appearing upstream is invisible
+until someone re-pins, and re-pinning means redoing the hand triage.
+
+`scripts/corpus_freshness.py` + a monthly workflow now diff each pin against
+upstream HEAD and file one tracking issue. It is deliberately non-failing and
+read-only: a freshness check that edits the corpus it audits is not a check,
+so the workflow also asserts `git diff --quiet tests/benchmark/` afterwards.
+
+Verified by rolling the `requests` pin back nine commits: the job detected the
+moved SHA (`74c56d5ff` → `69f848470`), fetched HEAD, re-scanned, and reported
+the delta. On the real corpus all 25 repos are still at their pins, so a run
+today reports zero movement — which is why the stale-pin test was necessary.
+A report that says "nothing changed" proves nothing unless you have seen it
+say something else.
+
+The re-pin procedure is in CONTRIBUTING.md: re-pin, re-scan, re-triage every
+changed finding, and state old and new counts in the PR. Re-pinning without
+re-triage is the same defect class as swapping a benchmark fixture.
+
+### GATE-02: the coverage contract holds under all three failure modes
+
+A gate that passes everything is worse than no gate. Verified by running the
+real checker against deliberately broken copies:
+
+| failure mode | result |
+|---|---|
+| row COVERED with no evidence citation | rejected |
+| row COVERED citing an entry triaged `false_positive` | rejected |
+| COVERED count disagreeing with `baseline.recall_corpus` | rejected |
+| unmodified repo | passes, 3 COVERED |
+
+The second is the one that matters: the cited key *exists* in
+corpus-evidence.json, so a check that only tested for presence would pass it.
+It records a failure, not a capability.
+
+These are now `tests/test_coverage_contract_gate.py` rather than a one-off
+demonstration, so the gate's own failure modes are regression-tested.
