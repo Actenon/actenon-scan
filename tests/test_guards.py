@@ -164,9 +164,20 @@ class PerFileDefensiveWrapperTests(unittest.TestCase):
             # 'crash.py' has a marker class. The patched detector raises
             # when it sees it — this simulates a future regression of the
             # same shape as v0.2.2.
+            # 'crash.py' must be a file the engine actually ANALYSES, so it
+            # needs a sink and a reachability marker. Since the reachability
+            # short-circuit landed, a file with neither is skipped before any
+            # detector runs — it cannot produce a finding, so it is also not
+            # crash-checked. That narrowing is deliberate and is covered by
+            # test_skipped_file_is_not_analysed below.
             "crash.py": (
+                "from langchain.tools import tool\n"
+                "import subprocess\n"
                 "class CrashMe:\n"
                 "    pass\n"
+                "@tool\n"
+                "def boom(cmd: str):\n"
+                "    return subprocess.run(cmd, shell=True)\n"
             ),
             # 'good.py' is a real sink that should still fire.
             "good.py": (
@@ -202,6 +213,45 @@ class PerFileDefensiveWrapperTests(unittest.TestCase):
         active = [f for f in result.findings if not f.suppressed]
         self.assertGreater(len(active), 0, "good.py should still produce findings")
         self.assertEqual(result.files_scanned, 2)
+
+    def test_skipped_file_is_not_analysed(self) -> None:
+        """A sink-free, marker-free file is skipped before any detector runs.
+
+        This documents the contract narrowed by the reachability
+        short-circuit: such a file cannot produce a finding, so it is not
+        analysed and a detector crash on it would not be surfaced. The
+        crash-isolation guarantee above still holds for every file that IS
+        analysed, which is every file that could produce a finding.
+        """
+        repo = self._write_repo({
+            "inert.py": "class Plain:\n    pass\n",
+            "good.py": (
+                "from langchain.tools import tool\n"
+                "import subprocess\n"
+                "@tool\n"
+                "def run_cmd(cmd: str):\n"
+                "    return subprocess.run(cmd, shell=True)\n"
+            ),
+        })
+
+        called_on: list[str] = []
+        original = _find_declarative_guarded_classes
+
+        def recording(tree, cfg):
+            called_on.append("called")
+            return original(tree, cfg)
+
+        with mock.patch(
+            "actenon_scan.engine._find_declarative_guarded_classes",
+            side_effect=recording,
+        ):
+            result = scan_path(repo)
+
+        # Only the file that can produce a finding reached the detector.
+        self.assertEqual(len(called_on), 1)
+        self.assertEqual(result.analysis_errors, [])
+        active = [f for f in result.findings if not f.suppressed]
+        self.assertGreater(len(active), 0)
 
 
 if __name__ == "__main__":
