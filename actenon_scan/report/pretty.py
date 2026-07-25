@@ -211,14 +211,12 @@ def format_list(result: ScanResult) -> str:
 def _short_call_name(call_text: str) -> str:
     """Extract a short readable name from a call text.
 
+    For chained calls, returns the final method actually being invoked.
     e.g., "g.get_repo(repo).create_file(...)" -> "create_file()"
     """
-    if "(" in call_text:
-        before = call_text[: call_text.index("(")]
-        if "." in before:
-            return before.rsplit(".", 1)[-1].strip() + "()"
-        return before.strip() + "()"
-    return call_text.strip()
+    from actenon_scan.report.blast_radius import _extract_method_name
+    method = _extract_method_name(call_text)
+    return method + "()" if method else call_text.strip()
 
 
 def _decorator_or_function(f: Finding) -> str:

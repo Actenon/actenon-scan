@@ -112,23 +112,16 @@ class ConsequenceGroup:
     def method_summary(self) -> str:
         """A short comma-separated summary of the methods involved.
 
-        Uses the last segment of each finding's call_text (the method
-        name) to give the reader a quick sense of what the agent can do.
+        Uses the final method name from each finding's call_text (the
+        method actually being invoked) to give the reader a quick sense
+        of what the agent can do. For chained calls like
+        ``g.get_repo(repo).create_file(...)``, this extracts
+        ``create_file`` rather than ``get_repo``.
         """
         methods: list[str] = []
         seen: set[str] = set()
         for f in self.findings:
-            # Extract the method name from the call text.
-            # e.g., "g.get_repo(repo).create_file(...)" -> "create_file"
-            call = f.call_text
-            if "(" in call:
-                before_paren = call[: call.index("(")]
-                if "." in before_paren:
-                    method = before_paren.rsplit(".", 1)[-1].strip()
-                else:
-                    method = before_paren.strip()
-            else:
-                method = call.strip()
+            method = _extract_method_name(f.call_text)
             if method and method not in seen:
                 seen.add(method)
                 methods.append(method)
@@ -226,3 +219,41 @@ CLEAN_SCAN_LIMITATIONS = (
     "practical exploitability.\n"
     "See docs/COVERAGE.md for supported architectures and analysis limits."
 )
+
+
+def _extract_method_name(call_text: str) -> str:
+    """Extract the final method name from a call text.
+
+    For chained calls, this returns the method actually being invoked
+    (the one whose arguments are in the outermost parentheses), not an
+    intermediate accessor.
+
+    Examples:
+        "g.get_repo(repo).create_file(...)"  -> "create_file"
+        "smtp.sendmail(sender, recipients, body)" -> "sendmail"
+        "requests.put(url, json=payload)"    -> "put"
+        "WebClient('token').chat_postMessage(...)" -> "chat_postMessage"
+        "subprocess.run(['kubectl', 'apply'])" -> "run"
+
+    The algorithm finds the outermost opening paren (the last ``(`` at
+    depth 0) and takes the last ``.``-separated segment before it. This
+    correctly handles nested parens in chained accessor calls.
+    """
+    if not call_text:
+        return ""
+    # Find the outermost opening paren — the last ( at depth 0.
+    depth = 0
+    outer_paren_idx = -1
+    for i, ch in enumerate(call_text):
+        if ch == "(":
+            if depth == 0:
+                outer_paren_idx = i  # keep updating; we want the LAST at depth 0
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+    if outer_paren_idx == -1:
+        return call_text.strip()
+    before = call_text[:outer_paren_idx]
+    if "." in before:
+        return before.rsplit(".", 1)[-1].strip()
+    return before.strip()
