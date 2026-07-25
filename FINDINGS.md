@@ -91,3 +91,14 @@ The rewritten fixture is also not separable in principle: `verify_proof(action="
 **Action taken:** Documented in docs/COVERAGE.md as scan's central limitation, and pinned as `TestKnownLimitation` in tests/test_counterfeit_binding.py. The counterfeit-binding rule closes the constant-laundering case; an assert-style guard passing the WRONG real parameters remains syntactically identical to one passing the right ones, and is not detectable.
 **Recommendation:** This is an argument FOR the runtime kernel, not against the scanner. The thing scan cannot verify (cryptographic parameter binding) is precisely what the kernel exists to enforce. For the counter-thesis piece: "static analysis can prove a guard is present and unavoidable; it cannot prove the guard is bound to the action it precedes. That binding is cryptographic, and it can only be checked at the moment of execution."
 
+
+## check_permission reclassification — name-based assert-style limitation
+
+**Severity:** NOTE
+**Where:** actenon_scan/detectors/guards.py — _is_assert_style_guard()
+**Expected:** check_permission with discarded result should be detected as a soundness defect (WEAK) if the function returns a bool rather than raising.
+**Observed:** check_permission is classified as assert-style (raises on failure), so a discarded result produces 0 findings. The s06 fixture was changed to use has_permission (genuinely returns bool, not assert-style) to test the discarded-result case.
+**Analysis:** The reclassification is correct for the common case — every major framework that ships `check_permission` (Flask-Login, Django, FastAPI) raises on failure. However, a custom `check_permission` that returns bool instead of raising would be a false negative. This is an inherent limitation of name-based classification: static analysis cannot determine whether a function raises or returns. The s06 fixture correctly tests the soundness case using `has_permission`, which is genuinely non-assert-style.
+**Action taken:** s06 fixture changed from check_permission to has_permission. The fixture change was declared per RULE 3 with justification in PR #29.
+**Recommendation:** No action. The name-based classification is the best available heuristic. A future v3 could use type inference or cross-module analysis to determine whether a guard raises, but this is beyond the current scope.
+

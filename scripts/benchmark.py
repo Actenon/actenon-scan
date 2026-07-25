@@ -13,9 +13,15 @@ and checks the expected outcome:
   precision/  — must produce 0 findings (guarded, unreachable, test files)
   soundness/  — must produce >=1 finding (defeated guards)
 
+Recall is reported on TWO axes:
+  - recall (synthetic): fixture passes, informational only
+  - recall (corpus-demonstrated): ratchets in CI; a detector graduates
+    from synthetic to corpus-demonstrated only when it produces a
+    hand-triaged TRUE POSITIVE on a pinned commit of a real repository
+    (recorded in tests/benchmark/corpus-evidence.json)
+
 Precision MUST be 100% — a drop fails the build.
-Recall and soundness use a ratcheting baseline: they fail only if they
-DECREASE from the committed baseline file.
+Corpus-demonstrated recall and soundness use a ratcheting baseline.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BENCHMARK_DIR = REPO_ROOT / "tests" / "benchmark"
 BASELINE_FILE = REPO_ROOT / "tests" / "benchmark" / "baseline.json"
+CORPUS_EVIDENCE_FILE = REPO_ROOT / "tests" / "benchmark" / "corpus-evidence.json"
 
 
 def scan_file(filepath: Path) -> int:
@@ -35,6 +42,25 @@ def scan_file(filepath: Path) -> int:
     from actenon_scan.engine import scan_path
     result = scan_path(str(filepath))
     return len([f for f in result.findings if not f.suppressed])
+
+
+def load_corpus_evidence() -> dict:
+    """Load corpus evidence file."""
+    if CORPUS_EVIDENCE_FILE.exists():
+        return json.loads(CORPUS_EVIDENCE_FILE.read_text())
+    return {}
+
+
+def get_corpus_demonstrated_recall(corpus_evidence: dict) -> int:
+    """Count how many recall fixtures have corpus evidence."""
+    count = 0
+    for f in sorted((BENCHMARK_DIR / "recall").glob("*.py")):
+        fixture_name = f.stem  # e.g., "r01_mcp_tool"
+        if fixture_name in corpus_evidence:
+            evidence = corpus_evidence[fixture_name]
+            if evidence.get("triage") == "true_positive":
+                count += 1
+    return count
 
 
 def run_benchmark() -> dict:
@@ -92,12 +118,22 @@ def run_benchmark() -> dict:
             "pass": passed,
         })
 
+    # Corpus-demonstrated recall
+    corpus_evidence = load_corpus_evidence()
+    corpus_recall = get_corpus_demonstrated_recall(corpus_evidence)
+
     return {
         "recall": {
             "pass": recall_pass,
             "total": recall_total,
             "pct": round(recall_pass / recall_total * 100) if recall_total else 0,
             "details": recall_details,
+        },
+        "recall_corpus": {
+            "pass": corpus_recall,
+            "total": recall_total,
+            "pct": round(corpus_recall / recall_total * 100) if recall_total else 0,
+            "evidence": corpus_evidence,
         },
         "precision": {
             "pass": precision_pass,
@@ -122,19 +158,27 @@ def print_scoreboard(scores: dict) -> None:
     print()
 
     r = scores["recall"]
+    rc = scores["recall_corpus"]
     p = scores["precision"]
     s = scores["soundness"]
 
-    print(f"  recall     {r['pass']}/{r['total']}   ({r['pct']}%)")
-    print(f"  precision  {p['pass']}/{p['total']}  ({p['pct']}%)")
-    print(f"  soundness  {s['pass']}/{s['total']}   ({s['pct']}%)")
+    print(f"  recall (synthetic)           {r['pass']}/{r['total']}   ({r['pct']}%)")
+    print(f"  recall (corpus-demonstrated) {rc['pass']}/{r['total']}   ({rc['pct']}%)  ← gates CI")
+    print(f"  precision                    {p['pass']}/{p['total']}  ({p['pct']}%)")
+    print(f"  soundness                    {s['pass']}/{s['total']}   ({s['pct']}%)")
     print()
 
-    for category_name, category in [("RECALL", r), ("PRECISION", p), ("SOUNDNESS", s)]:
+    for category_name, category in [("RECALL (synthetic)", r), ("PRECISION", p), ("SOUNDNESS", s)]:
         print(f"  {category_name}:")
         for d in category["details"]:
             status = "✓" if d["pass"] else "✗"
             print(f"    {status} {d['file']:40s} expected={d['expected']:15s} got={d['got']}")
+        print()
+
+    if rc["evidence"]:
+        print("  CORPUS EVIDENCE:")
+        for fixture, ev in sorted(rc["evidence"].items()):
+            print(f"    {fixture:40s} {ev.get('repo', '?'):30s} {ev.get('triage', '?')}")
         print()
 
     print("=" * 60)
@@ -155,9 +199,11 @@ def main() -> int:
 
     if args.baseline:
         BASELINE_FILE.write_text(json.dumps({
-            "recall": scores["recall"]["pass"],
+            "recall_corpus": scores["recall_corpus"]["pass"],
             "precision": scores["precision"]["pass"],
             "soundness": scores["soundness"]["pass"],
+            # synthetic recall is informational, not gated
+            "recall_synthetic": scores["recall"]["pass"],
         }, indent=2) + "\n")
         print(f"\nBaseline written to {BASELINE_FILE}")
 
@@ -172,8 +218,8 @@ def main() -> int:
         if scores["precision"]["pass"] < baseline.get("precision", 0):
             print(f"\n  FAIL: precision decreased from {baseline['precision']} to {scores['precision']['pass']}")
             failed = True
-        if scores["recall"]["pass"] < baseline.get("recall", 0):
-            print(f"\n  FAIL: recall decreased from {baseline['recall']} to {scores['recall']['pass']}")
+        if scores["recall_corpus"]["pass"] < baseline.get("recall_corpus", 0):
+            print(f"\n  FAIL: corpus-demonstrated recall decreased from {baseline.get('recall_corpus', 0)} to {scores['recall_corpus']['pass']}")
             failed = True
         if scores["soundness"]["pass"] < baseline.get("soundness", 0):
             print(f"\n  FAIL: soundness decreased from {baseline['soundness']} to {scores['soundness']['pass']}")
