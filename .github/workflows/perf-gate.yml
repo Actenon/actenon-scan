@@ -1,0 +1,53 @@
+name: Perf gate
+
+# Asserts that the DEFAULT scan mode is never slower than forced serial.
+#
+# This runs on GitHub-hosted runners, which have 2-4 cores — precisely the
+# hardware where parallel-by-default was measured ~10% slower than serial.
+# The regression that motivated the auto-tune would fail this job, so it
+# cannot come back silently.
+#
+# The fixture is fetched at its pinned SHA rather than vendored, so the perf
+# claim is measured against the same tree the README cites.
+
+on:
+  pull_request:
+    paths:
+      - 'actenon_scan/**'
+      - 'scripts/check_perf_gate.py'
+      - 'tests/benchmark/perf-fixture.json'
+      - '.github/workflows/perf-gate.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  perf:
+    name: Default mode is never slower than serial
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Report runner cores
+        run: |
+          python -c "import os;print('cpu_count:', os.cpu_count())"
+          nproc || true
+
+      - name: Fetch the pinned perf fixture
+        run: |
+          SHA=$(python -c "import json;print(json.load(open('tests/benchmark/perf-fixture.json'))['sha'])")
+          REPO=$(python -c "import json;print(json.load(open('tests/benchmark/perf-fixture.json'))['repo'])")
+          echo "fetching $REPO @ $SHA"
+          mkdir -p /tmp/perf-fixture
+          curl -sfL "https://github.com/${REPO}/archive/${SHA}.tar.gz" \
+            | tar xz -C /tmp/perf-fixture --strip-components=1
+
+      - name: Perf gate
+        run: python scripts/check_perf_gate.py --fixture /tmp/perf-fixture

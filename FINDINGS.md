@@ -281,3 +281,74 @@ counting entries gave 4 while the gate said 3.
 `scripts/check_benchmark_integrity.py::check_corpus_recall_matches_evidence`
 now asserts `recall_corpus == count(triage == "true_positive")` and rejects any
 evidence entry without a valid verdict. The drift cannot recur silently.
+
+---
+
+## v0.8.0 release run
+
+### PERF-05: parallel-by-default cost time on the machines most users have
+
+**Severity:** HIGH — a default that made the headline claim false for the majority.
+
+`--jobs` defaulted to `os.cpu_count()`, so parallelism was ON for everyone.
+Measured on a low-core CI container it was consistently **worse** than serial:
+
+| repo | serial | `--jobs 4` | verdict |
+|---|---|---|---|
+| langchain | 5,206ms | 5,710ms | 10% slower |
+| crewai | 5,680ms | 6,086ms | 7% slower |
+| openai-agents | 5,682ms | 6,251ms | 10% slower |
+
+On the 10-core reference host the same flag on the same repositories is
+**2.1–2.75x faster**. Both measurements are real; neither is an error.
+
+**The discriminator is core count, not file count.** This matters because the
+existing guard was a 200-file floor, and every repo in the low-core table is
+far above it — langchain is 1,954 files. A file-count floor cannot fix a
+core-count problem. Parallelism needs *spare* cores: with as many workers as
+cores, nothing is left for the parent, and per-worker interpreter startup plus
+rule loading is never amortised.
+
+Crossover measured on the 10-core host (best of 3, files x jobs):
+
+| files | serial | j2 | j4 | j8 | j10 | best |
+|---|---|---|---|---|---|---|
+| 65 | 81ms | 84 | 84 | 84 | 85 | serial |
+| 121 | 670ms | 689 | 682 | 683 | 685 | serial |
+| 133 | 501ms | 503 | 501 | 501 | 501 | tie |
+| 277 | 1,159ms | 872 | 596 | 521 | 492 | j10 (2.36x) |
+| 586 | 619ms | 445 | 333 | 298 | 288 | j10 (2.15x) |
+| 957 | 2,413ms | 1,624 | 1,290 | 1,128 | 1,108 | j10 (2.18x) |
+| 1,954 | 2,026ms | 1,247 | 867 | 747 | 737 | j10 (2.75x) |
+
+**Fix.** `auto_jobs(file_count, cpu_count)` parallelises only at **8+ cores**
+and **250+ files**, and returns at most `cores - 1` so the parent is not
+competing with its own workers. An explicit `--jobs N` always overrides it.
+
+**Honest limitation.** This host has 10 cores, so `--jobs 4` here runs four
+workers on ten cores with no contention — my numbers *understate* the harm on
+a real 4-core box rather than reproducing it. I could not reproduce the
+low-core regression directly. The 5–7 core range is therefore **unmeasured**,
+and per the rule that ambiguity resolves to the safe side it defaults to
+serial. The safe side is the mode that is never slower, not the one that is
+sometimes faster.
+
+**Gate.** `scripts/check_perf_gate.py` asserts the default mode is never more
+than 5% slower than forced serial, and runs on GitHub-hosted runners — 2–4
+cores, the exact hardware where the regression appeared. The old behaviour
+would fail it.
+
+**Sequencing note.** The work order scheduled the v0.8.0 release before this
+fix. I inverted that order deliberately: the release notes lead with "roughly
+2x faster", and shipping parallel-by-default would have made that claim false
+for every user on a 2–4 core runner — which is most CI. One release that is
+correct everywhere beats a release plus a same-week 0.8.1. Recorded here
+because deviating from a stated order is exactly the kind of decision that
+should be visible rather than silent.
+
+### RELEASE-01: v0.8.0 shipped four merged work orders that users could not get
+
+Repo and PyPI both sat at 0.7.0 while `main` carried guard resolution by
+definition, the ~2x serial speedup, three fixed false-positive classes, the
+25-repo measured corpus, and the coverage contract. Every one of those was
+invisible to every user. Released as 0.8.0.
