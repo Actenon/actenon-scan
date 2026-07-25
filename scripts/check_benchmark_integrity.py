@@ -68,7 +68,12 @@ def get_changed_files() -> set[str]:
 
 def get_pr_body() -> str:
     """Get the PR body from the GitHub API or environment."""
-    # In GitHub Actions, the PR body is available via the event payload
+    # Direct PR body environment variable (most reliable in GitHub Actions)
+    pr_body = os.environ.get("PR_BODY", "")
+    if pr_body:
+        return pr_body
+
+    # Fallback: read from event payload file
     event_path = os.environ.get("GITHUB_EVENT_PATH", "")
     if event_path and Path(event_path).exists():
         try:
