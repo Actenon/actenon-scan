@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""Diff the pinned corpus against each repository's CURRENT upstream HEAD.
+
+The pinned corpus protects against regressions in *scan*. It cannot see new
+patterns appearing upstream, because the SHAs never move. Re-pinning means
+redoing the hand triage, which is real work — so this surfaces the re-pin
+queue without forcing it.
+
+Deliberately NON-DESTRUCTIVE and NON-FAILING:
+  * never edits a pinned SHA
+  * never edits a triage verdict
+  * exits 0 even when it finds differences
+
+Its only output is a report. Acting on that report is a human decision,
+because the cost it implies — re-triaging every changed finding — is one a
+person has to accept.
+
+Usage:
+    python scripts/corpus_freshness.py --work-dir /tmp/fresh --out report.md
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tarfile
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from actenon_scan.engine import auto_jobs, scan_path, scan_path_parallel  # noqa: E402
+
+BENCH = ROOT / "tests" / "benchmark"
+
+
+def head_sha(repo: str) -> str | None:
+    url = f"https://api.github.com/repos/{repo}/commits/HEAD"
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.sha"})
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read().decode().strip()
+    except Exception as exc:  # network flake must not fail the job
+        print(f"  WARN: could not resolve HEAD for {repo}: {exc}", file=sys.stderr)
+        return None
+
+
+def fetch(repo: str, sha: str, dest: Path) -> bool:
+    url = f"https://github.com/{repo}/archive/{sha}.tar.gz"
+    tgz = dest.with_suffix(".tar.gz")
+    try:
+        urllib.request.urlretrieve(url, tgz)
+        dest.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(tgz) as tf:
+            members = tf.getmembers()
+            prefix = members[0].name.split("/")[0] + "/"
+            for m in members:
+                if m.name.startswith(prefix):
+                    m.name = m.name[len(prefix):]
+                    if m.name:
+                        tf.extract(m, dest)
+        tgz.unlink(missing_ok=True)
+        return True
+    except Exception as exc:
+        print(f"  WARN: could not fetch {repo}@{sha[:12]}: {exc}", file=sys.stderr)
+        return False
+
+
+def scan(path: Path) -> set[tuple]:
+    files = sum(1 for _ in path.rglob("*.py"))
+    jobs = auto_jobs(files)
+    res = scan_path_parallel(path, jobs=jobs) if jobs > 1 else scan_path(path)
+    return {
+        (f.file, f.line, f.rule_id)
+        for f in res.findings
+        if not f.suppressed
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--work-dir", required=True, type=Path)
+    ap.add_argument("--out", type=Path, default=ROOT / "corpus-freshness-report.md")
+    ap.add_argument("--limit", type=int, default=None, help="only check the first N repos")
+    args = ap.parse_args()
+
+    pinned = json.loads((BENCH / "pinned_repos.json").read_text())
+    results = json.loads((BENCH / "corpus-results.json").read_text())
+
+    pinned_by_repo: dict[str, set[tuple]] = {}
+    for f in results["findings"]:
+        pinned_by_repo.setdefault(f["name"], set()).add((f["file"], f["line"], f["rule_id"]))
+
+    args.work_dir.mkdir(parents=True, exist_ok=True)
+    rows, moved, total_new, total_gone = [], [], 0, 0
+
+    repos = pinned["repos"][: args.limit] if args.limit else pinned["repos"]
+    for entry in repos:
+        name, repo, pin = entry["name"], entry["repo"], entry["sha"]
+        print(f"checking {name} ...")
+        current = head_sha(repo)
+        if current is None:
+            rows.append((name, repo, pin, "?", "-", "-", "HEAD unresolved"))
+            continue
+        if current == pin:
+            rows.append((name, repo, pin, current, 0, 0, "up to date"))
+            continue
+
+        moved.append(name)
+        dest = args.work_dir / name
+        if not fetch(repo, current, dest):
+            rows.append((name, repo, pin, current, "-", "-", "fetch failed"))
+            continue
+
+        try:
+            head_findings = scan(dest)
+        except Exception as exc:
+            rows.append((name, repo, pin, current, "-", "-", f"scan error: {type(exc).__name__}"))
+            continue
+
+        pinned_findings = pinned_by_repo.get(name, set())
+        new = head_findings - pinned_findings
+        gone = pinned_findings - head_findings
+        total_new += len(new)
+        total_gone += len(gone)
+        note = "needs triage" if new else ("findings disappeared" if gone else "no finding change")
+        rows.append((name, repo, pin, current, len(new), len(gone), note))
+
+    lines = [
+        "# Corpus freshness report",
+        "",
+        "Generated by `scripts/corpus_freshness.py`. **Nothing here has been applied.**",
+        "No pinned SHA and no triage verdict was modified.",
+        "",
+        f"- repositories checked: **{len(rows)}**",
+        f"- repositories whose HEAD has moved: **{len(moved)}**",
+        f"- findings present at HEAD but absent at the pin: **{total_new}**",
+        f"- findings present at the pin but absent at HEAD: **{total_gone}**",
+        "",
+        "A finding in the first column is a candidate new true positive *or* a new "
+        "false positive. Which it is cannot be decided by this job — that is what "
+        "the hand triage is for.",
+        "",
+        "| repo | pinned | HEAD | new at HEAD | gone since pin | note |",
+        "|---|---|---|---|---|---|",
+    ]
+    for name, repo, pin, cur, new, gone, note in rows:
+        lines.append(
+            f"| [`{name}`](https://github.com/{repo}) | `{str(pin)[:9]}` | "
+            f"`{str(cur)[:9]}` | {new} | {gone} | {note} |"
+        )
+    lines += [
+        "",
+        "## What to do with this",
+        "",
+        "Re-pinning is deliberate work, not a rubber stamp. See CONTRIBUTING.md "
+        "§ *Re-pinning the corpus*: re-pin, re-scan, **re-triage every changed "
+        "finding**, update `corpus-triage.json`, and state old and new counts in "
+        "the PR body. Re-pinning without re-triage is the same defect class as "
+        "swapping a benchmark fixture to move a score.",
+    ]
+    args.out.write_text("\n".join(lines) + "\n")
+    print(f"\nwrote {args.out}")
+    print(f"repos moved: {len(moved)}  new-at-HEAD: {total_new}  gone: {total_gone}")
+    return 0  # never fail the build
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

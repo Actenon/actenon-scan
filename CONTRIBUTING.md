@@ -56,3 +56,43 @@ python scripts/benchmark.py --check      # fail if scores decreased
 Precision must be 100% — a drop fails the build. Recall and soundness
 use a ratcheting baseline: they fail only if they decrease from the
 committed baseline.
+
+## Re-pinning the corpus
+
+`tests/benchmark/pinned_repos.json` fixes each corpus repository at a commit
+SHA. That pin is what makes the precision number reproducible: "30 findings,
+30 true positives" is a statement about *those exact trees*.
+
+The pins therefore go stale. The monthly **Corpus freshness** workflow diffs
+them against upstream HEAD and files a single tracking issue listing what
+changed. It never edits a pin or a verdict — it only reports, because acting
+on it costs triage work that a person has to agree to.
+
+**Re-pinning without re-triage is the same defect class as swapping a
+benchmark fixture to move a score.** A new SHA means new code, which means the
+30/30 no longer describes what was measured.
+
+The procedure:
+
+1. **Re-pin.** Update the `sha` (and `py_files`/`ts_files`) for the repos you
+   are moving. Move as few as possible in one PR — a 25-repo re-pin is not
+   reviewable.
+2. **Re-scan.** `python scripts/corpus_scan.py --corpus-dir DIR` to regenerate
+   `corpus-results.json`.
+3. **Re-triage every changed finding.** Read the source at the exact line.
+   New findings need a verdict and a rationale; findings that disappeared need
+   their triage entry removed. Carrying a verdict across a SHA change without
+   re-reading the code is triage in name only.
+4. **Update `corpus-triage.json`** so every finding in the results has an
+   entry, and no entry is orphaned. `scripts/check_corpus_triage.py` enforces
+   both directions and will fail otherwise.
+5. **Fix any new false positive** by tightening the rule and adding a
+   regression fixture — never by editing the verdict. If a rule cannot be
+   tightened without losing a true positive, downgrade it below HIGH.
+6. **State old and new counts in the PR body**, per repo: findings before,
+   findings after, true positives, false positives. A re-pin that changes the
+   headline number without showing the delta is not reviewable.
+
+If a re-pin drops the corpus-demonstrated recall, that is a real result and it
+goes in the PR — `baseline.json` ratchets, so it needs an explicit decision,
+not a quiet edit.
