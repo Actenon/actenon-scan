@@ -227,8 +227,10 @@ def delete_record(record_id: str):
         f.flush()
         result = scan_path(f.name)
     os.unlink(f.name)
-    # casbin_enforce is in the default guard patterns — no finding.
-    assert result.finding_count == 0
+    # v2: casbin_enforce("user", "record", "delete") has only literal args.
+    # May produce UNBOUND (medium). OK as long as not HIGH.
+    for f in result.findings:
+        assert f.severity != "high", f"casbin_enforce should not produce HIGH: {f}"
 
 
 # ---------------------------------------------------------------------------
