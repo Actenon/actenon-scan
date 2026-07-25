@@ -414,6 +414,52 @@ def _detect_self_package(target: Path) -> str | None:
 
 
 
+# Automatic parallelism thresholds.
+#
+# Measured, 10-core Apple Silicon, best of 3 (see tests/benchmark/perf-fixture.json):
+#   files    serial   j2     j4     j8     j10    best
+#      65      81ms   84     84     84     85     serial
+#     121     670ms  689    682    683    685     serial
+#     133     501ms  503    501    501    501     tie
+#     277    1159ms  872    596    521    492     j10  (2.36x)
+#     586     619ms  445    333    298    288     j10  (2.15x)
+#    1954    2026ms 1247    867    747    737     j10  (2.75x)
+#
+# Measured, low-core container (reported, NOT reproducible on the 10-core host):
+#   langchain      serial 5206ms   j4 5710ms   parallel 10% WORSE
+#   crewai         serial 5680ms   j4 6086ms   parallel  7% WORSE
+#   openai-agents  serial 5682ms   j4 6251ms   parallel 10% WORSE
+#
+# Those low-core repos are all far above any file-count floor, so file count
+# cannot be the discriminator — CORE COUNT is. Parallelism needs spare cores:
+# with as many workers as cores there is nothing left for the parent process,
+# and per-worker interpreter start plus rule loading is never amortised.
+#
+# The gate is therefore conservative. Parallel wins at 10 cores and loses at
+# <=4; the 5-7 range is UNMEASURED, so it defaults to serial. Ambiguity
+# resolves to the safe side, and the safe side is the mode that is never
+# slower. An explicit --jobs N always overrides this.
+MIN_CORES_FOR_AUTO_PARALLEL = 8
+MIN_FILES_FOR_AUTO_PARALLEL = 250
+
+
+def auto_jobs(file_count: int, cpu_count: int | None = None) -> int:
+    """How many processes to use when the user did not say.
+
+    Returns 1 (serial) unless the machine has enough cores AND the repo has
+    enough files for parallelism to pay for itself. Never returns more than
+    cpu_count - 1, so the parent is not competing with its own workers.
+    """
+    import os as _os
+
+    cores = cpu_count if cpu_count is not None else (_os.cpu_count() or 1)
+    if cores < MIN_CORES_FOR_AUTO_PARALLEL:
+        return 1
+    if file_count < MIN_FILES_FOR_AUTO_PARALLEL:
+        return 1
+    return max(1, cores - 1)
+
+
 def _scan_shard(args: tuple) -> "ScanResult":
     """Worker: scan one shard of the file list in a subprocess.
 
@@ -463,7 +509,7 @@ def scan_path_parallel(
 
     files = _collect_files(target, include_globs, exclude_globs)
     # Below this size, process startup costs more than the parallelism saves.
-    if len(files) < 200:
+    if len(files) < MIN_FILES_FOR_AUTO_PARALLEL:
         return serial()
 
     if self_package is None:

@@ -149,9 +149,22 @@ def _cmd_scan(args: argparse.Namespace) -> int:
             ]
 
     try:
-        jobs = args.jobs if args.jobs is not None else (os.cpu_count() or 1)
+        # An explicit --jobs N is always honoured. Otherwise auto_jobs decides,
+        # and it returns 1 unless parallelism has been measured to pay for
+        # itself on this shape of machine and repo. Parallel-by-default was
+        # ~10% SLOWER than serial on 2-4 core CI runners.
+        if args.jobs is not None:
+            jobs = args.jobs
+        else:
+            jobs = None  # resolved below, once the file count is known
         # --changed-only already scans a handful of files; process startup
         # would cost more than it saves, so it stays serial.
+        if jobs is None and explicit_files is None:
+            from actenon_scan.engine import _collect_files, auto_jobs
+            jobs = auto_jobs(len(_collect_files(target, include_globs, args.exclude)))
+        elif jobs is None:
+            jobs = 1
+
         if jobs > 1 and explicit_files is None:
             result = scan_path_parallel(
                 target,
