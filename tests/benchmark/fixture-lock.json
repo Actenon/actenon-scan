@@ -25,6 +25,7 @@
   "tests/benchmark/recall/r05_custom_agent_loop.py": "06d3e3ac10536b59fe7416371e045d19970d220eb68083da50bf479a53629c92",
   "tests/benchmark/recall/r06_action_observation.py": "958c440844dbf9d32449714688b5d0e1f334976ed497db8eb1f4957eb22bee00",
   "tests/benchmark/recall/r07_raw_tool_schema.py": "de793aee4f94eacdcfcfd3346ac2f697cefefc588d7a53aec6cf024210c2a629",
+  "tests/benchmark/recall/r08_smtp_send_message.py": "3090b2445271fae7512a7e1b65b4465d19ce4f4ad28cc573358cd3704507aacc",
   "tests/benchmark/soundness/s01_if_false.py": "a274ad8b888472bf9d1b6494767903b8b528f319476276205d573c778a730e8a",
   "tests/benchmark/soundness/s02_unbound.py": "89004c319bc4fee57688512aaa4e6acdaf168e70ac2d1a69cc48f47414e46b0c",
   "tests/benchmark/soundness/s03_cfg_enforce.py": "b707f790d8e22dd2486c986e46e54e5238db24e642a475b2433816c1d755e4ca",

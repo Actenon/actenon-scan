@@ -52,6 +52,14 @@ def detect_sinks(
     # This lets us match p.unlink() against the "Path" module pattern.
     var_types = _build_var_type_map(tree)
 
+    # Build receiver-origin support maps (Work Order 1, Part 1 + Part 2):
+    #   self_attr_origins — maps self.<attr> to constructor names for
+    #                       `self.github = Github(...)` patterns.
+    #   import_aliases    — maps `import psycopg2 as pg` so origin chains
+    #                       can be normalised to canonical module names.
+    self_attr_origins = _build_self_attr_origins(tree)
+    import_aliases = _build_import_aliases(tree)
+
     # Build a parent-pointer map so we can find the enclosing function
     # for any node (needed for arg_is_tainted escalation and declarative
     # guard detection).
@@ -64,7 +72,11 @@ def detect_sinks(
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             for rule in sorted_rules:
-                if _match_call(node, rule, var_types):
+                if _match_call(
+                    node, rule, var_types,
+                    self_attr_origins=self_attr_origins,
+                    import_aliases=import_aliases,
+                ):
                     severity = rule.severity
                     # Check for escalation: if the rule has an escalate_when
                     # block and the condition matches, upgrade severity.
@@ -304,21 +316,326 @@ def _get_call_name(node: ast.Call) -> str:
     return ""
 
 
-def _match_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None = None) -> bool:
+# ---------------------------------------------------------------------------
+# Receiver-origin resolution (Work Order 1, Part 1 + Part 2 foundation).
+#
+# The goal is to answer "what produced this call receiver?" without relying
+# primarily on variable names. The resolver supports:
+#   - direct module attribute:        requests.put(...)
+#   - constructor call:               WebClient("token").chat_postMessage(...)
+#   - chained method call:            psycopg2.connect("dsn").cursor().execute(...)
+#   - local variable assignment:      cursor = conn.cursor(); cursor.execute(...)
+#   - module-level assignment:        github = Github("token"); github.get_repo(...)
+#   - instance attribute assignment:  self.github = Github("token"); self.github.get_repo(...)
+#   - alias imports:                  import psycopg2 as pg; pg.connect(...)
+#
+# The resolver is depth-limited (max ~3 origin hops), caches per file,
+# terminates safely on cycles, and distinguishes strong evidence from
+# heuristic evidence. Full interprocedural / cross-file dataflow is out of
+# scope.
+# ---------------------------------------------------------------------------
+
+
+# Maximum number of origin hops when walking assignment chains.
+_RECEIVER_ORIGIN_MAX_DEPTH = 3
+
+
+@dataclass
+class ReceiverOrigin:
+    """Resolved origin of a call receiver.
+
+    `chain` is the list of constructor / module / method hops from the
+    outermost expression down to the receiver, e.g.:
+        ["Github(...)", "get_repo(repo)"]   for github.get_repo(repo)
+        ["psycopg2.connect(...)", "cursor()"] for psycopg2.connect(...).cursor()
+
+    `confidence` is one of:
+        strong    — origin established from a constructor call, module
+                    attribute, or assignment traced to a constructor.
+        heuristic — origin inferred from a naming convention only (e.g.
+                    variable literally named `cursor`). Heuristic evidence
+                    MUST NOT be presented as strongly bound (RULE 4).
+    """
+
+    expression: str
+    origin: str
+    chain: list[str]
+    confidence: str  # "strong" | "heuristic" | "unknown"
+
+    @property
+    def is_strong(self) -> bool:
+        return self.confidence == "strong"
+
+
+def _origin_label_for_call(call: ast.Call) -> str:
+    """Short human-readable label for a constructor/factory call.
+
+    Returns strings like ``Github(...)`` or ``psycopg2.connect(...)`` so the
+    chain is readable in briefs and findings.
+    """
+    name = _get_call_name(call)
+    return f"{name}(...)" if name else "(...)"
+
+
+def _resolve_receiver_origin(
+    receiver: ast.expr,
+    var_types: dict[str, str] | None,
+    self_attr_origins: dict[str, str] | None,
+    import_aliases: dict[str, str] | None,
+    *,
+    _depth: int = 0,
+    _seen: set[int] | None = None,
+) -> ReceiverOrigin | None:
+    """Resolve what produced a call receiver.
+
+    Returns ``None`` when no evidence can be gathered. Returns a
+    ``ReceiverOrigin`` with ``confidence="heuristic"`` when only naming
+    evidence is available — callers MUST treat heuristic evidence as weak
+    (RULE 4).
+    """
+    if _depth > _RECEIVER_ORIGIN_MAX_DEPTH:
+        return None
+    if _seen is None:
+        _seen = set()
+    if id(receiver) in _seen:
+        return None  # cycle safety
+    _seen.add(id(receiver))
+
+    # Form 2.1 / 2.2: receiver is itself a constructor call.
+    #   WebClient("token").chat_postMessage(...)
+    #   psycopg2.connect("dsn").cursor()           <- receiver of .execute()
+    if isinstance(receiver, ast.Call):
+        label = _origin_label_for_call(receiver)
+        origin = _get_call_name(receiver) or label
+        # Resolve the constructor's module through import aliases so that
+        # `import psycopg2 as pg; pg.connect(...)` reports origin
+        # `psycopg2.connect` rather than `pg.connect`.
+        origin = _resolve_qualified_name_through_aliases(origin, import_aliases)
+        return ReceiverOrigin(
+            expression=_short_expr(receiver),
+            origin=origin,
+            chain=[label],
+            confidence="strong",
+        )
+
+    # Form 2.3: receiver is a chained method call on a constructor.
+    #   psycopg2.connect("dsn").cursor().execute(...)
+    # Here `receiver` is `psycopg2.connect("dsn").cursor()` (a Call), which
+    # is already handled by the branch above. The remaining chained form is
+    # an Attribute on a Call, e.g. `psycopg2.connect("dsn").cursor` — but
+    # that would be the receiver of `.execute()` only if written as
+    # `psycopg2.connect("dsn").cursor.execute(...)`, which is rare. The
+    # common form goes through the Call branch.
+    if isinstance(receiver, ast.Attribute) and isinstance(receiver.value, ast.Call):
+        inner = _resolve_receiver_origin(
+            receiver.value, var_types, self_attr_origins, import_aliases,
+            _depth=_depth + 1, _seen=_seen,
+        )
+        if inner is not None:
+            return ReceiverOrigin(
+                expression=_short_expr(receiver),
+                origin=inner.origin,
+                chain=inner.chain + [f"{receiver.attr}()"],
+                confidence="strong" if inner.is_strong else "heuristic",
+            )
+
+    # Form 2.4 / 2.5: receiver is a bare Name (local or module-level var).
+    #   github.get_repo(repo)             where github = Github("token")
+    #   cursor.execute(query)             where cursor = conn.cursor()
+    if isinstance(receiver, ast.Name):
+        var_name = receiver.id
+        # Strong evidence: var_types maps the variable to a constructor.
+        if var_types and var_name in var_types:
+            mapped = var_types[var_name]
+            mapped = _resolve_qualified_name_through_aliases(mapped, import_aliases)
+            # A constructor assignment (github = Github("token")) stores the
+            # call name "Github" — strong evidence. A factory assignment
+            # (client = boto3.client("s3")) stores the service name "s3" —
+            # also strong evidence for the boto3 family.
+            return ReceiverOrigin(
+                expression=var_name,
+                origin=mapped,
+                chain=[f"{mapped}(...)"] if mapped else [],
+                confidence="strong",
+            )
+        # Heuristic-only: variable name matches a known DB receiver name.
+        # This is the legacy fallback. It MUST be flagged heuristic so
+        # callers can bias to WEAK under ambiguity (RULE 4).
+        return None
+
+    # Form 2.6: receiver is `self.<attr>`.
+    #   self.github.get_repo(...)
+    # Strong only when self_attr_origins maps the attr to a constructor.
+    if isinstance(receiver, ast.Attribute) and isinstance(receiver.value, ast.Name) and receiver.value.id == "self":
+        attr = receiver.attr
+        if self_attr_origins and attr in self_attr_origins:
+            mapped = self_attr_origins[attr]
+            mapped = _resolve_qualified_name_through_aliases(mapped, import_aliases)
+            return ReceiverOrigin(
+                expression=f"self.{attr}",
+                origin=mapped,
+                chain=[f"self.{attr}", f"{mapped}(...)"] if mapped else [f"self.{attr}"],
+                confidence="strong",
+            )
+        # Heuristic-only: attr name matches a known pattern. Flag heuristic.
+        return None
+
+    return None
+
+
+def _short_expr(node: ast.AST) -> str:
+    """Best-effort short text representation of an AST node for chains."""
+    try:
+        return ast.unparse(node)[:80]
+    except Exception:
+        return "<expr>"
+
+
+def _resolve_qualified_name_through_aliases(
+    name: str, import_aliases: dict[str, str] | None
+) -> str:
+    """Rewrite the leading segment of a dotted name through import aliases.
+
+    For example, if ``import psycopg2 as pg`` is in scope, ``pg.connect``
+    resolves to ``psycopg2.connect``. Aliases are only applied to the first
+    segment — we do not chase cross-module renames.
+    """
+    if not import_aliases or not name:
+        return name
+    if "." not in name:
+        # Bare name that might be an aliased import.
+        return import_aliases.get(name, name)
+    head, _, tail = name.partition(".")
+    if head in import_aliases:
+        return f"{import_aliases[head]}.{tail}"
+    return name
+
+
+def _build_self_attr_origins(tree: ast.Module) -> dict[str, str]:
+    """Build a map of `self.<attr>` names to their constructor call names.
+
+    Covers the common pattern:
+        class Foo:
+            def __init__(self):
+                self.github = Github("token")
+                self.client = A2AClient(...)
+    which produces ``{"github": "Github", "client": "A2AClient"}``.
+
+    This is file-local and best-effort — it does not chase inheritance or
+    cross-file assignments.
+    """
+    origins: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            if (isinstance(node.value, ast.Call)
+                    and isinstance(node.value.func, (ast.Name, ast.Attribute))):
+                ctor = _get_call_name(node.value)
+                for target in node.targets:
+                    if (isinstance(target, ast.Attribute)
+                            and isinstance(target.value, ast.Name)
+                            and target.value.id == "self"):
+                        if ctor:
+                            origins[target.attr] = ctor
+    return origins
+
+
+def _build_import_aliases(tree: ast.Module) -> dict[str, str]:
+    """Build a map of alias -> original module name from import statements.
+
+    Covers:
+        import psycopg2 as pg             -> {"pg": "psycopg2"}
+        from github import Github as GH   -> {"GH": "Github"}  (name-level)
+        import github                     -> (no alias, not added)
+    """
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    aliases[alias.asname] = alias.name
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.asname:
+                    aliases[alias.asname] = alias.name
+    return aliases
+
+
+def _receiver_origin_is_excluded(
+    receiver: ast.expr,
+    excluded_receivers: list[str],
+    var_types: dict[str, str] | None,
+    self_attr_origins: dict[str, str] | None = None,
+    import_aliases: dict[str, str] | None = None,
+) -> bool:
+    """Return True only when there is ORIGIN evidence that the receiver is
+    a member of ``excluded_receivers``.
+
+    Origin evidence (strong):
+      - var_types maps the receiver variable to a constructor whose name
+        matches an excluded receiver (covers `client = A2AClient(...)`).
+      - the receiver is a direct constructor call to an excluded receiver
+        (covers `A2AClient(...).send_message(...)`).
+      - the receiver is `self.<attr>` and self_attr_origins maps the attr
+        to an excluded constructor.
+
+    Name-only evidence (heuristic) is NOT sufficient to exclude — that
+    would create false negatives (RULE 7). If a future Part 2 caller wants
+    to treat heuristic evidence as weak rather than clean, it can call
+    `_resolve_receiver_origin` directly and inspect `.confidence`.
+    """
+    origin = _resolve_receiver_origin(
+        receiver, var_types, self_attr_origins, import_aliases
+    )
+    if origin is None or not origin.origin:
+        return False
+    # Only exclude on STRONG evidence. Heuristic-only matches must not
+    # suppress a finding (RULE 4 + RULE 7).
+    if not origin.is_strong:
+        return False
+    low = origin.origin.lower()
+    # Match on the final segment (e.g. "A2AClient" from "agno.client.a2a.A2AClient")
+    # as well as the full dotted form, so excluded_receivers can list either.
+    final = low.rsplit(".", 1)[-1]
+    for excluded in excluded_receivers:
+        ex = excluded.lower()
+        if ex == low or ex == final or low.endswith("." + ex):
+            return True
+    return False
+
+
+def _match_call(
+    node: ast.Call,
+    rule: SinkRule,
+    var_types: dict[str, str] | None = None,
+    *,
+    self_attr_origins: dict[str, str] | None = None,
+    import_aliases: dict[str, str] | None = None,
+) -> bool:
     match_type = rule.match.get("type", "")
     if match_type == "name_call":
         return _match_name_call(node, rule)
     elif match_type == "attr_call":
         return _match_attr_call(node, rule, var_types)
     elif match_type == "qualified_call":
-        return _match_qualified_call(node, rule, var_types)
+        return _match_qualified_call(
+            node, rule, var_types,
+            self_attr_origins=self_attr_origins,
+            import_aliases=import_aliases,
+        )
     elif match_type == "subprocess_deploy":
         return _match_subprocess_deploy(node)
     # open_write and sql_execute_pattern are handled in the main detect_sinks loop
     return False
 
 
-def _match_qualified_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None = None) -> bool:
+def _match_qualified_call(
+    node: ast.Call,
+    rule: SinkRule,
+    var_types: dict[str, str] | None = None,
+    *,
+    self_attr_origins: dict[str, str] | None = None,
+    import_aliases: dict[str, str] | None = None,
+) -> bool:
     """Match calls by their full qualified dotted name (e.g., subprocess.run).
 
     This is the SAFE replacement for the cross-product matching in attr_call.
@@ -342,18 +659,28 @@ def _match_qualified_call(node: ast.Call, rule: SinkRule, var_types: dict[str, s
     # A2A". The second is inter-agent transport, not a side effect on the
     # outside world, and it is the dominant false-positive category recorded
     # in the r05 negative result. Mirrors the _is_db_receiver constraint.
+    #
+    # DISCIPLINE (Work Order 1, Part 1): the exclusion must require evidence
+    # that the receiver is an A2A / agent-transport object — not a bare
+    # method name. A bare name fallback (`or recv.id`) is forbidden because
+    # it would falsely suppress a real SMTP send if the variable happened to
+    # be named `a2a_client`. Origin evidence is established by:
+    #   - var_types mapping the receiver variable to a known A2A constructor
+    #     (covers `client = A2AClient(...); client.send_message(...)`);
+    #   - the receiver being a direct constructor call to a known A2A client
+    #     (covers `A2AClient(...).send_message(...)`);
+    #   - the receiver being `self.<attr>` where the attr name matches a
+    #     known A2A client name AND the class assigned that attr from a
+    #     known A2A constructor in __init__ (best-effort, file-local).
+    # Name-only matches on the receiver variable are NOT sufficient.
     excluded_receivers = rule.match.get("exclude_receiver_types", [])
     if excluded_receivers and isinstance(node.func, ast.Attribute):
-        recv = node.func.value
-        recv_type = None
-        if isinstance(recv, ast.Name):
-            recv_type = (var_types or {}).get(recv.id) or recv.id
-        elif isinstance(recv, ast.Attribute):
-            recv_type = recv.attr
-        if recv_type:
-            low = recv_type.lower()
-            if any(x.lower() in low for x in excluded_receivers):
-                return False
+        if _receiver_origin_is_excluded(
+            node.func.value, excluded_receivers, var_types,
+            self_attr_origins=self_attr_origins,
+            import_aliases=import_aliases,
+        ):
+            return False
 
     # Get the full dotted name of the call
     if isinstance(node.func, ast.Name):
