@@ -1,6 +1,6 @@
 # Actenon consequential-action industry scan
 
-This campaign scans **64 important repositories** across agent frameworks, computer-use agents, workflow automation, MCP tooling, infrastructure-as-code, resource boundaries, payments, commerce, communications, data operations, and security response.
+This campaign scans **63 important repositories** across agent frameworks, computer-use agents, workflow automation, MCP tooling, infrastructure-as-code, resource boundaries, payments, commerce, communications, data operations, and security response.
 
 ## Evidence standard
 

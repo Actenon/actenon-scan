@@ -118,8 +118,6 @@ jobs:
           - category: "payments-finance"
             repo: "adyen/adyen-python-api-library"
           - category: "payments-finance"
-            repo: "paypal/PayPal-Python-SDK"
-          - category: "payments-finance"
             repo: "plaid/plaid-python"
           - category: "payments-finance"
             repo: "firefly-iii/firefly-iii"
@@ -169,14 +167,36 @@ jobs:
         id: clone
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mkdir -p target reports metadata
-          git clone --depth 1 "https://github.com/${{ matrix.target.repo }}.git" target/repo
-          SHA="$(git -C target/repo rev-parse HEAD)"
           SAFE_REPO="${{ matrix.target.repo }}"
           SAFE_REPO="${SAFE_REPO//\//__}"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "safe_repo=$SAFE_REPO" >> "$GITHUB_OUTPUT"
+          if ! git clone --depth 1 "https://github.com/${{ matrix.target.repo }}.git" target/repo 2>reports/clone-error.txt; then
+            # Target unavailable (deleted, made private, renamed, or network error).
+            # Record the failure as durable evidence rather than failing the campaign.
+            echo "clone_failed=true" >> "$GITHUB_OUTPUT"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+            REPO="${{ matrix.target.repo }}" CATEGORY="${{ matrix.target.category }}" ERR="$(cat reports/clone-error.txt)" python - <<'PY'
+          import json, os
+          payload = {
+              "repository": os.environ["REPO"],
+              "category": os.environ["CATEGORY"],
+              "scanner_ref": os.environ["GITHUB_SHA"],
+              "clone_failed": True,
+              "clone_error": os.environ.get("ERR", "").strip(),
+          }
+          with open("metadata/scan.json", "w") as f:
+              json.dump(payload, f, indent=2)
+          with open("reports/summary.md", "w") as f:
+              f.write(f"## {payload['repository']}\n\n- **Status:** target unavailable (clone failed)\n- Category: `{payload['category']}`\n- Error:\n```\n{payload['clone_error']}\n```\n")
+          PY
+            cat reports/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+            exit 0
+          fi
+          echo "clone_failed=false" >> "$GITHUB_OUTPUT"
+          SHA="$(git -C target/repo rev-parse HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           REPO="${{ matrix.target.repo }}" CATEGORY="${{ matrix.target.category }}" SHA="$SHA" python - <<'PY'
           import json, os
           payload = {
@@ -190,6 +210,7 @@ jobs:
           PY
 
       - name: Run JSON scan
+        if: steps.clone.outputs.clone_failed != 'true'
         shell: bash
         run: |
           set +e
@@ -198,6 +219,7 @@ jobs:
           exit 0
 
       - name: Run SARIF scan
+        if: steps.clone.outputs.clone_failed != 'true'
         shell: bash
         run: |
           set +e
@@ -205,6 +227,7 @@ jobs:
           exit 0
 
       - name: Summarise report
+        if: steps.clone.outputs.clone_failed != 'true'
         shell: bash
         run: |
           python research/industry-scan/summarise.py             "reports/${{ steps.clone.outputs.safe_repo }}.json"             metadata/scan.json             > reports/summary.md || true

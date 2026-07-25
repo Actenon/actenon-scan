@@ -189,10 +189,6 @@
   },
   {
     "category": "payments-finance",
-    "repository": "paypal/PayPal-Python-SDK"
-  },
-  {
-    "category": "payments-finance",
     "repository": "plaid/plaid-python"
   },
   {
