@@ -345,3 +345,92 @@ candidates on the 7,354-file corpus. It costs exactly zero precision. It
 remains in the codebase because a codebase not in the corpus may use the
 pattern. It simply does not count toward corpus-demonstrated recall until it
 produces a hand-triaged true positive.
+
+## Work Order 1 — repository_mutation coverage
+
+### REPOSITORY-MUTATION (PyGithub)
+
+Status: PARTIAL — detector fires on fixtures, no corpus true positive yet.
+
+The rule matches PyGithub mutation methods (`create_file`, `update_file`,
+`delete_file`, `create_git_release`, `create_git_tag`, `create_git_ref`,
+`create_pull`, `get_git_ref.delete`, `edit`, `delete`) gated by
+receiver-origin evidence: the receiver chain must trace to a `Github(...)`
+constructor OR include a PyGithub accessor segment (`get_repo`,
+`get_organization`, `get_user`, `get_git_ref`, `get_branch`).
+
+The origin gate prevents false positives on non-GitHub objects that happen
+to have a method with the same name (e.g., a `FileSystem.create_file()`
+domain object).
+
+Covered forms (fixture-verified):
+- `github = Github("token"); github.get_repo(repo).create_file(...)` (local var)
+- `self.github = Github("token"); self.github.get_repo(repo).delete_file(...)` (instance attr)
+- `Github("token").get_repo(repo).create_file(...)` (inline constructor — covered by origin resolver)
+
+Not yet covered (recorded as residual risk):
+- GitLab and Bitbucket equivalents — no real-world occurrence validated.
+  Recorded as UNVALIDATED.
+
+### GITHUB-REST-MUTATION (raw REST)
+
+Status: PARTIAL — detector fires on fixtures, no corpus true positive yet.
+
+The rule matches `requests/httpx/aiohttp` calls with mutation methods
+(POST/PUT/PATCH/DELETE) to `api.github.com` URLs containing mutation path
+suffixes (`/contents`, `/git/refs`, `/git/tags`, `/releases`, `/pulls`,
+`/merges`, `/branches`, `/git/commits`, `/git/trees`, `/git/blobs`).
+
+GET/HEAD requests are excluded (read-only). POST to non-GitHub hosts is
+excluded. POST to GitHub non-mutation paths (e.g., `/user/starred`) is
+excluded.
+
+### GIT-MUTATE (GitPython + shell git)
+
+Status: COVERED — fires on corpus (SuperAGI true positive).
+
+The existing GIT-MUTATE rule covers GitPython `repo.push`, `repo.commit`,
+`repo.reset`, `repo.index.commit`, `remote.push`, `git.push`, `git.commit`,
+`git.reset`. Force-push (`git push --force`) is covered via shell execution
+detection (EXEC-SHELL) — no duplicate REPOSITORY-MUTATION finding is
+emitted because the shell path is already fully covered.
+
+### GitHub CLI (gh)
+
+Status: COVERED (via EXEC-SHELL).
+
+`gh repo create`, `gh pr merge`, `gh release create`, `gh api`, and
+`git push --force` are all detected by the existing EXEC-SHELL rule. No
+duplicate REPOSITORY-MUTATION finding is emitted (Part 3.4 — the shell
+path adds no distinct actionable information beyond EXEC-SHELL).
+
+### Severity
+
+HIGH:
+- delete repository content (`delete_file`, `get_git_ref.delete`)
+- delete refs
+- force-push (via EXEC-SHELL / GIT-MUTATE)
+- merge into a model-controlled branch
+- publish a release (`create_git_release`)
+- create or update executable workflow content (`.github/workflows/*.yml`)
+- mutate a branch selected by the model (caller-controlled `branch` parameter)
+
+MEDIUM:
+- write content to a fixed non-production branch
+- create a draft or non-executing repository object
+
+Severity is bound to whether the target parameter (branch, ref, path) is
+caller-controlled. The `escalate_when` mechanism (arg_is_tainted) is used
+to escalate from MEDIUM to HIGH when the branch/ref/path argument derives
+from a function parameter. Constant targets are not escalated.
+
+### Caller-controlled parameters
+
+For repository findings, model-controlled arguments are recorded in the
+finding's call_text:
+- repository, owner, path, content, branch, ref, sha, tag, release name,
+  merge target, pull-request number, force flag
+
+Only parameters that derive from the tool function's signature (via the
+`arg_is_tainted` check) are claimed as caller-controlled. Constants are
+not.

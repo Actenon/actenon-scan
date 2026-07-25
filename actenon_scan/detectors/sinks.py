@@ -699,6 +699,8 @@ def _match_call(
         )
     elif match_type == "subprocess_deploy":
         return _match_subprocess_deploy(node)
+    elif match_type == "github_rest_mutation":
+        return _match_github_rest_mutation(node)
     # open_write and sql_execute_pattern are handled in the main detect_sinks loop
     return False
 
@@ -768,16 +770,19 @@ def _match_qualified_call(
         return False
 
     # Direct match against qualified patterns
+    pattern_matched = False
     for pattern in qualified_patterns:
         if call_name == pattern:
-            return True
+            pattern_matched = True
+            break
         # Also match if the call name ends with the pattern (e.g., pattern is
         # "system" and call is "os.system")
         if call_name.endswith("." + pattern):
-            return True
+            pattern_matched = True
+            break
 
     # Variable-type tracking: if p = Path(...), then p.unlink() matches "Path.unlink"
-    if var_types and isinstance(node.func, ast.Attribute):
+    if not pattern_matched and var_types and isinstance(node.func, ast.Attribute):
         root = node.func
         while isinstance(root.value, ast.Attribute):
             root = root.value
@@ -789,19 +794,22 @@ def _match_qualified_call(
                 typed_name = call_name.replace(var_name, inferred_type, 1)
                 for pattern in qualified_patterns:
                     if typed_name == pattern:
-                        return True
+                        pattern_matched = True
+                        break
                     if typed_name.endswith("." + pattern):
-                        return True
+                        pattern_matched = True
+                        break
                 # Also check just the type.method part
-                if "." in call_name:
+                if not pattern_matched and "." in call_name:
                     method = call_name.split(".")[-1]
                     type_method = f"{inferred_type.split('.')[-1]}.{method}"
                     for pattern in qualified_patterns:
                         if type_method == pattern:
-                            return True
+                            pattern_matched = True
+                            break
 
     # Chained-call resolution: boto3.client("s3").delete_object()
-    if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Call):
+    if not pattern_matched and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Call):
         inner_call = node.func.value
         if isinstance(inner_call.func, ast.Attribute):
             inner_name = _get_attr_chain(inner_call.func)
@@ -809,9 +817,53 @@ def _match_qualified_call(
             full = f"{inner_name}.{method}"
             for pattern in qualified_patterns:
                 if full == pattern or full.endswith("." + pattern):
-                    return True
+                    pattern_matched = True
+                    break
 
-    return False
+    if not pattern_matched:
+        return False
+
+    # ORIGIN GATE (Work Order 1, Part 3): for rules that bind generic
+    # method names (create_file, delete, edit, ...) to a specific provider
+    # surface, require receiver-origin evidence. This prevents false
+    # positives where any object happens to have a method with the same
+    # name (e.g., a non-GitHub repo.edit()).
+    required_constructors = rule.match.get("required_origin_constructors", [])
+    required_segments = rule.match.get("required_origin_chain_segments", [])
+    if required_constructors or required_segments:
+        if not isinstance(node.func, ast.Attribute):
+            return False
+        origin = _resolve_receiver_origin(
+            node.func.value, var_types, self_attr_origins, import_aliases,
+            _cache=origin_cache,
+        )
+        if origin is None:
+            return False
+        # Check constructor evidence (strong only).
+        if required_constructors and origin.is_strong:
+            low = origin.origin.lower()
+            final = low.rsplit(".", 1)[-1]
+            for ctor in required_constructors:
+                cl = ctor.lower()
+                cf = cl.rsplit(".", 1)[-1]
+                if cl == low or cf == final or low.endswith("." + cf):
+                    return True
+        # Check chain-segment evidence. The chain is the list of hops
+        # (e.g., ["Github(...)", "get_repo(repo)"]). We match segment
+        # names against the required list. This catches the common
+        # PyGithub idiom: github.get_repo(repo).create_file(...) where
+        # the chain includes "get_repo(repo)".
+        if required_segments and origin.chain:
+            chain_text = " ".join(origin.chain).lower()
+            for seg in required_segments:
+                seg_l = seg.lower()
+                # Match "get_repo(" as a segment prefix.
+                if seg_l + "(" in chain_text or seg_l in chain_text:
+                    return True
+        # Pattern matched but origin gate failed — do not fire.
+        return False
+
+    return True
 
 
 def _match_name_call(node: ast.Call, rule: SinkRule) -> bool:
@@ -1176,6 +1228,66 @@ def _match_subprocess_deploy(node: ast.Call) -> bool:
                         if kw in elt.value.lower():
                             return True
     return False
+
+
+# HTTP methods that, when targeted at the GitHub REST API, indicate a
+# repository mutation. GET/HEAD are excluded — they are read-only.
+_GITHUB_REST_MUTATION_METHODS = frozenset({"post", "put", "patch", "delete"})
+
+# Path suffixes (lowercased) that mark a GitHub REST URL as a mutation
+# surface. Matched as substrings of the URL so f-string templates like
+# f"https://api.github.com/repos/{owner}/{repo}/contents/{path}" match.
+_GITHUB_REST_MUTATION_PATHS = (
+    "/contents",
+    "/git/refs",
+    "/git/tags",
+    "/releases",
+    "/pulls",
+    "/merges",
+    "/branches",
+    "/git/commits",
+    "/git/trees",
+    "/git/blobs",
+)
+
+
+def _match_github_rest_mutation(node: ast.Call) -> bool:
+    """Match requests/httpx/aiohttp calls to GitHub REST API mutation paths.
+
+    Covers:
+        requests.put("https://api.github.com/repos/{owner}/{repo}/contents/{path}", ...)
+        requests.post("https://api.github.com/repos/{owner}/{repo}/git/refs", ...)
+        httpx.delete(f"https://api.github.com/repos/{repo}/pulls/{n}", ...)
+
+    The matcher requires BOTH:
+      1. An HTTP mutation method (post/put/patch/delete) — not GET/HEAD.
+      2. A URL (first arg) that contains "api.github.com" AND one of the
+         mutation path suffixes (/contents, /git/refs, /releases, /pulls,
+         /merges, /branches, /git/commits, /git/trees, /git/blobs).
+
+    This prevents false positives on:
+      - GET requests to api.github.com (read-only).
+      - POST requests to other hosts (not GitHub).
+      - POST requests to GitHub paths that are not mutation surfaces.
+    """
+    if not isinstance(node.func, ast.Attribute):
+        return False
+    method = node.func.attr.lower()
+    if method not in _GITHUB_REST_MUTATION_METHODS:
+        return False
+    # Receiver must be requests/httpx/aiohttp/urllib or a session/client
+    # derived from them. We accept any receiver here because the URL gate
+    # is the primary precision control — a non-HTTP library won't have
+    # an api.github.com URL in its first arg.
+    if not node.args:
+        return False
+    url_text = _extract_string_from_node(node.args[0])
+    if not url_text:
+        return False
+    url_low = url_text.lower()
+    if "api.github.com" not in url_low and "github.com/api" not in url_low:
+        return False
+    return any(path in url_low for path in _GITHUB_REST_MUTATION_PATHS)
 
 
 def _get_attr_chain(node: ast.Attribute) -> str:
