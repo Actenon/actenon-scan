@@ -2,8 +2,8 @@
   "_comment": "Hand triage of every finding in corpus-results.json. A corpus count with no triage behind it is the same defect as a benchmark score with no detector behind it. Any FALSE_POSITIVE entry fails CI: the rule must be fixed and a regression fixture added, not the entry edited.",
   "corpus_sha_source": "tests/benchmark/pinned_repos.json",
   "totals": {
-    "findings": 28,
-    "true_positives": 28,
+    "findings": 21,
+    "true_positives": 21,
     "false_positives": 0
   },
   "false_positives_found_and_fixed_this_run": [
@@ -82,26 +82,6 @@
     {
       "repo": "crewAIInc/crewAI",
       "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/brightdata_tool/brightdata_unlocker.py",
-      "line": 141,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/contextualai_parse_tool/contextual_parse_tool.py",
-      "line": 80,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
       "file": "lib/crewai-tools/src/crewai_tools/tools/contextualai_rerank_tool/contextual_rerank_tool.py",
       "line": 69,
       "rule_id": "NET-EGRESS",
@@ -158,56 +138,6 @@
       "confidence": "high",
       "verdict": "TRUE_POSITIVE",
       "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/serper_scrape_website_tool/serper_scrape_website_tool.py",
-      "line": 59,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/singlestore_search_tool/singlestore_search_tool.py",
-      "line": 399,
-      "rule_id": "DATA-DELETE-SQL",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "microsoft/semantic-kernel",
-      "sha": "61a6b0c5fade87e1cc048fdfdf3993cc7b95d163",
-      "file": "python/semantic_kernel/core_plugins/http_plugin.py",
-      "line": 174,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "aiohttp session request inside a Semantic Kernel core plugin. Plugins are the kernel's tool surface: the URL is agent-supplied and there is no authorization gate."
-    },
-    {
-      "repo": "microsoft/semantic-kernel",
-      "sha": "61a6b0c5fade87e1cc048fdfdf3993cc7b95d163",
-      "file": "python/semantic_kernel/core_plugins/http_plugin.py",
-      "line": 201,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "aiohttp session request inside a Semantic Kernel core plugin. Plugins are the kernel's tool surface: the URL is agent-supplied and there is no authorization gate."
-    },
-    {
-      "repo": "microsoft/semantic-kernel",
-      "sha": "61a6b0c5fade87e1cc048fdfdf3993cc7b95d163",
-      "file": "python/semantic_kernel/core_plugins/http_plugin.py",
-      "line": 221,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "aiohttp session request inside a Semantic Kernel core plugin. Plugins are the kernel's tool surface: the URL is agent-supplied and there is no authorization gate."
     },
     {
       "repo": "FoundationAgents/MetaGPT",
@@ -329,6 +259,16 @@
       ],
       "original_count": 30,
       "corrected_count": 28
+    },
+    {
+      "date": "2026-07-26",
+      "description": "7 findings (4 crewai, 3 semantic-kernel) were originally triaged as TRUE_POSITIVE. They are actually guarded by validation methods (_validate_query, validate_url, validate_file_path, _validate_url) that dominate the sink and are bound to the model-controlled parameter. The scanner now recognises validation-method names as guards (prefix match on validate_*, check_*, sanitize_*, verify_*, assert_*). The findings no longer fire. Combined with the earlier agno correction (2 findings), the total correction is 30 \u2192 21 TRUE_POSITIVE.",
+      "affected_repos": [
+        "crewAIInc/crewAI",
+        "microsoft/semantic-kernel"
+      ],
+      "original_count": 28,
+      "corrected_count": 21
     }
   ]
 }

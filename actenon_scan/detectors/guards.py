@@ -86,7 +86,7 @@ def check_guard(
         if isinstance(child, ast.Call):
             if hasattr(child, "lineno") and child.lineno < sink_line:
                 call_name = _get_call_name(child.func)
-                if call_name and _matches_guard(call_name, guard_patterns):
+                if call_name and (_matches_guard(call_name, guard_patterns) or _is_validation_guard_name(call_name)):
                     guard_calls.append(child)
 
     if not guard_calls:
@@ -852,5 +852,52 @@ def _matches_guard(name: str, guard_patterns: list[str]) -> bool:
         if pattern.lower() == name_lower:
             return True
         if name_lower.endswith("." + pattern.lower()):
+            return True
+    return False
+
+
+# Validation-guard name patterns. These are method calls that validate,
+# sanitise, or check a parameter before it reaches a sink. Unlike
+# assert-style guards (authorize, verify_pccb) which raise on failure,
+# validation guards typically return a (valid, message) tuple and the
+# caller checks the result in an if-condition with an early return.
+#
+# Recognition requires:
+#   1. The method name starts with one of these keywords (after stripping
+#      leading underscores)
+#   2. The call dominates the sink (early return/raise after the check)
+#   3. The call's arguments share identifiers with the sink (binding)
+#
+# The match is PREFIX-based (validate_*, check_*, sanitize_*, verify_*),
+# not substring-based, to avoid false matches on names like "filter",
+# "unescape", "get_subtype_of_stateful_step" that happen to contain a
+# keyword as a substring.
+_VALIDATION_GUARD_KEYWORDS = frozenset({
+    "validate", "sanitize", "sanitise", "check", "verify",
+    "assert",
+})
+
+
+def _is_validation_guard_name(name: str) -> bool:
+    """Check if a call name looks like a validation guard by name pattern.
+
+    Matches method names that START with (after stripping leading
+    underscores): validate, sanitize/sanitise, check, verify, assert.
+
+    Examples that match:
+      _validate_query, self._validate_query
+      _check_input, _sanitize_path, _verify_params
+      validate_and_execute
+
+    Examples that DON'T match:
+      filter, unescape, get_subtype_of_stateful_step
+      execute, run, _get_connection, fetch_results
+    """
+    # Get the last segment (e.g., self._validate_query -> _validate_query)
+    last_segment = name.rsplit(".", 1)[-1].lower()
+    # Strip leading underscores for matching
+    stripped = last_segment.lstrip("_")
+    for keyword in _VALIDATION_GUARD_KEYWORDS:
+        if stripped.startswith(keyword + "_") or stripped == keyword:
             return True
     return False
