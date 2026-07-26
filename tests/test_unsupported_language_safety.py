@@ -1,8 +1,8 @@
 """Tests for unsupported-language safety (ITEMs 1-4).
 
 Tests that:
-- A Go repo reports unsupported files, not "clean"
-- A single Go file reports unsupported, not "clean"
+- A Go repo reports unsupported files when the [go] extra is NOT installed
+- A single Go file reports unsupported when the [go] extra is NOT installed
 - --changed-only on Go files reports unsupported (ITEM 1)
 - TS files without the extra report with "install" hint (ITEM 2)
 - A file with an unknown extension is not reported as unsupported
@@ -33,8 +33,11 @@ class UnsupportedLanguageTests(unittest.TestCase):
             capture_output=True, text=True, cwd=self.tmpdir,
         )
 
-    def test_go_directory_reports_unsupported(self) -> None:
-        """A directory of .go files must report unsupported, not 'clean'."""
+    def test_go_directory_reports_unsupported_without_extra(self) -> None:
+        """A directory of .go files must report unsupported when [go] extra is absent."""
+        from actenon_scan.detectors.go import is_go_extra_available
+        if is_go_extra_available():
+            self.skipTest("[go] extra is installed — Go is supported")
         go_dir = Path(self.tmpdir) / "godir"
         go_dir.mkdir()
         (go_dir / "main.go").write_text("package main\n")
@@ -43,8 +46,11 @@ class UnsupportedLanguageTests(unittest.TestCase):
         self.assertIn("Go", result.stdout)
         self.assertIn("not supported", result.stdout)
 
-    def test_single_go_file_reports_unsupported(self) -> None:
-        """A single .go file named directly must report unsupported."""
+    def test_single_go_file_reports_unsupported_without_extra(self) -> None:
+        """A single .go file named directly must report unsupported when [go] extra is absent."""
+        from actenon_scan.detectors.go import is_go_extra_available
+        if is_go_extra_available():
+            self.skipTest("[go] extra is installed — Go is supported")
         go_file = Path(self.tmpdir) / "main.go"
         go_file.write_text("package main\n")
         result = self._scan(str(go_file))
@@ -53,6 +59,7 @@ class UnsupportedLanguageTests(unittest.TestCase):
 
     def test_changed_only_go_files_report_unsupported(self) -> None:
         """--changed-only on Go files must report unsupported (ITEM 1)."""
+        from actenon_scan.detectors.go import is_go_extra_available
         go_dir = Path(self.tmpdir) / "godir"
         go_dir.mkdir()
         (go_dir / "main.go").write_text("package main\n")
@@ -62,8 +69,13 @@ class UnsupportedLanguageTests(unittest.TestCase):
         os.system(f"cd {self.tmpdir} && git add -A && "
                    f"git -c user.name=test -c user.email=test@test.com commit -qm touch")
         result = self._scan(str(go_dir), "--changed-only", "HEAD~1")
-        self.assertIn("NOT scanned", result.stdout)
-        self.assertIn("Go", result.stdout)
+        if is_go_extra_available():
+            # With the extra, Go files are scanned (not unsupported)
+            self.assertNotIn("NOT scanned", result.stdout)
+        else:
+            # Without the extra, Go files are unsupported
+            self.assertIn("NOT scanned", result.stdout)
+            self.assertIn("Go", result.stdout)
 
     def test_ts_without_extra_shows_install_hint(self) -> None:
         """TS files without the extra should show 'Install with' hint."""
@@ -72,13 +84,15 @@ class UnsupportedLanguageTests(unittest.TestCase):
         (ts_dir / "app.ts").write_text("console.log('hello');\n")
         result = self._scan(str(ts_dir))
         # If the extra IS installed, TS files are scanned and no warning appears.
-        # If the extra is NOT installed, the install hint should appear.
         if "NOT scanned" in result.stdout:
             self.assertIn("Install with", result.stdout)
             self.assertIn("typescript", result.stdout)
 
     def test_go_shows_not_supported_not_install_hint(self) -> None:
-        """Go files should show 'not supported', NOT 'Install with'."""
+        """Go files should show 'not supported', NOT 'Install with' (when extra is absent)."""
+        from actenon_scan.detectors.go import is_go_extra_available
+        if is_go_extra_available():
+            self.skipTest("[go] extra is installed — Go is supported")
         go_dir = Path(self.tmpdir) / "godir"
         go_dir.mkdir()
         (go_dir / "main.go").write_text("package main\n")
@@ -89,9 +103,6 @@ class UnsupportedLanguageTests(unittest.TestCase):
     def test_typescript_extra_import_is_correct(self) -> None:
         """The tree_sitter_typescript import must not have a typo (ITEM 4)."""
         from actenon_scan.engine import _is_typescript_extra_available
-        # This should not raise an ImportError due to a typo
-        # If tree-sitter and tree-sitter-typescript are installed, it returns True
-        # If not, it returns False — but either way, no crash
         result = _is_typescript_extra_available()
         self.assertIsInstance(result, bool)
 

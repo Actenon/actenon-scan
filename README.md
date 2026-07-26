@@ -1,6 +1,6 @@
 # Actenon Scan
 
-> Find where agent-controlled intent reaches consequential actions without an enforceable authority check. **Parses Python and TypeScript.** Other languages are not supported.
+> Find where agent-controlled intent reaches consequential actions without an enforceable authority check. **Parses Python, TypeScript, and Go.** Other languages are not supported.
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 <!-- PYTHON-BADGE:START -->
