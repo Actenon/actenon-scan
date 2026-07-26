@@ -34,36 +34,34 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 
 ## Findings
 
-- **Total findings:** 28
-- **True positives (hand-triaged):** 28
+- **Total findings:** 21
+- **True positives (hand-triaged):** 21
 - **False positives:** 0
 
 ### By consequence category
 
 | Category | Count |
 |---|---|
-| unknown | 28 |
+| unknown | 21 |
 
 ### By rule
 
 | Rule | Count |
 |---|---|
-| NET-EGRESS | 15 |
+| NET-EGRESS | 9 |
 | FILE-OPEN-WRITE | 6 |
 | COMMUNICATION-SEND | 2 |
 | DATA-DELETE-OS | 2 |
 | FILE-WRITE | 1 |
-| DATA-DELETE-SQL | 1 |
 | EXEC-SHELL | 1 |
 
 ### By repository
 
 | Repository | Findings |
 |---|---|
-| crewAIInc/crewAI | 12 |
+| crewAIInc/crewAI | 8 |
 | TransformerOptimus/SuperAGI | 6 |
 | FoundationAgents/MetaGPT | 5 |
-| microsoft/semantic-kernel | 3 |
 | modelcontextprotocol/servers | 1 |
 | modelcontextprotocol/python-sdk | 1 |
 
@@ -94,9 +92,9 @@ were identified and fixed:
    was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ
    rule's qualified patterns.
 
-### Current measurement: 28/28 (100% precision)
+### Current measurement: 21/21 (100% precision)
 
-After fixes, the current corpus has 28 findings,
+After fixes, the current corpus has 21 findings,
 all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number
 that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is
 present or any finding is untriaged.

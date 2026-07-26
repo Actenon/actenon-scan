@@ -38,6 +38,7 @@ or if a recall fixture has no row here.
 | `r07` | Raw tool-schema dispatch — switch on tool name | PARTIAL | - |
 | `r08` | SMTP `send_message` — `smtplib.SMTP(...).send_message(...)` | PARTIAL | - |
 | `r09` | Shell execution without external_execution guard | PARTIAL | - |
+| `r10` | SQL execute without validation guard | PARTIAL | - |
 
 **COVERED (3)** — detector fires, and it has been shown to fire on real code
 that a third party wrote.
