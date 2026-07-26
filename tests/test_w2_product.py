@@ -171,8 +171,11 @@ class FixTests(unittest.TestCase):
             rc = main(["fix", f"{self.fixture}:9", "--mode", "actenon"])
         self.assertEqual(rc, 0)
         output = f.getvalue()
-        self.assertIn("verify_proof", output)
-        self.assertIn("actenon", output)
+        # The fix must use the REAL actenon-kernel API (verify_pccb),
+        # not the previously-broken `from actenon import verify_proof`
+        # which referenced a non-existent package.
+        self.assertIn("verify_pccb", output)
+        self.assertIn("actenon_kernel", output)
 
     def test_fix_does_not_modify_without_apply(self) -> None:
         from actenon_scan.cli import main
@@ -186,7 +189,9 @@ class FixTests(unittest.TestCase):
         main(["fix", f"{self.fixture}:9", "--mode", "actenon", "--apply"])
         modified = self.fixture.read_text()
         self.assertNotEqual(original, modified)
-        self.assertIn("verify_proof", modified)
+        # The applied fix must use the REAL actenon-kernel API.
+        self.assertIn("verify_pccb", modified)
+        self.assertIn("actenon_kernel", modified)
 
 
 class ReportFormatTests(unittest.TestCase):

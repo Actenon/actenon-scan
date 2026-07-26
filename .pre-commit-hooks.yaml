@@ -6,9 +6,40 @@
   types: [python]
   # Work Order 2, Part 5.4: scan changed files by default. The pre-commit
   # framework passes only the changed files as arguments, so actenon-scan
-  # scans exactly those files. --fail-on none means findings do NOT block
-  # the commit by default — the developer sees the blast-radius summary
-  # and decides. To block on HIGH findings, override with:
+  # scans exactly those files. The CLI accepts multiple positional paths
+  # (nargs='+'), so a multi-file commit is handled in one invocation.
+  # --fail-on none means findings do NOT block the commit by default —
+  # the developer sees the blast-radius summary and decides. To block on
+  # HIGH findings, override with:
   #   args: [--fail-on, high]
   args: ["--fail-on", "none", "--no-cache"]
+  require_serial: true
+- id: actenon-scan-typescript
+  name: actenon-scan (TypeScript)
+  description: "actenon-scan for TypeScript/JavaScript files (requires [typescript] extra)."
+  entry: actenon-scan scan
+  language: python
+  types: [ts, tsx, js, jsx, mts, cts, mjs, cjs]
+  args: ["--fail-on", "none", "--no-cache"]
+  # Pre-commit installs the hook in an isolated venv. Without
+  # additional_dependencies, tree-sitter / tree-sitter-typescript are NOT
+  # installed, every TS file is silently treated as "unsupported", and
+  # the hook exits 0 having done nothing. The README claim "auto-installed
+  # by pre-commit" was false until this fix.
+  additional_dependencies:
+    - "tree-sitter>=0.25,<1"
+    - "tree-sitter-typescript>=0.23,<1"
+  require_serial: true
+- id: actenon-scan-go
+  name: actenon-scan (Go)
+  description: "actenon-scan for Go files (requires [go] extra)."
+  entry: actenon-scan scan
+  language: python
+  types: [go]
+  args: ["--fail-on", "none", "--no-cache"]
+  # Same fix as the TypeScript hook above: install the [go] extra's
+  # dependencies into pre-commit's isolated venv.
+  additional_dependencies:
+    - "tree-sitter>=0.25,<1"
+    - "tree-sitter-go>=0.25,<1"
   require_serial: true

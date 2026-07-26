@@ -217,7 +217,8 @@ CLEAN_SCAN_LIMITATIONS = (
     "What this scan did not verify: unsupported languages, files outside the "
     "scan target, guards outside the analysed path, external reachability, or "
     "practical exploitability.\n"
-    "See docs/COVERAGE.md for supported architectures and analysis limits."
+    "See https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md "
+    "for supported architectures and analysis limits."
 )
 
 

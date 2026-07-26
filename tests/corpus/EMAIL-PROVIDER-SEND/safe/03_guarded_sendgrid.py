@@ -6,7 +6,7 @@ dominates the sink, so the finding is suppressed.
 
 import sendgrid
 
-from actenon import verify_proof
+from actenon_kernel import verify_pccb
 
 from mcp import tool
 
@@ -14,6 +14,6 @@ from mcp import tool
 @tool()
 def send_email(api_key: str, mail, proof: str) -> None:
     """Agent-controlled SendGrid email send — guarded by Actenon proof."""
-    verify_proof(proof, action="email.send", target="external")
+    verify_pccb(proof, action="email.send", target="external")
     sg = sendgrid.SendGridAPIClient(api_key)
     sg.send(mail)

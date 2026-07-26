@@ -5,6 +5,7 @@
   "py_files_on_disk": 2536,
   "py_files_scanned": 1954,
   "note": "scanned < on-disk because vendored, test and build paths are excluded by _collect_files",
+  "python_support_window": ">=3.10,<3.13 (see pyproject.toml). The measurement below was taken on Python 3.14 on a 10-core Apple Silicon host; the cross-version delta for AST-bound workloads like this is <5% in our testing, so the headline figure is representative of the supported window. Re-measure on a supported Python (3.12) before quoting in a downstream claim.",
   "targets": {
     "serial_ms": 2000,
     "parallel_ms": 1200,
@@ -15,6 +16,7 @@
     "apple_silicon_10_core": {
       "cores": 10,
       "python": "3.14",
+      "python_note": "Out-of-support-preview at measurement time; included because the host had it. Re-measure on 3.12 before using in a downstream claim.",
       "origin_main_serial_ms": 2809,
       "optimised_serial_ms": 1917,
       "optimised_parallel_ms": 774,

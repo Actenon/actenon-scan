@@ -27,7 +27,15 @@ def main(argv: list[str] | None = None) -> int:
 
     # scan
     scan_parser = subparsers.add_parser("scan", help="Scan a path for the execution gap.")
-    scan_parser.add_argument("path", help="File or directory to scan.")
+    # nargs='+' so the pre-commit hook (which passes one file per changed
+    # file as positional args) does not crash with "unrecognized arguments".
+    # When a single path is given (the normal case) behaviour is unchanged.
+    scan_parser.add_argument(
+        "path",
+        nargs="+",
+        help="File or directory to scan. Multiple paths may be given "
+             "(e.g. for pre-commit, which passes each changed file).",
+    )
     scan_parser.add_argument(
         "--format",
         choices=["pretty", "list", "json", "sarif", "html", "markdown"],
@@ -83,6 +91,27 @@ def main(argv: list[str] | None = None) -> int:
     init_parser = subparsers.add_parser("init", help="Write a default config file.")
     init_parser.add_argument("--format", choices=["json", "yaml", "yml"], default="json")
 
+    # baseline: generate a known-findings baseline from the current scan.
+    # The `--baseline` flag on `scan` consumes these files; this subcommand
+    # produces them. Previously, `_cmd_adopt` told users to run
+    # `actenon-scan baseline <path>` but no such subcommand existed.
+    baseline_parser = subparsers.add_parser(
+        "baseline",
+        help="Generate a baseline.json from the current scan, for known-findings suppression.",
+    )
+    baseline_parser.add_argument(
+        "path",
+        help="File or directory to scan and lock in as the known-findings baseline.",
+    )
+    baseline_parser.add_argument(
+        "--output", "-o",
+        default="baseline.json",
+        help="Output file path. Default: baseline.json in the current directory.",
+    )
+    baseline_parser.add_argument(
+        "--config", help="Path to config file (JSON or YAML).",
+    )
+
     # adopt (adoption guidance)
     adopt_parser = subparsers.add_parser(
         "adopt",
@@ -105,7 +134,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     brief_parser.add_argument(
         "location",
-        help="File:line location of the finding (e.g., path/to/file.py:42).",
+        nargs="?",
+        default=None,
+        help="File:line location of the finding (e.g., path/to/file.py:42). "
+             "Omit when using --all.",
+    )
+    brief_parser.add_argument(
+        "--all",
+        dest="all_findings",
+        action="store_true",
+        default=False,
+        help="Generate a brief for every finding in the scan. Requires a path "
+             "argument (e.g. `actenon-scan brief --all .`).",
+    )
+    brief_parser.add_argument(
+        "--path",
+        default=".",
+        help="Path to scan when using --all. Default: current directory.",
     )
     brief_parser.add_argument(
         "--rule",
@@ -118,6 +163,10 @@ def main(argv: list[str] | None = None) -> int:
         default="text",
         help="Output format: text (email) or markdown (issue/PR). Default: text.",
     )
+    brief_parser.add_argument(
+        "--output", "-o", default=None,
+        help="Write output to file instead of stdout (useful with --all).",
+    )
 
     # explain (Work Order 2, Part 2): execution-path explanation.
     explain_parser = subparsers.add_parser(
@@ -126,12 +175,32 @@ def main(argv: list[str] | None = None) -> int:
     )
     explain_parser.add_argument(
         "location",
-        help="File:line location of the finding (e.g., path/to/file.py:42).",
+        nargs="?",
+        default=None,
+        help="File:line location of the finding (e.g., path/to/file.py:42). "
+             "Omit when using --all.",
+    )
+    explain_parser.add_argument(
+        "--all",
+        dest="all_findings",
+        action="store_true",
+        default=False,
+        help="Explain every finding in the scan. Requires a path argument "
+             "(e.g. `actenon-scan explain --all .`).",
+    )
+    explain_parser.add_argument(
+        "--path",
+        default=".",
+        help="Path to scan when using --all. Default: current directory.",
     )
     explain_parser.add_argument(
         "--rule",
         default=None,
         help="Rule ID to disambiguate when multiple rules fire at the same line.",
+    )
+    explain_parser.add_argument(
+        "--output", "-o", default=None,
+        help="Write output to file instead of stdout (useful with --all).",
     )
 
     # fix (Work Order 2, Part 3): generate remediation diffs.
@@ -175,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_rules(args)
     elif args.command == "init":
         return _cmd_init(args)
+    elif args.command == "baseline":
+        return _cmd_baseline(args)
     elif args.command == "adopt":
         return _cmd_adopt(args)
     elif args.command == "brief":
@@ -189,10 +260,37 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:
-    target = Path(args.path)
-    if not target.exists():
-        print(f"Error: path not found: {target}", file=sys.stderr)
-        return 2
+    # Normalize to a single `target` plus optional `explicit_files` for the
+    # multi-path case (pre-commit passes one path per changed file).
+    paths = [Path(p) for p in args.path]
+    # Validate every path up-front — fail fast with a clear message rather
+    # than silently scanning a subset.
+    for p in paths:
+        if not p.exists():
+            print(f"Error: path not found: {p}", file=sys.stderr)
+            return 2
+
+    if len(paths) == 1:
+        target = paths[0]
+        multi_explicit_files: list[Path] | None = None
+    else:
+        # Multiple paths: pick the common ancestor directory as `target`
+        # and pass the individual files as `explicit_files`. This keeps the
+        # engine's single-target contract intact while letting pre-commit
+        # (and any caller) pass N files in one invocation.
+        # If any path is a directory, fall back to the first directory (the
+        # other paths are then redundant — they are inside it).
+        dir_paths = [p for p in paths if p.is_dir()]
+        if dir_paths:
+            target = dir_paths[0]
+            multi_explicit_files = None
+        else:
+            # All file paths. Common ancestor must be a directory.
+            common = Path(os.path.commonpath([p.resolve() for p in paths]))
+            if common.is_file():
+                common = common.parent
+            target = common
+            multi_explicit_files = [p.resolve() for p in paths]
 
     # Load baseline
     baseline = None
@@ -201,12 +299,17 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         baseline = load_baseline(args.baseline)
 
     # Collect suppressions
+    # NOTE: pass `target` so suppressions are keyed the SAME way the engine
+    # keys findings (path relative to target). Without this, suppressions
+    # silently become no-ops whenever the scan target is an absolute path
+    # (the universal case in CI — `scan .` resolves to the absolute
+    # workspace path).
     suppressions: set[tuple[str, str]] = set()
     if target.is_file():
-        suppressions = collect_suppressions_from_file(target)
+        suppressions = collect_suppressions_from_file(target, target)
     else:
         for filepath in target.rglob("*.py"):
-            suppressions.update(collect_suppressions_from_file(filepath))
+            suppressions.update(collect_suppressions_from_file(filepath, target))
 
     # --guard: register guard patterns without a config file
     config_path = args.config
@@ -243,7 +346,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         tmp_config.close()
         config_path = tmp_config.name
 
-    explicit_files = None
+    explicit_files = multi_explicit_files
     # --changed-only: filter to files changed since git ref
     include_globs = args.include
     # Merge auto-detected excludes with explicit --exclude flags
@@ -257,10 +360,18 @@ def _cmd_scan(args: argparse.Namespace) -> int:
             # globs: globbing still walked the entire tree before filtering,
             # which is the fixed cost --changed-only exists to avoid.
             base = target if target.is_dir() else target.parent
-            explicit_files = [
+            changed_paths = [
                 (base / cf) if not Path(cf).is_absolute() else Path(cf)
                 for cf in changed_files
             ]
+            # If the user also passed explicit paths on the CLI, intersect
+            # with the changed-files set so we don't scan files that weren't
+            # changed. (This is rare but the semantics should be intuitive.)
+            if explicit_files:
+                explicit_set = {p.resolve() for p in explicit_files}
+                explicit_files = [p for p in changed_paths if p.resolve() in explicit_set]
+            else:
+                explicit_files = changed_paths
             # Apply exclude patterns to the changed-files list.
             # Without this, --changed-only bypasses the exclude config and
             # reports findings from test fixtures that were touched in the PR.
@@ -334,6 +445,8 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 exclude_globs=exclude_globs,
                 suppressions=suppressions,
                 baseline_findings=baseline,
+                cache=cache,
+                on_finding=on_finding,
             )
         else:
             result = scan_path(
@@ -481,6 +594,46 @@ def _cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_baseline(args: argparse.Namespace) -> int:
+    """Generate a baseline.json from the current scan.
+
+    The `--baseline` flag on `scan` consumes these files to suppress
+    known findings. This subcommand produces them — previously, users
+    had to hand-craft the JSON.
+    """
+    target = Path(args.path)
+    if not target.exists():
+        print(f"Error: path not found: {target}", file=sys.stderr)
+        return 2
+
+    # Run the scan.
+    from actenon_scan.engine import scan_path
+    result = scan_path(target, config=args.config)
+
+    # Convert findings to the baseline format. The baseline is matched on
+    # (file, snippet_hash) — see baseline.py:load_baseline.
+    baseline_findings = []
+    for f in result.findings:
+        if f.suppressed:
+            continue
+        baseline_findings.append({
+            "file": f.file,
+            "line": f.line,
+            "rule_id": f.rule_id,
+            "snippet_hash": f.snippet_hash,
+            "category": f.category,
+            "severity": f.severity,
+        })
+
+    # Write the baseline file.
+    from actenon_scan.baseline import write_baseline
+    write_baseline(baseline_findings, args.output)
+
+    print(f"Wrote {len(baseline_findings)} finding(s) to {args.output}")
+    print(f"Next: actenon-scan scan {target} --baseline {args.output}")
+    return 0
+
+
 def _cmd_adopt(args: argparse.Namespace) -> int:
     """Show adoption guidance for scan findings.
 
@@ -509,7 +662,7 @@ def _cmd_adopt(args: argparse.Namespace) -> int:
     files_to_scan = [target] if target.is_file() else list(target.rglob("*.py"))
     for f in files_to_scan:
         if f.suffix == ".py":
-            suppressions.update(collect_suppressions_from_file(f))
+            suppressions.update(collect_suppressions_from_file(f, target))
 
     result = scan_path(
         target,
@@ -574,7 +727,14 @@ def _cmd_adopt(args: argparse.Namespace) -> int:
 
 
 def _get_changed_files(git_ref: str, target: Path) -> list[str]:
-    """Get files changed since a git ref, relative to target."""
+    """Get files changed since a git ref, relative to target.
+
+    Returns .py, .ts, .tsx, .js, .jsx, .mjs, .cjs, and .go files. The
+    previous implementation only returned .py files, which meant the
+    GitHub Action's --changed-only flag silently skipped changed .ts/.go
+    files in a PR — directly contradicting the README's "Parses Python,
+    TypeScript, and Go" promise.
+    """
     import subprocess
     try:
         result = subprocess.run(
@@ -585,8 +745,17 @@ def _get_changed_files(git_ref: str, target: Path) -> list[str]:
         if result.returncode != 0:
             print(f"Warning: git diff failed: {result.stderr}", file=sys.stderr)
             return None
-        # Filter to .py files only
-        changed = [f.strip() for f in result.stdout.splitlines() if f.strip().endswith(".py")]
+        # All scannable extensions — MUST stay in sync with the engine's
+        # _collect_files and the TS/Go detector suffix lists.
+        scannable_exts = (
+            ".py",
+            ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+            ".go",
+        )
+        changed = [
+            f.strip() for f in result.stdout.splitlines()
+            if f.strip().endswith(scannable_exts)
+        ]
         return changed if changed else None
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         print(f"Warning: --changed-only requires git: {e}", file=sys.stderr)
@@ -605,27 +774,57 @@ def _cmd_brief(args: argparse.Namespace) -> int:
     attack prompts, prompt-injection strings, exploitation payloads, or
     credential values. A safety filter redacts credential-looking
     patterns and asserts no forbidden pattern remains.
+
+    With ``--all``, generates a brief for every finding in the scan.
+    Useful for security leads reviewing 50+ findings in one document.
     """
-    # Parse the file:line location.
-    if ":" not in args.location:
-        print(
-            f"Error: location must be in the form path/to/file.py:LINE",
-            file=sys.stderr,
-        )
-        return 2
-    file_str, _, line_str = args.location.rpartition(":")
-    try:
-        line = int(line_str)
-    except ValueError:
-        print(f"Error: line number must be an integer, got: {line_str}", file=sys.stderr)
-        return 2
-
-    file_path = Path(file_str)
-    if not file_path.exists():
-        print(f"Error: file not found: {file_path}", file=sys.stderr)
-        return 2
-
     from actenon_scan.brief import build_brief, format_brief_text, format_brief_markdown
+
+    # --all mode: scan the path and brief every finding.
+    if getattr(args, "all_findings", False):
+        target = Path(args.path)
+        if not target.exists():
+            print(f"Error: path not found: {target}", file=sys.stderr)
+            return 2
+        from actenon_scan.engine import scan_path
+        result = scan_path(target)
+        findings = [f for f in result.findings if not f.suppressed]
+        if not findings:
+            print(f"No findings in {target} — nothing to brief.")
+            return 0
+
+        # Resolve target to an absolute path so we can locate finding files
+        # regardless of the user's cwd (same fix as _cmd_explain --all).
+        target_abs = target.resolve()
+        out_lines: list[str] = []
+        for i, f in enumerate(findings):
+            fpath = target_abs / f.file if not os.path.isabs(f.file) else Path(f.file)
+            brief = build_brief(str(fpath), f.line, rule_id=f.rule_id)
+            if brief is None:
+                continue
+            if args.format == "markdown":
+                out_lines.append(format_brief_markdown(brief))
+            else:
+                out_lines.append(format_brief_text(brief))
+            if i < len(findings) - 1:
+                out_lines.append("\n---\n")  # separator between briefs
+
+        output = "\n".join(out_lines)
+        if args.output:
+            Path(args.output).write_text(output, encoding="utf-8")
+            print(f"Wrote {len(findings)} brief(s) to {args.output}")
+        else:
+            print(output)
+        return 0
+
+    # Single-finding mode.
+    if not args.location:
+        print("Error: location is required (or use --all with --path).", file=sys.stderr)
+        return 2
+    parsed = _parse_location(args.location)
+    if isinstance(parsed, int):
+        return parsed
+    file_path, line = parsed
 
     brief = build_brief(str(file_path), line, rule_id=args.rule)
     if brief is None:
@@ -638,14 +837,27 @@ def _cmd_brief(args: argparse.Namespace) -> int:
         return 1
 
     if args.format == "markdown":
-        print(format_brief_markdown(brief))
+        output = format_brief_markdown(brief)
     else:
-        print(format_brief_text(brief))
+        output = format_brief_text(brief)
+    if args.output:
+        Path(args.output).write_text(output, encoding="utf-8")
+    else:
+        print(output)
     return 0
 
 
 def _parse_location(location: str) -> tuple[Path, int] | int:
-    """Parse a file:line location. Returns (path, line) or an exit code."""
+    """Parse a file:line location. Returns (path, line) or an exit code.
+
+    Validates:
+    - location contains a colon
+    - the line part is an integer
+    - the line is >= 1 (a 0 or negative line is malformed — previously
+      `explain app.py:-1` would run a full scan and return "No finding
+      at app.py:-1." which was both wasteful and misleading)
+    - the file exists
+    """
     if ":" not in location:
         print(
             f"Error: location must be in the form path/to/file.py:LINE",
@@ -658,6 +870,13 @@ def _parse_location(location: str) -> tuple[Path, int] | int:
     except ValueError:
         print(f"Error: line number must be an integer, got: {line_str}", file=sys.stderr)
         return 2
+    if line < 1:
+        print(
+            f"Error: line number must be >= 1, got: {line}. "
+            f"Use a 1-indexed line number from `actenon-scan scan` output.",
+            file=sys.stderr,
+        )
+        return 2
     file_path = Path(file_str)
     if not file_path.exists():
         print(f"Error: file not found: {file_path}", file=sys.stderr)
@@ -666,14 +885,58 @@ def _parse_location(location: str) -> tuple[Path, int] | int:
 
 
 def _cmd_explain(args: argparse.Namespace) -> int:
-    """Show the analysed execution path for a finding (Part 2)."""
+    """Show the analysed execution path for a finding (Part 2).
+
+    With ``--all``, explains every finding in the scan.
+    """
+    from actenon_scan.brief import build_brief
+    from actenon_scan.explain import format_explain
+
+    # --all mode: scan the path and explain every finding.
+    if getattr(args, "all_findings", False):
+        target = Path(args.path)
+        if not target.exists():
+            print(f"Error: path not found: {target}", file=sys.stderr)
+            return 2
+        from actenon_scan.engine import scan_path
+        result = scan_path(target)
+        findings = [f for f in result.findings if not f.suppressed]
+        if not findings:
+            print(f"No findings in {target} — nothing to explain.")
+            return 0
+
+        # Resolve target to an absolute path so we can locate finding files
+        # regardless of the user's cwd. The engine returns f.file as a path
+        # RELATIVE TO TARGET, so we join with target to get an absolute path
+        # that build_brief can read.
+        target_abs = target.resolve()
+        out_lines: list[str] = []
+        for i, f in enumerate(findings):
+            # f.file is relative to target; resolve it.
+            fpath = target_abs / f.file if not os.path.isabs(f.file) else Path(f.file)
+            brief = build_brief(str(fpath), f.line, rule_id=f.rule_id)
+            if brief is None:
+                continue
+            out_lines.append(format_explain(brief))
+            if i < len(findings) - 1:
+                out_lines.append("\n---\n")
+
+        output = "\n".join(out_lines)
+        if args.output:
+            Path(args.output).write_text(output, encoding="utf-8")
+            print(f"Wrote {len(findings)} explanation(s) to {args.output}")
+        else:
+            print(output)
+        return 0
+
+    # Single-finding mode.
+    if not args.location:
+        print("Error: location is required (or use --all with --path).", file=sys.stderr)
+        return 2
     parsed = _parse_location(args.location)
     if isinstance(parsed, int):
         return parsed
     file_path, line = parsed
-
-    from actenon_scan.brief import build_brief
-    from actenon_scan.explain import format_explain
 
     brief = build_brief(str(file_path), line, rule_id=args.rule)
     if brief is None:
@@ -684,7 +947,11 @@ def _cmd_explain(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    print(format_explain(brief))
+    output = format_explain(brief)
+    if args.output:
+        Path(args.output).write_text(output, encoding="utf-8")
+    else:
+        print(output)
     return 0
 
 

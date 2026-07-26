@@ -61,7 +61,7 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
         parts.append("<p>Supported source files were parsed and analysed for agent-reachable consequential actions without a dominating authority check.</p>")
         parts.append("<h2>What this scan did not verify</h2>")
         parts.append("<p>Unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.</p>")
-        parts.append('<p>See <code>docs/COVERAGE.md</code> for supported architectures and analysis limits.</p>')
+        parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
         parts.append("</section>")
         parts.append("</main>")
         parts.append("</body>")
@@ -134,7 +134,7 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
     parts.append("<h2>What this scan verified / did not verify</h2>")
     parts.append("<p><strong>Verified:</strong> supported source files were parsed and analysed for agent-reachable consequential actions without a dominating authority check.</p>")
     parts.append("<p><strong>Not verified:</strong> unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.</p>")
-    parts.append('<p>See <code>docs/COVERAGE.md</code> for supported architectures and analysis limits.</p>')
+    parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
     parts.append("</section>")
 
     # Unsupported files

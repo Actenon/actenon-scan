@@ -283,7 +283,8 @@ def analyze_typescript_file(filepath: str | Path) -> tuple[list[TSFinding], list
         return ([], [])
 
     try:
-        source = filepath.read_text(encoding="utf-8")
+        # utf-8-sig strips a UTF-8 BOM if present (Windows editor convention).
+        source = filepath.read_text(encoding="utf-8-sig")
     except (UnicodeDecodeError, OSError) as e:
         return ([], [(str(filepath), f"{type(e).__name__}: {e}")])
 

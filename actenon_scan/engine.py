@@ -473,7 +473,17 @@ def _scan_shard(args: tuple) -> "ScanResult":
     the TypeScript and unsupported-file passes, so shards do no ancillary
     work and the parent does it exactly once.
     """
-    target, shard, config, exclude_globs, self_package, suppressions, baseline = args
+    # Unpack with cache_dir for backwards compatibility: older payloads
+    # (e.g. cached pickled args) may not include it.
+    if len(args) == 7:
+        target, shard, config, exclude_globs, self_package, suppressions, baseline = args
+        cache_dir = None
+    else:
+        target, shard, config, exclude_globs, self_package, suppressions, baseline, cache_dir = args
+    cache = None
+    if cache_dir is not None:
+        from actenon_scan.cache import FileCache
+        cache = FileCache(cache_dir)
     return scan_path(
         target,
         config=config,
@@ -482,6 +492,7 @@ def _scan_shard(args: tuple) -> "ScanResult":
         suppressions=suppressions,
         baseline_findings=baseline,
         explicit_files=shard,
+        cache=cache,
     )
 
 
@@ -495,17 +506,33 @@ def scan_path_parallel(
     suppressions: set[tuple[str, str]] | None = None,
     baseline_findings: dict[str, set[str]] | None = None,
     self_package: str | None = None,
+    cache: "FileCache | None" = None,
+    on_finding: "Callable[[Finding], None] | None" = None,
 ) -> "ScanResult":
-    """Scan by sharding the file list across `jobs` processes."""
+    """Scan by sharding the file list across `jobs` processes.
+
+    ``cache`` and ``on_finding`` are honoured the same way as in
+    ``scan_path``. The cache directory is passed to each worker (each
+    worker constructs its own ``FileCache`` instance pointing at the same
+    directory; atomic writes already prevent corruption). The
+    ``on_finding`` callback fires in the parent as merged findings are
+    iterated, preserving progressive output.
+    """
     from concurrent.futures import ProcessPoolExecutor
 
     target = Path(target)
+
+    # Pass the cache_dir (not the cache object) to workers — FileCache
+    # instances are not picklable across process boundaries, but the
+    # directory string is. Each worker reconstructs its own FileCache.
+    cache_dir = str(cache.cache_dir) if cache is not None and cache.enabled else None
 
     def serial() -> ScanResult:
         return scan_path(
             target, config=config, include_globs=include_globs,
             exclude_globs=exclude_globs, suppressions=suppressions,
             baseline_findings=baseline_findings, self_package=self_package,
+            cache=cache, on_finding=on_finding,
         )
 
     if jobs <= 1 or not target.is_dir():
@@ -525,7 +552,7 @@ def scan_path_parallel(
     shards = [sh for sh in shards if sh]
 
     payload = [
-        (target, sh, config, exclude_globs, self_package, suppressions, baseline_findings)
+        (target, sh, config, exclude_globs, self_package, suppressions, baseline_findings, cache_dir)
         for sh in shards
     ]
     try:
@@ -573,6 +600,15 @@ def scan_path_parallel(
         unsupported = [(f, l) for f, l in unsupported if f not in ts_file_set]
     merged.unsupported_files = unsupported
     merged.findings.sort(key=lambda f: (f.file, f.line))
+
+    # Progressive output: fire on_finding for each merged finding, in
+    # the parent process. This preserves the serial-mode contract that
+    # findings stream to stderr as soon as they are discovered (modulo
+    # the merge step, which is unavoidable when sharding across workers).
+    if on_finding is not None:
+        for f in merged.findings:
+            on_finding(f)
+
     return merged
 
 
@@ -672,7 +708,11 @@ def scan_path(
     for filepath in files:
         rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
         try:
-            source = filepath.read_text(encoding="utf-8")
+            # utf-8-sig strips a UTF-8 BOM if present. Windows-based developers
+            # and some Linux editors save files with BOMs; without this, those
+            # files raise SyntaxError under ast.parse and silently miss real
+            # findings.
+            source = filepath.read_text(encoding="utf-8-sig")
         except (UnicodeDecodeError, OSError) as exc:
             analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
             continue
@@ -1390,8 +1430,18 @@ def _glob_match(rel_path: str, pattern: str) -> bool:
     Handles ** patterns (recursive) that fnmatch doesn't support natively.
     Also handles directory-prefix excludes like `.venv/**` (match anything
     under .venv/) and `**/tests/fixtures/**` (match anywhere in the tree).
+
+    On Windows, ``Path.relative_to`` produces a ``WindowsPath`` whose
+    ``str()`` form uses backslashes. We normalize to forward slashes here
+    so glob patterns (which use ``/``) match consistently across platforms.
     """
     import fnmatch as _fnmatch
+
+    # Normalize Windows backslashes to forward slashes. Without this, exclude
+    # patterns like ``tests/fixtures/**`` fail to match ``tests\\fixtures\\x.py``
+    # and Windows users get all the false positives the excludes were designed
+    # to suppress.
+    rel_path = rel_path.replace("\\", "/")
 
     # Normalize: **/*.py matches everything ending in .py
     if pattern == "**/*.py":

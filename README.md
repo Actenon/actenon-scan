@@ -8,12 +8,12 @@
 <!-- PYTHON-BADGE:END -->
 [![PyPI: actenon-scan](https://img.shields.io/pypi/v/actenon-scan?label=PyPI)](https://pypi.org/project/actenon-scan/)
 [![Dependencies: 0](https://img.shields.io/badge/Dependencies-0-success.svg)](pyproject.toml)
-[![GitHub Action](https://img.shields.io/badge/GitHub%20Action-v1-blue.svg)](#github-action)
-[![SARIF](https://img.shields.io/badge/Output-SARIF-orange.svg)](#output-formats)
+[![GitHub Action](https://img.shields.io/badge/GitHub%20Action-v1-blue.svg)](#how-to-add-it-to-a-pr)
+[![SARIF](https://img.shields.io/badge/Output-SARIF-orange.svg)](#how-to-export-reports)
 [![CI](https://github.com/Actenon/actenon-scan/actions/workflows/ci.yml/badge.svg)](https://github.com/Actenon/actenon-scan/actions/workflows/ci.yml)
 [![claims: machine-verified](https://img.shields.io/github/actions/workflow/status/Actenon/actenon-scan/verify-claims.yml?branch=main&label=claims%3A%20machine-verified)](https://github.com/Actenon/actenon-scan/actions/workflows/verify-claims.yml)
 [![Code style: ruff](https://img.shields.io/badge/Code%20style-ruff-black.svg)](https://docs.astral.sh/ruff/)
-[![Vendor-neutral](https://img.shields.io/badge/Stance-vendor%20neutral-2ea44f.svg)](#what-scan-does-not-do)
+[![Vendor-neutral](https://img.shields.io/badge/Stance-vendor%20neutral-2ea44f.svg)](#what-it-does-not-establish)
 
 ## Quick start
 
@@ -78,6 +78,8 @@ a dominating authority check in the analysed path.
 | SECRETS | Secrets-manager reads |
 | DEPLOYMENT | kubectl, terraform, helm |
 | FILE | File writes, chmod, rename |
+| BROWSER | Playwright page.click/fill, Selenium send_keys |
+| PROVIDER | Provider-SDK calls (aws-sdk, gcp, azure) |
 
 ## What it does not establish
 
@@ -185,10 +187,14 @@ That's it. The action:
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Actenon/actenon-scan
-    rev: v0.8.0
+    rev: v1.0.0
     hooks:
       - id: actenon-scan
         args: [--changed-only, HEAD]
+      # Optional: scan TypeScript/JavaScript and Go files too. Requires
+      # the [typescript] / [go] extras (auto-installed by pre-commit).
+      - id: actenon-scan-typescript
+      - id: actenon-scan-go
 ```
 
 The default workflow does **not** block merging solely because findings exist
@@ -222,12 +228,19 @@ safe to open locally, and include the visible honesty statement:
 
 ## How to suppress or baseline known findings
 
-```bash
-# Suppress a single finding inline:
+```python
+# Suppress a single finding inline — BOTH syntaxes are accepted:
+# actenon-scan: ignore[REPOSITORY-MUTATION]
 # actenon-scan: suppress REPOSITORY-MUTATION
+```
 
+```bash
 # Baseline known findings:
 actenon-scan scan . --baseline known-findings.json
+
+# Generate a baseline from the current scan (locks in today's findings
+# so only NEW findings appear in future scans):
+actenon-scan baseline . --output known-findings.json
 ```
 
 ## Scanning a repo that contains test fixtures
@@ -261,6 +274,39 @@ actenon-scan scan . --guard my_authorize --guard require_permission
 actenon-scan scan . --config actenon-scan.json
 actenon-scan init --format json  # write a default config
 ```
+
+### Custom sinks and reachability signals (config-only, no code changes)
+
+You can extend detection without forking the repo. The config file's `sinks`
+and `reachability` keys are merged with the defaults at load time:
+
+```json
+{
+  "guard_patterns": ["my_authorize"],
+  "sinks": [
+    {
+      "id": "MY-PAYMENT-CHARGE",
+      "category": "payments",
+      "severity": "high",
+      "description": "Custom payment SDK charge call",
+      "match": {
+        "type": "qualified_call",
+        "qualified_names": ["my_payments.charge"]
+      },
+      "priority": 20
+    }
+  ],
+  "reachability": {
+    "tool_decorators": ["my_agent_tool", "component"],
+    "tool_base_classes": ["MyAgentBase", "dspy.Module"]
+  }
+}
+```
+
+This is how you add support for an unrecognised agent framework (e.g.
+Haystack `@component`, DSPy `dspy.Module`, ControlFlow `@task`) without
+waiting for an upstream release. See `default_rules.json` for the full
+schema and `CONTRIBUTING.md` for the match-type reference.
 
 ---
 
@@ -402,10 +448,13 @@ Each finding ships with seven remediation routes. Scan does not pretend Actenon 
 | Sink detector (consequential-action rules) | [`actenon_scan/detectors/sinks.py`](actenon_scan/detectors/sinks.py) |
 | Guard detector (vendor-neutral + Actenon + custom) | [`actenon_scan/detectors/guards.py`](actenon_scan/detectors/guards.py) |
 | Reachability analysis | [`actenon_scan/detectors/reachability.py`](actenon_scan/detectors/reachability.py) |
-| Default rules (8 categories) | [`actenon_scan/rules/default_rules.json`](actenon_scan/rules/default_rules.json) |
+| Default rules (16 categories) | [`actenon_scan/rules/default_rules.json`](actenon_scan/rules/default_rules.json) |
 | Rule loader | [`actenon_scan/rules/loader.py`](actenon_scan/rules/loader.py) |
 | Baseline (known-findings suppression) | [`actenon_scan/baseline.py`](actenon_scan/baseline.py) |
 | Suppression directives | [`actenon_scan/suppress.py`](actenon_scan/suppress.py) |
+| Brief (one-page outreach report) | [`actenon_scan/brief.py`](actenon_scan/brief.py) |
+| Explain (execution-path analysis) | [`actenon_scan/explain.py`](actenon_scan/explain.py) |
+| Fix (remediation diff generator) | [`actenon_scan/fix.py`](actenon_scan/fix.py) |
 | Pretty reporter | [`actenon_scan/report/pretty.py`](actenon_scan/report/pretty.py) |
 | JSON reporter | [`actenon_scan/report/json_out.py`](actenon_scan/report/json_out.py) |
 | SARIF reporter | [`actenon_scan/report/sarif.py`](actenon_scan/report/sarif.py) |
