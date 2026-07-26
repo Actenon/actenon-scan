@@ -1,5 +1,5 @@
 name: "actenon-scan"
-description: "Find where agent-controlled intent reaches consequential actions without an authority check. Python + TypeScript."
+description: "Find where agent-controlled intent reaches consequential actions without an authority check. Python + TypeScript + Go."
 branding:
   icon: "shield"
   color: "blue"
@@ -65,11 +65,11 @@ runs:
           VERSION=$(grep -m1 '^version' "${{ github.action_path }}/pyproject.toml" 2>/dev/null | sed 's/.*"\(.*\)"/\1/' || echo "")
         fi
         if [ -n "$VERSION" ]; then
-          echo "Installing actenon-scan[typescript]==$VERSION"
-          pip install "actenon-scan[typescript]==$VERSION"
+          echo "Installing actenon-scan[typescript,go]==$VERSION"
+          pip install "actenon-scan[typescript,go]==$VERSION"
         else
           echo "WARNING: could not determine version; installing latest"
-          pip install "actenon-scan[typescript]"
+          pip install "actenon-scan[typescript,go]"
         fi
 
     - name: Determine scan scope
@@ -94,24 +94,36 @@ runs:
       run: |
         set +e
         # Build the scan command. Always produce SARIF + JSON for downstream steps.
+        # NOTE: argparse keeps only the LAST value of a non-repeatable option,
+        # so we cannot pass --format/--output twice on one line. We run the
+        # scan TWICE — once for JSON (with --fail-on), once for SARIF (with
+        # --fail-on none so SARIF generation is never short-circuited).
         SCAN_PATH="${{ inputs.path }}"
         FAIL_ON="${{ inputs.fail-on }}"
-        ARGS="actenon-scan scan $SCAN_PATH --format sarif --output results.sarif --fail-on $FAIL_ON --format json --output results.json"
 
+        # Common args (scope, config, baseline) appended to BOTH invocations.
+        COMMON_ARGS=""
         # --changed-only for PR scope
         if [ "${{ steps.scope.outputs.scope }}" = "changed" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
-          ARGS="$ARGS --changed-only origin/${{ github.base_ref }}"
+          COMMON_ARGS="$COMMON_ARGS --changed-only origin/${{ github.base_ref }}"
         fi
-
         # Config and baseline
-        if [ -n "${{ inputs.config }}" ]; then ARGS="$ARGS --config ${{ inputs.config }}"; fi
-        if [ -n "${{ inputs.baseline }}" ]; then ARGS="$ARGS --baseline ${{ inputs.baseline }}"; fi
+        if [ -n "${{ inputs.config }}" ]; then COMMON_ARGS="$COMMON_ARGS --config ${{ inputs.config }}"; fi
+        if [ -n "${{ inputs.baseline }}" ]; then COMMON_ARGS="$COMMON_ARGS --baseline ${{ inputs.baseline }}"; fi
 
-        echo "Running: $ARGS"
-        # Run scan — don't let it fail the build yet (we handle fail-on below)
-        eval $ARGS 2>&1 | tee scan-output.txt
+        # --- Pass 1: JSON (authoritative for counts + fail-on) ---
+        JSON_CMD="actenon-scan scan $SCAN_PATH --format json --output results.json --fail-on $FAIL_ON$COMMON_ARGS"
+        echo "Running: $JSON_CMD"
+        eval $JSON_CMD 2>&1 | tee scan-output.txt
         EXIT_CODE=$?
         echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+        # --- Pass 2: SARIF (for the Security tab; never fails the build) ---
+        SARIF_CMD="actenon-scan scan $SCAN_PATH --format sarif --output results.sarif --fail-on none$COMMON_ARGS"
+        echo "Running: $SARIF_CMD"
+        eval $SARIF_CMD 2>&1 | tee -a scan-output.txt
+        # SARIF pass exit code is intentionally ignored — it must not affect
+        # the build's pass/fail status (that's what JSON pass + --fail-on is for).
 
         # Extract counts from JSON (if it exists)
         if [ -f results.json ]; then
@@ -157,6 +169,14 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        # P0 fix: FINDINGS_COUNT was never set, so the heredoc always exited
+        # at "No findings — skipping PR comment". The README claim "Posts a
+        # sticky blast-radius comment on PRs with findings" was false.
+        FINDINGS_COUNT: ${{ steps.scan.outputs.findings-count }}
+        # P0 fix: GITHUB_REF is "refs/pull/123/merge" — split("/")[-1] is
+        # "merge", not "123". GITHUB_REF_NAME is "123/merge" — split("/")[0]
+        # is "123". We pass it explicitly so the heredoc doesn't have to guess.
+        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
         # Work Order 3, Part 1.4: post a sticky blast-radius comment.
         # Located by a hidden HTML marker; updated in place, never duplicated.
@@ -254,9 +274,14 @@ runs:
 
         body = "\n".join(lines)
 
-        # Find existing comment
-        pr_number = os.environ.get("GITHUB_REF", "").split("/")[-1]
+        # PR number is passed explicitly via the PR_NUMBER env var (set above
+        # from github.event.pull_request.number). Parsing GITHUB_REF directly
+        # is fragile — "refs/pull/123/merge".split("/")[-1] is "merge", not "123".
+        pr_number = os.environ.get("PR_NUMBER", "")
         repo = os.environ.get("GITHUB_REPOSITORY", "")
+        if not pr_number or not repo:
+            print(f"Missing PR_NUMBER ({pr_number!r}) or GITHUB_REPOSITORY ({repo!r}) — skipping comment")
+            sys.exit(0)
 
         result = subprocess.run(
             ["gh", "api", f"repos/{repo}/issues/{pr_number}/comments",

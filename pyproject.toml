@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [{ name = "Actenon" }]
 keywords = ["security", "static-analysis", "ai-agents", "execution-gap", "sast"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
@@ -23,6 +23,14 @@ classifiers = [
   "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Actenon/actenon-scan"
+Documentation = "https://github.com/Actenon/actenon-scan/blob/main/README.md"
+Source = "https://github.com/Actenon/actenon-scan"
+Issues = "https://github.com/Actenon/actenon-scan/issues"
+Changelog = "https://github.com/Actenon/actenon-scan/blob/main/CHANGELOG.md"
+Security = "https://github.com/Actenon/actenon-scan/blob/main/SECURITY.md"
 
 [project.optional-dependencies]
 yaml = ["pyyaml>=6.0"]

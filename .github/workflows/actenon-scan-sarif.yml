@@ -19,6 +19,7 @@ on:
       - '**/*.tsx'
       - '**/*.js'
       - '**/*.jsx'
+      - '**/*.go'
   schedule:
     # Run nightly at 02:00 UTC to catch new findings from rule updates.
     - cron: '0 2 * * *'
@@ -45,8 +46,8 @@ jobs:
           # Install from the repo source so the workflow uses the current
           # version (including --no-cache, blast-radius summary, etc.).
           # External repositories should replace this with:
-          #   pip install "actenon-scan[typescript,yaml]"
-          pip install -e ".[typescript,yaml]"
+          #   pip install "actenon-scan[typescript,go,yaml]"
+          pip install -e ".[typescript,go,yaml]"
 
       - name: Scan and produce SARIF
         run: |

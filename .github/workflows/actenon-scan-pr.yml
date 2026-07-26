@@ -27,6 +27,7 @@ on:
       - '**/*.tsx'
       - '**/*.js'
       - '**/*.jsx'
+      - '**/*.go'
 
 permissions:
   pull-requests: write
@@ -57,14 +58,14 @@ jobs:
           # Install from the repo source so the workflow uses the current
           # version (including --no-cache, blast-radius summary, etc.).
           # External repositories should replace this with:
-          #   pip install "actenon-scan[typescript,yaml]"
-          pip install -e ".[typescript,yaml]"
+          #   pip install "actenon-scan[typescript,go,yaml]"
+          pip install -e ".[typescript,go,yaml]"
 
       - name: Scan changed files
         id: scan
         run: |
           # Get the list of changed files and scan only those.
-          CHANGED=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}...HEAD -- '*.py' '*.ts' '*.tsx' '*.js' '*.jsx' | head -200)
+          CHANGED=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}...HEAD -- '*.py' '*.ts' '*.tsx' '*.js' '*.jsx' '*.go' | head -200)
           if [ -z "$CHANGED" ]; then
             echo "No scannable files changed."
             echo "has_findings=false" >> "$GITHUB_OUTPUT"

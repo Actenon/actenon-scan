@@ -45,7 +45,7 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
         lines.append(
             "Unsupported languages, files outside the scan target, guards outside "
             "the analysed path, external reachability, or practical exploitability. "
-            "See `docs/COVERAGE.md` for supported architectures and analysis limits."
+            "See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits."
         )
         return "\n".join(lines) + "\n"
 
@@ -106,7 +106,7 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
     lines.append("")
     lines.append("**Not verified:** unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.")
     lines.append("")
-    lines.append("See `docs/COVERAGE.md` for supported architectures and analysis limits.")
+    lines.append("See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits.")
 
     # Unsupported files
     if result.unsupported_files:

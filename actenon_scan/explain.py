@@ -88,7 +88,11 @@ def format_explain(brief: Brief) -> str:
 
     # Coverage
     lines.append("Coverage")
-    lines.append("   See docs/COVERAGE.md for supported architectures and analysis limits.")
+    # The docs/ directory is not shipped in the wheel (only the actenon_scan
+    # package is). Point users at the canonical GitHub URL so the reference
+    # resolves whether they installed via pip or are running from source.
+    lines.append("   See https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md")
+    lines.append("   for supported architectures and analysis limits.")
 
     return "\n".join(lines) + "\n"
 
