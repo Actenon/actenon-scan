@@ -2,8 +2,8 @@
   "_comment": "Hand triage of every finding in corpus-results.json. A corpus count with no triage behind it is the same defect as a benchmark score with no detector behind it. Any FALSE_POSITIVE entry fails CI: the rule must be fixed and a regression fixture added, not the entry edited.",
   "corpus_sha_source": "tests/benchmark/pinned_repos.json",
   "totals": {
-    "findings": 30,
-    "true_positives": 30,
+    "findings": 28,
+    "true_positives": 28,
     "false_positives": 0
   },
   "false_positives_found_and_fixed_this_run": [
@@ -210,26 +210,6 @@
       "rationale": "aiohttp session request inside a Semantic Kernel core plugin. Plugins are the kernel's tool surface: the URL is agent-supplied and there is no authorization gate."
     },
     {
-      "repo": "agno-agi/agno",
-      "sha": "a4a7e319e9124a00c50f7815e4cea2bb3cae28e5",
-      "file": "cookbook/02_agents/10_human_in_the_loop/external_tool_execution.py",
-      "line": 29,
-      "rule_id": "EXEC-SHELL",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "subprocess shell execution inside a function registered as an agent tool. The human-in-the-loop confirmation is a runtime property the scanner cannot verify statically, so reporting it is correct (ambiguity resolves to WEAK, never CLEAN)."
-    },
-    {
-      "repo": "agno-agi/agno",
-      "sha": "a4a7e319e9124a00c50f7815e4cea2bb3cae28e5",
-      "file": "cookbook/03_teams/20_human_in_the_loop/external_tool_execution_stream.py",
-      "line": 38,
-      "rule_id": "EXEC-SHELL",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "subprocess shell execution inside a function registered as an agent tool. The human-in-the-loop confirmation is a runtime property the scanner cannot verify statically, so reporting it is correct (ambiguity resolves to WEAK, never CLEAN)."
-    },
-    {
       "repo": "FoundationAgents/MetaGPT",
       "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
       "file": "examples/build_customized_agent.py",
@@ -338,6 +318,17 @@
       "confidence": "high",
       "verdict": "TRUE_POSITIVE",
       "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths."
+    }
+  ],
+  "corrections": [
+    {
+      "date": "2026-07-26",
+      "description": "2 agno findings (cookbook/.../external_tool_execution.py:29 and :38) were originally triaged as TRUE_POSITIVE. They are actually guarded by @tool(external_execution=True), agno's human-in-the-loop primitive. The scanner now recognises this flag as a framework-level guard (Work Order 4, Part 2.1). The findings no longer fire. The published precision figure in CORPUS_STUDY.md was corrected from 30/30 (100%) to 28/28 (100%) \u2014 the 2 false positives were found and fixed by the project itself before any maintainer was contacted.",
+      "affected_repos": [
+        "agno-agi/agno"
+      ],
+      "original_count": 30,
+      "corrected_count": 28
     }
   ]
 }

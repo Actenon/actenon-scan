@@ -210,26 +210,28 @@ def _cmd_scan(args: argparse.Namespace) -> int:
 
     # --guard: register guard patterns without a config file
     config_path = args.config
-    # Auto-detect .actenon-scan.json at the target root (Work Order 3, Part 1.1).
-    # A repo that contains test fixtures can exclude them so `actenon-scan scan .`
-    # reports clean on its own code. This is the config the project itself ships
-    # to keep its self-scan honest.
+    # Work Order 4, Part 1.1+1.4: auto-detect .actenon-scan.json at the
+    # scan target root (or the repo root above it), AND read exclude
+    # patterns from ANY config file — whether auto-detected or explicit.
+    # Search order: explicit --config > target/.actenon-scan.json >
+    # target.parent/.actenon-scan.json
     auto_exclude: list[str] | None = None
     if not config_path:
         auto_config = target / ".actenon-scan.json" if target.is_dir() else target.parent / ".actenon-scan.json"
         if auto_config.exists():
             config_path = str(auto_config)
-            # Read exclude patterns from the auto-detected config. These are
-            # scan-level options, not ruleset options, so they need to be
-            # passed through separately from the ruleset loading.
-            import json as _json
-            try:
-                with open(auto_config) as f:
-                    auto_cfg = _json.load(f)
-                if isinstance(auto_cfg, dict) and "exclude" in auto_cfg:
-                    auto_exclude = auto_cfg["exclude"]
-            except (OSError, _json.JSONDecodeError):
-                pass
+    # Read exclude patterns from whatever config file we're using.
+    # This fixes the bug where --config .actenon-scan.json did NOT apply
+    # the exclude key (it was only read in the auto-detection path).
+    if config_path:
+        import json as _json
+        try:
+            with open(config_path) as f:
+                cfg = _json.load(f)
+            if isinstance(cfg, dict) and "exclude" in cfg:
+                auto_exclude = cfg["exclude"]
+        except (OSError, _json.JSONDecodeError):
+            pass
     if args.guard and not config_path:
     # Write a temporary config with the guard patterns
         import tempfile, json

@@ -577,6 +577,63 @@ def _identify_check(node: ast.Call) -> ExistingCheck | None:
 
 
 # ---------------------------------------------------------------------------
+# Path context detection (Work Order 4, Part 3).
+# ---------------------------------------------------------------------------
+
+# Directory names that signal example/demo code rather than library code.
+_EXAMPLE_PATH_SEGMENTS = frozenset({
+    "cookbook", "example", "examples", "demo", "demos", "docs",
+    "sample", "samples", "tutorial", "playground",
+})
+
+# Directory names that signal an approval pattern is in use.
+_APPROVAL_PATH_SEGMENTS = frozenset({
+    "human_in_the_loop",
+})
+
+
+def _path_context_caveat(file_path: str) -> str | None:
+    """Detect whether a finding's path suggests example or demo code.
+
+    Returns a human-readable caveat string, or None if the path doesn't
+    match any known pattern.
+
+    This does NOT change severity or suppress the finding. Example code
+    can be copied into production and is worth fixing. It changes what
+    the finding MEANS and how it should be communicated.
+    """
+    parts = Path(file_path).parts
+    lower_parts = {p.lower() for p in parts}
+
+    matched_example = lower_parts & _EXAMPLE_PATH_SEGMENTS
+    matched_approval = lower_parts & _APPROVAL_PATH_SEGMENTS
+
+    if matched_example and matched_approval:
+        segments = sorted(matched_example | matched_approval)
+        return (
+            f"This file is under `{'/'.join(segments)}/` and appears to be "
+            f"example code demonstrating an approval pattern. A maintainer "
+            f"may reasonably respond that it is illustrative. Confirm "
+            f"before sending."
+        )
+    if matched_example:
+        segment = sorted(matched_example)[0]
+        return (
+            f"This file is under `{segment}/` and appears to be example "
+            f"code rather than library code. A maintainer may reasonably "
+            f"respond that it is illustrative. Confirm before sending."
+        )
+    if matched_approval:
+        segment = sorted(matched_approval)[0]
+        return (
+            f"This file is under `{segment}/` which suggests an approval "
+            f"pattern is in use. Verify that the approval mechanism is "
+            f"not a dominating guard before reporting."
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Formatters (Part 6.5 — text + markdown).
 # ---------------------------------------------------------------------------
 
@@ -647,6 +704,11 @@ def format_brief_text(brief: Brief) -> str:
     for opt in brief.remediation_options:
         lines.append(f"  {opt.rank}. {opt.kind}: {opt.description}")
     lines.append("")
+    # Path context caveat (Work Order 4, Part 3.1)
+    path_caveat = _path_context_caveat(brief.location.file)
+    if path_caveat:
+        lines.append(f"CONTEXT: {path_caveat}")
+        lines.append("")
     lines.append(f"What this does NOT establish:")
     for para in brief.limitations.text.split("\n"):
         lines.append(f"  {para}")
@@ -737,6 +799,15 @@ def format_brief_markdown(brief: Brief) -> str:
     for opt in brief.remediation_options:
         lines.append(f"{opt.rank}. **{opt.kind}** — {opt.description}")
     lines.append("")
+
+    # Path context caveat (Work Order 4, Part 3.4)
+    path_caveat = _path_context_caveat(brief.location.file)
+    if path_caveat:
+        lines.append("## Context caveat")
+        lines.append("")
+        lines.append(f"> {path_caveat}")
+        lines.append("")
+
     lines.append("## What this does NOT establish")
     lines.append("")
     for para in brief.limitations.text.split("\n"):

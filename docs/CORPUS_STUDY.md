@@ -34,15 +34,15 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 
 ## Findings
 
-- **Total findings:** 30
-- **True positives (hand-triaged):** 30
+- **Total findings:** 28
+- **True positives (hand-triaged):** 28
 - **False positives:** 0
 
 ### By consequence category
 
 | Category | Count |
 |---|---|
-| unknown | 30 |
+| unknown | 28 |
 
 ### By rule
 
@@ -50,11 +50,11 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 |---|---|
 | NET-EGRESS | 15 |
 | FILE-OPEN-WRITE | 6 |
-| EXEC-SHELL | 3 |
 | COMMUNICATION-SEND | 2 |
 | DATA-DELETE-OS | 2 |
 | FILE-WRITE | 1 |
 | DATA-DELETE-SQL | 1 |
+| EXEC-SHELL | 1 |
 
 ### By repository
 
@@ -64,7 +64,6 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 | TransformerOptimus/SuperAGI | 6 |
 | FoundationAgents/MetaGPT | 5 |
 | microsoft/semantic-kernel | 3 |
-| agno-agi/agno | 2 |
 | modelcontextprotocol/servers | 1 |
 | modelcontextprotocol/python-sdk | 1 |
 
@@ -95,15 +94,27 @@ were identified and fixed:
    was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ
    rule's qualified patterns.
 
-### Current measurement: 30/30 (100% precision)
+### Current measurement: 28/28 (100% precision)
 
-After fixes, the current corpus has 30 findings,
+After fixes, the current corpus has 28 findings,
 all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number
 that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is
 present or any finding is untriaged.
 
 The corpus grew from 18 to 25 repos (7 more added). The false-positive
 count stayed at zero because each new finding was hand-triaged before merge.
+
+### Self-correction: 2 agno findings reclassified (30 → 28)
+
+During outreach preparation, 2 findings in `agno-agi/agno` were found to
+be false positives. The findings were on `@tool(external_execution=True)`
+decorated functions — agno's human-in-the-loop primitive that hands the
+tool call back to a human rather than auto-executing it. The scanner
+originally treated these as unguarded; after recognising the
+`external_execution=True` flag as a framework-level guard, the findings
+no longer fire. The correction was made by the project itself, before
+any maintainer was contacted. A study that publishes a corrected number
+with the reason stated is more credible than one that never moved.
 
 ## What the scanner cannot see
 
