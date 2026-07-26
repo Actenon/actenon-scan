@@ -1,0 +1,24 @@
+# CODEOWNERS — https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# By default, the actenon-scan maintainers team owns everything. Specific
+# paths can be assigned to specific reviewers below.
+
+# Default owner — everything not otherwise assigned.
+*                       @Actenon/maintainers
+
+# Security-critical paths — require a maintainer review.
+/action.yml             @Actenon/maintainers
+/actenon_scan/engine.py @Actenon/maintainers
+/actenon_scan/detectors/ @Actenon/maintainers
+/actenon_scan/rules/    @Actenon/maintainers
+/SECURITY.md            @Actenon/maintainers
+
+# Documentation — lower bar, broader reviewers welcome.
+/docs/                  @Actenon/maintainers
+/README.md              @Actenon/maintainers
+/CONTRIBUTING.md        @Actenon/maintainers
+/CHANGELOG.md           @Actenon/maintainers
+
+# CI / workflows — require a maintainer review.
+/.github/workflows/     @Actenon/maintainers
+/.github/ISSUE_TEMPLATE/ @Actenon/maintainers

@@ -728,6 +728,27 @@ def scan_path(
             if cached is not None:
                 cached_findings, _cached_file_error = cached
                 for cf in cached_findings:
+                    # Reset suppression state and re-apply from the CURRENT
+                    # baseline + suppressions sets. The cache stores findings
+                    # with the suppression state from cache-write time, which
+                    # may be stale (the user may have added/removed baseline
+                    # entries, or added/removed inline suppressions). Without
+                    # this reset, a user who runs `scan .`, then `baseline .`,
+                    # then `scan . --baseline b.json` would see all findings
+                    # unsuppressed because the cache short-circuits the
+                    # baseline check. (Round-3 audit P0.)
+                    cf.suppressed = False
+                    cf.suppression_reason = ""
+                    if suppressions and (rel, cf.rule_id) in suppressions:
+                        cf.suppressed = True
+                        cf.suppression_reason = "inline_suppression"
+                    if baseline_findings:
+                        file_baselines = baseline_findings.get(rel, set())
+                        if cf.snippet_hash in file_baselines:
+                            cf.suppressed = True
+                            # Don't overwrite a more-specific reason.
+                            if not cf.suppression_reason:
+                                cf.suppression_reason = "baseline"
                     findings.append(cf)
                     if on_finding is not None and not cf.suppressed:
                         on_finding(cf)

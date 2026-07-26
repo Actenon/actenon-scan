@@ -44,7 +44,19 @@ def main(argv: list[str] | None = None) -> int:
              "'list' = linter-style list. 'json'/'sarif' = machine-readable. "
              "'html'/'markdown' = shareable reports.",
     )
-    scan_parser.add_argument("--fail-on", choices=["none", "low", "medium", "high"], default="medium")
+    # P1-4 fix: default --fail-on is now "none" (matching action.yml:15).
+    # Previously the CLI defaulted to "medium" while the action defaulted
+    # to "none" — a new user running `actenon-scan scan .` would see exit 1
+    # on any medium-or-above finding and assume the tool crashed. The action
+    # already used `none`; this aligns the CLI.
+    scan_parser.add_argument(
+        "--fail-on",
+        choices=["none", "low", "medium", "high"],
+        default="none",
+        help="Exit non-zero when findings meet this severity. Default: none "
+             "(findings are reported but don't fail the build). Set to 'high' "
+             "or 'medium' to fail in CI; 'low' is the strictest.",
+    )
     scan_parser.add_argument("--config", help="Path to config file (JSON or YAML).")
     scan_parser.add_argument("--baseline", help="Path to baseline.json for known-findings suppression.")
     scan_parser.add_argument("--include", action="append", default=None, help="Glob pattern to include (repeatable).")
@@ -83,6 +95,15 @@ def main(argv: list[str] | None = None) -> int:
         default=False,
         help="Disable the content-hash cache. Every file is scanned fresh.",
     )
+    scan_parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help="Override the cache directory. Default: "
+             "${XDG_CACHE_HOME:-~/.cache}/actenon-scan/<target-hash>. "
+             "Can also be set via the ACTENON_SCAN_CACHE_DIR env var. "
+             "Use this in CI to keep the cache on a persistent volume "
+             "across runs, or to avoid polluting the workspace.",
+    )
 
     # rules
     _rules_parser = subparsers.add_parser("rules", help="List active rules.")
@@ -90,6 +111,17 @@ def main(argv: list[str] | None = None) -> int:
     # init
     init_parser = subparsers.add_parser("init", help="Write a default config file.")
     init_parser.add_argument("--format", choices=["json", "yaml", "yml"], default="json")
+    # P1-2 fix: init previously overwrote the existing .actenon-scan.json
+    # silently, destroying exclude/sinks/reachability keys. Now it merges
+    # suggested guards into the existing config and refuses to overwrite
+    # without --force.
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Overwrite the existing config instead of merging. DANGEROUS: "
+             "loses exclude/sinks/reachability keys. Default: merge.",
+    )
 
     # baseline: generate a known-findings baseline from the current scan.
     # The `--baseline` flag on `scan` consumes these files; this subcommand
@@ -355,41 +387,68 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         exclude_globs.extend(auto_exclude)
     if args.changed_only:
         changed_files = _get_changed_files(args.changed_only, target)
-        if changed_files:
-            # Pass the exact paths through rather than converting to include
-            # globs: globbing still walked the entire tree before filtering,
-            # which is the fixed cost --changed-only exists to avoid.
-            base = target if target.is_dir() else target.parent
-            changed_paths = [
-                (base / cf) if not Path(cf).is_absolute() else Path(cf)
-                for cf in changed_files
-            ]
-            # If the user also passed explicit paths on the CLI, intersect
-            # with the changed-files set so we don't scan files that weren't
-            # changed. (This is rare but the semantics should be intuitive.)
-            if explicit_files:
-                explicit_set = {p.resolve() for p in explicit_files}
-                explicit_files = [p for p in changed_paths if p.resolve() in explicit_set]
-            else:
-                explicit_files = changed_paths
-            # Apply exclude patterns to the changed-files list.
-            # Without this, --changed-only bypasses the exclude config and
-            # reports findings from test fixtures that were touched in the PR.
-            if exclude_globs:
-                from fnmatch import fnmatch
-                filtered = []
-                for f in explicit_files:
-                    rel = str(f.relative_to(base)) if base in f.parents or f == base else str(f)
-                    excluded = False
-                    for pattern in exclude_globs:
-                        # Handle ** patterns by also checking prefix matches
-                        clean_pattern = pattern.replace("**/", "").replace("/**", "")
-                        if fnmatch(rel, pattern) or fnmatch(str(f), pattern) or clean_pattern in rel:
-                            excluded = True
-                            break
-                    if not excluded:
-                        filtered.append(f)
-                explicit_files = filtered
+        if not changed_files:
+            # P1-5 fix: previously, an empty git diff silently fell through
+            # to a full scan (because explicit_files stayed None and the
+            # scan_path call below walks the whole tree). A user running
+            # `--changed-only HEAD` on a clean working tree (the common CI
+            # case) would get a full scan and N findings they didn't
+            # expect. Now we print a warning and exit 0 with no findings.
+            print(
+                f"--changed-only {args.changed_only}: no scannable files changed. "
+                f"Nothing to scan.",
+                file=sys.stderr,
+            )
+            # Print an empty result so callers piping output get something.
+            from actenon_scan.report.pretty import format_pretty as _fp
+            from actenon_scan.engine import ScanResult as _SR
+            print(_fp(_SR()), end="")
+            return 0
+        # Pass the exact paths through rather than converting to include
+        # globs: globbing still walked the entire tree before filtering,
+        # which is the fixed cost --changed-only exists to avoid.
+        base = target if target.is_dir() else target.parent
+        changed_paths = [
+            (base / cf) if not Path(cf).is_absolute() else Path(cf)
+            for cf in changed_files
+        ]
+        # If the user also passed explicit paths on the CLI, intersect
+        # with the changed-files set so we don't scan files that weren't
+        # changed. (This is rare but the semantics should be intuitive.)
+        if explicit_files:
+            explicit_set = {p.resolve() for p in explicit_files}
+            explicit_files = [p for p in changed_paths if p.resolve() in explicit_set]
+        else:
+            explicit_files = changed_paths
+        # Apply exclude patterns to the changed-files list.
+        # Without this, --changed-only bypasses the exclude config and
+        # reports findings from test fixtures that were touched in the PR.
+        if exclude_globs:
+            from fnmatch import fnmatch
+            filtered = []
+            for f in explicit_files:
+                rel = str(f.relative_to(base)) if base in f.parents or f == base else str(f)
+                excluded = False
+                for pattern in exclude_globs:
+                    # Handle ** patterns by also checking prefix matches
+                    clean_pattern = pattern.replace("**/", "").replace("/**", "")
+                    if fnmatch(rel, pattern) or fnmatch(str(f), pattern) or clean_pattern in rel:
+                        excluded = True
+                        break
+                if not excluded:
+                    filtered.append(f)
+            explicit_files = filtered
+            # If excludes filtered out everything, warn and exit 0.
+            if not explicit_files:
+                print(
+                    f"--changed-only {args.changed_only}: all changed files were "
+                    f"excluded by config. Nothing to scan.",
+                    file=sys.stderr,
+                )
+                from actenon_scan.report.pretty import format_pretty as _fp2
+                from actenon_scan.engine import ScanResult as _SR2
+                print(_fp2(_SR2()), end="")
+                return 0
 
     try:
         # An explicit --jobs N is always honoured. Otherwise auto_jobs decides,
@@ -415,7 +474,12 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         cache = None
         if not args.no_cache:
             from actenon_scan.cache import FileCache, get_default_cache_dir
-            cache_dir = get_default_cache_dir(target)
+            # --cache-dir flag wins; otherwise env var (handled in
+            # get_default_cache_dir); otherwise XDG default.
+            if args.cache_dir:
+                cache_dir = args.cache_dir
+            else:
+                cache_dir = get_default_cache_dir(target)
             cache = FileCache(cache_dir)
 
         # ── Progressive output (Work Order 2, Part 4.1) ──
@@ -528,8 +592,41 @@ def _cmd_init(args: argparse.Namespace) -> int:
     If the current directory contains Python files with guard-shaped
     function names not in the default vocabulary, they are pre-populated
     as suggestions.
+
+    P1-2 fix: previously this command SILENTLY OVERWROTE an existing
+    .actenon-scan.json, destroying exclude/sinks/reachability keys. Now
+    it MERGES suggested guards into the existing config (deduped) and
+    refuses to overwrite without --force.
     """
-    # Scan for unrecognised guard-shaped names in the current directory
+    # Determine the config file path.
+    if args.format == "json":
+        path = ".actenon-scan.json"
+    else:
+        path = ".actenon-scan.yml"
+
+    # Read the existing config if present (for merge).
+    existing_config: dict = {}
+    existing_path = Path(path)
+    if existing_path.exists() and not args.force:
+        try:
+            if args.format == "json":
+                existing_config = json.loads(existing_path.read_text())
+            else:
+                import yaml as _yaml
+                existing_config = _yaml.safe_load(existing_path.read_text()) or {}
+            if not isinstance(existing_config, dict):
+                existing_config = {}
+        except (OSError, json.JSONDecodeError, Exception):
+            # If we can't parse the existing config, fall through to the
+            # overwrite path with a warning.
+            print(
+                f"Warning: could not parse existing {path}; will overwrite. "
+                f"Use --force to suppress this warning.",
+                file=sys.stderr,
+            )
+            existing_config = {}
+
+    # Scan for unrecognised guard-shaped names in the current directory.
     suggested_guards: list[str] = []
     try:
         from actenon_scan.engine import scan_path, _find_declarative_guarded_classes
@@ -539,6 +636,8 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
         rules = load_default_rules()
         known_guards = set(rules.guard_patterns)
+        # Include guards already in the existing config so we don't re-suggest them.
+        known_guards.update(existing_config.get("guard_patterns", []))
         guard_shape_words = {"authorize", "check", "verify", "guard", "gate",
                              "permission", "auth", "policy", "enforce", "allow",
                              "approve", "confirm", "validate", "require"}
@@ -554,7 +653,6 @@ def _cmd_init(args: argparse.Namespace) -> int:
             for node in _ast.walk(tree):
                 if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
                     name_lower = node.name.lower()
-                    # Check if it looks guard-shaped but is not in known_guards
                     if any(word in name_lower for word in guard_shape_words):
                         if node.name not in known_guards and node.name not in suggested_guards:
                             suggested_guards.append(node.name)
@@ -563,34 +661,58 @@ def _cmd_init(args: argparse.Namespace) -> int:
     except Exception:
         pass  # Don't fail --init if scanning fails
 
-    config = {
-        "version": "1",
-        "guard_patterns": suggested_guards if suggested_guards else [],
-    }
+    # Build the new config. MERGE with existing instead of overwriting.
+    if args.force:
+        # --force: write a fresh config with only the suggested guards.
+        config = {
+            "version": "1",
+            "guard_patterns": suggested_guards if suggested_guards else [],
+        }
+        action_verb = "Overwrote"
+    else:
+        # Merge: start with existing config, add suggested guards (deduped).
+        config = dict(existing_config)  # shallow copy preserves exclude/sinks/reachability
+        config.setdefault("version", "1")
+        existing_guards = list(config.get("guard_patterns", []))
+        merged_guards = list(existing_guards)
+        for g in suggested_guards:
+            if g not in merged_guards:
+                merged_guards.append(g)
+        config["guard_patterns"] = merged_guards
+        action_verb = "Merged into" if existing_config else "Wrote"
 
     if args.format == "json":
-        path = ".actenon-scan.json"
         content = json.dumps(config, indent=2) + "\n"
     else:
-        path = ".actenon-scan.yml"
+        import yaml as _yaml
         lines = ["# actenon-scan configuration", ""]
-        if suggested_guards:
-            lines.append("# Suggested guard patterns found in your codebase:")
+        if config.get("guard_patterns"):
+            lines.append("# Guard patterns (custom + suggested):")
             lines.append("guard_patterns:")
-            for g in suggested_guards:
+            for g in config["guard_patterns"]:
                 lines.append(f'  - "{g}"')
         else:
             lines.append("# Add your custom guard patterns here:")
             lines.append('guard_patterns: []')
+        # Preserve exclude/sinks/reachability if present.
+        for key in ("exclude", "sinks", "reachability"):
+            if key in config:
+                lines.append("")
+                lines.append(f"{key}:")
+                lines.append(_yaml.dump(config[key], default_flow_style=False).rstrip())
         lines.append("")
         content = "\n".join(lines) + "\n"
 
     Path(path).write_text(content)
-    print(f"Wrote config to {path}")
+    print(f"{action_verb} config at {path}")
     if suggested_guards:
         print(f"Found {len(suggested_guards)} suggested guard(s): {', '.join(suggested_guards[:5])}{'...' if len(suggested_guards) > 5 else ''}")
     else:
         print("No unrecognised guard-shaped names found. Add patterns manually if needed.")
+    if existing_config and not args.force:
+        preserved_keys = [k for k in ("exclude", "sinks", "reachability") if k in existing_config]
+        if preserved_keys:
+            print(f"Preserved existing keys: {', '.join(preserved_keys)}")
     return 0
 
 

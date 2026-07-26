@@ -370,27 +370,49 @@ def test_fix_actenon_mode_hoists_import(tmp_path: Path) -> None:
 
 
 def test_fix_guard_at_function_indent_not_with_block_indent(tmp_path: Path) -> None:
-    """The guard must be inserted at the FUNCTION BODY indentation, not
-    at the deeper `with` block indentation. Otherwise the guard runs only
-    when the `with` is entered, which is wrong."""
+    """The guard must be inserted at the SINK's own indentation when the
+    sink is inside a nested block (with/for/try/if), so the guard runs in
+    the same scope as the sink (with the same variables in scope).
+
+    Round-3 audit reversal: the previous test asserted the OPPOSITE — that
+    the guard should be at function-body indent even for nested-block
+    sinks. That placed guard comments BETWEEN statements in the middle of
+    the nested block, and when uncommented the guard would run BEFORE the
+    `with` is entered, meaning `browser` or `page` are not yet defined
+    and the guard cannot actually guard the sink. The new behavior inserts
+    at the sink's own indent (8 spaces, inside the `with`) so the guard
+    runs in the same scope as `page.click(selector)`.
+
+    This test uses a REAL nested-block sink (page.click inside a
+    `with sync_playwright()` block) — the previous test used
+    `with subprocess.Popen(...)` where the sink IS the `with` statement
+    itself (at function-body indent), which didn't actually exercise the
+    nested-block case.
+    """
     src = tmp_path / "tool.py"
     src.write_text(textwrap.dedent("""\
-        import subprocess
         from mcp import tool
+        from playwright.sync_api import sync_playwright
 
         @tool
-        def run(cmd: str) -> str:
-            with subprocess.Popen(cmd, shell=True) as p:
-                return p.stdout.read().decode()
+        def click_element(url: str, selector: str) -> None:
+            with sync_playwright() as p:
+                browser = p.chromium.launch()
+                page = browser.new_page()
+                page.goto(url)
+                page.click(selector)
+                browser.close()
         """))
     lines = src.read_text().splitlines()
-    finding_line = next(i + 1 for i, l in enumerate(lines) if "Popen" in l)
+    finding_line = next(i + 1 for i, l in enumerate(lines) if "page.click" in l)
 
     from actenon_scan.fix import generate_fix
     fix = generate_fix(src, finding_line, mode="guard")
     assert fix is not None
-    # The guard comment lines should be indented at 4 spaces (function body),
-    # NOT 8 spaces (the `with` block).
+    # The guard comment lines should be indented at 8 spaces (the sink's
+    # own indent inside the `with` block — same scope as `page`), NOT 4
+    # spaces (function body, which would place the guard BEFORE the
+    # `with` is entered, when `page` is not yet defined).
     diff_lines = fix.diff.splitlines()
     added_guard_lines = [
         l for l in diff_lines
@@ -399,11 +421,10 @@ def test_fix_guard_at_function_indent_not_with_block_indent(tmp_path: Path) -> N
     assert added_guard_lines, "no guard comment in diff"
     for l in added_guard_lines:
         added_text = l[1:]
-        # The guard should be indented at the function-body level (4 spaces),
-        # not the `with` level (8 spaces).
         indent = len(added_text) - len(added_text.lstrip())
-        assert indent == 4, (
-            f"guard inserted at indent {indent}, expected 4 (function body). Line: {l!r}"
+        assert indent == 8, (
+            f"guard inserted at indent {indent}, expected 8 (sink's own indent "
+            f"inside the `with` block). Line: {l!r}"
         )
 
 

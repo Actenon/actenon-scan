@@ -1,0 +1,41 @@
+# dependabot.yml — https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Keep dev dependencies fresh. actenon-scan itself has ZERO runtime
+# dependencies (enforced by verify-claims.yml), but the dev extras
+# (tree-sitter, pyyaml, actenon-protocol) and the GitHub Actions we
+# depend on should be kept up to date for security and features.
+
+version: 2
+
+updates:
+  # Python dev dependencies in pyproject.toml.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps):"
+    # Only update dev dependencies — runtime deps must stay zero.
+    # (Dependabot will still propose bumps for the optional [typescript],
+    # [go], [yaml], [dev] extras, which is what we want.)
+    allow:
+      - dependency-type: "development"
+      - dependency-type: "indirect"
+
+  # GitHub Actions used in workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci):"

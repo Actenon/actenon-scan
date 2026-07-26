@@ -174,39 +174,60 @@ def _apply_remediation(
        existing imports / module docstring), never inside a ``with`` block
        or function body.
     2. Inserts the guard/approval/actenon-verification call BEFORE the
-       finding line, at the indentation of the ENCLOSING FUNCTION BODY
-       (not the finding line itself — the finding line may be inside a
-       ``with`` block whose deeper indentation would push the guard into
-       the wrong scope).
+       finding line. The indentation depends on whether the sink is at
+       function-body level or nested inside a ``with``/``for``/``try``/``if``
+       block:
+
+       - **Function-body level**: insert at the function-body indent.
+         The guard runs unconditionally when the function is called.
+       - **Nested block**: insert at the SINK's own indentation
+         (immediately before the sink line). The previous implementation
+         inserted at the function-body indent even for nested-block sinks,
+         which placed the guard comments BETWEEN statements in the middle
+         of the nested block — visually misleading, and when uncommented
+         the guard would run BEFORE the ``with``/``for`` is entered,
+         meaning objects like ``browser`` or ``page`` are not yet defined
+         and the guard cannot actually guard the sink. (Round-3 audit P0.)
     """
     # Find the indentation of the finding line.
     if finding_line - 1 >= len(source_lines):
         return source_lines, "Finding line is beyond the file."
     finding_source = source_lines[finding_line - 1]
+    finding_indent = len(finding_source) - len(finding_source.lstrip())
+    finding_indent_str = " " * finding_indent
 
-    # Compute the enclosing-function indentation, NOT the finding line's
-    # indentation. The finding may be inside a `with` block at a deeper
-    # indent; inserting the guard there would put it inside the `with`,
-    # which is wrong (the guard must run unconditionally when the function
-    # is called, not conditionally on entering the `with`).
+    # Compute the enclosing-function body indentation. If the finding line
+    # is at the function-body indent (not deeper), we insert the guard at
+    # the function-body indent. If the finding line is DEEPER (inside a
+    # ``with``/``for``/``try``/``if`` block), we insert at the finding
+    # line's own indent — immediately before the sink — so the guard runs
+    # inside the same scope as the sink, with the same variables in scope.
     func_indent_str = _enclosing_function_indent(source_lines, finding_line)
     if func_indent_str is None:
-        # Couldn't determine — fall back to the finding line's indentation.
-        # This preserves the previous (imperfect) behaviour for module-level
-        # sinks and other edge cases the AST walk doesn't handle.
-        indent = len(finding_source) - len(finding_source.lstrip())
-        func_indent_str = " " * indent
+        # No enclosing function (module-level sink). Use the finding line's
+        # own indentation.
+        guard_indent_str = finding_indent_str
+    else:
+        func_indent = len(func_indent_str)
+        if finding_indent > func_indent:
+            # Sink is inside a nested block. Insert at the sink's own
+            # indentation so the guard is in the same scope.
+            guard_indent_str = finding_indent_str
+        else:
+            # Sink is at function-body level. Insert at the function-body
+            # indent.
+            guard_indent_str = func_indent_str
 
     # Build the guard line(s). For actenon mode, this includes an import
     # that must be hoisted to the top of the file.
     if mode == "guard":
-        guard_call = _build_guard_call(finding, func_indent_str)
+        guard_call = _build_guard_call(finding, guard_indent_str)
         import_lines: list[str] = []
     elif mode == "approval":
-        guard_call = _build_approval_call(finding, func_indent_str)
+        guard_call = _build_approval_call(finding, guard_indent_str)
         import_lines = []
     elif mode == "actenon":
-        guard_call, import_lines = _build_actenon_call(finding, func_indent_str)
+        guard_call, import_lines = _build_actenon_call(finding, guard_indent_str)
     else:
         return source_lines, f"Unknown mode: {mode}"
 

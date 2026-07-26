@@ -1,0 +1,94 @@
+name: Bug report
+description: Report a bug in actenon-scan (false positive, false negative, crash, or unexpected behaviour)
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Before you start,
+        please search existing issues to avoid duplicates.
+
+  - type: dropdown
+    id: bug-type
+    attributes:
+      label: Bug type
+      options:
+        - False positive (finding that shouldn't be reported)
+        - False negative (sink that should be reported but isn't)
+        - Crash / traceback
+        - Wrong output (format, content, exit code)
+        - Performance issue
+        - Documentation issue
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: actenon-scan version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12"
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      description: The exact `actenon-scan` invocation that triggered the bug.
+      placeholder: "actenon-scan scan ./my-repo --format json"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened. Include the full output (or the relevant excerpt) and any traceback.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproducer
+      description: |
+        The smallest code snippet that reproduces the bug. For false-positive
+        reports, include the source file actenon-scan flagged. For false-negative
+        reports, include the source file actenon-scan missed.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: .actenon-scan.json (if any)
+      description: The contents of your config file, if you have one.
+      render: json
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of conduct
+      options:
+        - label: I have searched existing issues for duplicates.
+          required: true
+        - label: I have read CONTRIBUTING.md.
+          required: true
