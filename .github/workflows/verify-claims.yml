@@ -74,10 +74,13 @@ jobs:
         # The release-v1-tag workflow automates this, but if it's bypassed
         # (manual release, workflow disabled), the drift must be visible.
         run: |
+          # Fetch tags (the default checkout doesn't include them)
+          git fetch --tags origin
+
           # Get the newest v1.x.y tag (excluding v1 itself and pre-release tags)
           NEWEST=$(git tag -l 'v1.*' | grep -v '^v1$' | grep -v 'integration' | sort -V | tail -1)
-          V1_COMMIT=$(git rev-parse v1 2>/dev/null || echo "")
-          NEWEST_COMMIT=$(git rev-parse "$NEWEST" 2>/dev/null || echo "")
+          V1_COMMIT=$(git rev-parse "v1^{commit}" 2>/dev/null || echo "")
+          NEWEST_COMMIT=$(git rev-parse "${NEWEST}^{commit}" 2>/dev/null || echo "")
 
           echo "Newest stable tag: $NEWEST ($NEWEST_COMMIT)"
           echo "v1 tag: ($V1_COMMIT)"
