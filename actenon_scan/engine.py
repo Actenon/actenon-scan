@@ -978,8 +978,11 @@ def scan_path(
             try:
                 go_source = go_file.read_bytes()
                 rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
-                go_findings = scan_go_file(rel, go_source)
+                go_findings = scan_go_file(rel, go_source, guard_patterns=rules.guard_patterns)
                 for gf in go_findings:
+                    # ITEM 1: skip findings dominated by a parameter-bound guard
+                    if gf.guard_status == "guarded":
+                        continue
                     findings.append(Finding(
                         file=gf.file,
                         line=gf.line,
