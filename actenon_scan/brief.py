@@ -298,6 +298,15 @@ def build_brief(
 
     # Parse the file to gather context (receiver chain, enclosing function,
     # caller-controlled parameters, existing checks).
+    #
+    # ITEM 3: Go files can't be parsed by Python's ast module. When the
+    # file is a .go file, use tree-sitter to extract the enclosing function
+    # name, caller-controlled parameters, and guard evidence. This fixes
+    # the "<module-level>" placeholder and the explain/scan contradiction
+    # on model-controlled inputs.
+    if file_path.suffix == ".go":
+        return _build_go_brief(finding, file_path, line)
+
     try:
         source = file_path.read_text(encoding="utf-8", errors="replace")
         tree = ast.parse(source, filename=str(file_path))
@@ -437,6 +446,241 @@ def build_brief(
         data_flow=data_flow,
         expected_boundary=ExpectedBoundary(),
         remediation_options=remediation,
+        limitations=Limitations(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Go-specific brief construction (ITEM 3).
+# ---------------------------------------------------------------------------
+
+
+def _build_go_brief(finding, file_path: Path, line: int) -> Brief | None:
+    """Build a brief for a Go finding using tree-sitter instead of Python ast.
+
+    Go files can't be parsed by Python's ast module. This function uses
+    the tree-sitter-based Go detector to extract:
+    - The enclosing function name (fixes the "<module-level>" placeholder)
+    - Caller-controlled parameters (fixes the explain/scan contradiction)
+    - Guard evidence (using the Go guard check from go.py)
+    """
+    try:
+        from actenon_scan.detectors.go import (
+            is_go_extra_available,
+            _check_go_guard,
+            _iter_functions,
+            _iter_calls,
+            _get_func_name,
+            _walk,
+        )
+    except ImportError:
+        return _build_minimal_go_brief(finding, file_path, line)
+
+    if not is_go_extra_available():
+        return _build_minimal_go_brief(finding, file_path, line)
+
+    try:
+        import tree_sitter_go as tsgo
+        from tree_sitter import Language, Parser
+    except ImportError:
+        return _build_minimal_go_brief(finding, file_path, line)
+
+    source_bytes = file_path.read_bytes()
+    lang = Language(tsgo.language())
+    parser = Parser(lang)
+    tree = parser.parse(source_bytes)
+
+    # Find the enclosing function and the sink call at the requested line.
+    func_name = ""
+    enclosing_func = None
+    sink_call = None
+    for func_node in _iter_functions(tree.root_node):
+        start_line = func_node.start_point[0] + 1
+        end_line = func_node.end_point[0] + 1
+        if start_line <= line <= end_line:
+            enclosing_func = func_node
+            func_name = _get_func_name(func_node, source_bytes)
+            # Find the call at the requested line within this function
+            for call_node in _iter_calls(func_node):
+                if call_node.start_point[0] + 1 == line:
+                    sink_call = call_node
+                    break
+            break
+
+    # If we didn't find the function, fall back to the finding's
+    # reachability_reason.
+    if not func_name:
+        func_name = getattr(finding, "reachability_reason", "") or "agent tool"
+
+    # Caller-controlled parameters: extract function parameters and check
+    # which appear in the sink call's arguments.
+    cc_params: list[CallerControlledParameter] = []
+    if enclosing_func is not None and sink_call is not None:
+        # Extract Go function parameter names from the parameter_list
+        param_names: set[str] = set()
+        params = enclosing_func.child_by_field_name("parameters")
+        if params:
+            for child in params.children:
+                if child and child.type == "parameter_declaration":
+                    name_node = child.child_by_field_name("name")
+                    if name_node:
+                        param_names.add(
+                            source_bytes[name_node.start_byte:name_node.end_byte]
+                            .decode("utf-8", errors="replace")
+                        )
+
+        # Check which sink arguments reference these parameters
+        sink_args = sink_call.child_by_field_name("arguments")
+        if sink_args:
+            for i, arg in enumerate(sink_args.children):
+                if arg is None:
+                    continue
+                arg_text = source_bytes[arg.start_byte:arg.end_byte].decode("utf-8", errors="replace").strip()
+                # Check if this argument references any parameter
+                for pn in param_names:
+                    if pn in arg_text:
+                        cc_params.append(CallerControlledParameter(
+                            name=pn, position=i,
+                        ))
+                        break
+
+    # Guard evidence: use the Go guard check.
+    existing_checks: list[ExistingCheck] = []
+    guard_dominated = False
+    if enclosing_func is not None and sink_call is not None:
+        from actenon_scan.rules.loader import load_default_rules
+        rules = load_default_rules()
+        gs, gm = _check_go_guard(
+            enclosing_func, sink_call, source_bytes, rules.guard_patterns
+        )
+        if gs == "guarded":
+            guard_dominated = True
+            existing_checks.append(ExistingCheck(
+                kind="guard",
+                description=gm,
+                dominates=True,
+                reason="Go guard check: dominates + bound + result used",
+            ))
+        elif gs == "weak":
+            existing_checks.append(ExistingCheck(
+                kind="guard",
+                description=gm,
+                dominates=False,
+                reason="Go guard check: guard found but result discarded",
+            ))
+        elif gs == "unbound":
+            existing_checks.append(ExistingCheck(
+                kind="guard",
+                description=gm,
+                dominates=False,
+                reason="Go guard check: guard found but not parameter-bound",
+            ))
+
+    guard_result = GuardDominanceResult(
+        dominated=guard_dominated,
+        checks=existing_checks,
+        reason=(
+            "A dominating authority check was identified in the analysed path."
+            if guard_dominated
+            else "No dominating authority check was identified in the analysed path."
+        ),
+    )
+
+    # Build the agent entry point.
+    reach_reason = getattr(finding, "reachability_reason", "") or "agent_framework_import"
+    decorator = ""
+    if "tool_registration" in reach_reason:
+        decorator = "tool registration (AddTool/RegisterTool)"
+    elif "agent_framework_import" in reach_reason:
+        decorator = "agent framework import"
+
+    agent_entry = AgentEntryPoint(
+        function_name=func_name,
+        decorator=decorator,
+        is_reachable=True,
+    )
+
+    # Data flow summary.
+    data_flow = DataFlowSummary(
+        input_step=f"tool parameters ({', '.join(p.name for p in cc_params) or 'none identified'})",
+        handler_step=func_name,
+        execution_step=finding.call_text[:60],
+        side_effect_step=finding.category,
+    )
+
+    # Remediation options (same as Python).
+    remediation = [
+        RemediationOption(
+            rank=1, kind="repository_guard",
+            description="Add a repository-native guard convention that must pass before the mutation is allowed.",
+        ),
+        RemediationOption(
+            rank=2, kind="framework_approval",
+            description="Add a framework-native approval or human gate between the model's request and the sink.",
+        ),
+        RemediationOption(
+            rank=3, kind="actenon_proof",
+            description="Bind the sink to an Actenon proof verification.",
+        ),
+    ]
+
+    return Brief(
+        identity=FindingIdentity(
+            rule_id=finding.rule_id, file=str(file_path), line=finding.line, col=finding.col,
+        ),
+        location=RepositoryLocation(file=str(file_path), line=finding.line, col=finding.col),
+        agent_entry_point=agent_entry,
+        sink=ConsequentialSink(
+            rule_id=finding.rule_id, category=finding.category, severity=finding.severity,
+            confidence=finding.confidence, description=finding.description, call_text=finding.call_text,
+        ),
+        receiver_chain=None,
+        caller_controlled_parameters=cc_params,
+        existing_checks=guard_result,
+        data_flow=data_flow,
+        expected_boundary=ExpectedBoundary(),
+        remediation_options=remediation,
+        limitations=Limitations(),
+    )
+
+
+def _build_minimal_go_brief(finding, file_path: Path, line: int) -> Brief:
+    """Build a minimal brief when tree-sitter-go is not available."""
+    reach_reason = getattr(finding, "reachability_reason", "") or "agent_framework_import"
+    decorator = ""
+    if "tool_registration" in reach_reason:
+        decorator = "tool registration (AddTool/RegisterTool)"
+    elif "agent_framework_import" in reach_reason:
+        decorator = "agent framework import"
+
+    return Brief(
+        identity=FindingIdentity(
+            rule_id=finding.rule_id, file=str(file_path), line=finding.line, col=finding.col,
+        ),
+        location=RepositoryLocation(file=str(file_path), line=finding.line, col=finding.col),
+        agent_entry_point=AgentEntryPoint(
+            function_name="(tree-sitter-go not installed)",
+            decorator=decorator,
+            is_reachable=True,
+        ),
+        sink=ConsequentialSink(
+            rule_id=finding.rule_id, category=finding.category, severity=finding.severity,
+            confidence=finding.confidence, description=finding.description, call_text=finding.call_text,
+        ),
+        receiver_chain=None,
+        caller_controlled_parameters=[],
+        existing_checks=GuardDominanceResult(
+            dominated=False, checks=[],
+            reason="No dominating authority check was identified in the analysed path.",
+        ),
+        data_flow=DataFlowSummary(
+            input_step="tool parameters (none identified)",
+            handler_step="(unavailable)",
+            execution_step=finding.call_text[:60],
+            side_effect_step=finding.category,
+        ),
+        expected_boundary=ExpectedBoundary(),
+        remediation_options=[],
         limitations=Limitations(),
     )
 

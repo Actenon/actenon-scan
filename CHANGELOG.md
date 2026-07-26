@@ -30,6 +30,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No changes yet._
 
+## [1.1.2] — 2026-07-27
+
+### Go support upgrade — guard recognition, temp-file suppression, explain IR
+
+This release closes three correctness gaps in Go support that were
+identified by testing v1.1.1 against real Go agent codebases.
+
+### ITEM 1 (BLOCKER): Go detector now recognises guards
+
+The Go detector previously had zero guard analysis — every Go finding
+printed "Guard evidence: none found on the analysed path" without any
+search being performed. This was false for every Go finding the tool
+had ever emitted.
+
+- Reuses the guard vocabulary from `guards.py` (no parallel Go list).
+  Handles Go's camelCase convention: `checkPermission` matches
+  `check_permission`, `verifyToken` matches `verify_token`, etc.
+- Matches Python semantics: dominance (guard on every path to sink),
+  binding (shared identifiers), result use (error/bool checked).
+- Defeated guards: `_ = authorize(path)` (error discarded) → WEAK.
+  `if false { guard() }` → does not dominate. Nested func literal →
+  does not dominate.
+- Assert-style guards (`authorize`, `verify`, etc.) don't require
+  binding — they conventionally panic regardless.
+- False negatives are worse than false positives: if unsure, does NOT
+  suppress.
+- 8 soundness tests in `tests/test_go_guard_soundness.py`.
+
+### ITEM 2: Temp-file false positives suppressed
+
+Three of eight findings on anthropic-sdk-go were false positives from
+deferred cleanup of self-created temp files. The variable passed to
+`os.Remove` was assigned from `os.CreateTemp` or `.Name()` on its
+result — not model-controlled.
+
+- Suppresses `os.Remove`/`os.RemoveAll` when the argument is assigned
+  from `os.CreateTemp`/`os.MkdirTemp`/`.Name()` within the same function.
+- Anchored to the assignment source, NOT to the `defer` keyword or the
+  string "tmp". A model-supplied path deleted in a defer is still a finding.
+- `os.RemoveAll(filepath.Join(e.Workdir, "skills"))` (hardcoded subdirectory)
+  is NOT suppressed — it's a known limitation, not a false positive.
+
+### ITEM 3: explain IR works for Go
+
+`explain` previously showed `<module-level>` (Python terminology) for
+Go findings and `(none identified)` for model-controlled inputs,
+contradicting the scan summary.
+
+- `build_brief` now detects `.go` files and uses tree-sitter to extract
+  the enclosing function name, caller-controlled parameters, and guard
+  evidence.
+- Go findings now show the real function name (e.g., `NewBashSession`)
+  instead of `<module-level>`.
+- The scan/explain contradiction on model-controlled inputs is resolved.
+
+### ITEM 4: Re-baselined numbers
+
+| Repo | Before (v1.1.1) | After (v1.1.2) | Change |
+|---|---|---|---|
+| anthropic-sdk-go | 8 | 6 | -2 (temp-file FPs suppressed) |
+| modelcontextprotocol/go-sdk | 4 | 4 | no change (no guards found) |
+| mark3labs/mcp-go | 4 | 4 | no change (no guards found) |
+| github/github-mcp-server | 2 | 2 | no change (no guards found) |
+
+No repo had a count increase from guard recognition (none of these
+codebases use recognised guard names in agent-reachable functions).
+The count decrease on anthropic-sdk-go is entirely from temp-file
+suppression (ITEM 2).
+
+The "Most exposed" finding on anthropic-sdk-go is now `bash.go:94
+EXEC-SHELL-GO` — `exec.Command("/bin/bash", ...)` — a true positive
+by design and the honest illustration of what the tool sees.
+
+### Added — COVERAGE.md Go guard recognition section
+
+Documents what Go guard recognition covers (assert-style, checked-error,
+defeated-guard, dead-branch, nested-func-literal) and does not cover
+(cross-file resolution, middleware-style, interface method). States the
+false-negative boundary: if unsure, does NOT suppress.
+
+### Tests
+
+- `tests/test_go_guard_soundness.py`: 8 tests covering basic harness,
+  defeated guards, dead branches, nested func literals, checked errors,
+  unbound guards, temp-file suppression, and model-controlled-delete
+  not-suppressed.
+- Full suite: 356 passed, 10 skipped, 0 failed (was 348).
+
 ## [1.1.1] — 2026-07-27
 
 ### Regression fix release

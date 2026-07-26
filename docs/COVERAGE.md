@@ -545,7 +545,7 @@ corpus:
 |------|----------|------------------|
 | mcp-servers | mcp_server | 0 |
 | mcp-python-sdk | mcp_server | 0 |
-| github-mcp-server | mcp_server | 2 (Go) |
+| github-mcp-server | mcp_server | 2 (Go) — http.Get + os.OpenFile |
 | mcp-atlassian | mcp_server | 0 |
 | browser-use | application | 0 |
 | crewai | framework | 0 |
@@ -598,3 +598,56 @@ findings.
 | Chained psycopg2 execute (Python) | COVERED — fixture-verified (Part 2.9) |
 | Go-based MCP mutation tools | COVERED — NET-EGRESS-GO + FILE-WRITE-GO (github-mcp-server) |
 | GitLab/Bitbucket equivalents | UNVALIDATED |
+
+### Go guard recognition — what it covers and does not cover
+
+As of v1.1.2, the Go detector recognises guard calls using the same
+vocabulary as the Python detector (guards.py), with Go-idiomatic
+camelCase matching (e.g., `checkPermission` matches `check_permission`).
+
+**Covered:**
+- Assert-style guards (`authorize`, `verify`, `check_permission`, etc.)
+  that conventionally panic on failure. For these, binding is NOT
+  required — the guard raises regardless of what it inspects.
+- Non-assert-style guards whose return value is checked
+  (`if err := guard(); err != nil { return }` or `if guard() { ... }`).
+  For these, binding IS required — the guard's arguments must share
+  identifiers with the sink's.
+- Defeated guards: `_ = guard(path)` (error explicitly discarded) is
+  classified WEAK, not guarded.
+- Dead-branch guards: `if false { guard() }` does not dominate.
+- Nested func literal guards: `func() { guard() }()` does not dominate.
+
+**Not covered (known limitations):**
+- Cross-file guard resolution: a guard defined in another file is
+  classified by name heuristic only (same as Python's unresolvable
+  fallback). A locally-defined guard that returns bool but doesn't
+  raise will be misclassified as assert-style if its name is in the
+  conventional set.
+- Go middleware-style guards (HTTP middleware that wraps a handler)
+  are not recognised — the guard must be a call in the same function.
+- Interface method guards (e.g., `authz.Authorize(ctx, action)`) are
+  recognised by method name, not by interface satisfaction.
+
+**False-negative boundary:** if unsure whether a construct counts as a
+dominating guard, the scanner does NOT suppress. A false positive (flagging
+an guarded sink) is recoverable; a false negative (missing an unguarded
+sink) is the failure the scanner exists to prevent.
+
+### Temp-file suppression (Go)
+
+The Go detector suppresses `os.Remove`/`os.RemoveAll` findings when the
+argument variable is assigned, within the same function, from
+`os.CreateTemp`, `os.MkdirTemp`, or `.Name()` on their result. This is
+cleanup of a self-created temp file — the model cannot influence the path.
+
+This suppression is **anchored to the assignment source**, not to the
+`defer` keyword or the string "tmp". A model-supplied path that happens to
+be deleted in a defer is still a finding.
+
+**Not suppressed:** `os.RemoveAll(filepath.Join(e.Workdir, "skills"))` —
+a hardcoded subdirectory joined onto a server-configured value. This has
+no model-controlled component in the path, but the suppression is
+anchored to `os.CreateTemp`/`os.MkdirTemp` sources only. It is a known
+limitation, not a false positive — the path is not model-controlled, but
+it is also not self-created.

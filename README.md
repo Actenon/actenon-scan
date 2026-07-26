@@ -187,7 +187,7 @@ That's it. The action:
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Actenon/actenon-scan
-    rev: v1.1.1
+    rev: v1.1.2
     hooks:
       - id: actenon-scan
         args: [--changed-only, HEAD]
