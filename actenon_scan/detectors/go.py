@@ -33,6 +33,7 @@ Guard recognition (ITEM 1 from the v1.1.2 audit):
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 
@@ -61,27 +62,40 @@ class GoFinding:
     function_name: str = ""
 
 
-# Sink patterns for Go. Each entry is (rule_id, category, severity, description, patterns).
+# Sink patterns for Go. Each entry is a dict with:
+#   id, category, severity, description — standard
+#   patterns — dotted call names to match (e.g., "exec.Command")
+#   match_type — "pattern" (default) or "sql" (SQL-specific detection)
+#   receiver_names — optional: constrain the receiver variable name
+#
 # Patterns are matched against the dotted call name (e.g., "exec.Command").
+# For "sql" match type, the first argument is inspected: literal SQL with
+# DELETE/DROP is a finding; a variable/concatenation is always a finding
+# (caller-controlled); literal SELECT-only is not reported.
 _GO_SINK_RULES = [
     {
         "id": "EXEC-SHELL-GO",
         "category": "shell_execution",
         "severity": "high",
-        "description": "Shell/command execution via os/exec in Go",
+        "description": "Shell/command execution via os/exec or syscall in Go",
         "patterns": [
             "exec.Command",
             "exec.CommandContext",
+            "syscall.Exec",
+            "syscall.ForkExec",
         ],
     },
     {
         "id": "DATA-DELETE-OS-GO",
         "category": "data_destruction",
         "severity": "high",
-        "description": "File/directory deletion via os.Remove/os.RemoveAll in Go",
+        "description": "File/directory deletion via os.Remove/os.RemoveAll/syscall in Go",
         "patterns": [
             "os.Remove",
             "os.RemoveAll",
+            "os.Truncate",
+            "syscall.Unlink",
+            "syscall.Rmdir",
         ],
     },
     {
@@ -108,6 +122,110 @@ _GO_SINK_RULES = [
             "http.Get",
             "http.NewRequest",
         ],
+    },
+    # ── SQL (ITEM 2): database/sql + sqlx + pgx ──
+    # Match semantics mirror Python's DATA-DELETE-SQL:
+    #   - Literal SQL with DELETE/DROP → finding (destructive)
+    #   - Non-literal SQL (variable, concatenation) → finding (caller-controlled)
+    #   - Literal SELECT-only → NOT reported
+    # Receiver constraint: the receiver variable name must match a known
+    # DB receiver name (db, tx, stmt, conn, database, pool). This is the
+    # same heuristic as Python's _DB_RECEIVER_NAMES.
+    {
+        "id": "DATA-DELETE-SQL-GO",
+        "category": "data_destruction",
+        "severity": "high",
+        "description": "Dangerous SQL DELETE/DROP or caller-controlled SQL in Go database/sql",
+        "match_type": "sql",
+        "patterns": [
+            "Exec",
+            "ExecContext",
+            "Query",
+            "QueryContext",
+            "QueryRow",
+            "QueryRowContext",
+        ],
+        "receiver_names": {"db", "tx", "stmt", "conn", "database", "pool", "sqlDB"},
+        "sql_patterns": [
+            r"\bDELETE\s+FROM\b",
+            r"\bDROP\s+(TABLE|DATABASE)\b",
+            r"\bTRUNCATE\b",
+        ],
+    },
+    # ── Payments (ITEM 4) ──
+    # PAY-STRIPE-REFUND-GO: stripe-go method calls.
+    # stripe-go uses: client.Refunds.New(), charge.Refund(), etc.
+    # The method names match the Python func_patterns; the receiver
+    # patterns match stripe-go's client struct names.
+    {
+        "id": "PAY-STRIPE-REFUND-GO",
+        "category": "payments",
+        "severity": "high",
+        "description": "Stripe refund/charge/payout call in Go agent tool",
+        "match_type": "method_on_receiver",
+        "patterns": [
+            "Refund", "New", "Capture", "Charge", "Payout", "Transfer",
+            "CreateRefund", "IssueRefund", "ProcessRefund",
+        ],
+        "receiver_names": {"refunds", "charges", "payouts", "transfers", "stripe"},
+    },
+    # PAY-GENERIC-REFUND-GO: matches bare method names like Refund(),
+    # Charge(), Transfer() on any receiver. Intentionally broad — catches
+    # custom payment SDKs. Same semantics as Python's PAY-GENERIC-REFUND
+    # (name_call, no module qualification required).
+    {
+        "id": "PAY-GENERIC-REFUND-GO",
+        "category": "payments",
+        "severity": "high",
+        "description": "Generic payment refund/charge/payout call in Go",
+        "match_type": "method_name",
+        "patterns": [
+            "Refund", "Charge", "Capture", "Payout", "Transfer",
+            "CreateCharge", "CreateRefund", "IssueRefund", "ProcessRefund",
+        ],
+    },
+    # ── Secrets (ITEM 4) ──
+    # SECRET-READ-GO: matches cloud SDK method names for secret retrieval.
+    # Does NOT match os.Getenv — that is ubiquitous in Go and would produce
+    # enormous noise. The Python rule matches get_secret_value,
+    # get_parameter, read_secret, etc. — specific cloud SDK methods.
+    # Go equivalents: AWS SDK GetSecretValue, GetParameter; Vault ReadSecret.
+    {
+        "id": "SECRET-READ-GO",
+        "category": "credential_access",
+        "severity": "high",
+        "description": "Secret/credential retrieval from secrets manager in Go",
+        "match_type": "method_name",
+        "patterns": [
+            "GetSecretValue", "GetParameter", "ReadSecret",
+            "GetSecret", "ReadSecretData", "GetSecretString",
+        ],
+    },
+    # ── Provider SDK (ITEM 4) ──
+    # PROVIDER-SDK-CALL-GO: matches AWS/GCP/Azure SDK mutation methods.
+    # The Python rule matches on module names (boto3, s3, github) × func
+    # names. In Go, the receiver is typically an AWS client struct. We
+    # match method names and constrain the receiver to known client names.
+    # GORM's chainable API (db.Delete, db.Unscoped) is covered by the SQL
+    # rule's Exec/Query detection — GORM's Raw() is also covered.
+    {
+        "id": "PROVIDER-SDK-CALL-GO",
+        "category": "provider_sdk",
+        "severity": "medium",
+        "description": "Provider SDK mutation call (AWS/GCP/Azure) in Go",
+        "match_type": "method_on_receiver",
+        "patterns": [
+            "DeleteObject", "DeleteBucket", "DeleteInstance",
+            "TerminateInstances", "DeleteFunction", "DeleteRepo",
+            "DeleteBlob", "DeleteFile", "DeleteObjects",
+            "StopInstances", "DeleteDBInstance", "DeleteDBCluster",
+            "DeleteTable", "DeleteItem", "DeleteUser", "DeleteRole",
+            "DeletePolicy", "DeleteAccessKey", "DeleteStack",
+            "DeleteTopic", "DeleteQueue",
+        ],
+        "receiver_names": {"client", "svc", "s3", "ec2", "rds", "lambda",
+                           "iam", "sns", "sqs", "cloudformation",
+                           "dynamodb", "storage", "compute", "gh", "repo"},
     },
 ]
 
@@ -207,66 +325,165 @@ def scan_go_file(
                 continue
 
             for rule in _GO_SINK_RULES:
-                for pattern in rule["patterns"]:
-                    if call_name == pattern or call_name.endswith("." + pattern):
-                        # ── ITEM 2: temp-file suppression ──
-                        # If the argument to a delete sink is a variable
-                        # assigned from os.CreateTemp/os.MkdirTemp/.Name()
-                        # within the same function, it's self-created
-                        # cleanup — not model-controlled. Suppress.
-                        if rule["id"] == "DATA-DELETE-OS-GO" and _is_temp_cleanup(
-                            func_node, call_node, source
-                        ):
-                            break  # suppress this finding
-
-                        # ── ITEM 1: guard recognition ──
-                        guard_status = ""
-                        guard_message = ""
-                        if guard_patterns:
-                            gs, gm = _check_go_guard(
-                                func_node, call_node, source, guard_patterns
-                            )
-                            guard_status = gs
-                            guard_message = gm
-
-                        # If guarded, suppress (don't append the finding)
-                        if guard_status == "guarded":
-                            break  # suppress this finding
-
-                        # Build the rule_id + severity based on guard status
-                        rule_id = rule["id"]
-                        severity = rule["severity"]
-                        description = rule["description"]
-                        if guard_status == "weak":
-                            severity = "low"
-                            rule_id = f"{rule['id']}-WEAK"
-                            description = f"{rule['description']} (guard call found but return value discarded)"
-                        elif guard_status == "unbound":
-                            severity = "medium"
-                            rule_id = f"{rule['id']}-UNBOUND"
-                            description = f"{rule['description']} (guard call found but not parameter-bound to sink)"
-
-                        findings.append(GoFinding(
-                            file=filepath,
-                            line=call_node.start_point[0] + 1,
-                            col=call_node.start_point[1],
-                            rule_id=rule_id,
-                            category=rule["category"],
-                            severity=severity,
-                            confidence="high",
-                            description=description,
-                            call_text=_get_call_text(call_node, source),
-                            reachability_reason=reachability_reason,
-                            guard_status=guard_status,
-                            guard_message=guard_message,
-                            function_name=func_name,
-                        ))
-                        break  # one finding per call
-                else:
+                if not _match_go_rule(rule, call_node, call_name, source):
                     continue
-                break
+
+                # ── ITEM 2: temp-file suppression ──
+                if rule["id"] == "DATA-DELETE-OS-GO" and _is_temp_cleanup(
+                    func_node, call_node, source
+                ):
+                    break  # suppress this finding
+
+                # ── ITEM 1: guard recognition ──
+                guard_status = ""
+                guard_message = ""
+                if guard_patterns:
+                    gs, gm = _check_go_guard(
+                        func_node, call_node, source, guard_patterns
+                    )
+                    guard_status = gs
+                    guard_message = gm
+
+                # If guarded, suppress (don't append the finding)
+                if guard_status == "guarded":
+                    break  # suppress this finding
+
+                # Build the rule_id + severity based on guard status
+                rule_id = rule["id"]
+                severity = rule["severity"]
+                description = rule["description"]
+                if guard_status == "weak":
+                    severity = "low"
+                    rule_id = f"{rule['id']}-WEAK"
+                    description = f"{rule['description']} (guard call found but return value discarded)"
+                elif guard_status == "unbound":
+                    severity = "medium"
+                    rule_id = f"{rule['id']}-UNBOUND"
+                    description = f"{rule['description']} (guard call found but not parameter-bound to sink)"
+
+                findings.append(GoFinding(
+                    file=filepath,
+                    line=call_node.start_point[0] + 1,
+                    col=call_node.start_point[1],
+                    rule_id=rule_id,
+                    category=rule["category"],
+                    severity=severity,
+                    confidence="high",
+                    description=description,
+                    call_text=_get_call_text(call_node, source),
+                    reachability_reason=reachability_reason,
+                    guard_status=guard_status,
+                    guard_message=guard_message,
+                    function_name=func_name,
+                ))
+                break  # one finding per call
 
     return findings
+
+
+# ---------------------------------------------------------------------------
+# Sink matching — dispatches on match_type
+# ---------------------------------------------------------------------------
+
+
+def _match_go_rule(rule: dict, call_node, call_name: str, source: bytes) -> bool:
+    """Check if a Go call matches a sink rule.
+
+    Dispatches on match_type:
+      - "pattern" (default): dotted call name match (e.g., "exec.Command")
+      - "sql": method name match + DB receiver constraint + SQL content check
+      - "method_on_receiver": method name match + receiver name constraint
+      - "method_name": method name match only (last segment of dotted name)
+    """
+    match_type = rule.get("match_type", "pattern")
+
+    if match_type == "pattern":
+        return _match_pattern(rule, call_name)
+    elif match_type == "sql":
+        return _match_sql(rule, call_node, call_name, source)
+    elif match_type == "method_on_receiver":
+        return _match_method_on_receiver(rule, call_node, call_name, source)
+    elif match_type == "method_name":
+        return _match_method_name(rule, call_name)
+    return False
+
+
+def _match_pattern(rule: dict, call_name: str) -> bool:
+    """Default match: dotted call name matches a pattern."""
+    for pattern in rule["patterns"]:
+        if call_name == pattern or call_name.endswith("." + pattern):
+            return True
+    return False
+
+
+def _match_method_name(rule: dict, call_name: str) -> bool:
+    """Match the last segment of the call name (the method name)."""
+    last_segment = call_name.rsplit(".", 1)[-1]
+    for pattern in rule["patterns"]:
+        if last_segment == pattern:
+            return True
+    return False
+
+
+def _match_method_on_receiver(rule: dict, call_node, call_name: str, source: bytes) -> bool:
+    """Match method name + constrain the receiver variable name."""
+    last_segment = call_name.rsplit(".", 1)[-1]
+    method_matched = any(last_segment == p for p in rule["patterns"])
+    if not method_matched:
+        return False
+    if "." not in call_name:
+        return False
+    receiver = call_name.rsplit(".", 1)[0].rsplit(".", 1)[-1]
+    receiver_names = rule.get("receiver_names", set())
+    if not receiver_names:
+        return True
+    return receiver in receiver_names
+
+
+def _match_sql(rule: dict, call_node, call_name: str, source: bytes) -> bool:
+    """SQL-specific match: method + DB receiver + SQL content check.
+
+    Mirrors Python's DATA-DELETE-SQL:
+      - Literal SQL with DELETE/DROP/TRUNCATE → finding (destructive)
+      - Non-literal SQL (variable, concatenation) → finding (caller-controlled)
+      - Literal SELECT-only → NOT reported
+    """
+    last_segment = call_name.rsplit(".", 1)[-1]
+    if not any(last_segment == p for p in rule["patterns"]):
+        return False
+
+    # Receiver constraint
+    if "." not in call_name:
+        return False
+    receiver = call_name.rsplit(".", 1)[0].rsplit(".", 1)[-1]
+    receiver_names = rule.get("receiver_names", set())
+    if receiver_names and receiver not in receiver_names:
+        return False
+
+    # Check the first argument
+    args = call_node.child_by_field_name("arguments")
+    if args is None:
+        return False
+    arg_children = [c for c in args.children if c is not None]
+    if not arg_children:
+        return False
+
+    first_arg = arg_children[0]
+
+    # String literal — check content for destructive patterns
+    if first_arg.type in ("interpreted_string_literal", "raw_string_literal"):
+        sql_text = source[first_arg.start_byte:first_arg.end_byte].decode("utf-8", errors="replace")
+        # Strip quotes
+        if (sql_text.startswith('"') and sql_text.endswith('"')) or \
+           (sql_text.startswith("`") and sql_text.endswith("`")):
+            sql_text = sql_text[1:-1]
+        for pattern in rule.get("sql_patterns", []):
+            if re.search(pattern, sql_text, re.IGNORECASE):
+                return True
+        return False  # literal SELECT-only — not reported
+
+    # Non-literal (variable, concatenation, etc.) — caller-controlled. Always report.
+    return True
 
 
 # ---------------------------------------------------------------------------

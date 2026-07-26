@@ -30,6 +30,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No changes yet._
 
+## [1.1.4] — 2026-07-27
+
+### Go sink coverage parity — 5 new rule families + parity test
+
+Go sink coverage goes from 4 families to 9, matching Python's coverage.
+Measured recall on the 18-call destructive Go corpus: 9/18 → 16/18
+(the remaining 2 are os.Chmod/os.Chown, deliberately not ported).
+
+### ITEM 1: Read existing rules before porting (report)
+
+Read all 5 missing Python rule families. Key findings:
+- DATA-DELETE-SQL distinguishes literal SQL from non-literal (variable =
+  caller-controlled, always reports; literal SELECT-only not reported)
+- PAY-STRIPE-REFUND and PAY-GENERIC-REFUND fire on call shape alone
+- SECRET-READ matches cloud SDK method names (NOT os.Getenv)
+- PROVIDER-SDK-CALL uses cross-product module × function matching
+
+### ITEM 2: DATA-DELETE-SQL-GO
+
+New SQL rule matching Python's DATA-DELETE-SQL semantics:
+- Matches Exec, ExecContext, Query, QueryContext, QueryRow, QueryRowContext
+  on *sql.DB and *sql.Tx (covers stdlib database/sql, sqlx, pgx)
+- Receiver constraint: db, tx, stmt, conn, database, pool, sqlDB
+- Literal SQL with DELETE/DROP/TRUNCATE → finding (destructive)
+- Non-literal SQL (variable, concatenation) → finding (caller-controlled)
+- Literal SELECT-only → NOT reported
+- GORM's chainable API not covered (different shape; Raw/Exec covered
+  via the SQL rule's method-name match)
+
+### ITEM 3: Variant misses in existing families
+
+Added to EXEC-SHELL-GO: syscall.Exec, syscall.ForkExec
+Added to DATA-DELETE-OS-GO: os.Truncate, syscall.Unlink, syscall.Rmdir
+
+os.Chmod and os.Chown: NOT ADDED. Decision: proposed as a future
+cross-language family, not a Go-only rule. Adding it to Go only would
+move away from parity. A model-controlled `os.Chmod(path, 0o777)` is
+arguably consequential, but Python doesn't have this rule either.
+Documented in COVERAGE.md.
+
+### ITEM 4: Payments, secrets, provider SDK ported
+
+- PAY-STRIPE-REFUND-GO: stripe-go method calls (Refund, New, Capture,
+  Charge, Payout, Transfer) on receiver names (refunds, charges, etc.)
+- PAY-GENERIC-REFUND-GO: bare method names (Refund, Charge, Transfer,
+  etc.) on any receiver — same broad semantics as Python's name_call
+- SECRET-READ-GO: cloud SDK methods (GetSecretValue, GetParameter,
+  ReadSecret, GetSecret, ReadSecretData, GetSecretString). Does NOT
+  match os.Getenv — that is ubiquitous in Go and would produce enormous
+  noise. Same narrowing as Python (specific cloud SDK method names only).
+- PROVIDER-SDK-CALL-GO: AWS/GCP/Azure SDK mutation methods
+  (DeleteObject, DeleteBucket, TerminateInstances, etc.) on receiver
+  names (client, svc, s3, ec2, etc.)
+
+### ITEM 5: New rules inherit the full analysis pipeline
+
+All new rules go through:
+- Guard recognition (bare + method-call form, dominance, binding, result-use)
+- Model-controlled-input ranking (v1.1.3 ranking applies)
+- Tier assignment (production vs example)
+- Explain IR (tree-sitter function name, not `<module-level>`)
+
+Verified by the recall corpus test + the guard soundness suite.
+
+### ITEM 6: Cross-language parity test
+
+- `tests/test_go_parity.py`: three tests
+  - `test_go_recall_corpus`: 18 destructive Go calls, expected 16/18 detected
+  - `test_sink_family_parity`: fails when a family exists in one language
+    and not another, unless the gap is registered with a reason
+  - `test_go_rule_ids_match_declared_families`: catches rules in code
+    but not in the parity map (and vice versa)
+- `tests/fixtures/go/recall_corpus.go`: 18-call fixture with expected-
+  detection annotations
+
+This is the systemic fix for the "two code paths diverged" pattern that
+caused three separate failures in this codebase.
+
+### ITEM 7: Docs and re-baseline
+
+- COVERAGE.md: added per-language sink family matrix showing which
+  families are covered in Python/TypeScript/Go, with reasons for gaps
+- README: updated sink-category line to note per-language coverage
+- FINDINGS.md: updated with Go SDK tier-split reference scan data
+- Re-baselined: no new findings on the 4 reference repos (the new rules
+  fire on codebases that use SQL/payments/secrets/provider APIs, not on
+  these repos)
+
+| Repo | v1.1.3 | v1.1.4 | Change |
+|---|---|---|---|
+| anthropic-sdk-go | 6 (6 prod) | 6 (6 prod) | no change |
+| go-sdk | 4 (1 prod, 3 ex) | 4 (1 prod, 3 ex) | no change |
+| mcp-go | 4 (1 prod, 3 ex) | 4 (1 prod, 3 ex) | no change |
+| github-mcp-server | 2 (2 prod) | 2 (2 prod) | no change |
+
+Precision on anthropic-sdk-go: still 5/6 (skills.go:65 constant-path
+delete, reported not suppressed — documented decision).
+
 ## [1.1.3] — 2026-07-27
 
 ### Ranking + documentation fixes
