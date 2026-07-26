@@ -28,6 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [1.1.0] — 2026-07-27
+
+### First-touch readiness release
+
+This release captures three rounds of audit fixes (code-level,
+end-to-end user-story, and three-persona first-touch) that close the
+gap between "works on the happy path" and "works flawlessly end-to-end
+when external users try it." 44 fixes total, 61 new regression tests,
+347 tests passing (was 286).
+
 ### Added — public Python API
 
 - New `actenon_scan.api` module re-exports the stable public surface:
@@ -107,6 +119,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PyPI sidebar now shows Homepage, Documentation, Source, Issues,
   Changelog, Security links.
 
+### Added — Cloudflare Worker
+
+- `wrangler.toml` + `workers/docs.js` — minimal Worker that 301-redirects
+  to the GitHub repo. Makes the Cloudflare Workers and Pages GitHub App
+  build succeed on every push (was failing on every commit since the
+  app was installed).
+
 ### Changed — `--fail-on` default is now `none`
 
 - Previously `actenon-scan scan .` defaulted to `--fail-on medium`,
@@ -148,6 +167,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The user uncomments when wiring up the function; the structure is
   already in place.
 
+### Changed — `fix` refuses non-Python files safely
+
+- `actenon-scan fix app.ts:7` previously inserted Python syntax (`#`
+  comments, `raise PermissionError`) into the `.ts` file. Now refuses
+  with a helpful note pointing to the issue tracker.
+
 ### Changed — `--changed-only` covers TypeScript and Go files
 
 - Previously `--changed-only` only picked up `.py` files. The GitHub
@@ -168,6 +193,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (was missing — the heredoc always exited at "No findings — skipping").
 - `PR_NUMBER` is now passed explicitly from `github.event.pull_request.number`
   (was parsed from `GITHUB_REF` as `"merge"` instead of the actual number).
+
+### Changed — action.yml installs `[typescript,go]` extras
+
+- Previously the action installed only `[typescript]`, so Go files in PRs
+  were silently treated as unsupported. Now installs `[typescript,go]`,
+  matching the README's "Parses Python, TypeScript, and Go" headline.
 
 ### Changed — cache no longer bypasses baseline suppression
 
@@ -191,11 +222,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   returned "No finding at app.py:-1." — wasteful and misleading. Now
   exits 2 with a clear error.
 
-### Changed — `fix` refuses non-Python files safely
+### Changed — parallel scan honours cache and `on_finding`
 
-- `actenon-scan fix app.ts:7` previously inserted Python syntax (`#`
-  comments, `raise PermissionError`) into the `.ts` file. Now refuses
-  with a helpful note pointing to the issue tracker.
+- `scan_path_parallel` now accepts `cache` and `on_finding` parameters.
+  Previously the CLI took the parallel branch and silently dropped both.
+  The cache is now passed through to workers (each gets its own
+  `FileCache` pointing at the same directory); `on_finding` fires in
+  the parent after the merge.
 
 ### Changed — README suppression example syntax
 
@@ -203,7 +236,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only matched `# actenon-scan: ignore[RULE-ID]`. Both syntaxes are now
   accepted.
 
-### Changed — README pre-commit `rev` updated to `v1.0.0`
+### Changed — README pre-commit `rev` updated to `v1.1.0`
 
 - Was pinned to `v0.8.0` — users copying the snippet pinned to a
   version that didn't ship the v1.0 features advertised in the same
@@ -212,6 +245,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed — pyproject.toml classifier to `Production/Stable`
 
 - Was `Development Status :: 4 - Beta` on a 1.0.0 package.
+
+### Changed — README "8 categories" → "16 categories"
+
+- The "What's in this repo" table said "Default rules (8 categories)"
+  but the actual `default_rules.json` has 16. Now correct. Added
+  `BROWSER` and `PROVIDER` rows to the consequence table.
 
 ### Fixed — BOM-prefixed Python files
 
@@ -226,19 +265,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Windows. Previously Windows users scanning repos with test fixtures
   got all the false positives the excludes were designed to suppress.
 
-### Fixed — cache + `on_finding` dropped in parallel mode
-
-- `scan_path_parallel` now accepts `cache` and `on_finding` parameters.
-  Previously the CLI took the parallel branch and silently dropped both.
-
 ### Fixed — SARIF tool driver version
 
 - Was hardcoded to `"0.1.0"`. Now uses `__version__`.
-
-### Fixed — README "8 categories" → "16 categories"
-
-- The "What's in this repo" table said "Default rules (8 categories)"
-  but the actual `default_rules.json` has 16. Now correct.
 
 ### Fixed — README broken fragment links
 
