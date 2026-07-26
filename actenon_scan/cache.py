@@ -41,8 +41,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from actenon_scan import __version__ as _scanner_version
 from actenon_scan.engine import Finding
+
+
+def _get_scanner_version() -> str:
+    """Lazy version lookup — avoids a circular import at module-load time.
+
+    cache.py is imported by api.py which is imported by __init__.py. If
+    we did `from actenon_scan import __version__` at module load, the
+    chain would be: __init__ -> api -> cache -> __init__ (partial).
+    """
+    try:
+        from actenon_scan import __version__
+        return __version__
+    except ImportError:
+        return "0.0.0+unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +126,7 @@ def compute_cache_key(
     ch = _content_hash(source)
     cgh = _config_hash(config)
     afh = _analysis_flags_hash(analysis_flags)
-    return f"{_scanner_version}:{ch}:{cgh}:{afh}"
+    return f"{_get_scanner_version()}:{ch}:{cgh}:{afh}"
 
 
 # ---------------------------------------------------------------------------
@@ -319,11 +332,42 @@ class FileCache:
 def get_default_cache_dir(target: Path | str) -> Path:
     """Return the default cache directory for a scan target.
 
-    The cache lives in ``.actenon-scan-cache/`` inside the target
-    directory (when scanning a directory) or next to the file (when
-    scanning a single file).
+    Resolution order:
+    1. ``$ACTENON_SCAN_CACHE_DIR`` env var (if set). Useful for CI workspaces
+       that should not be polluted with ``.actenon-scan-cache/`` directories,
+       and for air-gapped environments where the cache must live on a
+       persistent volume.
+    2. ``${XDG_CACHE_HOME:-~/.cache}/actenon-scan/<target-hash>`` if the
+       target is a directory (keeps per-target caches separate).
+    3. ``${XDG_CACHE_HOME:-~/.cache}/actenon-scan/`` if the target is a
+       single file.
+    4. Fallback: ``.actenon-scan-cache/`` inside the target directory
+       (or next to the file) — the pre-env-var behaviour, preserved for
+       backwards compatibility.
+
+    The env var wins because it's the explicit user override. The XDG
+    fallback keeps the cache out of the workspace by default — the
+    previous in-workspace default polluted CI workspaces and required
+    users to gitignore the cache directory.
     """
+    # 1. Explicit env var override.
+    env_cache = os.environ.get("ACTENON_SCAN_CACHE_DIR")
+    if env_cache:
+        return Path(env_cache).expanduser()
+
     target = Path(target)
+
+    # 2/3. XDG cache home (default — keeps workspaces clean).
+    xdg_cache = os.environ.get("XDG_CACHE_HOME")
+    if xdg_cache:
+        cache_root = Path(xdg_cache).expanduser() / "actenon-scan"
+    else:
+        cache_root = Path.home() / ".cache" / "actenon-scan"
+
+    # If the target is a directory, scope the cache by a short hash of
+    # the absolute path so two different repos don't share a cache.
     if target.is_dir():
-        return target / ".actenon-scan-cache"
-    return target.parent / ".actenon-scan-cache"
+        target_hash = hashlib.sha256(str(target.resolve()).encode("utf-8")).hexdigest()[:8]
+        return cache_root / target_hash
+    # Single file: use the shared cache root.
+    return cache_root

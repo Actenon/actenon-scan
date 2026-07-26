@@ -5,6 +5,246 @@ All notable changes to `actenon-scan` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Deprecation policy
+
+- **Public API** = anything in `actenon_scan.api` (re-exported in
+  `actenon_scan.__init__`). Includes `scan_path`, `scan_path_parallel`,
+  `Finding`, `ScanResult`, `Ruleset`, `SinkRule`, `load_rules`,
+  `load_default_rules`, `FileCache`, `get_default_cache_dir`.
+- **CLI surface** = subcommand names, positional args, `--flags` documented
+  in `actenon-scan --help` and README.
+- **Output schemas** = JSON output structure, SARIF rule/result field names,
+  Finding dataclass field names.
+- **Breaking changes** to any of the above require a major version bump
+  (e.g. v1.x → v2.0) and a 2-release deprecation cycle: the old API
+  stays working with a `DeprecationWarning` for one minor release, then
+  is removed in the next minor release, then the major version bumps.
+- **Bug fixes** that change finding output (e.g. fixing a false positive
+  that was previously reported) are NOT breaking changes — they are
+  noted in the release notes but don't require a deprecation cycle.
+- **New rules** added to `default_rules.json` may produce new findings on
+  existing repos; this is NOT a breaking change (the ruleset version in
+  `default_rules.json` is bumped instead).
+
+## [Unreleased]
+
+### Added — public Python API
+
+- New `actenon_scan.api` module re-exports the stable public surface:
+  `scan_path`, `scan_path_parallel`, `auto_jobs`, `ScanResult`, `Finding`,
+  `Ruleset`, `SinkRule`, `load_rules`, `load_default_rules`, `ConfigError`,
+  `FileCache`, `get_default_cache_dir`. `from actenon_scan import scan_path`
+  now works for integrators embedding actenon-scan as a library.
+- `py.typed` marker added — integrators using mypy/pyright get type
+  information from the public API. New `Typing :: Typed` classifier.
+- `actenon_scan/__init__.py` now re-exports the most commonly used
+  symbols (`scan_path`, `Finding`, `ScanResult`, `Ruleset`, `SinkRule`,
+  `load_rules`, `load_default_rules`) with an explicit `__all__`.
+
+### Added — cache relocation
+
+- `ACTENON_SCAN_CACHE_DIR` env var overrides the cache directory.
+- `--cache-dir` flag on `actenon-scan scan` overrides per-invocation.
+- Default cache location moved from `.actenon-scan-cache/` inside the
+  scanned directory (which polluted the workspace) to
+  `${XDG_CACHE_HOME:-~/.cache}/actenon-scan/<target-hash>/` — keeps
+  per-target caches separate without writing into the workspace.
+  **Migration:** if you have a `.actenon-scan-cache/` directory in your
+  repo, you can delete it; the cache will be recreated at the new
+  location on the next scan. Add `ACTENON_SCAN_CACHE_DIR` to your CI
+  env if you want the cache on a persistent volume.
+
+### Added — community files
+
+- `.github/ISSUE_TEMPLATE/{bug_report,feature_request,security_report}.yml`
+- `.github/PULL_REQUEST_TEMPLATE.md` with the fixture-change-justification
+  prompt built in.
+- `.github/CODEOWNERS` — maintainer team owns security-critical paths.
+- `.github/dependabot.yml` — weekly bumps for dev deps and GitHub Actions.
+- `.github/FUNDING.yml` — placeholder for future sponsorship.
+
+### Added — `--all` flag for explain / brief
+
+- `actenon-scan explain --all --path .` explains every finding in one
+  invocation. Previously a user with 50 findings ran 50 commands.
+- `actenon-scan brief --all --path . --format markdown --output briefs.md`
+  produces a single document with all findings.
+
+### Added — `baseline` subcommand
+
+- `actenon-scan baseline <path> --output baseline.json` generates a
+  baseline from the current scan. Previously users had to hand-craft
+  the JSON. `_cmd_adopt` referenced this subcommand but it didn't exist.
+
+### Added — config-based custom sinks and reachability signals
+
+- The config file's `sinks` and `reachability` keys are now documented
+  in README. Users can add support for unrecognised agent frameworks
+  (Haystack `@component`, DSPy `dspy.Module`, ControlFlow `@task`) via
+  config alone — no code changes, no fork required. The loader already
+  supported this; only the docs were missing.
+
+### Added — SARIF rule metadata
+
+- Each SARIF rule now has `helpUri` (per-rule link to
+  `docs/COVERAGE.md#<rule-id-lowercased>`).
+- Each SARIF rule now has `properties.tags` (`security`, `ai-agent`,
+  `cwe-<n>`, `owasp-<id>`).
+- Each SARIF rule now includes `properties.cwe` and `properties.owasp`
+  from the SinkRule fields. GitHub Security tab "Learn more" links and
+  CWE/OWASP filtering now work.
+
+### Added — pre-commit hook for TypeScript and Go
+
+- `.pre-commit-hooks.yaml` now declares separate `actenon-scan-typescript`
+  and `actenon-scan-go` hooks with `additional_dependencies` so they
+  actually install `tree-sitter-typescript` / `tree-sitter-go` in
+  pre-commit's isolated venv. Previously the hooks ran but silently did
+  nothing (every file was "unsupported").
+
+### Added — `[project.urls]` in pyproject.toml
+
+- PyPI sidebar now shows Homepage, Documentation, Source, Issues,
+  Changelog, Security links.
+
+### Changed — `--fail-on` default is now `none`
+
+- Previously `actenon-scan scan .` defaulted to `--fail-on medium`,
+  which meant a new user with 5 medium findings saw exit 1 and assumed
+  the tool crashed. The CLI now defaults to `--fail-on none` (matching
+  `action.yml`'s default). CI users who want fail-on should pass
+  `--fail-on medium` or `--fail-on high` explicitly.
+
+### Changed — `init` merges instead of overwrites
+
+- `actenon-scan init` now reads the existing `.actenon-scan.json` and
+  MERGES suggested `guard_patterns` into it (deduped). The `exclude`,
+  `sinks`, and `reachability` keys are preserved. Previously `init`
+  silently overwrote the config, destroying these keys. Use `--force`
+  to restore the old overwrite behaviour.
+
+### Changed — `fix` indentation for nested-block sinks
+
+- `actenon-scan fix` now inserts the guard at the SINK's own indentation
+  when the sink is inside a `with`/`for`/`try`/`if` block, not at the
+  enclosing function's body indent. The previous behaviour placed guard
+  comments in the middle of the nested block, and when uncommented the
+  guard would run BEFORE the block was entered (e.g. before
+  `browser = p.chromium.launch()`), so the guard could not actually
+  guard the sink.
+
+### Changed — `fix --mode actenon` uses the real actenon-kernel API
+
+- Previously the actenon mode inserted `from actenon import verify_proof`
+  — but no `actenon` package exists on PyPI. Applying `fix --mode actenon
+  --apply` broke user code with `ModuleNotFoundError`. Now uses
+  `from actenon_kernel import verify_pccb` (the real package + function).
+
+### Changed — `fix --mode guard` and `--mode approval` emit calls
+
+- Previously both modes emitted pure TODO comments. Now they emit actual
+  calls (commented out): `# authorize(action="...")` for guard,
+  `# approved = await request_approval(action="...")` for approval.
+  The user uncomments when wiring up the function; the structure is
+  already in place.
+
+### Changed — `--changed-only` covers TypeScript and Go files
+
+- Previously `--changed-only` only picked up `.py` files. The GitHub
+  Action uses `--changed-only`, so changed `.ts`/`.go` files in a PR
+  were silently skipped — contradicting the README's "Parses Python,
+  TypeScript, and Go" promise. Now `.ts`/`.tsx`/`.js`/`.jsx`/`.mjs`/
+  `.cjs`/`.go` files are all included.
+
+### Changed — `--changed-only` no longer silently degrades to a full scan
+
+- Previously, an empty git diff (the common CI case on a clean working
+  tree) caused `--changed-only` to silently run a full scan. Now it
+  prints a warning and exits 0 with an empty result.
+
+### Changed — action.yml sticky PR comment actually posts
+
+- The sticky-PR-comment step's env block now sets `FINDINGS_COUNT`
+  (was missing — the heredoc always exited at "No findings — skipping").
+- `PR_NUMBER` is now passed explicitly from `github.event.pull_request.number`
+  (was parsed from `GITHUB_REF` as `"merge"` instead of the actual number).
+
+### Changed — cache no longer bypasses baseline suppression
+
+- Previously, when the content-hash cache hit, findings were appended
+  to the result WITHOUT applying baseline or inline-suppression checks.
+  A user who ran `scan .`, then `baseline .`, then `scan . --baseline
+  baseline.json` would see all findings still. The cache-hit path now
+  re-applies baseline + suppression from the CURRENT sets on every hit.
+
+### Changed — `__version__` reads pyproject.toml as fallback
+
+- When running from a source checkout without install, `__version__`
+  previously returned `"0.0.0+unknown"` despite the comment claiming
+  it read `pyproject.toml`. Now it actually reads `pyproject.toml`.
+  `--version` and the SARIF `tool.driver.version` field no longer lie
+  when running from source.
+
+### Changed — `_parse_location` rejects negative line numbers
+
+- `actenon-scan explain app.py:-1` previously ran a full scan and
+  returned "No finding at app.py:-1." — wasteful and misleading. Now
+  exits 2 with a clear error.
+
+### Changed — `fix` refuses non-Python files safely
+
+- `actenon-scan fix app.ts:7` previously inserted Python syntax (`#`
+  comments, `raise PermissionError`) into the `.ts` file. Now refuses
+  with a helpful note pointing to the issue tracker.
+
+### Changed — README suppression example syntax
+
+- The README documented `# actenon-scan: suppress RULE-ID` but the code
+  only matched `# actenon-scan: ignore[RULE-ID]`. Both syntaxes are now
+  accepted.
+
+### Changed — README pre-commit `rev` updated to `v1.0.0`
+
+- Was pinned to `v0.8.0` — users copying the snippet pinned to a
+  version that didn't ship the v1.0 features advertised in the same
+  README.
+
+### Changed — pyproject.toml classifier to `Production/Stable`
+
+- Was `Development Status :: 4 - Beta` on a 1.0.0 package.
+
+### Fixed — BOM-prefixed Python files
+
+- A file starting with a UTF-8 BOM (Windows convention) was
+  misclassified as `SyntaxError` and silently missed. The engine now
+  reads with `encoding="utf-8-sig"` which strips the BOM.
+
+### Fixed — Windows backslash path matching
+
+- `_glob_match` now normalizes `rel_path.replace("\\", "/")` so glob
+  patterns like `tests/fixtures/**` match `tests\fixtures\x.py` on
+  Windows. Previously Windows users scanning repos with test fixtures
+  got all the false positives the excludes were designed to suppress.
+
+### Fixed — cache + `on_finding` dropped in parallel mode
+
+- `scan_path_parallel` now accepts `cache` and `on_finding` parameters.
+  Previously the CLI took the parallel branch and silently dropped both.
+
+### Fixed — SARIF tool driver version
+
+- Was hardcoded to `"0.1.0"`. Now uses `__version__`.
+
+### Fixed — README "8 categories" → "16 categories"
+
+- The "What's in this repo" table said "Default rules (8 categories)"
+  but the actual `default_rules.json` has 16. Now correct.
+
+### Fixed — README broken fragment links
+
+- `#github-action`, `#output-formats`, `#what-scan-does-not-do` all
+  pointed at non-existent anchors. Now point at the real section IDs.
+
 
 ## [1.0.0] — 2026-07-25
 

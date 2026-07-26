@@ -1,6 +1,24 @@
-"""actenon-scan: defensive static-analysis scanner for the AI-agent execution gap."""
+"""actenon-scan: defensive static-analysis scanner for the AI-agent execution gap.
+
+The public, stable API surface lives in ``actenon_scan.api``. We re-export
+the most commonly used symbols here so ``from actenon_scan import scan_path``
+works for integrators. For the full public surface, see
+``actenon_scan.api``.
+"""
 
 from importlib.metadata import version as _pkg_version, PackageNotFoundError
+
+# Public API surface — see actenon_scan/api.py for the stability contract.
+from actenon_scan.api import (
+    scan_path,
+    scan_path_parallel,
+    Finding,
+    ScanResult,
+    Ruleset,
+    SinkRule,
+    load_rules,
+    load_default_rules,
+)
 
 try:
     __version__ = _pkg_version("actenon-scan")
@@ -28,3 +46,17 @@ except PackageNotFoundError:
     except Exception:
         # If anything goes wrong, keep the "0.0.0+unknown" fallback.
         pass
+
+
+__all__ = [
+    "__version__",
+    # Public API (re-exported from actenon_scan.api)
+    "scan_path",
+    "scan_path_parallel",
+    "Finding",
+    "ScanResult",
+    "Ruleset",
+    "SinkRule",
+    "load_rules",
+    "load_default_rules",
+]

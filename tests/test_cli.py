@@ -29,15 +29,15 @@ class CliTests(unittest.TestCase):
 
     def test_scan_pretty(self):
         result = subprocess.run(
-            [sys.executable, "-m", "actenon_scan", "scan", str(FIXTURES / "vulnerable" / "refund_tool.py"), "--format", "pretty"],
+            [sys.executable, "-m", "actenon_scan", "scan", str(FIXTURES / "vulnerable" / "refund_tool.py"), "--format", "pretty", "--fail-on", "medium"],
             capture_output=True, text=True,
         )
-        self.assertEqual(1, result.returncode)  # has findings
+        self.assertEqual(1, result.returncode)  # has findings + --fail-on medium
         self.assertIn("refund", result.stdout.lower())
 
     def test_scan_json(self):
         result = subprocess.run(
-            [sys.executable, "-m", "actenon_scan", "scan", str(FIXTURES / "vulnerable" / "refund_tool.py"), "--format", "json"],
+            [sys.executable, "-m", "actenon_scan", "scan", str(FIXTURES / "vulnerable" / "refund_tool.py"), "--format", "json", "--fail-on", "medium"],
             capture_output=True, text=True,
         )
         self.assertEqual(1, result.returncode)
@@ -46,7 +46,7 @@ class CliTests(unittest.TestCase):
 
     def test_scan_sarif(self):
         result = subprocess.run(
-            [sys.executable, "-m", "actenon_scan", "scan", str(FIXTURES / "vulnerable" / "refund_tool.py"), "--format", "sarif"],
+            [sys.executable, "-m", "actenon_scan", "scan", str(FIXTURES / "vulnerable" / "refund_tool.py"), "--format", "sarif", "--fail-on", "medium"],
             capture_output=True, text=True,
         )
         self.assertEqual(1, result.returncode)

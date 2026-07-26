@@ -21,6 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Security",
   "Topic :: Software Development :: Quality Assurance",
+  "Typing :: Typed",
 ]
 dependencies = []
 
@@ -72,6 +73,10 @@ packages = [
 
 [tool.setuptools.package-data]
 "actenon_scan.rules" = ["default_rules.json"]
+# py.typed marker declares the package as PEP 561 typed. Integrators using
+# mypy/pyright get type information from actenon_scan.api and the dataclasses
+# in actenon_scan.engine.
+"actenon_scan" = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

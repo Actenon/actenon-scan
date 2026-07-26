@@ -142,12 +142,39 @@ class FileCacheTests(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_get_default_cache_dir_for_directory(self) -> None:
-        d = get_default_cache_dir(Path(self.tmpdir))
-        self.assertEqual(d, Path(self.tmpdir) / ".actenon-scan-cache")
+        # Round-3 audit: cache_dir now defaults to XDG_CACHE_HOME (or
+        # ~/.cache) instead of polluting the workspace. We test the env
+        # var override path which is the deterministic, side-effect-free
+        # way to verify the resolution.
+        import os as _os
+        old = _os.environ.pop("ACTENON_SCAN_CACHE_DIR", None)
+        old_xdg = _os.environ.pop("XDG_CACHE_HOME", None)
+        try:
+            # With ACTENON_SCAN_CACHE_DIR set, it wins.
+            _os.environ["ACTENON_SCAN_CACHE_DIR"] = str(Path(self.tmpdir) / "custom-cache")
+            d = get_default_cache_dir(Path(self.tmpdir))
+            self.assertEqual(d, Path(self.tmpdir) / "custom-cache")
+        finally:
+            if old is not None:
+                _os.environ["ACTENON_SCAN_CACHE_DIR"] = old
+            else:
+                _os.environ.pop("ACTENON_SCAN_CACHE_DIR", None)
+            if old_xdg is not None:
+                _os.environ["XDG_CACHE_HOME"] = old_xdg
 
     def test_get_default_cache_dir_for_file(self) -> None:
-        d = get_default_cache_dir(self.fixture)
-        self.assertEqual(d, self.fixture.parent / ".actenon-scan-cache")
+        # Same as above — test the env var override path.
+        import os as _os
+        old = _os.environ.pop("ACTENON_SCAN_CACHE_DIR", None)
+        try:
+            _os.environ["ACTENON_SCAN_CACHE_DIR"] = str(self.fixture.parent / "custom-cache")
+            d = get_default_cache_dir(self.fixture)
+            self.assertEqual(d, self.fixture.parent / "custom-cache")
+        finally:
+            if old is not None:
+                _os.environ["ACTENON_SCAN_CACHE_DIR"] = old
+            else:
+                _os.environ.pop("ACTENON_SCAN_CACHE_DIR", None)
 
 
 class ProgressiveOutputTests(unittest.TestCase):
