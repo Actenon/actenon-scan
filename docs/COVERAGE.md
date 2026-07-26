@@ -272,6 +272,26 @@ reported as **unsupported**, never counted as clean — silence must never
 imply safety. Go requires the `[go]` extra (`pip install actenon-scan[go]`);
 TypeScript requires the `[typescript]` extra.
 
+### Per-language sink family matrix
+
+| Family | Python | TypeScript | Go | Notes |
+|--------|--------|------------|-----|-------|
+| Shell execution | EXEC-SHELL | EXEC-SHELL | EXEC-SHELL-GO | Go includes syscall.Exec/ForkExec |
+| File deletion | DATA-DELETE-FILE | — | DATA-DELETE-OS-GO | TS gap: future port |
+| File write | FILE-WRITE | FILE-WRITE | FILE-WRITE-GO | |
+| Network egress | NET-EGRESS | NET-EGRESS | NET-EGRESS-GO | |
+| SQL destruction | DATA-DELETE-SQL | — | DATA-DELETE-SQL-GO | TS gap: future port. Go covers database/sql, sqlx, pgx |
+| Payments (Stripe) | PAY-STRIPE-REFUND | — | PAY-STRIPE-REFUND-GO | TS gap: stripe-node API differs |
+| Payments (generic) | PAY-GENERIC-REFUND | — | PAY-GENERIC-REFUND-GO | TS gap: same rationale |
+| Secret read | SECRET-READ | — | SECRET-READ-GO | TS gap: process.env excluded (same as Go's os.Getenv). Cloud SDK method names only. |
+| Provider SDK | PROVIDER-SDK-CALL | — | PROVIDER-SDK-CALL-GO | TS gap: @aws-sdk API differs from boto3 |
+| Permission change | — | — | — | Proposed as future cross-language family. os.Chmod/os.Chown not in any language. |
+
+**Gaps are explicitly registered.** The parity test in
+`tests/test_go_parity.py` fails when a family exists in one language and
+not another without a registered reason. A future rule added to Python
+only will produce a red test, not a quiet gap.
+
 ---
 
 ## Reading the benchmark honestly
