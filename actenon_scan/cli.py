@@ -261,6 +261,24 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 (base / cf) if not Path(cf).is_absolute() else Path(cf)
                 for cf in changed_files
             ]
+            # Apply exclude patterns to the changed-files list.
+            # Without this, --changed-only bypasses the exclude config and
+            # reports findings from test fixtures that were touched in the PR.
+            if exclude_globs:
+                from fnmatch import fnmatch
+                filtered = []
+                for f in explicit_files:
+                    rel = str(f.relative_to(base)) if base in f.parents or f == base else str(f)
+                    excluded = False
+                    for pattern in exclude_globs:
+                        # Handle ** patterns by also checking prefix matches
+                        clean_pattern = pattern.replace("**/", "").replace("/**", "")
+                        if fnmatch(rel, pattern) or fnmatch(str(f), pattern) or clean_pattern in rel:
+                            excluded = True
+                            break
+                    if not excluded:
+                        filtered.append(f)
+                explicit_files = filtered
 
     try:
         # An explicit --jobs N is always honoured. Otherwise auto_jobs decides,
