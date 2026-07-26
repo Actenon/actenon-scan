@@ -74,7 +74,7 @@ jobs:
             echo "opened a new tracking issue"
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: corpus-freshness-report
           path: corpus-freshness-report.md
