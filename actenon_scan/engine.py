@@ -873,12 +873,68 @@ def scan_path(
     analysis_errors.extend(ts_errors)
 
     # Count TypeScript files as scanned (they were actually analysed)
-    total_scanned = len(files) + ts_scanned
 
     # If TypeScript was scanned, remove those files from unsupported_files
     if ts_scanned > 0:
         ts_file_set = {f for f, _ in unsupported_files if f.endswith((".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"))}
         unsupported_files = [(f, l) for f, l in unsupported_files if f not in ts_file_set]
+
+    # ── Go analysis (if the [go] extra is installed) ──
+    go_scanned = 0
+    go_errors: list[tuple[str, str]] = []
+    from actenon_scan.detectors.go import is_go_extra_available, scan_go_file
+    if is_go_extra_available():
+        # Collect Go files
+        if explicit_files is not None:
+            go_files = [f for f in explicit_files if f.suffix.lower() == ".go" and f.exists()
+                        and not f.name.endswith("_test.go")]
+        elif target.is_file() and target.suffix.lower() == ".go" and not target.name.endswith("_test.go"):
+            go_files = [target]
+        else:
+            go_files = []
+            for filepath in target.rglob("*.go"):
+                if filepath.is_file():
+                    # Skip Go test files by default (like Python test_*.py)
+                    if filepath.name.endswith("_test.go"):
+                        continue
+                    rel = str(filepath.relative_to(target)) if target.is_dir() else filepath.name
+                    excluded = False
+                    for pattern in (exclude_globs or []):
+                        if _glob_match(rel, pattern):
+                            excluded = True
+                            break
+                    if not excluded:
+                        go_files.append(filepath)
+        for go_file in go_files:
+            try:
+                go_source = go_file.read_bytes()
+                rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
+                go_findings = scan_go_file(rel, go_source)
+                for gf in go_findings:
+                    findings.append(Finding(
+                        file=gf.file,
+                        line=gf.line,
+                        col=gf.col,
+                        rule_id=gf.rule_id,
+                        category=gf.category,
+                        severity=gf.severity,
+                        confidence=gf.confidence,
+                        description=gf.description,
+                        call_text=gf.call_text,
+                        remediation=_remediation_hint(gf.category),
+                        snippet_hash="",
+                        tier=_assign_tier(gf.file),
+                    ))
+                go_scanned += 1
+            except Exception as exc:
+                rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
+                go_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+        analysis_errors.extend(go_errors)
+        # Remove Go files from unsupported_files
+        if go_scanned > 0:
+            unsupported_files = [(f, l) for f, l in unsupported_files if not f.endswith(".go")]
+
+    total_scanned = len(files) + ts_scanned + go_scanned
 
     return ScanResult(
         findings=findings,
@@ -1158,7 +1214,7 @@ _UNSUPPORTED_SUFFIXES: dict[str, tuple[str, str | None]] = {
     ".mjs": ("JavaScript", "typescript"),
     ".cjs": ("JavaScript", "typescript"),
     # Not supported at all — no extra exists
-    ".go": ("Go", None),
+    ".go": ("Go", "go"),
     ".rs": ("Rust", None),
     ".java": ("Java", None),
     ".kt": ("Kotlin", None),
@@ -1184,6 +1240,16 @@ def _is_typescript_extra_available() -> bool:
         return False
 
 
+def _is_go_extra_available() -> bool:
+    """Check whether the [go] extra is installed (tree-sitter-go available)."""
+    try:
+        import tree_sitter  # noqa: F401
+        import tree_sitter_go  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 def _classify_explicit_unsupported(
     explicit_files: list[Path], target: Path
 ) -> list[tuple[str, str]]:
@@ -1194,6 +1260,7 @@ def _classify_explicit_unsupported(
     """
     result: list[tuple[str, str]] = []
     ts_available = _is_typescript_extra_available()
+    go_available = _is_go_extra_available()
     base = target if target.is_dir() else target.parent
 
     for f in explicit_files:
@@ -1208,6 +1275,8 @@ def _classify_explicit_unsupported(
             continue
         # If the extra is installed, TS/JS files ARE supported
         if extra == "typescript" and ts_available:
+            continue
+        if extra == "go" and go_available:
             continue
         # Compute relative path
         try:
@@ -1243,12 +1312,15 @@ def _collect_unsupported_files(
             # If the extra is installed, these files ARE supported — don't report them.
             if extra == "typescript" and _is_typescript_extra_available():
                 return []
+            if extra == "go" and _is_go_extra_available():
+                return []
             return [(target.name, lang)]
         return []
 
     # For directories, collect all files with unsupported suffixes
     unsupported: list[tuple[str, str]] = []
     ts_available = _is_typescript_extra_available()
+    go_available = _is_go_extra_available()
 
     # Use the same exclude logic as _collect_files
     default_dir_excludes = [
@@ -1293,6 +1365,8 @@ def _collect_unsupported_files(
             continue
         # If the extra is installed, TS/JS files ARE supported
         if extra == "typescript" and ts_available:
+            continue
+        if extra == "go" and go_available:
             continue
 
         rel = str(filepath.relative_to(target))
