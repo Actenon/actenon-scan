@@ -12,7 +12,7 @@
 # GitHub integration uses the project name configured in the dashboard
 # (auto-generated as "plain-frog-a577"), so this name is informational only.
 
-name = "actenon-scan"
+name = "plain-frog-a577"
 main = "workers/docs.js"
 compatibility_date = "2024-12-01"
 
