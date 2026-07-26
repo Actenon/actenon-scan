@@ -99,12 +99,17 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             f"unsupported language(s): {dict(lang_counts)}."
         )
         extras = set()
+        has_unsupported = False
         for _, lang in result.unsupported_files:
             if "TypeScript" in lang or "JavaScript" in lang:
                 extras.add("typescript")
+            else:
+                has_unsupported = True
         if extras:
             install_hint = " or ".join(f'"actenon-scan[{e}]"' for e in sorted(extras))
             lines.append(f"  Install with:  pip install {install_hint}")
+        if has_unsupported:
+            lines.append("  actenon-scan parses Python and TypeScript. Other languages are not supported.")
 
     # Analysis errors (preserved)
     if result.analysis_errors:
@@ -136,12 +141,17 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
             f"unsupported language(s): {dict(lang_counts)}."
         )
         extras = set()
+        has_unsupported = False
         for _, lang in result.unsupported_files:
             if "TypeScript" in lang or "JavaScript" in lang:
                 extras.add("typescript")
+            else:
+                has_unsupported = True
         if extras:
             install_hint = " or ".join(f'"actenon-scan[{e}]"' for e in sorted(extras))
             lines.append(f"  Install with:  pip install {install_hint}")
+        if has_unsupported:
+            lines.append("  actenon-scan parses Python and TypeScript. Other languages are not supported.")
         lines.append("")
 
     if result.analysis_errors:
@@ -199,12 +209,17 @@ def format_list(result: ScanResult) -> str:
             f"unsupported: {len(result.unsupported_files)} file(s) NOT scanned — {dict(lang_counts)}"
         )
         extras = set()
+        has_unsupported = False
         for _, lang in result.unsupported_files:
             if "TypeScript" in lang or "JavaScript" in lang:
                 extras.add("typescript")
+            else:
+                has_unsupported = True
         if extras:
             install_hint = " or ".join(f'"actenon-scan[{e}]"' for e in sorted(extras))
             lines.append(f"  Install with:  pip install {install_hint}")
+        if has_unsupported:
+            lines.append("  actenon-scan parses Python and TypeScript. Other languages are not supported.")
         lines.append("")
 
     return "\n".join(lines) + "\n"
