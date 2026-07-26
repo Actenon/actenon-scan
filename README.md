@@ -354,9 +354,9 @@ Scan is one of the independent repositories that together close the **execution 
 | **`actenon-scan`** ← you are here | The independent static-analysis scanner | — | `actenon-scan` (PyPI) |
 
 **Optional:** [`actenon-cloud`](https://github.com/Actenon/actenon-cloud) — a managed control plane (source-available; see its LICENSE). Not required by any component above; every capability in this ecosystem works without it.
-
-**Also:** [`sdk-go`](https://github.com/Actenon/sdk-go) (Go verifier SDK) and [`sdk-rust`](https://github.com/Actenon/sdk-rust) (Rust verifier SDK) are available for non-Python integrations.
 <!-- ECOSYSTEM-TABLE:END -->
+
+**Also available:** [`sdk-go`](https://github.com/Actenon/sdk-go) (Go verifier SDK) and [`sdk-rust`](https://github.com/Actenon/sdk-rust) (Rust verifier SDK) for non-Python integrations.
 
 ## Performance
 
