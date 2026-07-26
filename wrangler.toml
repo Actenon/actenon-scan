@@ -1,0 +1,20 @@
+# Cloudflare Workers configuration.
+#
+# This file exists so the Cloudflare Workers and Pages GitHub App (installed
+# at the org level) can build successfully on every push. Without it, the
+# "Workers Builds" check fails instantly on every commit — including main.
+#
+# The Worker is a simple redirect to the GitHub repo. It's useful for anyone
+# who hits the Workers URL (e.g. actenon-scan.workers.dev) — they get sent
+# to the right place instead of a 404.
+#
+# The `name` field is used by `wrangler` CLI for local dev; the Cloudflare
+# GitHub integration uses the project name configured in the dashboard
+# (auto-generated as "plain-frog-a577"), so this name is informational only.
+
+name = "actenon-scan"
+main = "workers/docs.js"
+compatibility_date = "2024-12-01"
+
+[vars]
+GITHUB_URL = "https://github.com/Actenon/actenon-scan"
