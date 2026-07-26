@@ -163,7 +163,7 @@ That's it. The action:
 | Input | Default | Description |
 |-------|---------|-------------|
 | `path` | `.` | Path to scan |
-| `fail-on` | `none` | Fail at this severity (none/low/medium/high). Default: none |
+| `fail-on` | `none` | Fail at this severity (none/low/medium/high). Default: none. The CLI default is medium (intentionally different — see Exit codes below). |
 | `config` | `""` | Path to config file |
 | `baseline` | `""` | Path to baseline.json for known-findings suppression |
 | `scan-scope` | `auto` | `changed` (PR only), `full` (entire repo), or `auto` |
@@ -187,7 +187,7 @@ That's it. The action:
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Actenon/actenon-scan
-    rev: v1.1.0
+    rev: v1.1.1
     hooks:
       - id: actenon-scan
         args: [--changed-only, HEAD]
@@ -211,6 +211,16 @@ unless you explicitly configure `fail-on: high`.
 Unsupported files alone do **not** trigger exit 1 unless `--fail-on-unsupported`
 is passed. A scan that finds 0 supported files but N unsupported files exits 0
 with a visible warning in the output.
+
+#### CLI vs Action: the `--fail-on` default intentionally differs
+
+| Surface | Default | Why |
+|---------|---------|-----|
+| **CLI** (`actenon-scan scan .`) | `medium` | The CLI's exit code is its only machine-readable signal. A scanner that finds 8 unguarded consequential actions and returns 0 passes CI silently — the false-assurance failure this tool exists to close. `medium` is the near-universal convention for SAST/linter tools (semgrep, bandit, eslint, shellcheck all do it). |
+| **GitHub Action** (`uses: Actenon/actenon-scan@v1`) | `none` | The Action has its own reporting surface — a sticky PR comment + SARIF upload to the Security tab. Findings stay visible even when the check is green. A soft default is defensible for teams adopting the tool against an untriaged baseline. Set `fail-on: high` once you've triaged. |
+
+Do not "fix" them back into alignment — the two surfaces have different
+reporting capabilities, and the defaults reflect that.
 
 ## How to export reports
 

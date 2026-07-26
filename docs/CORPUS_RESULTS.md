@@ -35,11 +35,12 @@
    guard naming gets a clean scan.
 
 4. **Zero-dependency base install.** `pip install actenon-scan` installs
-   with nothing else. TypeScript support is 1 MB behind an extra. This
-   is what gets scan into CI pipelines that would reject a heavier tool.
+   with nothing else. TypeScript and Go support are each 1 MB behind an
+   extra. This is what gets scan into CI pipelines that would reject a
+   heavier tool.
 
 5. **Language-agnostic output.** Same rule IDs, same categories, same
-   SARIF format for Python and TypeScript. CI gates work identically.
+   SARIF format for Python, TypeScript, and Go. CI gates work identically.
 
 ### The true positives that matter
 

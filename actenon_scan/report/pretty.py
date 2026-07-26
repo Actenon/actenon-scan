@@ -243,17 +243,41 @@ def _short_call_name(call_text: str) -> str:
 
 
 def _decorator_or_function(f: Finding) -> str:
-    """Best-effort guess at the entry-point decorator.
+    """Best-effort guess at the entry-point decorator / reachability reason.
 
-    The finding itself doesn't carry the decorator; we'd need the brief/
-    explain IR for that. For the summary, we use the file name as a
-    hint: if it's in a tools/ directory or has 'tool' in the name,
-    we guess @mcp.tool() or @tool(). This is purely presentational.
+    For Go findings, the detector populates ``f.reachability_reason`` with
+    the actual criterion that matched (agent_framework_import,
+    tool_registration, or both). We render that directly — no guessing.
+
+    For Python findings, the finding doesn't carry the decorator (we'd
+    need the brief/explain IR for that). We fall back to a file-path hint:
+    if it's in a tools/ directory or has 'tool' in the name, we guess
+    @mcp.tool() or @tool(). This path-guess is ONLY applied to .py files —
+    applying it to .go/.ts files would display Python decorator syntax
+    while reporting on a different language, which is the precise
+    impression the Go/TS support exists to correct.
+
+    For TypeScript findings, reachability_reason is currently empty (the
+    TS detector doesn't track it). We return a generic "agent entry point"
+    rather than guessing Python syntax.
     """
-    # Check if the file path suggests a tool context
-    fp = f.file.lower()
-    if "tool" in fp or "/mcp" in fp or "/agent" in fp:
-        return "@mcp.tool() or @tool"
+    # Go findings: use the real reachability reason from the detector.
+    if f.reachability_reason:
+        reason = f.reachability_reason
+        if "tool_registration" in reason:
+            return "tool registration (AddTool/RegisterTool)"
+        if "agent_framework_import" in reason:
+            return "agent framework import"
+        return reason
+
+    # Python findings: path-based guess (only for .py files).
+    if f.file.endswith(".py"):
+        fp = f.file.lower()
+        if "tool" in fp or "/mcp" in fp or "/agent" in fp:
+            return "@mcp.tool() or @tool"
+        return "agent entry point"
+
+    # TypeScript/other: don't guess Python syntax.
     return "agent entry point"
 
 

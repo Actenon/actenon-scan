@@ -29,6 +29,13 @@ class GoFinding:
     confidence: str
     description: str
     call_text: str
+    # Why this function is agent-reachable. One of:
+    #   "agent_framework_import" — file imports an MCP/agent SDK
+    #   "tool_registration" — function passed to AddTool/RegisterTool/etc.
+    #   "agent_framework_import + tool_registration" — both
+    # Used by the pretty reporter to show the ACTUAL reachability reason
+    # instead of guessing Python decorator syntax from the file path.
+    reachability_reason: str = ""
 
 
 # Sink patterns for Go. Each entry is (rule_id, category, severity, description, patterns).
@@ -142,9 +149,18 @@ def scan_go_file(filepath: str, source: bytes) -> list[GoFinding]:
     # Walk all function declarations
     for func_node in _iter_functions(tree.root_node):
         func_name = _get_func_name(func_node, source)
-        is_reachable = has_agent_import or func_name in tool_handler_names
-        if not is_reachable:
+        is_reachable_import = has_agent_import
+        is_reachable_handler = func_name in tool_handler_names
+        if not (is_reachable_import or is_reachable_handler):
             continue
+
+        # Build the reachability reason string for the reporter.
+        reasons = []
+        if is_reachable_import:
+            reasons.append("agent_framework_import")
+        if is_reachable_handler:
+            reasons.append("tool_registration")
+        reachability_reason = " + ".join(reasons)
 
         # Find sink calls within this function
         for call_node in _iter_calls(func_node):
@@ -165,6 +181,7 @@ def scan_go_file(filepath: str, source: bytes) -> list[GoFinding]:
                             confidence="high",
                             description=rule["description"],
                             call_text=_get_call_text(call_node, source),
+                            reachability_reason=reachability_reason,
                         ))
                         break  # one finding per call
                 else:

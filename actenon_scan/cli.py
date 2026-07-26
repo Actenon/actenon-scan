@@ -44,18 +44,28 @@ def main(argv: list[str] | None = None) -> int:
              "'list' = linter-style list. 'json'/'sarif' = machine-readable. "
              "'html'/'markdown' = shareable reports.",
     )
-    # P1-4 fix: default --fail-on is now "none" (matching action.yml:15).
-    # Previously the CLI defaulted to "medium" while the action defaulted
-    # to "none" — a new user running `actenon-scan scan .` would see exit 1
-    # on any medium-or-above finding and assume the tool crashed. The action
-    # already used `none`; this aligns the CLI.
+    # CLI default --fail-on is "medium". This is the near-universal convention
+    # for SAST/linter tools (semgrep, bandit, eslint, shellcheck all do it):
+    # a non-zero exit on findings means "findings present", not "crashed".
+    # The CLI has no other machine-readable signal — its exit code IS the
+    # status. A scanner that finds 8 unguarded consequential actions and
+    # returns 0 passes CI silently, which is the false-assurance failure
+    # this tool exists to close.
+    #
+    # The action.yml default is intentionally "none" — the Action has its own
+    # reporting surface (sticky PR comment + SARIF upload to the Security tab),
+    # so findings stay visible even when the check is green. A soft default
+    # there is defensible for teams adopting the tool against an untriaged
+    # baseline. The CLI has no such surface. The two intentionally differ;
+    # do not "fix" them back into alignment.
     scan_parser.add_argument(
         "--fail-on",
         choices=["none", "low", "medium", "high"],
-        default="none",
-        help="Exit non-zero when findings meet this severity. Default: none "
-             "(findings are reported but don't fail the build). Set to 'high' "
-             "or 'medium' to fail in CI; 'low' is the strictest.",
+        default="medium",
+        help="Exit non-zero when findings meet this severity. Default: medium "
+             "(findings at or above medium severity fail the build). Set to "
+             "'high' to only fail on high-severity findings; 'none' to never "
+             "fail (use with --baseline for triaged repos); 'low' is the strictest.",
     )
     scan_parser.add_argument("--config", help="Path to config file (JSON or YAML).")
     scan_parser.add_argument("--baseline", help="Path to baseline.json for known-findings suppression.")

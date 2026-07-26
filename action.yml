@@ -10,7 +10,7 @@ inputs:
     required: false
     default: "."
   fail-on:
-    description: "Fail the check when findings meet this severity threshold (none, low, medium, high). Default: none — report findings without failing the build. Set to 'high' once you've triaged your baseline."
+    description: "Fail the check when findings meet this severity threshold (none, low, medium, high). Default: none — report findings without failing the build. Set to 'high' once you've triaged your baseline. NOTE: the CLI default is 'medium' (intentionally different — the CLI has no other reporting surface, so its exit code IS the status; the Action has a sticky PR comment + SARIF upload, so findings stay visible even when the check is green). Do not 'fix' them back into alignment."
     required: false
     default: "none"
   config:
