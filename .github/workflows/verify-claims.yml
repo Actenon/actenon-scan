@@ -23,8 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -61,7 +59,7 @@ jobs:
         # If this check fails, either a real finding was introduced in
         # production code, or the exclusion config was removed/broken.
         run: |
-          pip install -e ".[typescript,yaml]" --quiet
+          pip install -e ".[typescript,go,yaml]" --quiet
           OUTPUT=$(actenon-scan scan . --fail-on none 2>&1)
           echo "$OUTPUT"
           if echo "$OUTPUT" | grep -q "Your agent can reach"; then
@@ -70,6 +68,48 @@ jobs:
             exit 1
           fi
           echo "OK: self-scan reports clean"
+
+      - name: v1 tag points at newest stable release
+        # ITEM 6: the v1 floating tag must track the newest v1.x.y release.
+        # The release-v1-tag workflow automates this, but if it's bypassed
+        # (manual release, workflow disabled), the drift must be visible.
+        run: |
+          # Get the newest v1.x.y tag (excluding v1 itself and pre-release tags)
+          NEWEST=$(git tag -l 'v1.*' | grep -v '^v1$' | grep -v 'integration' | sort -V | tail -1)
+          V1_COMMIT=$(git rev-parse v1 2>/dev/null || echo "")
+          NEWEST_COMMIT=$(git rev-parse "$NEWEST" 2>/dev/null || echo "")
+
+          echo "Newest stable tag: $NEWEST ($NEWEST_COMMIT)"
+          echo "v1 tag: ($V1_COMMIT)"
+
+          if [ -z "$V1_COMMIT" ] || [ -z "$NEWEST_COMMIT" ]; then
+            echo "FAIL: could not resolve v1 or newest tag" >&2
+            exit 1
+          fi
+
+          if [ "$V1_COMMIT" != "$NEWEST_COMMIT" ]; then
+            echo "FAIL: v1 tag ($V1_COMMIT) does not match newest stable release $NEWEST ($NEWEST_COMMIT)" >&2
+            echo "Run: git tag -f v1 $NEWEST && git push origin v1 --force" >&2
+            exit 1
+          fi
+          echo "OK: v1 points at $NEWEST"
+
+      - name: Action pyproject.toml version matches PyPI
+        # ITEM 6: the version in pyproject.toml at the v1 tag must equal
+        # the newest published PyPI version. If they diverge, users
+        # following the documented setup get a stale version.
+        run: |
+          PYPROJECT_VERSION=$(grep '^version' pyproject.toml | sed 's/.*"\(.*\)"/\1/')
+          PYPI_VERSION=$(curl -s https://pypi.org/pypi/actenon-scan/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+
+          echo "pyproject.toml: $PYPROJECT_VERSION"
+          echo "PyPI latest: $PYPI_VERSION"
+
+          if [ "$PYPROJECT_VERSION" != "$PYPI_VERSION" ]; then
+            echo "FAIL: pyproject.toml version ($PYPROJECT_VERSION) != PyPI version ($PYPI_VERSION)" >&2
+            exit 1
+          fi
+          echo "OK: versions match"
 
       - name: CORPUS_STUDY.md is current
         # Work Order 3, Part 5.3: the corpus study must not drift from the
