@@ -733,7 +733,7 @@ def format_brief_markdown(brief: Brief) -> str:
     lines.append("")
     lines.append(f"- **Rule:** `{brief.sink.rule_id}`")
     lines.append(f"- **Category:** `{brief.sink.category}`")
-    lines.append(f"- **Severity:** {brief.sink.severity} (reachability: {brief.sink.confidence})")
+    lines.append(f"- **Severity:** {brief.sink.severity} (sink match: {brief.sink.confidence})")
     lines.append(f"- **Description:** {brief.sink.description}")
     lines.append(f"- **Call:** `{brief.sink.call_text}`")
     lines.append("")
