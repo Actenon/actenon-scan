@@ -44,7 +44,10 @@ class UnsupportedLanguageTests(unittest.TestCase):
         result = self._scan(str(go_dir))
         self.assertIn("NOT scanned", result.stdout)
         self.assertIn("Go", result.stdout)
-        self.assertIn("not supported", result.stdout)
+        # The install hint must point at the [go] extra so the user knows
+        # how to enable Go scanning.
+        self.assertIn("Install with", result.stdout)
+        self.assertIn("go", result.stdout)
 
     def test_single_go_file_reports_unsupported_without_extra(self) -> None:
         """A single .go file named directly must report unsupported when [go] extra is absent."""
@@ -88,8 +91,17 @@ class UnsupportedLanguageTests(unittest.TestCase):
             self.assertIn("Install with", result.stdout)
             self.assertIn("typescript", result.stdout)
 
-    def test_go_shows_not_supported_not_install_hint(self) -> None:
-        """Go files should show 'not supported', NOT 'Install with' (when extra is absent)."""
+    def test_go_shows_install_hint_when_extra_absent(self) -> None:
+        """Go files should show the 'Install with actenon-scan[go]' hint when
+        the [go] extra is NOT installed.
+
+        Previously this test asserted the OPPOSITE — that Go should show "not
+        supported" but NOT the install hint. That was when Go support was
+        experimental and we didn't want to push it. Now that Go is a
+        first-class supported language (the README headline says "Parses
+        Python, TypeScript, and Go" and action.yml installs `[go]`), the
+        install hint SHOULD appear so users know how to enable Go scanning.
+        """
         from actenon_scan.detectors.go import is_go_extra_available
         if is_go_extra_available():
             self.skipTest("[go] extra is installed — Go is supported")
@@ -98,7 +110,8 @@ class UnsupportedLanguageTests(unittest.TestCase):
         (go_dir / "main.go").write_text("package main\n")
         result = self._scan(str(go_dir))
         self.assertIn("not supported", result.stdout)
-        self.assertNotIn("Install with", result.stdout)
+        self.assertIn("Install with", result.stdout)
+        self.assertIn("go", result.stdout)
 
     def test_typescript_extra_import_is_correct(self) -> None:
         """The tree_sitter_typescript import must not have a typo (ITEM 4)."""
