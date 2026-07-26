@@ -101,6 +101,12 @@ class UnsupportedLanguageTests(unittest.TestCase):
         first-class supported language (the README headline says "Parses
         Python, TypeScript, and Go" and action.yml installs `[go]`), the
         install hint SHOULD appear so users know how to enable Go scanning.
+
+        Note: the "Other languages are not supported" line is NOT printed
+        for Go-only repos because Go is in the `extras` set (the line is
+        reserved for truly-unsupported languages like .rs, .java, etc.).
+        The user-facing signal that Go is unsupported is the "NOT scanned"
+        line plus the install hint, not the "not supported" line.
         """
         from actenon_scan.detectors.go import is_go_extra_available
         if is_go_extra_available():
@@ -109,7 +115,8 @@ class UnsupportedLanguageTests(unittest.TestCase):
         go_dir.mkdir()
         (go_dir / "main.go").write_text("package main\n")
         result = self._scan(str(go_dir))
-        self.assertIn("not supported", result.stdout)
+        self.assertIn("NOT scanned", result.stdout)
+        self.assertIn("Go", result.stdout)
         self.assertIn("Install with", result.stdout)
         self.assertIn("go", result.stdout)
 
