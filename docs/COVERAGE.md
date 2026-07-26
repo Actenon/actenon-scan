@@ -605,6 +605,45 @@ As of v1.1.2, the Go detector recognises guard calls using the same
 vocabulary as the Python detector (guards.py), with Go-idiomatic
 camelCase matching (e.g., `checkPermission` matches `check_permission`).
 
+**Recognised guard names** (same vocabulary as Python, matched on the
+last segment of the call name, case-insensitive, with camelCase support):
+
+- `authorize`, `authenticate`, `authorize_request`, `authorize_action`
+- `check_permission`, `check_auth`, `check_authorization`, `check_access`
+- `verify`, `validate`, `verify_pccb`, `verify_proof`, `verify_token`
+- `guard`, `gate`, `policy_gate`, `policy_check`
+- `enforce`, `enforce_policy`, `enforce_permission`, `casbin_enforce`
+- `require_auth`, `require_authentication`, `require_authorization`
+- `require_admin`, `require_superuser`, `require_api_key`
+- `assert_can`, `assert_allowed`, `assert_authorized`, `assert_permitted`
+- `elicit`, `confirm`, `human_approval` (MCP/framework approval primitives)
+- Prefixes: `assert_*`, `require_*`, `enforce_*`, `must_*`, `ensure_*`
+  (both snake_case and camelCase: `assertFoo` matches `assert_foo`)
+- Validation guards: any method starting with `validate`, `sanitize`,
+  `check`, `verify`, `assert` (after stripping leading underscores)
+
+**Method-call form is supported.** Both `authorize(path)` (bare call) and
+`s.auth.Authorize(path)` (method call on a receiver) are recognised. The
+match is on the method name (last segment), not the receiver.
+
+**Deliberately excluded:**
+
+- `Allow` — `rate.Limiter.Allow()` from `golang.org/x/time/rate` is
+  extremely common in Go and is a rate limiter, not an authorization
+  check. Treating it as a guard would suppress real findings, which is
+  the failure mode this tool most needs to avoid. A developer whose
+  authorizer interface uses `Allow`/`Can`/`HasPermission` should
+  register those names via `--guard` or the config file's
+  `guard_patterns` key.
+
+**Custom guard names:** Yes, custom guard names can be registered for Go
+exactly as for Python — via `actenon-scan init` (which writes
+`.actenon-scan.json` with a `guard_patterns` list) or via
+`actenon-scan scan . --guard myAllow --guard myCan`. The Go detector
+receives the same `guard_patterns` list as the Python detector; there is
+no Go-specific registration path. This works for any guard name, including
+`Allow`, `Can`, `HasPermission`, or framework-specific names.
+
 **Covered:**
 - Assert-style guards (`authorize`, `verify`, `check_permission`, etc.)
   that conventionally panic on failure. For these, binding is NOT
@@ -634,6 +673,29 @@ dominating guard, the scanner does NOT suppress. A false positive (flagging
 an guarded sink) is recoverable; a false negative (missing an unguarded
 sink) is the failure the scanner exists to prevent.
 
+### Constant-path deletes (Go) — reported, not suppressed
+
+A delete sink whose path is a compile-time constant joined onto a
+configuration value — e.g., `os.RemoveAll(filepath.Join(e.Workdir,
+"skills"))` — is **reported, not suppressed**.
+
+**Decision:** The tool's stated shape is "agent-controlled intent reaches
+consequential actions." The reachability heuristic is file-level (the file
+imports an agent framework), so the tool genuinely cannot rule out that
+some other call site reaches `Cleanup()` with a model-controlled `Workdir`.
+Under-reporting is the worse error for this tool.
+
+**Ranking:** As of v1.1.3, findings with identified model-controlled
+inputs rank higher in the "Most exposed" spotlight than those without.
+A constant-path delete with no identified model-controlled input will
+appear in the finding list but will not be the headline — the headline
+goes to a finding the model can actually influence.
+
+This is a different class from the temp-file case (below), where the
+argument is provably self-created. A constant-path delete is not
+self-created, but it is also not provably model-controlled on the
+analysed path. The tool reports it and lets the human reviewer decide.
+
 ### Temp-file suppression (Go)
 
 The Go detector suppresses `os.Remove`/`os.RemoveAll` findings when the
@@ -644,10 +706,3 @@ cleanup of a self-created temp file — the model cannot influence the path.
 This suppression is **anchored to the assignment source**, not to the
 `defer` keyword or the string "tmp". A model-supplied path that happens to
 be deleted in a defer is still a finding.
-
-**Not suppressed:** `os.RemoveAll(filepath.Join(e.Workdir, "skills"))` —
-a hardcoded subdirectory joined onto a server-configured value. This has
-no model-controlled component in the path, but the suppression is
-anchored to `os.CreateTemp`/`os.MkdirTemp` sources only. It is a known
-limitation, not a false positive — the path is not model-controlled, but
-it is also not self-created.

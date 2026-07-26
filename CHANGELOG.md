@@ -30,6 +30,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No changes yet._
 
+## [1.1.3] — 2026-07-27
+
+### Ranking + documentation fixes
+
+### ITEM 1 (BLOCKER): "Most exposed" now prefers findings with model-controlled inputs
+
+The ranking previously used severity + confidence + destructiveness. A
+finding with no model-controlled input on the path (e.g., a constant-path
+delete) could be selected as the headline over a finding the model can
+actually influence.
+
+- `_most_exposed_rank` now includes "has model-controlled inputs" as the
+  FIRST sort criterion (before severity). Findings WITH identified inputs
+  rank higher than those WITHOUT.
+- Uses the same call-text parse as the pretty reporter's spotlight
+  (`_extract_params`), not a separate analysis — the ranking agrees with
+  what the user sees.
+- On anthropic-sdk-go: the headline changed from `skills.go:65 RemoveAll()`
+  (no model-controlled inputs) to `skills.go:110 RemoveAll()` (has `dest`
+  as a model-controlled input) — a sound true positive where the model
+  influences the deletion path via the `skillID` parameter.
+
+### ITEM 2: Constant-path deletes — reported, not suppressed (decision documented)
+
+`os.RemoveAll(filepath.Join(e.Workdir, "skills"))` has no model-controlled
+component on the analysed path, but the tool cannot verify that no other
+call site reaches the same function with a model-controlled `Workdir`.
+
+**Decision: REPORT.** Under-reporting is the worse error for this tool.
+The ranking change (ITEM 1) demotes it below findings with identified
+model-controlled inputs. Documented in COVERAGE.md.
+
+### ITEM 3: Go guard vocabulary boundary documented
+
+COVERAGE.md now lists:
+- Which guard names are recognised (same vocabulary as Python, with
+  camelCase matching)
+- That method-call form is supported (`s.auth.Authorize(path)`)
+- That `Allow` is deliberately excluded (rate.Limiter.Allow is not an
+  authorization check)
+- That custom guard names can be registered via `--guard` or
+  `guard_patterns` in the config file — works for Go exactly as for Python
+
+### ITEM 4: MCP SDK figures corrected with tier split
+
+Both Go SDK repos are 1 production + 3 example, not 4 undifferentiated:
+
+| Repo | Production | Example | Total |
+|------|-----------|---------|-------|
+| modelcontextprotocol/go-sdk | 1 (FP: hardcoded "myserver") | 3 | 4 |
+| mark3labs/mcp-go | 1 (borderline: config-controlled) | 3 | 4 |
+
+- go-sdk production finding is a **false positive** — `exec.Command("myserver")`
+  with a hardcoded string. Recorded in FINDINGS.md.
+- mcp-go production finding is **borderline** — `exec.CommandContext(ctx,
+  c.command, c.args...)` in the stdio transport, config-controlled by design.
+  Reported honestly; the scanner's conservative stance is documented.
+
+### ITEM 5: Re-baselined
+
+| Repo | v1.1.2 | v1.1.3 | Change |
+|---|---|---|---|
+| anthropic-sdk-go | 6 | 6 | no change (ranking only) |
+| go-sdk | 4 | 4 (1 prod, 3 example) | tier split |
+| mcp-go | 4 | 4 (1 prod, 3 example) | tier split |
+| github-mcp-server | 2 | 2 | no change |
+
+No finding counts changed. The ranking change (ITEM 1) affects which
+finding is displayed as "Most exposed" but not the total count.
+
 ## [1.1.2] — 2026-07-27
 
 ### Go support upgrade — guard recognition, temp-file suppression, explain IR

@@ -558,7 +558,7 @@ EMAIL-PROVIDER-SEND):
 |------|----------|-------|------------------|
 | mcp-servers (modelcontextprotocol/servers) | mcp_server | 14 py + 65 ts | 0 (1 existing FILE-WRITE) |
 | mcp-python-sdk | mcp_server | 819 py | 0 (1 existing NET-EGRESS) |
-| github-mcp-server | mcp_server | 208 go + 4 ts | 0 (Go unsupported; 4 TS files are UI) |
+| github-mcp-server | mcp_server | 208 go + 4 ts | 2 Go (NET-EGRESS-GO + FILE-WRITE-GO) |
 | mcp-atlassian | mcp_server | 283 py | 0 |
 | browser-use | application (computer-use) | 370 py | 0 |
 
@@ -599,6 +599,23 @@ The scanner can detect:
 - Chained psycopg2 database mutation in agent-reachable Python tools (fixture-verified)
 
 The scanner cannot detect (recorded as residual risk):
-- Go-based MCP server mutation tools (language unsupported)
 - GitLab/Bitbucket equivalents (no real-world occurrence validated)
+
+### Go SDK reference scans (v1.1.3, tier-split)
+
+Three Go repos scanned with `actenon-scan[go]` v1.1.3. Findings split
+by tier (production vs example) — example findings are in `examples/`
+directories and are illustrative code, not production paths.
+
+| Repo | Production | Example | Total | Assessment |
+|------|-----------|---------|-------|------------|
+| anthropics/anthropic-sdk-go | 3 | 3 | 6 | 5 sound, 1 constant-path (skills.go:65, reported not suppressed — see COVERAGE.md) |
+| modelcontextprotocol/go-sdk | 1 | 3 | 4 | Production finding is a **false positive**: `exec.Command("myserver")` with a hardcoded string argument — the model cannot influence the command. Example findings are illustrative. |
+| mark3labs/mcp-go | 1 | 3 | 4 | Production finding is **borderline**: `exec.CommandContext(ctx, c.command, c.args...)` in the stdio transport — config-controlled by design, not model-controlled, but not provably constant from the call site. Reported honestly; the design intent is that `c.command`/`c.args` are set by MCP client configuration. |
+| github/github-mcp-server | 2 | 0 | 2 | Both sound: `http.Get(logURL)` with an agent-controlled URL, `os.OpenFile(cfg.LogFilePath, ...)` with a config-controlled path. |
+
+**Honest assessment of go-sdk production finding:** `internal/readme/client/client.go:23` with `exec.Command("myserver")` is a false positive. The hardcoded string argument means the model cannot influence the command. This is recorded here rather than hidden — a scanner that publishes its own false positives is more credible than one that reports a clean total.
+
+**Honest assessment of mcp-go production finding:** `client/transport/stdio.go:206` with `exec.CommandContext(ctx, c.command, c.args...)` is config-controlled by design — `c.command` and `c.args` are set by the MCP client at connection time, not by the model. The scanner cannot verify this from the call site alone (it would need cross-file data-flow analysis), so the finding is reported. A human reviewer would dismiss it, but the scanner's conservative stance (report rather than miss) is the correct default for this tool.
+
 

@@ -160,12 +160,22 @@ def group_by_consequence(findings: list[Finding]) -> "OrderedDict[str, Consequen
 # Most-exposed ranking (Part 1.4).
 #
 # Deterministic ranking. Considers:
-#   1. severity (HIGH > MEDIUM > LOW)
-#   2. confidence (high > medium > low)
-#   3. destructive/irreversible consequence (DATA LOSS > others)
-#   4. stable file/line ordering (final tie-break)
+#   1. has model-controlled inputs (findings WITH identified inputs rank
+#      higher than those WITHOUT — a finding the model can actually
+#      influence is more exposed than one with no model-controlled path)
+#   2. severity (HIGH > MEDIUM > LOW)
+#   3. confidence (high > medium > low)
+#   4. destructive/irreversible consequence (DATA LOSS > others)
+#   5. stable file/line ordering (final tie-break)
 #
 # Does NOT introduce arbitrary scoring. The ranking is purely ordinal.
+#
+# ITEM 1 (v1.1.3 audit): the "has model-controlled inputs" signal is
+# computed from the same call-text parse that the pretty reporter's
+# spotlight uses (_extract_params). The explain IR (build_brief) may
+# find more parameters via AST analysis, but the ranking must agree
+# with what the summary displays — not with a deeper analysis the user
+# hasn't seen yet.
 # ---------------------------------------------------------------------------
 
 _SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -173,17 +183,57 @@ _CONFIDENCE_RANK = {"high": 0, "medium": 1, "low": 2}
 _DESTRUCTIVE_LABELS = {"DATA LOSS", "DATABASE", "REPOSITORY"}
 
 
-def _most_exposed_rank(f: Finding) -> tuple[int, int, int, str, int]:
+def _has_model_controlled_inputs(f: Finding) -> bool:
+    """Check whether the finding has identified model-controlled inputs.
+
+    Uses the same call-text parse as the pretty reporter's spotlight
+    (_extract_params in pretty.py). This is intentionally the SAME source
+    as what the user sees in the summary, not the deeper explain IR —
+    the ranking must agree with the displayed information, not with an
+    analysis the user hasn't seen yet.
+    """
+    # Inline the same logic as pretty._extract_params to avoid a circular
+    # import (pretty imports from blast_radius).
+    if "(" not in f.call_text:
+        return False
+    paren_start = f.call_text.index("(")
+    depth = 0
+    paren_end = len(f.call_text)
+    for i in range(paren_start, len(f.call_text)):
+        if f.call_text[i] == "(":
+            depth += 1
+        elif f.call_text[i] == ")":
+            depth -= 1
+            if depth == 0:
+                paren_end = i
+                break
+    args_text = f.call_text[paren_start + 1 : paren_end]
+    for arg in args_text.split(","):
+        arg = arg.strip()
+        if not arg:
+            continue
+        # Keyword arg with a name
+        if "=" in arg:
+            return True
+        # Positional arg that's a simple identifier (not a literal)
+        if arg.isidentifier():
+            return True
+    return False
+
+
+def _most_exposed_rank(f: Finding) -> tuple[int, int, int, int, str, int]:
     """Sort key for the most-exposed ranking (lower = more exposed).
 
-    1. severity (HIGH first)
-    2. confidence (high first)
-    3. destructive consequence (DATA LOSS/DATABASE/REPOSITORY first)
-    4. file path (stable alphabetical)
-    5. line number (stable ascending)
+    1. has model-controlled inputs (findings WITH inputs first)
+    2. severity (HIGH first)
+    3. confidence (high first)
+    4. destructive consequence (DATA LOSS/DATABASE/REPOSITORY first)
+    5. file path (stable alphabetical)
+    6. line number (stable ascending)
     """
     label = consequence_label(f.category)
     return (
+        0 if _has_model_controlled_inputs(f) else 1,
         _SEVERITY_RANK.get(f.severity, 3),
         _CONFIDENCE_RANK.get(f.confidence, 3),
         0 if label in _DESTRUCTIVE_LABELS else 1,
