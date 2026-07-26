@@ -163,6 +163,17 @@ def _load_rules_from_file(path: Path) -> Ruleset:
 
 
 def _parse_rules_dict(raw: dict[str, Any]) -> Ruleset:
+    # Work Order 4, Part 1.3: warn on unknown keys. A config key that
+    # silently does nothing is worse than one that errors, because the
+    # user believes they configured something.
+    _KNOWN_KEYS = {"sinks", "guards", "guard_patterns", "reachability",
+                   "version", "exclude", "_comment", "include"}
+    unknown = set(raw.keys()) - _KNOWN_KEYS
+    if unknown:
+        import sys
+        print(f"WARNING: unknown config key(s) {sorted(unknown)} — "
+              f"accepted keys: {sorted(_KNOWN_KEYS)}", file=sys.stderr)
+
     sinks = []
     for s in raw.get("sinks", []):
         if not isinstance(s, dict):

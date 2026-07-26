@@ -37,6 +37,7 @@ or if a recall fixture has no row here.
 | `r06` | Action/observation dispatcher — `run_action` | NOT COVERED | - |
 | `r07` | Raw tool-schema dispatch — switch on tool name | PARTIAL | - |
 | `r08` | SMTP `send_message` — `smtplib.SMTP(...).send_message(...)` | PARTIAL | - |
+| `r09` | Shell execution without external_execution guard | PARTIAL | - |
 
 **COVERED (3)** — detector fires, and it has been shown to fire on real code
 that a third party wrote.

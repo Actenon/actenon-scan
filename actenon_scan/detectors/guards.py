@@ -65,6 +65,18 @@ def check_guard(
             message="guard decorator on enclosing function",
         )
 
+    # Check (b2): framework-level approval flags in decorator keyword arguments.
+    # Work Order 4, Part 2.1: @tool(external_execution=True) means agno does
+    # NOT execute the tool — the call is handed back for a human to run. This
+    # is the framework's own human-in-the-loop primitive, same class as
+    # ctx.elicit and LangChain's HumanApprovalCallbackHandler.
+    approval_flag = _has_decorator_approval_flag(func_node)
+    if approval_flag:
+        return GuardCheckResult(
+            guarded=True,
+            message=f"framework approval flag on enclosing function: {approval_flag}",
+        )
+
     # Build a parent map for dominance analysis
     parent_map = _build_parent_map(func_node)
 
@@ -748,6 +760,57 @@ def _has_guard_decorator(func_node: ast.FunctionDef | ast.AsyncFunctionDef, guar
         if name and _matches_guard(name, guard_patterns):
             return True
     return False
+
+
+# Framework-level approval flags recognised as guards.
+# Work Order 4, Part 2.1+2.2: each entry is (decorator_name, kwarg_name, truthy_values)
+# A decorator that passes one of these kwargs with a truthy value signals that
+# the framework does NOT auto-execute the tool — the call is handed to a human.
+_DECORATOR_APPROVAL_FLAGS: list[tuple[str, str, frozenset]] = [
+    # agno: @tool(external_execution=True) — the agent returns the tool call
+    # to the caller for external execution. The agent does NOT run it.
+    ("tool", "external_execution", frozenset({True, "true", "True", "1", 1})),
+    # agno: @tool(human_input=True) — the tool requires human input before
+    # execution can proceed.
+    ("tool", "human_input", frozenset({True, "true", "True", "1", 1})),
+    # pydantic-ai: @tool(prepare=...) with human approval — not a kwarg but
+    # a function; skip for now (cannot verify without the prepare function body).
+]
+
+
+def _has_decorator_approval_flag(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> str | None:
+    """Check if the function has a decorator with a framework-level approval flag.
+
+    Returns a human-readable description of the flag found, or None.
+
+    Recognised flags (Work Order 4, Part 2.1+2.2):
+      - @tool(external_execution=True) — agno: tool is NOT auto-executed;
+        the call is handed back for a human to run.
+      - @tool(human_input=True) — agno: tool requires human input.
+
+    Each was verified against real source in the agno cookbook:
+      cookbook/02_agents/10_human_in_the_loop/external_tool_execution.py
+    """
+    for decorator in func_node.decorator_list:
+        if not isinstance(decorator, ast.Call):
+            continue
+        dec_name = _get_decorator_name(decorator.func)
+        for flag_dec_name, kwarg_name, truthy_values in _DECORATOR_APPROVAL_FLAGS:
+            if dec_name != flag_dec_name:
+                continue
+            for kw in decorator.keywords:
+                if kw.arg != kwarg_name:
+                    continue
+                # Check if the value is truthy
+                if isinstance(kw.value, ast.Constant):
+                    if kw.value.value in truthy_values:
+                        return f"{dec_name}({kwarg_name}={kw.value.value!r})"
+                elif isinstance(kw.value, ast.Name):
+                    if kw.value.id in ("True", "true"):
+                        return f"{dec_name}({kwarg_name}={kw.value.id})"
+    return None
 
 
 def _get_call_name(node: ast.expr) -> str:
