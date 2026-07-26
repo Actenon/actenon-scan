@@ -33,6 +33,14 @@ class Finding:
     suppression_reason: str = ""
     snippet_hash: str = ""
     tier: str = "production"
+    # Why this function is agent-reachable. For Python findings, this is
+    # populated by the brief/explain layer (e.g. "@tool", "@mcp.tool()").
+    # For Go findings, it's populated by the Go detector (e.g.
+    # "agent_framework_import", "tool_registration"). For TypeScript
+    # findings, it's currently empty (the TS detector doesn't track this).
+    # The pretty reporter uses this to show the ACTUAL reachability reason
+    # instead of guessing from the file path.
+    reachability_reason: str = ""
 
     @property
     def effective_severity(self) -> str:
@@ -985,6 +993,7 @@ def scan_path(
                         remediation=_remediation_hint(gf.category),
                         snippet_hash="",
                         tier=_assign_tier(gf.file),
+                        reachability_reason=gf.reachability_reason,
                     ))
                 go_scanned += 1
             except Exception as exc:

@@ -30,6 +30,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No changes yet._
 
+## [1.1.1] — 2026-07-27
+
+### Regression fix release
+
+v1.1.0 changed the CLI `--fail-on` default from `medium` to `none`,
+which meant a scan that found 8 unguarded consequential actions exited
+0 — passing CI silently. This is the false-assurance failure the tool
+exists to close. v1.1.1 reverts the CLI default to `medium`.
+
+### Fixed — CLI `--fail-on` default reverted to `medium`
+
+- v1.1.0 changed the default to `none` to match `action.yml`. That was
+  the wrong direction: the CLI has no other machine-readable signal, so
+  its exit code IS the status. A scanner that finds findings and exits 0
+  passes CI silently.
+- The CLI default is now `medium` again (matching v1.0.0 and the
+  near-universal SAST/linter convention: semgrep, bandit, eslint,
+  shellcheck all fail on findings by default).
+- `action.yml` stays at `none` — the Action has a sticky PR comment +
+  SARIF upload, so findings stay visible even when the check is green.
+  The two intentionally differ. Added comments in both `cli.py` and
+  `action.yml` explaining why, so this doesn't get "fixed" back into
+  alignment.
+- README now documents the full exit code contract including the
+  deliberate CLI/Action difference.
+
+### Fixed — docs/COVERAGE.md stale Go claims
+
+Every scan prints "See docs/COVERAGE.md for supported architectures and
+analysis limits." v1.1.0 added Go support, but COVERAGE.md still said
+"The scanner supports Python and TypeScript but not Go." A successful
+Go scan directed the user to a document telling them Go was unsupported.
+
+- Line 270: "Python and TypeScript/JavaScript" → "Python,
+  TypeScript/JavaScript, and Go".
+- Line 546: benchmark table `github-mcp-server | 0 (Go unsupported)` →
+  `2 (Go)` — re-scanned the pinned SHA (eb088dfe) with 1.1.0, got 2
+  findings across 131 Go files.
+- Lines 565-570: "Limitation: Go-based MCP servers" section rewritten
+  to "Go-based MCP servers (now supported)" with the actual findings
+  listed.
+- Line 589: coverage verdicts table "Go-based MCP mutation tools | NOT
+  SUPPORTED" → "COVERED — NET-EGRESS-GO + FILE-WRITE-GO".
+- docs/CORPUS_RESULTS.md: "Python and TypeScript" → "Python, TypeScript,
+  and Go" (two locations).
+
+### Fixed — Go findings no longer show Python decorator syntax
+
+`report/pretty.py` `_decorator_or_function` previously guessed
+`@mcp.tool() or @tool` based on the file PATH containing "tool" or
+"/mcp" — with no language check. A Go finding in `tools/agenttoolset/
+fs.go` rendered as "Reachable by: @mcp.tool() or @tool", displaying
+Python decorator syntax while reporting on Go.
+
+- `GoFinding` dataclass now carries a `reachability_reason` field
+  populated by the detector (`agent_framework_import`,
+  `tool_registration`, or both).
+- `Finding` dataclass now carries the same field, threaded through from
+  the Go detector via the engine.
+- `_decorator_or_function` now renders the real reachability reason for
+  Go findings ("tool registration (AddTool/RegisterTool)" or "agent
+  framework import"). The path-based guess is now ONLY applied to `.py`
+  files. TypeScript and other languages get a generic "agent entry
+  point" rather than Python syntax.
+
+### Added — regression test pinning the `--fail-on` default
+
+- `test_fail_on_default_is_medium` — asserts the CLI source has
+  `default="medium"`.
+- `test_scan_with_findings_exits_nonzero_by_default` — end-to-end: a
+  scan with medium-or-above findings exits 1 by default.
+- `test_scan_with_findings_exits_zero_with_fail_on_none` — explicit
+  `--fail-on none` still exits 0 (for triaged repos with baselines).
+
 ## [1.1.0] — 2026-07-27
 
 ### First-touch readiness release

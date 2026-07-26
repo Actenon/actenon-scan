@@ -267,8 +267,10 @@ false positives on codebases that centralise authorization at a dispatch layer.
 
 ### Language support
 
-Python and TypeScript/JavaScript. Files in other languages are reported as
-**unsupported**, never counted as clean — silence must never imply safety.
+Python, TypeScript/JavaScript, and Go. Files in other languages are
+reported as **unsupported**, never counted as clean — silence must never
+imply safety. Go requires the `[go]` extra (`pip install actenon-scan[go]`);
+TypeScript requires the `[typescript]` extra.
 
 ---
 
@@ -543,7 +545,7 @@ corpus:
 |------|----------|------------------|
 | mcp-servers | mcp_server | 0 |
 | mcp-python-sdk | mcp_server | 0 |
-| github-mcp-server | mcp_server | 0 (Go unsupported) |
+| github-mcp-server | mcp_server | 2 (Go) |
 | mcp-atlassian | mcp_server | 0 |
 | browser-use | application | 0 |
 | crewai | framework | 0 |
@@ -562,12 +564,20 @@ fixtures but not on the existing corpus. This is expected: the
 pinned corpus repos don't use PyGithub, raw GitHub REST mutation, or
 SendGrid/Mailgun SDKs in agent-reachable Python tools.
 
-### Limitation: Go-based MCP servers
+### Go-based MCP servers (now supported)
 
 The official GitHub MCP server (github/github-mcp-server) implements
-its mutation tools in Go. The scanner supports Python and TypeScript
-but not Go. The 4 TypeScript files in the repo are frontend UI code.
-This is recorded as NOT SUPPORTED for Go.
+its mutation tools in Go. As of v1.1.0, the scanner supports Go via
+the `[go]` extra. Re-scanning the pinned SHA (eb088dfe) with
+actenon-scan 1.1.0 produces 2 findings across 131 Go files:
+
+- `pkg/github/actions.go:172` — NET-EGRESS-GO (medium): `http.Get(logURL)`
+  with an agent-controlled URL.
+- `internal/ghmcp/server.go:286` — FILE-WRITE-GO (medium): `os.OpenFile`
+  with an agent-controlled path.
+
+The 4 TypeScript files in the repo are frontend UI code and produce no
+findings.
 
 ### Coverage verdicts for W01 surfaces
 
@@ -586,5 +596,5 @@ This is recorded as NOT SUPPORTED for Go.
 | Mailgun messages.create (Python SDK) | PARTIAL — fixture-verified, SDK not in corpus |
 | Mailgun raw HTTP (Python requests) | COVERED — NET-EGRESS |
 | Chained psycopg2 execute (Python) | COVERED — fixture-verified (Part 2.9) |
-| Go-based MCP mutation tools | NOT SUPPORTED |
+| Go-based MCP mutation tools | COVERED — NET-EGRESS-GO + FILE-WRITE-GO (github-mcp-server) |
 | GitLab/Bitbucket equivalents | UNVALIDATED |

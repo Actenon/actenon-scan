@@ -248,24 +248,41 @@ def test_fix_function_body_sink_gets_function_indent(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# P1-4: --fail-on default is now "none" (matching action.yml).
+# P1-4 (REVERSED): --fail-on CLI default is "medium" (NOT "none").
+# The round-3 audit changed it to "none" to match action.yml. That was
+# wrong — the CLI has no other machine-readable signal, so a scanner that
+# finds 8 unguarded consequential actions and returns 0 passes CI silently.
+# Reverted to "medium" (the 1.0.0 default). action.yml stays at "none"
+# (it has a sticky PR comment + SARIF upload, so findings stay visible
+# even when the check is green). The two intentionally differ.
 # ---------------------------------------------------------------------------
 
 
-def test_fail_on_default_is_none() -> None:
-    """P1-4 regression: the CLI previously defaulted to --fail-on medium.
-    A new user with medium findings saw exit 1 and assumed the tool crashed."""
+def test_fail_on_default_is_medium() -> None:
+    """The CLI --fail-on default must be "medium" — not "none".
+
+    A scanner that finds findings and exits 0 passes CI silently. The
+    CLI's exit code is its only machine-readable signal, so it must fail
+    on findings by default. The Action defaults to "none" because it has
+    a sticky PR comment + SARIF upload; the CLI has no such surface.
+    """
     import inspect
     from actenon_scan.cli import main
     src = inspect.getsource(main)
-    # The default for --fail-on must be "none".
-    assert '"none"' in src and 'default="none"' in src, (
-        "CLI --fail-on default is not 'none' — check cli.py scan_parser"
+    # The default for --fail-on must be "medium".
+    assert 'default="medium"' in src, (
+        "CLI --fail-on default is not 'medium' — check cli.py scan_parser. "
+        "A non-failing default means findings pass CI silently."
     )
 
 
-def test_scan_with_findings_exits_zero_by_default(tmp_path: Path) -> None:
-    """End-to-end: a scan with findings should exit 0 by default (no --fail-on)."""
+def test_scan_with_findings_exits_nonzero_by_default(tmp_path: Path) -> None:
+    """End-to-end: a scan with medium-or-above findings must exit 1 by default.
+
+    This pins the default — a scanner that finds 8 unguarded consequential
+    actions and returns 0 passes CI silently, which is the false-assurance
+    failure this tool exists to close.
+    """
     src = tmp_path / "tool.py"
     src.write_text(textwrap.dedent("""\
         import subprocess
@@ -279,9 +296,30 @@ def test_scan_with_findings_exits_zero_by_default(tmp_path: Path) -> None:
         [sys.executable, "-m", "actenon_scan", "scan", str(src), "--format", "json"],
         capture_output=True, text=True,
     )
+    assert result.returncode == 1, (
+        f"scan with findings exited {result.returncode} by default. "
+        f"Expected 1 (--fail-on default should be medium, so findings fail the build). "
+        f"stderr: {result.stderr[:300]}"
+    )
+
+
+def test_scan_with_findings_exits_zero_with_fail_on_none(tmp_path: Path) -> None:
+    """Explicit --fail-on none still exits 0 (for triaged repos with baselines)."""
+    src = tmp_path / "tool.py"
+    src.write_text(textwrap.dedent("""\
+        import subprocess
+        from mcp import tool
+
+        @tool
+        def run(cmd: str) -> str:
+            return subprocess.run(cmd, shell=True).stdout.decode()
+        """))
+    result = subprocess.run(
+        [sys.executable, "-m", "actenon_scan", "scan", str(src), "--format", "json", "--fail-on", "none"],
+        capture_output=True, text=True,
+    )
     assert result.returncode == 0, (
-        f"P1-4 regression: scan with findings exited {result.returncode} by default. "
-        f"Expected 0 (--fail-on default should be none). stderr: {result.stderr[:300]}"
+        f"scan with --fail-on none exited {result.returncode}. Expected 0."
     )
 
 
