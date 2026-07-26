@@ -1,0 +1,77 @@
+name: Soundness challenge
+description: Submit a case where actenon-scan gets it wrong — a missed sink, an unrecognised guard, or a false positive
+title: "[Challenge] "
+labels: ["soundness-challenge"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to submit a soundness challenge! This is
+        how the scanner gets better — every accepted case becomes a
+        permanent test fixture.
+
+        See [docs/SOUNDNESS_CHALLENGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/SOUNDNESS_CHALLENGE.md)
+        for what counts as a valid submission and what happens after you
+        submit.
+
+  - type: dropdown
+    id: class
+    attributes:
+      label: Class
+      description: What did the scanner get wrong?
+      options:
+        - Missed sink — a supported-language sink the scanner should have flagged but didn't
+        - Unrecognised guard — a guard in the recognised vocabulary that the scanner failed to honour
+        - False positive — the scanner flagged code it should not have
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - Python
+        - TypeScript
+        - Go
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code sample
+      description: |
+        The minimal code that demonstrates the problem. Inline, not a
+        link — a link can rot. Include enough context (imports, function
+        signature, decorator) for the scanner to detect reachability.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What the scanner did
+      description: What did `actenon-scan scan` report? Paste the relevant output line or describe the behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What it should have done
+      description: What should the scanner have reported instead? Be specific — "should flag this as EXEC-SHELL" or "should not flag this — the guard dominates."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have checked docs/COVERAGE.md and this is not already documented as NOT COVERED.
+          required: true
+        - label: I have checked that the guard name I'm using is in the recognised vocabulary (or I have registered it via --guard).
+          required: false

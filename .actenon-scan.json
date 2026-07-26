@@ -3,6 +3,7 @@
   "exclude": [
     "tests/benchmark/**",
     "tests/corpus/**",
-    "tests/fixtures/**"
+    "tests/fixtures/**",
+    "tests/challenge/**"
   ]
 }

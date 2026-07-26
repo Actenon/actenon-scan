@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""Generate the soundness challenge scoreboard.
+
+Reads challenge fixture metadata from tests/challenge/CHALLENGE-*.yml
+and generates docs/SOUNDNESS_CHALLENGE.md.
+
+Usage:
+  python scripts/generate_soundness_scoreboard.py          # generate
+  python scripts/generate_soundness_scoreboard.py --check   # fail if stale
+
+The scoreboard lists every challenge case, grouped by status (open first,
+then fixed). Each entry shows the issue number, submitter, class,
+language, title, and status.
+
+The open misses are the point. A challenge that only shows fixed cases
+is a trophy cabinet. One that shows "these are the cases we currently
+get wrong" is the thing that makes a security engineer trust the tool.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    print("ERROR: pyyaml required. Install with: pip install pyyaml", file=sys.stderr)
+    sys.exit(1)
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CHALLENGE_DIR = REPO_ROOT / "tests" / "challenge"
+OUTPUT_FILE = REPO_ROOT / "docs" / "SOUNDNESS_CHALLENGE.md"
+
+
+def load_challenges() -> list[dict]:
+    """Load all challenge metadata files, sorted by issue number."""
+    challenges = []
+    for yml_file in sorted(CHALLENGE_DIR.glob("CHALLENGE-*.yml")):
+        with open(yml_file) as f:
+            data = yaml.safe_load(f)
+            data["_file"] = yml_file.name
+            challenges.append(data)
+    return challenges
+
+
+def generate_scoreboard(challenges: list[dict]) -> str:
+    """Generate the scoreboard markdown."""
+    lines = [
+        "# Soundness Challenge",
+        "",
+        "> Submit a case where actenon-scan gets it wrong. Every accepted",
+        "> case becomes a permanent test fixture.",
+        "",
+        "[**Submit a challenge →**](https://github.com/Actenon/actenon-scan/issues/new?template=soundness-challenge.yml)",
+        "",
+        "---",
+        "",
+        "## Rules",
+        "",
+        "**In scope:**",
+        "- A supported-language sink the scanner misses (Python, TypeScript, Go)",
+        "- A guard in the recognised vocabulary that the scanner fails to honour",
+        "- A finding on code with no model-controlled input on the path",
+        "- Any case where the scanner reports clean on something it should not",
+        "",
+        "**Out of scope:**",
+        "- Unsupported languages (that is documented coverage, not a miss)",
+        "- Guard names outside the default vocabulary where `--guard` resolves it",
+        "- Anything the tool already discloses in `docs/COVERAGE.md` as NOT COVERED",
+        "",
+        "**What happens after you submit:**",
+        "1. Triaged — usually within a week, sometimes longer",
+        "2. Accepted or rejected with a reason",
+        "3. If accepted: a fixture is added to `tests/challenge/`",
+        "4. Fixed: the fixture moves from expected-to-fail to expected-to-pass",
+        "5. Or recorded as an open miss — visible on this page until fixed",
+        "",
+        "Credit is given by GitHub handle in both the scoreboard and the fixture file.",
+        "",
+        "---",
+        "",
+    ]
+
+    # Group by status
+    open_cases = [c for c in challenges if c.get("status") == "open"]
+    fixed_cases = [c for c in challenges if c.get("status") == "fixed"]
+
+    # Open misses first
+    lines.append("## Open cases")
+    lines.append("")
+    lines.append("_These are the cases the scanner currently gets wrong._")
+    lines.append("")
+    if open_cases:
+        lines.append("| # | Submitter | Class | Language | Title |")
+        lines.append("|---|-----------|-------|----------|-------|")
+        for c in open_cases:
+            issue = c.get("issue", 0)
+            issue_link = f"[#{issue}](https://github.com/Actenon/actenon-scan/issues/{issue})" if issue > 0 else f"#{issue}"
+            lines.append(
+                f"| {issue_link} | @{c.get('submitter', '?')} | {c.get('class', '?')} | {c.get('language', '?')} | {c.get('title', '?')} |"
+            )
+    else:
+        lines.append("_No open cases._")
+    lines.append("")
+
+    # Fixed cases
+    lines.append("## Fixed cases")
+    lines.append("")
+    if fixed_cases:
+        lines.append("| # | Submitter | Class | Language | Title | Fix |")
+        lines.append("|---|-----------|-------|----------|-------|-----|")
+        for c in fixed_cases:
+            issue = c.get("issue", 0)
+            issue_link = f"[#{issue}](https://github.com/Actenon/actenon-scan/issues/{issue})" if issue > 0 else f"#{issue}"
+            fix_version = c.get("fixed_in", "?")
+            lines.append(
+                f"| {issue_link} | @{c.get('submitter', '?')} | {c.get('class', '?')} | {c.get('language', '?')} | {c.get('title', '?')} | v{fix_version} |"
+            )
+    else:
+        lines.append("_No fixed cases yet._")
+    lines.append("")
+
+    # Footer
+    lines.append("---")
+    lines.append("")
+    lines.append("_This page is generated by `scripts/generate_soundness_scoreboard.py`. Do not edit by hand._")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def main() -> int:
+    check_mode = "--check" in sys.argv
+
+    challenges = load_challenges()
+    content = generate_scoreboard(challenges)
+
+    if check_mode:
+        if not OUTPUT_FILE.exists():
+            print(f"FAIL: {OUTPUT_FILE} does not exist. Run: python scripts/generate_soundness_scoreboard.py")
+            return 1
+        existing = OUTPUT_FILE.read_text()
+        if existing != content:
+            print(f"FAIL: {OUTPUT_FILE} is stale. Run: python scripts/generate_soundness_scoreboard.py")
+            return 1
+        print(f"OK: {OUTPUT_FILE} is current ({len(challenges)} challenge cases)")
+        return 0
+
+    OUTPUT_FILE.write_text(content)
+    print(f"Generated {OUTPUT_FILE} ({len(challenges)} challenge cases)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

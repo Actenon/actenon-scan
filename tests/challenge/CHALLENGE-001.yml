@@ -1,0 +1,25 @@
+# Challenge case metadata.
+# Seeded from known limitations, not from external submissions.
+# This file is read by the scoreboard generator and the test runner.
+
+issue: 0  # 0 = seeded by maintainers, not from a GitHub issue
+submitter: actenon
+class: false-positive
+language: go
+title: "Constant-path delete in Cleanup method reported as finding"
+description: >
+  os.RemoveAll(filepath.Join(e.Workdir, "skills")) in a Cleanup() method.
+  The path is a compile-time constant ("skills") joined onto a server-
+  configured value (e.Workdir). No model-controlled input reaches the
+  sink on the analysed path. The scanner reports it (correctly, per the
+  documented decision in COVERAGE.md — the tool cannot verify no other
+  call site reaches Cleanup with model-controlled input). This is a
+  documented design decision, not a bug. It is seeded here to show that
+  known limitations are visible.
+expected: finding
+rule_id: DATA-DELETE-OS-GO
+status: open
+note: >
+  Reported and demoted by the v1.1.3 ranking change (findings without
+  model-controlled inputs rank below those with). Not suppressed — see
+  COVERAGE.md "Constant-path deletes" section for the reasoning.

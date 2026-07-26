@@ -478,6 +478,26 @@ Scan depends on **nothing** at runtime. No Permit, no Kernel, no Cloud, no Proto
 
 Scan is a standalone security tool. You can adopt it without adopting anything else from Actenon, and you can stop using it without affecting any other Actenon component.
 
+## Soundness challenge
+
+Submit a case where the scanner gets it wrong. Every accepted case becomes a
+permanent test fixture, credited by GitHub handle.
+
+**In scope:** a supported-language sink the scanner misses, a guard in the
+recognised vocabulary that it fails to honour, a finding on code with no
+model-controlled input on the path, or any case where it reports clean on
+something it should not.
+
+**Out of scope:** unsupported languages, guard names outside the default
+vocabulary where `--guard` resolves it, anything documented as NOT COVERED
+in `docs/COVERAGE.md`.
+
+[**Submit a challenge →**](https://github.com/Actenon/actenon-scan/issues/new?template=soundness-challenge.yml)
+
+The [scoreboard](docs/SOUNDNESS_CHALLENGE.md) lists every case — including
+the ones that are accepted but not yet fixed. The open misses are the point:
+a challenge that only shows fixed cases is a trophy cabinet.
+
 ## License
 
 Apache-2.0 — see [`LICENSE`](LICENSE).

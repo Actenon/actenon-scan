@@ -1,0 +1,22 @@
+# Challenge case metadata.
+# Seeded from known limitations, not from external submissions.
+
+issue: 0
+submitter: actenon
+class: missed-sink
+language: go
+title: "os.Chmod / os.Chown not detected — deliberately excluded for parity"
+description: >
+  os.Chmod(path, 0o777) and os.Chown(path, 0, 0) with model-controlled
+  path are not flagged. Permission and ownership changes are not a sink
+  family in any language — Python doesn't have this rule either. Adding
+  it to Go only would move away from parity rather than toward it.
+  Proposed as a future cross-language family.
+expected: finding
+rule_id: PERMISSION-CHANGE-GO
+status: open
+note: >
+  Deliberately excluded. See COVERAGE.md "Per-language sink family
+  matrix" and the parity test (tests/test_go_parity.py) which registers
+  this as a known gap with a not_applicable_reason. A cross-language
+  permission-change family would resolve this.

@@ -76,3 +76,7 @@ jobs:
         # triage data. This check fails if the document is stale.
         run: python scripts/generate_corpus_study.py --check
 
+      - name: SOUNDNESS_CHALLENGE.md is current
+        # The scoreboard must not drift from the challenge fixture metadata.
+        run: python scripts/generate_soundness_scoreboard.py --check
+
