@@ -273,6 +273,21 @@ If a claim drifts, the badge goes red before a human notices.
 ---
 
 
+## The Actenon ecosystem
+
+Scan is one of six independent repositories that together close the **execution gap** — the gap between *upstream authorization* and the *execution edge* that actually performs a consequential side effect.
+
+<!-- ECOSYSTEM-TABLE:START -->
+| Repository | Role | Depends on | Packages |
+|---|---|---|---|
+| **`actenon-protocol`** | The neutral wire contract — what every artefact looks like on the wire | — | `actenon-protocol` (PyPI) · `@actenon/protocol-types` (npm) |
+| **`actenon-kernel`** | The open verifier — defines what a valid proof is | `actenon-protocol` | `actenon-kernel` (PyPI) |
+| **`actenon-permit`** | The developer on-ramp and authority broker | `actenon-kernel`, `actenon-protocol` | `actenon-permit` (PyPI) · `@actenon/sdk` (npm) |
+| **`actenon-scan`** ← you are here | The independent static-analysis scanner | — | `actenon-scan` (PyPI) |
+
+**Optional:** [`actenon-cloud`](https://github.com/Actenon/actenon-cloud) — a managed control plane (source-available; see its LICENSE). Not required by any component above; every capability in this ecosystem works without it.
+<!-- ECOSYSTEM-TABLE:END -->
+
 ## Performance
 
 Measured against a pinned real repository, not a synthetic tree:
@@ -307,132 +322,6 @@ not the one that is sometimes faster.
 Findings are identical either way; that equivalence is a test, not a claim.
 
 Pre-commit path: `--changed-only` scans a 1–3 file diff in **~150ms**.
-
-## The Actenon ecosystem
-
-Scan is one of five independent repositories that together close the **execution gap** — the gap between *upstream authorization* and the *execution edge* that actually performs a consequential side effect.
-
-<!-- ECOSYSTEM-TABLE:START -->
-| Repository | Role | Depends on | Packages |
-|---|---|---|---|
-| **`actenon-protocol`** | The neutral wire contract — what every artefact looks like on the wire | — | `actenon-protocol` (PyPI) · `@actenon/protocol-types` (npm) |
-| **`actenon-kernel`** | The open verifier — defines what a valid proof is | `actenon-protocol` | `actenon-kernel` (PyPI) |
-| **`actenon-permit`** | The developer on-ramp and authority broker | `actenon-kernel`, `actenon-protocol` | `actenon-permit` (PyPI) · `@actenon/sdk` (npm) |
-| **`actenon-scan`** ← you are here | The independent static-analysis scanner | — | `actenon-scan` (PyPI) |
-
-**Optional:** [`actenon-cloud`](https://github.com/Actenon/actenon-cloud) — a managed control plane (source-available; see its LICENSE). Not required by any component above; every capability in this ecosystem works without it.
-<!-- ECOSYSTEM-TABLE:END -->
-
-Scan is the **only** Actenon tool that should run in your CI on day one. It has zero dependencies, scans langchain in under a second (see [Performance](#performance)), and tells you exactly where your agent code is reaching consequential side effects without proof-bound guards — whether or not you ever adopt the rest of the ecosystem.
-
----
-
-## What this is
-
-Scan is a defensive static-analysis scanner that detects **consequential actions** reachable from AI-agent tool boundaries — and checks whether they're guarded. It is:
-
-- **Independent** — zero runtime dependencies (`dependencies = []` in [`pyproject.toml`](pyproject.toml)). Installable without pulling in any other Actenon package.
-- **Neutral** — recognises Actenon guards AND non-Actenon guards (`authorize`, `check_permission`, `verify_proof`, `has_role`, `jwt_required`, `opa_eval`, `casbin_enforce`, `verify_api_key`, `verify_mtls`, etc.). Using Actenon is **not** the only remedy.
-- **Honest** — importing Actenon alone does NOT make a repo "safe". A `import actenon` line in an unrelated module is not a guard. Scan refuses to green-light a codebase on the basis of imports.
-- **Adoption-aware** — shows 7 remediation routes per finding, only 2 of which mention Actenon. The other 5 are framework-native or redesign routes.
-- **CI-native** — ships as a Python package, a CLI, and a GitHub Action with SARIF output that integrates directly with the GitHub Security tab.
-
-## Why it exists
-
-Most agent code today reaches consequential side effects — `stripe.Refund.create()`, `os.remove()`, `subprocess.run()`, `put_user_policy()`, `db.execute("DROP TABLE...")` — through tool wrappers that the model can call directly. Very few of those tool wrappers verify proof bound to the exact action before the side effect happens. That is the **execution gap** in code form.
-
-Scan exists to make that gap **visible** before it ships. It does not require you to adopt Actenon to be useful — it requires you to *see* where your agent code can reach money movement, data destruction, deployment, access-control change, communication, provider mutation, database mutation, or identity change without an enforceable guard.
-
-The canonical problem statement lives in [`actenon-kernel/docs/THE_EXECUTION_GAP.md`](https://github.com/Actenon/actenon-kernel/blob/main/docs/THE_EXECUTION_GAP.md). Scan is the local adoption tool for detecting it; conformance (in the Kernel) is the public compatibility target.
-
-## Install
-
-```bash
-pip install actenon-scan
-```
-
-For TypeScript/JavaScript support:
-
-```bash
-pip install "actenon-scan[typescript]"
-```
-
-The base install has **zero runtime dependencies**. TypeScript support
-is behind an optional extra to preserve the zero-dep property — scan's
-value is that it installs into a codebase that has adopted nothing.
-
-Or use the GitHub Action (no install required) — see [below](#github-action).
-
-## Use
-
-```bash
-# Scan a codebase
-actenon-scan scan ./my-agent-code
-
-# See adoption guidance for each finding
-actenon-scan adopt ./my-agent-code
-
-# Register custom guard function names
-actenon-scan init
-# Edit actenon-scan.json, add your guard function names
-
-# Suppress known findings with a baseline
-actenon-scan scan ./my-agent-code --baseline baseline.json
-```
-
-## Example: detecting the execution gap
-
-Save this as `refund_tool.py`:
-
-```python
-from langchain.tools import tool
-import stripe
-
-@tool
-def refund(pid: str, amt: int) -> str:
-    """Refund a payment."""
-    return stripe.Refund.create(payment_intent=pid, amount=amt)
-```
-
-Run the scanner:
-
-```bash
-$ actenon-scan scan .
-
-actenon-scan: 1 finding(s) in 1 file(s) (scanned 1 file(s))
-
-  refund_tool.py
-    6:11  [HIGH] PAY-STRIPE-REFUND (payments)
-            stripe.Refund.create(payment_intent=pid, amount=amt)
-            confidence: high
-            Guard this payment call before execution. Options:
-              (1) add an existing internal authorization check,
-              (2) register it with scan --config,
-              (3) use Actenon Kernel proof verification,
-              (4) use brokered Actenon protection (Permit + adapter),
-              (5) redesign the boundary if this action should not be agent-reachable.
-```
-
-Notice the `@tool` decorator on line 4 — that is what makes the `stripe.Refund.create()` call on line 6 agent-reachable, and therefore in-scope for the scanner. The same call inside a plain function with no agent-tool boundary would be silently ignored to avoid false positives.
-
-## What Scan detects — 8 consequence categories
-
-Scan walks the AST and finds calls to consequential / irreversible operations across eight categories. Rules are configurable in [`actenon_scan/rules/default_rules.json`](actenon_scan/rules/default_rules.json); you can add your own.
-
-| Category | Example sinks |
-|---|---|
-| **Payments** | `stripe.Refund.create()`, `braintree.Transaction.sale()`, `paypal.Payment.create()` |
-| **Data destruction** | `os.remove()`, `shutil.rmtree()`, `DROP TABLE`, `DELETE FROM`, `TRUNCATE` |
-| **Deployment** | `subprocess.run()`, `kubectl apply`, `terraform apply`, `helm install` |
-| **Access control** | `put_user_policy()`, `attach_role_policy()`, `create_role()`, `assign_role()` |
-| **Communication** | `sendmail()`, `slack.postMessage()`, `twilio.messages.create()` |
-| **Provider SDK** | `github.create_issue()`, `boto3.delete_object()`, `azure.storage.delete_blob()` |
-| **Database mutation** | `INSERT INTO`, `UPDATE`, `db.save()`, `cursor.execute("DELETE...")` |
-| **Identity change** | `create_user()`, `assign_role()`, `rotate_keys()`, `update_permissions()` |
-
-Each finding includes: rule ID, category, severity, description, file:line:column, and the matched call text.
-
-> **Detection requires an agent-tool boundary.** A finding is only raised when the risky call is reachable from a recognised agent-tool boundary — a `@tool`-decorated function (LangChain, LlamaIndex), an MCP `@server.tool` handler, a method on a tool-base subclass, or a module that imports a supported agent framework. Standalone calls with no agent context are intentionally ignored to avoid drowning you in false positives on code that isn't agent-reachable. See the [example below](#example-detecting-the-execution-gap) for what this looks like in practice.
 
 ## What Scan recognises as a guard
 
@@ -478,66 +367,7 @@ actenon-scan scan ./my-agent-code
 
 Custom guards are first-class — Scan does not privilege Actenon guards over yours.
 
-## What Scan does NOT do
-
-This is the part that makes Scan trustworthy in a vendor-neutral CI:
-
-- **Does NOT report a repo as safe merely because Actenon is imported.** An `import actenon` line in an unrelated module is not a guard. Scan refuses to green-light a codebase on the basis of imports.
-- **Does NOT report a repo as unsafe merely because a non-Actenon guard is used.** `@jwt_required` on a refund endpoint is a real guard. Scan recognises it.
-- **Does NOT make Actenon the only remedy.** Each finding ships with 7 remediation routes — only 2 mention Actenon.
-- **Does NOT inspect prompts, model output, or in-band response content.** It is a static-analysis tool, not a runtime filter.
-- **Does NOT replace conformance.** Scan is the local adoption tool; conformance (in the Kernel) is the public compatibility target. See [`actenon-kernel/docs/EXECUTION_GAP_SCANNER.md`](https://github.com/Actenon/actenon-kernel/blob/main/docs/EXECUTION_GAP_SCANNER.md).
-- **Does NOT make a runtime-safety claim.** A guarded sink is "lexically guarded", not "provably safe at runtime". The v1 lexical-precedence heuristic is documented in [`actenon_scan/detectors/guards.py`](actenon_scan/detectors/guards.py).
-- **Does NOT do interprocedural reachability.** TypeScript analysis (like Python) is single-function and lexical. A concrete worked example: LangChain's `ShellToolMiddleware` exposes an `@tool`-decorated shell executor whose sink is three method hops away behind a policy object (`@tool shell_tool` → `self._run_shell_tool()` → `self._policy.spawn()`). Scan reports no findings on that file. This is the documented single-function limitation — a named, honest limitation is worth more to a security reviewer than a vague caveat.
-
-## GitHub Action
-
-Drop this into `.github/workflows/actenon-scan.yml` — no install step, no API key, no Cloud account:
-
-```yaml
-name: Actenon Scan
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-jobs:
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actenon/scan@v1
-        with:
-          path: ./src
-          fail-on: medium
-```
-
-The Action:
-
-1. Installs `actenon-scan` from PyPI.
-2. Runs the scan, emitting SARIF.
-3. Uploads the SARIF to the GitHub Security tab via `github/codeql-action/upload-sarif@v3`.
-4. Fails the build if any findings meet the `fail-on` severity threshold.
-
-Inputs:
-
-| Input | Default | Purpose |
-|---|---|---|
-| `path` | `.` | Path to scan (file or directory) |
-| `fail-on` | `medium` | Fail the check when findings meet this severity |
-| `config` | `""` | Path to a custom `actenon-scan.json` config |
-| `baseline` | `""` | Path to a `baseline.json` for known-findings suppression |
-
-## Output formats
-
-| Format | Flag | Use case |
-|---|---|---|
-| `pretty` (default) | `--format pretty` | Human-readable terminal output |
-| `json` | `--format json --output results.json` | Machine-readable, for piping into other tools |
-| `sarif` | `--format sarif --output results.sarif` | GitHub Security tab integration |
-
-## Remediation routes — 7 per finding, only 2 mention Actenon
+## Remediation routes — 7 per finding, 3 are Actenon-free
 
 Each finding ships with seven remediation routes. Scan does not pretend Actenon is the only answer.
 

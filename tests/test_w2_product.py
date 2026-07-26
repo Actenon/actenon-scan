@@ -82,7 +82,7 @@ class BlastRadiusTests(unittest.TestCase):
 
     def test_pretty_output_has_blast_radius_header(self) -> None:
         output = format_pretty(self.result, elapsed=0.01)
-        self.assertIn("consequential actions", output)
+        self.assertIn("consequential action", output)
         self.assertIn("REPOSITORY", output)
         self.assertIn("Most exposed", output)
 

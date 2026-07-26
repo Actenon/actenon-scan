@@ -40,15 +40,17 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
 
     # Header line — confidence-aware wording (Part 1.1 + RULE 7).
     has_weak = any(f.confidence in ("low", "medium") for f in unsuppressed)
+    n = len(unsuppressed)
+    action_word = "action" if n == 1 else "actions"
     if has_weak:
         header = (
-            f"Your agent can reach {len(unsuppressed)} consequential actions. "
+            f"Your agent can reach {n} consequential {action_word}. "
             f"No dominating authorization check was identified in the analysed path "
             f"for each."
         )
     else:
         header = (
-            f"Your agent can reach {len(unsuppressed)} consequential actions "
+            f"Your agent can reach {n} consequential {action_word} "
             f"without a dominating authorization check."
         )
     lines.append(header)
