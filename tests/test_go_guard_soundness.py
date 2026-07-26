@@ -12,6 +12,10 @@ These tests are in the soundness suite (not just unit tests) because they
 test the core soundness property: a guard that doesn't actually guard must
 not suppress a finding. A permissive implementation that suppresses on any
 guard-named call would clear the harness test and blind the scanner.
+
+These tests require the [go] extra (tree-sitter-go). They are automatically
+skipped when tree-sitter-go is not installed (e.g. in the Base install CI job
+that verifies zero runtime deps).
 """
 
 from __future__ import annotations
@@ -20,6 +24,13 @@ import textwrap
 from pathlib import Path
 
 import pytest
+
+# Skip all tests in this module if tree-sitter-go is not installed.
+from actenon_scan.detectors.go import is_go_extra_available
+pytestmark = pytest.mark.skipif(
+    not is_go_extra_available(),
+    reason="[go] extra not installed — tree-sitter-go required for Go guard tests",
+)
 
 
 def _write_go_fixture(tmp_path: Path, filename: str, source: str) -> Path:
