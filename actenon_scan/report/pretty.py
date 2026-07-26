@@ -74,7 +74,7 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
         if params:
             lines.append(f"  Model-controlled inputs:   {', '.join(params)}")
         lines.append(f"  Rule:                      {most_exposed.rule_id}")
-        lines.append(f"  Severity:                  {most_exposed.severity} (reachability: {most_exposed.confidence})")
+        lines.append(f"  Severity:                  {most_exposed.severity} (sink match: {most_exposed.confidence})")
 
     # Summary line
     lines.append("")
@@ -181,7 +181,7 @@ def format_list(result: ScanResult) -> str:
         for f in sorted(by_file[filepath], key=lambda x: (x.line, x.rule_id)):
             lines.append(f"    {f.line}:{f.col}  [{f.severity.upper()}] {f.rule_id} ({f.category})")
             lines.append(f"            {f.call_text}")
-            lines.append(f"            reachability: {f.confidence}")
+            lines.append(f"            sink match: {f.confidence}")
             lines.append(f"            {f.remediation}")
             lines.append("")
 

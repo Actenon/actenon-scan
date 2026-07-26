@@ -77,6 +77,6 @@ def format_json(result: ScanResult) -> str:
         # "I'm confident this is unguarded." Guard analysis is separate
         # and produces WEAK/UNBOUND suffixes on the rule_id when the
         # guard is imperfect.
-        "_confidence_meaning": "reachability (not guard) confidence; see docs",
+        "_confidence_meaning": "sink-match (not guard) confidence; see docs",
     }
     return json.dumps(output, indent=2) + "\n"
