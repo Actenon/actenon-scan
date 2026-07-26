@@ -56,8 +56,8 @@ runs:
     - name: Install actenon-scan
       shell: bash
       run: |
-        # Work Order 3, Part 1.2 + 1.3: install with typescript extra and
-        # pin to a specific version for reproducibility.
+        # Work Order 3, Part 1.2 + 1.3: install with typescript and go
+        # extras, pin to a specific version for reproducibility.
         VERSION="${{ inputs.version }}"
         if [ -z "$VERSION" ]; then
           # Read the version from the action's own repo (pyproject.toml).

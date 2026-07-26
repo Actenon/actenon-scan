@@ -356,6 +356,8 @@ Scan is one of the independent repositories that together close the **execution 
 **Optional:** [`actenon-cloud`](https://github.com/Actenon/actenon-cloud) — a managed control plane (source-available; see its LICENSE). Not required by any component above; every capability in this ecosystem works without it.
 <!-- ECOSYSTEM-TABLE:END -->
 
+**Also available:** [`sdk-go`](https://github.com/Actenon/sdk-go) (Go verifier SDK) and [`sdk-rust`](https://github.com/Actenon/sdk-rust) (Rust verifier SDK) for non-Python integrations.
+
 ## Performance
 
 Measured against a pinned real repository, not a synthetic tree:
