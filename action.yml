@@ -237,7 +237,7 @@ runs:
             call = f.get("call_text", "")
             method = call.rsplit(".", 1)[-1].split("(")[0] + "()" if "(" in call else call
             lines.append(f"**Most exposed:** `{f.get('file','?')}:{f.get('line','?')}` — `{method}`")
-            lines.append(f"- Rule: `{f.get('rule_id','?')}` | Severity: {f.get('severity','?')} | Confidence: {f.get('confidence','?')}")
+            lines.append(f"- Rule: `{f.get('rule_id','?')}` | Severity: {f.get('severity','?')} | Reachability: {f.get('confidence','?')}")
             lines.append(f"- Guard evidence: none found on the analysed path")
             lines.append("")
 

@@ -68,5 +68,15 @@ def format_json(result: ScanResult) -> str:
             {"file": rel, "error": err}
             for rel, err in result.analysis_errors
         ],
+        # Field semantics: the "confidence" field on each finding measures
+        # REACHABILITY confidence — how confident the scanner is that the
+        # sink is agent-reachable (i.e., inside a @tool or @mcp.tool
+        # decorated function). It does NOT measure guard confidence —
+        # whether the sink is unguarded. A finding with confidence: "high"
+        # means "I'm confident this is an agent-reachable sink", not
+        # "I'm confident this is unguarded." Guard analysis is separate
+        # and produces WEAK/UNBOUND suffixes on the rule_id when the
+        # guard is imperfect.
+        "_confidence_meaning": "reachability (not guard) confidence; see docs",
     }
     return json.dumps(output, indent=2) + "\n"
