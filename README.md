@@ -1,6 +1,6 @@
 # Actenon Scan
 
-> Find where agent-controlled intent reaches consequential actions without an enforceable authority check.
+> Find where agent-controlled intent reaches consequential actions without an enforceable authority check. **Parses Python and TypeScript.** Other languages are not supported.
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 <!-- PYTHON-BADGE:START -->
@@ -193,6 +193,18 @@ repos:
 
 The default workflow does **not** block merging solely because findings exist
 unless you explicitly configure `fail-on: high`.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | No findings at or above the `--fail-on` threshold |
+| 1 | Findings at or above the threshold (or `--fail-on-unsupported` and unsupported files found) |
+| 2 | Usage error (bad arguments, missing file) |
+
+Unsupported files alone do **not** trigger exit 1 unless `--fail-on-unsupported`
+is passed. A scan that finds 0 supported files but N unsupported files exits 0
+with a visible warning in the output.
 
 ## How to export reports
 

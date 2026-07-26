@@ -617,11 +617,12 @@ def scan_path(
         files = [f for f in explicit_files if f.exists() and f.suffix == ".py"]
     else:
         files = _collect_files(target, include_globs, exclude_globs)
-    # With an explicit file list (--changed-only) these two helpers must not
-    # rglob the whole tree: together they were 178ms of a 194ms single-file
-    # run, i.e. nearly all of the fixed cost the flag exists to avoid.
+    # With an explicit file list (--changed-only), classify unsupported files
+    # by checking each file's suffix directly — no tree walk needed.
+    # This was previously skipped entirely (unsupported_files = []) for perf,
+    # which meant --changed-only on a PR touching only .go files reported clean.
     if explicit_files is not None:
-        unsupported_files = []
+        unsupported_files = _classify_explicit_unsupported(explicit_files, target)
     else:
         unsupported_files = _collect_unsupported_files(target, include_globs, exclude_globs)
     findings: list[Finding] = []
@@ -1141,7 +1142,13 @@ def _collect_files(
 # File extensions recognised as source but not analysable by the base install.
 # The [typescript] extra adds support for the TypeScript/JavaScript family.
 # Entries map suffix -> (language_name, extra_required).
-_UNSUPPORTED_SUFFIXES: dict[str, tuple[str, str]] = {
+# Suffix table for recognised-but-unsupported source files.
+# Value: (language_name, extra_required_or_NONE, is_supported_when_extra_installed)
+#   - extra_required = "typescript" → behind an installable extra
+#   - extra_required = None         → not supported at all (no extra exists)
+# The third element distinguishes "install the extra" from "not supported."
+_UNSUPPORTED_SUFFIXES: dict[str, tuple[str, str | None]] = {
+    # Behind the [typescript] extra
     ".ts": ("TypeScript", "typescript"),
     ".tsx": ("TypeScript (TSX)", "typescript"),
     ".mts": ("TypeScript", "typescript"),
@@ -1150,6 +1157,20 @@ _UNSUPPORTED_SUFFIXES: dict[str, tuple[str, str]] = {
     ".jsx": ("JavaScript (JSX)", "typescript"),
     ".mjs": ("JavaScript", "typescript"),
     ".cjs": ("JavaScript", "typescript"),
+    # Not supported at all — no extra exists
+    ".go": ("Go", None),
+    ".rs": ("Rust", None),
+    ".java": ("Java", None),
+    ".kt": ("Kotlin", None),
+    ".rb": ("Ruby", None),
+    ".php": ("PHP", None),
+    ".cs": ("C#", None),
+    ".swift": ("Swift", None),
+    ".scala": ("Scala", None),
+    ".c": ("C", None),
+    ".cpp": ("C++", None),
+    ".h": ("C/C++ header", None),
+    ".py": ("Python", None),  # never unsupported, but needed for classification
 }
 
 
@@ -1157,10 +1178,44 @@ def _is_typescript_extra_available() -> bool:
     """Check whether the [typescript] extra is installed (tree-sitter available)."""
     try:
         import tree_sitter  # noqa: F401
-        import tree_sitter_typesscript  # noqa: F401
+        import tree_sitter_typescript  # noqa: F401  # fixed: was tree_sitter_typesscript
         return True
     except ImportError:
         return False
+
+
+def _classify_explicit_unsupported(
+    explicit_files: list[Path], target: Path
+) -> list[tuple[str, str]]:
+    """Classify unsupported files from an explicit file list (no tree walk).
+
+    Used by --changed-only to populate unsupported_files without rglobbing.
+    Each file's suffix is checked against _UNSUPPORTED_SUFFIXES directly.
+    """
+    result: list[tuple[str, str]] = []
+    ts_available = _is_typescript_extra_available()
+    base = target if target.is_dir() else target.parent
+
+    for f in explicit_files:
+        if not f.exists():
+            continue
+        suffix = f.suffix.lower()
+        if suffix not in _UNSUPPORTED_SUFFIXES:
+            continue
+        lang, extra = _UNSUPPORTED_SUFFIXES[suffix]
+        # Skip Python — it's always supported
+        if suffix == ".py":
+            continue
+        # If the extra is installed, TS/JS files ARE supported
+        if extra == "typescript" and ts_available:
+            continue
+        # Compute relative path
+        try:
+            rel = str(f.relative_to(base))
+        except ValueError:
+            rel = str(f)
+        result.append((rel, lang))
+    return result
 
 
 def _collect_unsupported_files(
@@ -1183,6 +1238,8 @@ def _collect_unsupported_files(
         suffix = target.suffix.lower()
         if suffix in _UNSUPPORTED_SUFFIXES:
             lang, extra = _UNSUPPORTED_SUFFIXES[suffix]
+            if suffix == ".py":
+                return []
             # If the extra is installed, these files ARE supported — don't report them.
             if extra == "typescript" and _is_typescript_extra_available():
                 return []
@@ -1231,7 +1288,10 @@ def _collect_unsupported_files(
             continue
 
         lang, extra = _UNSUPPORTED_SUFFIXES[suffix]
-        # If the extra is installed, these files ARE supported
+        # Python is always supported
+        if suffix == ".py":
+            continue
+        # If the extra is installed, TS/JS files ARE supported
         if extra == "typescript" and ts_available:
             continue
 
