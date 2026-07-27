@@ -114,6 +114,7 @@ jobs:
         with:
           path: /tmp/fixture-repo
           fail-on: none
+          scan-scope: full
         id: scan
 
       - name: Verify package identity
