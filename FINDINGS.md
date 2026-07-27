@@ -229,7 +229,7 @@ consistently to the rest of module scope.
 
 Gated behind `reachability.module_level_reachability` (default **false**) so
 the signal is recoverable rather than deleted. No hand-triaged true positive
-depended on it: all 30 surviving corpus findings are HIGH confidence.
+depended on it: all 21 surviving corpus findings are HIGH confidence.
 
 ### PREC-03: inter-agent transport was treated as external communication
 
@@ -263,7 +263,8 @@ verdict. Every one is HIGH confidence and sits inside a tool implementation.
 **Zero findings across all five non-agent controls:** requests, flask, fastapi,
 click, rich.
 
-Measured precision on this corpus is **30/30**. That number is only worth
+Measured precision on this corpus is **21/21** (after correction rounds
+documented in [docs/CORPUS_STUDY.md](docs/CORPUS_STUDY.md)). That number is only worth
 something because the three classes above were found by the same measurement
 and fixed rather than argued away — the shipped scanner scored 51/63.
 

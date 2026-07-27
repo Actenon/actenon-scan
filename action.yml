@@ -1,5 +1,5 @@
 name: "actenon-scan"
-description: "Find where agent-controlled intent reaches consequential actions without an authority check. Python + TypeScript + Go."
+description: "See what your AI agent can change, delete, send, deploy or spend without an authority check. Python + TypeScript + Go."
 branding:
   icon: "shield"
   color: "blue"

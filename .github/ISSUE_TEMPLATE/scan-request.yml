@@ -1,0 +1,146 @@
+name: Scan request
+description: Request a manually reviewed consequential-action scan of your repository
+title: "[Scan Request] "
+labels: ["scan-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request a manually reviewed scan of your repository. Reports are
+        **private first** — publication is optional and requires your consent.
+
+        See [SCAN_ME.md](https://github.com/Actenon/actenon-scan/blob/main/SCAN_ME.md)
+        for what the review covers and what it does not prove.
+
+        **Do not post sensitive security details publicly.** If your request
+        involves sensitive information, email security@actenon.dev instead.
+
+  - type: input
+    id: repository
+    attributes:
+      label: Repository
+      description: GitHub repository URL (e.g., https://github.com/owner/repo)
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Branch or commit
+      description: The specific branch or commit SHA to scan. If omitted, the default branch HEAD is used.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: languages
+    attributes:
+      label: Primary languages
+      description: Which languages should be scanned?
+      options:
+        - Python
+        - TypeScript
+        - Go
+        - Python + TypeScript
+        - Python + Go
+        - TypeScript + Go
+        - All three
+    validations:
+      required: true
+
+  - type: input
+    id: framework
+    attributes:
+      label: Agent framework
+      description: Which agent framework(s) does your code use? (e.g., LangChain, MCP, CrewAI, AutoGen, custom)
+    validations:
+      required: false
+
+  - type: textarea
+    id: directories
+    attributes:
+      label: Relevant directories
+      description: Directories to focus on (e.g., src/tools/, app/agents/). Leave blank to scan everything.
+    validations:
+      required: false
+
+  - type: textarea
+    id: guards
+    attributes:
+      label: Known guard or authorisation functions
+      description: Names of guard functions your codebase uses (e.g., authorize, check_permission, require_admin). These help the scanner recognise your guards.
+    validations:
+      required: false
+
+  - type: input
+    id: config
+    attributes:
+      label: Configuration file
+      description: Path to your .actenon-scan.json config file, if you have one.
+    validations:
+      required: false
+
+  - type: input
+    id: baseline
+    attributes:
+      label: Baseline file, if any
+      description: Path to a baseline.json for known-findings suppression, if you have one.
+    validations:
+      required: false
+
+  - type: input
+    id: contact
+    attributes:
+      label: Contact route
+      description: How should we contact you? (GitHub handle, email, etc.)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: remediation-pr
+    attributes:
+      label: May Actenon open a remediation PR?
+      description: If findings are found, may we open a PR with suggested fixes?
+      options:
+        - "Yes"
+        - "No"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-pr
+    attributes:
+      label: May Actenon open a non-blocking installation PR?
+      description: May we open a PR that adds the actenon-scan GitHub Action to your repo?
+      options:
+        - "Yes"
+        - "No"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: publication
+    attributes:
+      label: Publication preference
+      description: How may the scan results be used after delivery?
+      options:
+        - Private (report only, no publication)
+        - Anonymised (published without repo name)
+        - Named publication (published with full attribution)
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else we should know about your codebase, architecture, or security posture.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: I understand that static analysis has limitations and that scanner output is a candidate finding, not a confirmed vulnerability.
+          required: true
+        - label: I understand that the scanner cannot see guards in middleware, framework interceptors, or runtime configuration outside the analysed path.
+          required: true

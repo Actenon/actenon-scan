@@ -1,6 +1,12 @@
 # Actenon Scan
 
-> Find where agent-controlled intent reaches consequential actions without an enforceable authority check. **Parses Python, TypeScript, and Go.** Other languages are not supported.
+> **What can your AI agent do without permission?**
+
+Actenon Scan finds where model-controlled input reaches actions that
+**change, delete, send, deploy, or spend** — without a recognised
+dominating authority check. It parses **Python, TypeScript, and Go**.
+Other languages are not supported (and are reported as unsupported,
+never silently treated as clean).
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 <!-- PYTHON-BADGE:START -->
@@ -15,14 +21,35 @@
 [![Code style: ruff](https://img.shields.io/badge/Code%20style-ruff-black.svg)](https://docs.astral.sh/ruff/)
 [![Vendor-neutral](https://img.shields.io/badge/Stance-vendor%20neutral-2ea44f.svg)](#what-it-does-not-establish)
 
+## Three ways to use it
+
+**Run locally** — no account, no cloud upload, zero-config first run:
+
+```bash
+uvx actenon-scan scan .
+```
+
+**Add to GitHub** — one command generates a non-blocking workflow:
+
+```bash
+uvx actenon-scan install github
+```
+
+**Request a reviewed scan** — a maintainer-requested, manually adjudicated
+scan with private-first delivery:
+
+See [SCAN_ME.md](SCAN_ME.md).
+
+---
+
 ## Quick start
 
 ```bash
 uvx actenon-scan scan .
 ```
 
-No install, no config, no cloud account. The first run produces a blast-radius
-summary:
+No install, no config, no cloud account. The first run produces a
+blast-radius summary — what your agent can reach without an authority check:
 
 ```
 Your agent can reach 12 consequential actions without a dominating authorization check.
@@ -55,6 +82,20 @@ actenon-scan scan . --format html       # self-contained HTML report
 actenon-scan scan . --format markdown   # paste into a GitHub issue
 actenon-scan scan . --format sarif      # upload to GitHub code scanning
 ```
+
+**What it does:** finds consequential actions an AI agent can reach —
+payments, file deletions, shell commands, database writes, deployments,
+email sends, repository mutations — and checks whether a recognised
+authority guard dominates the path.
+
+**What it does not do:** it does not prove your codebase is secure. It
+does not verify guards outside the analysed file. It does not assess
+runtime behaviour or network configuration. A clean scan means no
+supported consequential-action paths were identified — not that the
+codebase is safe.
+
+**Supported languages:** Python, TypeScript, Go. Zero runtime dependencies.
+No Actenon account required.
 
 ## What Actenon Scan detects
 
