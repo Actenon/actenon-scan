@@ -28,7 +28,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No changes yet._
+### Inbound distribution infrastructure
+
+- **`actenon-scan install github`** — new CLI command that generates a
+  safe, non-blocking GitHub Actions workflow. Supports `--dry-run`,
+  `--force`, `--blocking`, `--baseline`, `--config`. Detects Git root,
+  refuses to overwrite without `--force`, writes atomically. Uses `@v1`
+  stable tag, scoped permissions, no secrets. 14 automated tests.
+- **README rewrite** — first screen now leads with "What can your AI
+  agent do without permission?" and three clear routes: run locally,
+  add to GitHub, request a reviewed scan. Reduced product-specific
+  concepts before the first example.
+- **Marketplace description** — updated to "See what your AI agent can
+  change, delete, send, deploy or spend without an authority check."
+- **DISCLOSURE_POLICY.md** — candidate vs confirmed status model,
+  private-first process, publication consent, disputes, language rules.
+- **SCAN_ME.md** — maintainer guide for requesting a reviewed scan,
+  with request template and process description.
+- **Scan request issue template** — `.github/ISSUE_TEMPLATE/scan-request.yml`
+  with structured form for requesting scans, including publication
+  preference and PR consent.
+- **community-scans/** — directory structure for consented scan reports:
+  README, TEMPLATE, JSON schema. Finding-status vocabulary: candidate,
+  actenon_reviewed, maintainer_confirmed, disputed, false_positive,
+  guard_outside_scope, accepted_risk, fixed.
+- **Corpus corrections** — FINDINGS.md stale "30/30" corrected to
+  "21/21" (matching the auto-generated CORPUS_STUDY.md). CHANGELOG
+  historical entry corrected from "30 hand-triaged" to "21".
+- **action.yml** — stale comment "install with typescript extra"
+  corrected to "typescript and go extras".
 
 ## [1.1.4] — 2026-07-27
 
@@ -621,7 +649,7 @@ when external users try it." 44 fixes total, 61 new regression tests,
 - External email coverage (SMTP_SSL, SES send_raw_email, SendGrid, Resend, Postmark).
 - `.actenon-scan.json` auto-detection for repos with test fixtures.
 - Self-scan reports clean on own repository (verify-claims enforced).
-- CORPUS_STUDY.md: 25 repos, 23K files, 30 hand-triaged findings, 51/63 initial FP rate documented.
+- CORPUS_STUDY.md: 25 repos, 23K files, 21 hand-triaged findings (corrected from initial 30), 51/63 initial FP rate documented.
 - 276 tests, 14 CI gates, machine-verified README claims.
 
 ## [0.8.0] — 2026-07-25

@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Actenon Scan Community Report",
+  "description": "Schema for community-requested scan reports",
+  "type": "object",
+  "required": ["repository", "commit", "scanner_version", "scan_date", "consent_status", "publication_status", "findings"],
+  "properties": {
+    "repository": { "type": "string", "description": "Repository URL" },
+    "repository_owner": { "type": "string" },
+    "review_request_source": { "type": "string", "enum": ["maintainer_request", "independent", "corpus_research"] },
+    "consent_status": { "type": "string", "enum": ["pending", "private", "anonymised", "named"] },
+    "commit": { "type": "string", "description": "Exact commit SHA scanned" },
+    "scanner_version": { "type": "string" },
+    "command": { "type": "string" },
+    "configuration": { "type": "string" },
+    "guard_vocabulary": { "type": "array", "items": { "type": "string" } },
+    "supported_files": { "type": "integer" },
+    "unsupported_files": { "type": "integer" },
+    "scan_date": { "type": "string", "format": "date" },
+    "review_date": { "type": "string", "format": "date" },
+    "reviewer": { "type": "string" },
+    "continuous_scanning_status": { "type": "string", "enum": ["none", "action_installed", "action_with_baseline"] },
+    "publication_status": { "type": "string", "enum": ["private", "anonymised", "named"] },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "line", "rule_id", "status"],
+        "properties": {
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "rule_id": { "type": "string" },
+          "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+          "category": { "type": "string" },
+          "call_text": { "type": "string" },
+          "guard_evidence": { "type": "string" },
+          "model_controlled_inputs": { "type": "array", "items": { "type": "string" } },
+          "status": {
+            "type": "string",
+            "enum": ["candidate", "actenon_reviewed", "maintainer_confirmed", "disputed", "false_positive", "guard_outside_scope", "accepted_risk", "fixed"]
+          },
+          "maintainer_response": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}
