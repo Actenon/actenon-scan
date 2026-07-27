@@ -277,14 +277,14 @@ TypeScript requires the `[typescript]` extra.
 | Family | Python | TypeScript | Go | Notes |
 |--------|--------|------------|-----|-------|
 | Shell execution | EXEC-SHELL | EXEC-SHELL | EXEC-SHELL-GO | Go includes syscall.Exec/ForkExec |
-| File deletion | DATA-DELETE-FILE | — | DATA-DELETE-OS-GO | TS gap: future port |
+| File deletion | DATA-DELETE-FILE | DATA-DELETE-FILE | DATA-DELETE-OS-GO | TS uses same rule IDs as Python |
 | File write | FILE-WRITE | FILE-WRITE | FILE-WRITE-GO | |
 | Network egress | NET-EGRESS | NET-EGRESS | NET-EGRESS-GO | |
-| SQL destruction | DATA-DELETE-SQL | — | DATA-DELETE-SQL-GO | TS gap: future port. Go covers database/sql, sqlx, pgx |
-| Payments (Stripe) | PAY-STRIPE-REFUND | — | PAY-STRIPE-REFUND-GO | TS gap: stripe-node API differs |
-| Payments (generic) | PAY-GENERIC-REFUND | — | PAY-GENERIC-REFUND-GO | TS gap: same rationale |
-| Secret read | SECRET-READ | — | SECRET-READ-GO | TS gap: process.env excluded (same as Go's os.Getenv). Cloud SDK method names only. |
-| Provider SDK | PROVIDER-SDK-CALL | — | PROVIDER-SDK-CALL-GO | TS gap: @aws-sdk API differs from boto3 |
+| SQL destruction | DATA-DELETE-SQL | DATA-DELETE-SQL | DATA-DELETE-SQL-GO | Go covers database/sql, sqlx, pgx |
+| Payments (Stripe) | PAY-STRIPE-REFUND | PAY-STRIPE-REFUND | PAY-STRIPE-REFUND-GO | TS uses same rule IDs as Python |
+| Payments (generic) | PAY-GENERIC-REFUND | PAY-GENERIC-REFUND | PAY-GENERIC-REFUND-GO | TS uses same rule IDs as Python |
+| Secret read | SECRET-READ | SECRET-READ | SECRET-READ-GO | Cloud SDK method names only. os.Getenv/process.env excluded. |
+| Provider SDK | PROVIDER-SDK-CALL | PROVIDER-SDK-CALL | PROVIDER-SDK-CALL-GO | TS uses same rule IDs as Python |
 | Permission change | — | — | — | Proposed as future cross-language family. os.Chmod/os.Chown not in any language. |
 
 **Gaps are explicitly registered.** The parity test in

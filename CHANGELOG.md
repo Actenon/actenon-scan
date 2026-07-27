@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [1.2.0] — 2026-07-27
+
 ### Inbound distribution infrastructure
 
 - **`actenon-scan install github`** — new CLI command that generates a
@@ -57,6 +61,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   historical entry corrected from "30 hand-triaged" to "21".
 - **action.yml** — stale comment "install with typescript extra"
   corrected to "typescript and go extras".
+- **External v1 Action test** — new `.github/workflows/external-v1-test.yml`
+  workflow that tests `uses: Actenon/actenon-scan@v1` against a fixture
+  project. Verifies package identity, Go guard recognition, finding count,
+  SARIF generation, and non-blocking exit. Does NOT use the local checkout
+  — exercises the remote Action reference.
+- **lychee link check** — excluded the private actenon-cloud repo URL
+  that was causing a persistent 404 failure.
+- **CORPUS_RESULTS.md** — annotated as historical (v0.4.0 era). The
+  authoritative source is docs/CORPUS_STUDY.md (auto-generated, CI-enforced).
+- **COVERAGE.md TS matrix** — corrected: TypeScript has the same rule
+  families as Python (the matrix was stale, marking TS gaps that don't
+  exist in typescript.py).
 
 ## [1.1.4] — 2026-07-27
 
