@@ -98,9 +98,10 @@ jobs:
           echo "OK: v1 points at $NEWEST"
 
       - name: Action pyproject.toml version matches PyPI
-        # ITEM 6: the version in pyproject.toml at the v1 tag must equal
-        # the newest published PyPI version. If they diverge, users
-        # following the documented setup get a stale version.
+        # ITEM 6: the version in pyproject.toml must equal the newest
+        # published PyPI version. Only enforced on main (post-release),
+        # not on PRs (where the version may be bumped before publishing).
+        if: github.ref == 'refs/heads/main'
         run: |
           PYPROJECT_VERSION=$(grep '^version' pyproject.toml | sed 's/.*"\(.*\)"/\1/')
           PYPI_VERSION=$(curl -s https://pypi.org/pypi/actenon-scan/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")

@@ -1,4 +1,8 @@
-# Corpus Validation Results — actenon-scan 0.4.0
+<!-- HISTORICAL: This file is frozen at v0.4.0. The authoritative corpus -->
+<!-- study is docs/CORPUS_STUDY.md (auto-generated, CI-enforced). -->
+<!-- This file is preserved for the correction story (51/63 → 21/21). -->
+
+# Corpus Validation Results — actenon-scan 0.4.0 (historical)
 
 ## Scan summary
 

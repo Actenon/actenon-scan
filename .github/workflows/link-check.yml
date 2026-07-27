@@ -17,6 +17,7 @@ jobs:
             --include-fragments
             --exclude-path node_modules
             --exclude-path .venv
+            --exclude "https://github.com/Actenon/actenon-cloud"
             --accept 200,206,429
             './**/*.md'
           fail: true

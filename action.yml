@@ -41,14 +41,19 @@ inputs:
 outputs:
   findings-count:
     description: "Total number of findings"
+    value: ${{ steps.scan.outputs.findings-count }}
   high-count:
     description: "Number of HIGH-severity findings"
+    value: ${{ steps.scan.outputs.high-count }}
   medium-count:
     description: "Number of MEDIUM-severity findings"
+    value: ${{ steps.scan.outputs.medium-count }}
   low-count:
     description: "Number of LOW-severity findings"
+    value: ${{ steps.scan.outputs.low-count }}
   sarif-path:
     description: "Path to the SARIF file (if generated)"
+    value: ${{ steps.scan.outputs.sarif-path }}
 
 runs:
   using: "composite"

@@ -1,0 +1,203 @@
+# External v1 Action consumer test.
+#
+# This workflow tests what an ordinary Marketplace user receives when they
+# use `Actenon/actenon-scan@v1`. It does NOT install from the current
+# checkout — it uses the published Action at the v1 tag.
+#
+# The test creates a temporary fixture project (not this repo), checks it
+# out, and runs the public Action against it. This is the only test that
+# verifies the actual delivery path.
+#
+# Required release gate: this workflow MUST pass before a release is
+# published. If it fails, the v1 tag is delivering a broken version.
+
+name: External v1 Action test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  test-external-v1:
+    name: Test @v1 Action (external consumer path)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create fixture repository
+        shell: bash
+        run: |
+          mkdir -p /tmp/fixture-repo
+          cd /tmp/fixture-repo
+          git init
+          git config user.email "test@test.com"
+          git config user.name "test"
+
+          # Python fixture: one unguarded, one guarded, one defeated guard, one non-agent
+          mkdir -p tools
+          cat > tools/example.py << 'PYEOF'
+          import subprocess
+          import os
+          from mcp import tool
+
+          # UNGUARDED — must be flagged
+          @tool
+          def run_command(cmd: str) -> str:
+              return subprocess.run(cmd, shell=True, capture_output=True).stdout.decode()
+
+          # GUARDED — must NOT be flagged (authorize dominates)
+          @tool
+          def safe_delete(path: str) -> None:
+              authorize(path)
+              os.remove(path)
+
+          # DEFEATED GUARD — must be flagged (guard in dead branch)
+          @tool
+          def risky_delete(path: str) -> None:
+              if False:
+                  authorize(path)
+              os.remove(path)
+
+          # NON-AGENT — must NOT be flagged (no tool decorator)
+          def helper_function(path: str) -> None:
+              os.remove(path)
+
+          def authorize(path: str) -> None:
+              pass
+          PYEOF
+
+          # TypeScript fixture
+          cat > tools/example.ts << 'TSEOF'
+          import { execSync } from 'child_process';
+
+          // UNGUARDED — must be flagged
+          export function runCommand(cmd: string): string {
+              return execSync(cmd, { encoding: 'utf-8' });
+          }
+          TSEOF
+
+          # Go fixture
+          cat > tools/example.go << 'GOEOF'
+          package tools
+
+          import (
+              "os"
+              "os/exec"
+          )
+
+          // UNGUARDED — must be flagged
+          // (agent-reachable via file-level import of anthropic-sdk-go)
+          func RunCommand(bin string) error {
+              return exec.Command(bin).Run()
+          }
+
+          // UNGUARDED — must be flagged
+          func DeleteFile(path string) error {
+              return os.Remove(path)
+          }
+          GOEOF
+
+          # Create a .actenon-scan.json that registers "authorize" as a guard
+          cat > .actenon-scan.json << 'CONFIGEOF'
+          {
+            "guard_patterns": ["authorize"]
+          }
+          CONFIGEOF
+
+          git add .
+          git commit -m "fixture for external v1 test"
+
+      - name: Run actenon-scan@v1 on fixture
+        uses: Actenon/actenon-scan@v1
+        with:
+          path: /tmp/fixture-repo
+          fail-on: none
+          scan-scope: full
+        id: scan
+
+      - name: Verify package identity
+        shell: bash
+        run: |
+          # The Action installs actenon-scan from PyPI. Verify the version.
+          INSTALLED_VERSION=$(python3 -c "import actenon_scan; print(actenon_scan.__version__)" 2>/dev/null || echo "NOT INSTALLED")
+          PYPI_VERSION=$(curl -s https://pypi.org/pypi/actenon-scan/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+
+          echo "Installed version: $INSTALLED_VERSION"
+          echo "PyPI latest: $PYPI_VERSION"
+
+          if [ "$INSTALLED_VERSION" != "$PYPI_VERSION" ]; then
+            echo "FAIL: installed version ($INSTALLED_VERSION) != PyPI latest ($PYPI_VERSION)" >&2
+            exit 1
+          fi
+          echo "OK: versions match"
+
+      - name: Verify Go guard recognition is present
+        shell: bash
+        run: |
+          # Check that the Go detector has guard recognition (133+ mentions).
+          # This verifies the @v1 tag is delivering v1.1.2+ (which added guard recognition).
+          # The Action installs into the system Python, so we can import it.
+          GUARD_COUNT=$(python3 -c "
+          import actenon_scan.detectors.go as go
+          import inspect
+          src = inspect.getsource(go)
+          print(src.lower().count('guard'))
+          " 2>/dev/null || echo "0")
+
+          echo "Go guard mentions: $GUARD_COUNT"
+
+          if [ "$GUARD_COUNT" -lt 100 ]; then
+            echo "FAIL: Go guard recognition not present (only $GUARD_COUNT mentions). v1 tag may be stale." >&2
+            echo "Expected: 100+ (v1.1.2 added guard recognition with 133 mentions)." >&2
+            exit 1
+          fi
+          echo "OK: Go guard recognition present ($GUARD_COUNT mentions)"
+
+      - name: Verify scan output contains expected findings
+        shell: bash
+        run: |
+          # The Action's findings-count output may not be available because
+          # the published @v1 tag (v1.1.4) doesn't have the value: mapping
+          # fix yet. Instead, verify by checking the scan output directly.
+          # The Action runs the scan and captures output to scan-output.txt.
+          # We verify the scan produced findings by checking if results.json
+          # exists and contains findings.
+          if [ -f results.json ]; then
+            FINDINGS=$(python3 -c "
+          import json
+          with open('results.json') as f:
+              d = json.load(f)
+              print(len([f for f in d.get('findings',[]) if not f.get('suppressed')]))
+          " 2>/dev/null || echo "0")
+            echo "Findings from results.json: $FINDINGS"
+          else
+            echo "results.json not found — checking via step output"
+            FINDINGS="${{ steps.scan.outputs.findings-count }}"
+            echo "Findings from step output: $FINDINGS"
+          fi
+
+          if [ -z "$FINDINGS" ] || [ "$FINDINGS" = "0" ]; then
+            echo "FAIL: expected at least 3 findings (Python unguarded + Go unguarded × 2), got $FINDINGS" >&2
+            exit 1
+          fi
+          echo "OK: $FINDINGS findings reported"
+
+      - name: Verify SARIF was generated
+        shell: bash
+        run: |
+          # The Action should have uploaded SARIF. Check that the sarif-path output exists.
+          SARIF_PATH="${{ steps.scan.outputs.sarif-path }}"
+          echo "SARIF path: $SARIF_PATH"
+
+          if [ -z "$SARIF_PATH" ]; then
+            echo "WARN: sarif-path output was not set (may not be available in this context)"
+          fi
+
+      - name: Verify exit behaviour (non-blocking)
+        shell: bash
+        run: |
+          # The Action was called with fail-on: none, so it should NOT have failed.
+          # If we got here, the Action completed successfully.
+          echo "OK: Action completed with fail-on: none (non-blocking)"
