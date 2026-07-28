@@ -115,6 +115,7 @@ def _assign_tier(filepath: str) -> str:
         "/cookbook/", "/recipes/",
         "/samples/", "/sample/",
         "/docs/", "/doc/", "/documentation/",
+        "/docs_src/", "/doc_src/",
         "/tutorials/", "/tutorial/",
         "/benchmarks/", "/benchmark/",
         "/demo/", "/demos/",
@@ -153,6 +154,7 @@ def _reachability_markers(reachability_cfg: dict) -> frozenset[str]:
     markers: set[str] = set()
     for key in (
         "tool_decorators",
+        "resource_boundary_decorators",
         "tool_wrappers",
         "tool_base_classes",
         "tool_methods",

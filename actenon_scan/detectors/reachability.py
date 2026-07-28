@@ -59,6 +59,16 @@ def detect_reachability(
         result.signals.append("tool_decorator")
         return result
 
+    # Work Order 2, Phase 3: resource-boundary entry points.
+    # FastAPI/Flask/Django route handlers, CLI commands. These are web
+    # endpoints that receive external input — a different entry-point
+    # class than agent tool handlers, but equally consequential.
+    resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
+    if resource_decorators and _has_resource_boundary_decorator(func_node, resource_decorators):
+        result.confidence = "high"
+        result.signals.append("resource_boundary")
+        return result
+
     # Check for HIGH confidence: tool wrapper calls (Tool.from_function, etc.)
     tool_wrappers = reachability_cfg.get("tool_wrappers", [])
     if _is_wrapped_as_tool(tree, func_node.name, tool_wrappers):
@@ -173,6 +183,34 @@ def _has_tool_decorator(func_node: ast.FunctionDef | ast.AsyncFunctionDef, tool_
     for decorator in func_node.decorator_list:
         name = _get_decorator_name(decorator)
         if name in tool_decorators:
+            return True
+    return False
+
+
+def _has_resource_boundary_decorator(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    resource_decorators: list[str],
+) -> bool:
+    """Check if the function has a resource-boundary decorator.
+
+    Work Order 2, Phase 3: detects FastAPI/Flask/Django route handlers
+    and CLI commands. These are called decorators (@app.get("/path"),
+    @app.route("/"), @click.command()) rather than bare names (@tool).
+
+    The _get_decorator_name function already handles ast.Call by
+    extracting the function name, so @app.get("/path") resolves to
+    "app.get" which is matched against the resource_decorators list.
+    """
+    for decorator in func_node.decorator_list:
+        name = _get_decorator_name(decorator)
+        # Check exact match (e.g., "app.get", "router.post")
+        if name in resource_decorators:
+            return True
+        # Check suffix match for bare forms (e.g., "get" matches
+        # "app.get", "router.get", etc. — this catches @get("/path")
+        # used by FastAPI's APIRouter and other frameworks)
+        last_segment = name.rsplit(".", 1)[-1]
+        if last_segment in resource_decorators:
             return True
     return False
 
