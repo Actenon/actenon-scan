@@ -114,6 +114,12 @@ runs:
         COMMON_ARGS=""
         # --changed-only for PR scope
         if [ "${{ steps.scope.outputs.scope }}" = "changed" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+          # Work Order 1.11: fetch the base branch so --changed-only can diff
+          # against it. actions/checkout with default fetch-depth does NOT
+          # fetch the base branch, causing --changed-only origin/main to fail
+          # silently with "no scannable files changed" and a zero-finding
+          # scan. This was found by Phase 6 external verification.
+          git fetch origin ${{ github.base_ref }} --depth=1 2>/dev/null || true
           COMMON_ARGS="$COMMON_ARGS --changed-only origin/${{ github.base_ref }}"
         fi
         # Config and baseline
