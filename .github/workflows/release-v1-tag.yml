@@ -19,6 +19,11 @@ name: Advance v1 tag
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to advance v1 to (e.g. v1.3.0)"
+        required: true
 
 jobs:
   release-gate:
@@ -40,9 +45,9 @@ jobs:
 
       - name: Move v1 tag
         run: |
-          # Get the release tag that was just published
-          RELEASE_TAG="${{ github.event.release.tag_name }}"
-          echo "Release published: $RELEASE_TAG"
+          # Get the release tag: from the release event, or from workflow_dispatch input
+          RELEASE_TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          echo "Release tag: $RELEASE_TAG"
 
           # Only advance v1 if this is a v1.x.x release
           if [[ "$RELEASE_TAG" =~ ^v1\. ]]; then
