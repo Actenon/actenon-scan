@@ -30,6 +30,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No changes yet._
 
+## [1.3.1] — 2026-07-29
+
+### Critical fix: silent zero-finding PR scans
+
+The Action's `--changed-only origin/main` mode failed silently on every
+pull request because `actions/checkout@v4` with default `fetch-depth`
+does not fetch the base branch. The scan produced 0 findings, no SARIF
+was uploaded, and no sticky comment was posted. This is the exact
+failure mode the scanner exists to prevent — a green check on unscanned
+code — in the path that matters most.
+
+**Fix:** the Action now runs `git fetch origin <base_ref> --depth=1`
+before scanning. The README and `install github` command now document
+`fetch-depth: 0` as belt-and-braces.
+
+Found by WO1.11 Phase 6 external verification against a scratch
+repository consuming `uses: Actenon/actenon-scan@v1`.
+
+### Other fixes from WO1.10-1.11
+
+- Corpus triage gate fixed to allow recording unfixed false positives
+- verify-claims pyproject-vs-PyPI check corrected (tag exists without
+  PyPI version now fails)
+- Release gate rewritten to use checkout-at-tag + `uses: ./`
+- Release checklist created (`docs/RELEASE_CHECKLIST.md`)
+- v1.3.0 release notes annotated with precision correction
+
 ## [1.3.0] — 2026-07-29
 
 ### TypeScript guard analysis rewritten (behaviour change)
