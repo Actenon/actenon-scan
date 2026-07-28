@@ -152,7 +152,7 @@ jobs:
 
           # Scan the fixture
           cd /tmp/fixture-repo
-          actenon-scan scan . --format json --output results.json --fail-on none --scan-scope full
+          actenon-scan scan . --format json --output results.json --fail-on none
 
           # Verify findings
           FINDINGS=$(python3 -c "
