@@ -260,8 +260,14 @@ All 30 survivors are hand-triaged TRUE POSITIVE in
 `tests/benchmark/corpus-triage.json`, each with the rationale that produced the
 verdict. Every one is HIGH confidence and sits inside a tool implementation.
 
-**Zero findings across all five non-agent controls:** requests, flask, fastapi,
-click, rich.
+**Control repository findings:** requests, click, and rich produce zero
+findings. Flask produces 1 example-tier finding (a tutorial route handler
+with a database mutation). FastAPI produces 18 example-tier findings
+(tutorial route handlers in docs_src/). After Work Order 2 widened the
+reachability vocabulary to include web-framework route handlers, these
+are correct findings — tutorial code that receives external input and
+reaches a consequential sink without a guard. Zero production-tier
+findings across all five controls.
 
 Measured precision on this corpus is **21/22 (95.5%)** — 21 true positives,
 1 recorded false positive. The github-mcp-server Go finding at actions.go:172

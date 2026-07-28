@@ -117,3 +117,26 @@ def test_corpus_results_md_matches_triage():
                         f"CORPUS_RESULTS.md 'current figure' line doesn't match triage. "
                         f"Line: {line.strip()}. Expected: {current_correct}"
                     )
+
+
+# ---------------------------------------------------------------------------
+# Item 6: corpus study category rendering regression test
+# ---------------------------------------------------------------------------
+
+def test_corpus_study_categories_not_concatenated():
+    """The Categories line must not concatenate the count with the list."""
+    text = (REPO_ROOT / "docs" / "CORPUS_STUDY.md").read_text()
+    for line in text.split("\n"):
+        if line.startswith("- **Categories:**"):
+            # Must not have a pattern like "4 9 framework" (count immediately
+            # followed by another number with only a space)
+            import re
+            # The old bug: "4 9 framework" — len(cat_counts)=4 followed by
+            # the first entry "9 framework" with no separator
+            if re.search(r'\*\*\s*\d+\s+\d+\s', line):
+                pytest.fail(
+                    f"Categories line has concatenated counts: {line}. "
+                    f"The category count and the list must be separated."
+                )
+            return
+    pytest.fail("Categories line not found in CORPUS_STUDY.md")

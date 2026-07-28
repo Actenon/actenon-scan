@@ -803,3 +803,38 @@ shell execution) are still caught — they have explicit qualified patterns
 match even with `bare_only`. Registered as a known issue; fix deferred to
 avoid expanding this work order's scope.
 
+
+## Tier classification rule (Work Order 2.1, Item 2b)
+
+**General rule:** a file is classified as `example` tier when it lives
+in a directory whose purpose is documentation, tutorials, samples, or
+demos — not production code. The decision is based on the directory
+name, not the file content.
+
+**Recognised example paths:**
+`/examples/`, `/example/`, `/cookbook/`, `/recipes/`, `/samples/`,
+`/sample/`, `/docs/`, `/doc/`, `/documentation/`, `/docs_src/`,
+`/doc_src/`, `/tutorials/`, `/tutorial/`, `/benchmarks/`, `/benchmark/`,
+`/demo/`, `/demos/`
+
+**Decision on `/docs_src/` (dated 2026-07-29):** FastAPI uses
+`docs_src/` to store the source code that appears in its documentation
+blocks. These files are both executable and documented — they run as
+part of the docs build, and their content appears verbatim in the
+ rendered documentation. The general rule classifies directories whose
+purpose is documentation as example tier. `docs_src/` satisfies this
+criterion: its purpose is documentation source, not production code.
+
+This decision was made independently of whether FastAPI produced
+findings. The path was added because `docs_src/` is a documentation
+source directory, matching the general rule. Had FastAPI produced zero
+findings, the path would still have been added — the rule is about
+purpose, not outcome.
+
+**Principle for future paths:** when a new directory name is encountered,
+classify it by its purpose in the repository, not by whether findings
+appear in it. If the directory's content is documentation, tutorials,
+samples, or demos, it is example tier. If it is production code, it is
+production tier. When uncertain, default to production tier — a false
+example classification hides a real finding; a false production
+classification produces a reviewable finding.
