@@ -49,11 +49,13 @@ on:
         default: ""
 
 jobs:
-  release-gate:
-    name: Verify @<tag> Action (release gate)
+  resolve-tag:
+    name: Resolve tag to test
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ needs.resolve-tag.outputs.tag }}
     steps:
-      - name: Resolve tag to test
+      - name: Resolve tag
         id: resolve
         shell: bash
         run: |
@@ -63,12 +65,17 @@ jobs:
             TAG="${{ github.event.release.tag_name }}"
           fi
           if [ -z "$TAG" ]; then
-            echo "FAIL: no tag specified (neither workflow_dispatch input nor release event)" >&2
+            echo "FAIL: no tag specified (neither workflow_call input nor release event)" >&2
             exit 1
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Testing tag: $TAG"
 
+  release-gate:
+    name: Verify @${{ needs.resolve-tag.outputs.tag }} Action (release gate)
+    needs: resolve-tag
+    runs-on: ubuntu-latest
+    steps:
       - name: Create fixture repository
         shell: bash
         run: |
@@ -166,8 +173,8 @@ jobs:
           git add .
           git commit -m "fixture for release gate"
 
-      - name: Run actenon-scan@${{ steps.resolve.outputs.tag }} on fixture
-        uses: Actenon/actenon-scan@${{ steps.resolve.outputs.tag }}
+      - name: Run actenon-scan@${{ needs.resolve-tag.outputs.tag }} on fixture
+        uses: Actenon/actenon-scan@${{ needs.resolve-tag.outputs.tag }}
         with:
           path: /tmp/fixture-repo
           fail-on: none
@@ -178,7 +185,7 @@ jobs:
         shell: bash
         run: |
           INSTALLED_VERSION=$(python3 -c "import actenon_scan; print(actenon_scan.__version__)" 2>/dev/null || echo "NOT INSTALLED")
-          TAG_VERSION="${{ steps.resolve.outputs.tag }}"
+          TAG_VERSION="${{ needs.resolve-tag.outputs.tag }}"
           # Strip the leading 'v' from the tag for comparison
           TAG_VERSION="${TAG_VERSION#v}"
 
@@ -206,7 +213,7 @@ jobs:
 
           if [ "$GUARD_COUNT" -lt 100 ]; then
             echo "FAIL: Go guard recognition not present (only $GUARD_COUNT mentions)." >&2
-            echo "The @${{ steps.resolve.outputs.tag }} tag may be stale or the Go detector was broken." >&2
+            echo "The @${{ needs.resolve-tag.outputs.tag }} tag may be stale or the Go detector was broken." >&2
             exit 1
           fi
           echo "OK: Go guard recognition present ($GUARD_COUNT mentions)"
