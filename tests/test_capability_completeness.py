@@ -17,6 +17,10 @@ import pytest
 
 from actenon_scan.engine import scan_path
 
+# Skip Go/TS tests when extras are not installed
+from actenon_scan.detectors.go import is_go_extra_available
+from actenon_scan.detectors.typescript import is_typescript_extra_available
+
 
 def _go_fixture_with_guarded_sink() -> bytes:
     """A Go fixture with one guarded sink and one unguarded sink."""
@@ -102,6 +106,7 @@ def authorize(path: str) -> None:
 '''
 
 
+@pytest.mark.skipif(not is_go_extra_available(), reason="[go] extra not installed")
 def test_go_guarded_sink_produces_guard_found_capability():
     """A Go fixture with a known guarded sink must report guard_found > 0."""
     with tempfile.TemporaryDirectory() as td:
@@ -117,6 +122,7 @@ def test_go_guarded_sink_produces_guard_found_capability():
         )
 
 
+@pytest.mark.skipif(not is_typescript_extra_available(), reason="[typescript] extra not installed")
 def test_ts_guarded_sink_produces_guard_found_capability():
     """A TS fixture with a known guarded sink must report guard_found > 0."""
     with tempfile.TemporaryDirectory() as td:
