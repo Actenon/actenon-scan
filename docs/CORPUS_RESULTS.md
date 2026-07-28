@@ -1,6 +1,7 @@
 <!-- HISTORICAL: This file is frozen at v0.4.0. The authoritative corpus -->
 <!-- study is docs/CORPUS_STUDY.md (auto-generated, CI-enforced). -->
-<!-- This file is preserved for the correction story (51/63 → 21/21). -->
+<!-- This file is preserved for the correction story (51/63 → 21/23). -->
+<!-- The current figure is 21 TP / 2 FP = 91% precision. See CORPUS_STUDY.md. -->
 
 # Corpus Validation Results — actenon-scan 0.4.0 (historical)
 
@@ -111,4 +112,9 @@ in the same function).
 2. **Exclude class-body code from module-level reachability** — fixes 2/8 FPs
 3. **Suppress temp-file cleanup in finally blocks** — fixes 1/8 FP
 
-After these fixes: 21 TP / 0 FP = 100% precision across 5,065 files.
+After these fixes: 21 TP / 2 FP = 91% precision across 5,065 files.
+
+The 2 false positives are in github-mcp-server Go code (server.go:286 and
+actions.go:172), which became scannable after Go support shipped in v1.1.2.
+Both are not model-controlled: one opens a server-config log file, the other
+fetches a GitHub API URL. See docs/CORPUS_STUDY.md for the full lineage.

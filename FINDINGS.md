@@ -263,10 +263,16 @@ verdict. Every one is HIGH confidence and sits inside a tool implementation.
 **Zero findings across all five non-agent controls:** requests, flask, fastapi,
 click, rich.
 
-Measured precision on this corpus is **21/21** (after correction rounds
-documented in [docs/CORPUS_STUDY.md](docs/CORPUS_STUDY.md)). That number is only worth
-something because the three classes above were found by the same measurement
-and fixed rather than argued away — the shipped scanner scored 51/63.
+Measured precision on this corpus is **21/23 (91%)** — 21 true positives,
+2 false positives (both in github-mcp-server Go code that became scannable
+after Go support shipped; neither is model-controlled). The true-positive
+count has been stable at 21 since the crewai/semantic-kernel correction.
+The precision figure was revised downward from 21/21 (100%) to 21/23 (91%)
+in Work Order 1.7 after the github-mcp-server findings were triaged for the
+first time. See [docs/CORPUS_STUDY.md](docs/CORPUS_STUDY.md) for the full
+lineage. That number is only worth something because the three classes
+above were found by the same measurement and fixed rather than argued away —
+the shipped scanner scored 51/63.
 
 ### GATE-01: corpus-demonstrated recall, 3 vs 4 — resolved
 
@@ -356,7 +362,7 @@ invisible to every user. Released as 0.8.0.
 
 ### CORPUS-02: the pinned corpus cannot see upstream drift
 
-The pins in `pinned_repos.json` are what make "30 findings, 30 true positives"
+The pins in `pinned_repos.json` are what make "21 findings, 21 true positives"
 reproducible — it is a statement about those exact trees. It is therefore also
 blind by construction: a new agent pattern appearing upstream is invisible
 until someone re-pins, and re-pinning means redoing the hand triage.

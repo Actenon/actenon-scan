@@ -10,6 +10,15 @@ from actenon_scan.engine import ScanResult
 
 def format_json(result: ScanResult) -> str:
     """Format scan results as JSON."""
+    # Work Order 1.5: include the scanner version at the top level so any
+    # JSON output is attributable to a specific release. This makes it
+    # possible to tell which scanner version produced a given results.json
+    # without inspecting the Action logs.
+    try:
+        from actenon_scan import __version__ as scanner_version
+    except ImportError:
+        scanner_version = "unknown"
+
     findings = [
         {
             "file": f.file,
@@ -39,6 +48,9 @@ def format_json(result: ScanResult) -> str:
     unsupported_lang_counts = Counter(lang for _, lang in result.unsupported_files)
 
     output = {
+        # Work Order 1.5: top-level scanner version for output attribution.
+        "scanner": "actenon-scan",
+        "version": scanner_version,
         "findings": findings,
         "scanned": result.files_scanned,
         "unsupported": {

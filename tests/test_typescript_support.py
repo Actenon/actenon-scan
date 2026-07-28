@@ -150,14 +150,22 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         assert len(findings) == 0, f"Guard should suppress: {findings}"
 
     def test_checkPermission_guard_suppresses_finding(self):
+        # Work Order 1.5: with soundness guard analysis, an unresolvable
+        # `checkPermission` (no local definition) is classified as
+        # boolean-style — a discarded result would be WEAK, not suppressed.
+        # To test the suppress path, define checkPermission locally with
+        # a throw, making it assert-style.
         source = '''import { execSync } from "child_process";
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   checkPermission(req);
   execSync(req.params.arguments.cmd);
 });
+function checkPermission(req: any): void {
+  if (!req.authed) throw new Error("denied");
+}
 '''
         findings = _scan_ts_source(source)
-        assert len(findings) == 0
+        assert len(findings) == 0, f"Assert-style checkPermission should suppress: {findings}"
 
     def test_no_guard_produces_finding(self):
         source = '''import { execSync } from "child_process";

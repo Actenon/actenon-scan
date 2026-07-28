@@ -9,3 +9,4 @@ dist/
 *.egg-info/
 .venv/
 .actenon-scan-cache/
+.release-notes-*.md

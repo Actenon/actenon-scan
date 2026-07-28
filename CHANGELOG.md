@@ -30,6 +30,137 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No changes yet._
 
+## [1.3.0] — 2026-07-29
+
+### TypeScript guard analysis rewritten (behaviour change)
+
+TypeScript guard analysis was unsound before this release. Guard-name
+substrings appearing in comments, imports, string literals or variable
+names suppressed findings anywhere below them in the same file,
+regardless of function boundaries. It has been rewritten with dominance,
+binding and result-use analysis matching the Python and Go detectors.
+
+TypeScript repositories may report findings that were previously
+suppressed. Three sink-matching false positives were also fixed
+(`handler.fetch`, `regex.exec`, arbitrary `.spawn` member calls), which
+removes findings in the other direction. The net effect per repository
+is not predictable in advance.
+
+This is a minor version bump, not a patch, because a consumer running
+`fail-on: high` in CI could go from green to red on an unchanged
+codebase.
+
+### Guard-state correctness (Work Orders 1.5–1.8)
+
+- **TypeScript defeated-guard detection** — all five defeated-guard
+  variants (result discarded, guard after sink, dead branch, split
+  branch, try/catch swallow) now flag in TypeScript. Previously all
+  were suppressed by the lexical heuristic. 640 lines of new guard
+  analysis code ported from `go.py` and `guards.py`.
+- **Go assert-style classification fix** — `_is_go_assert_style` used a
+  substring match that misclassified `authorizeBool` (a boolean-returning
+  function) as assert-style because `"authorize"` is a substring of
+  `"authorizebool"`. Fixed with local resolution: the function
+  definition is checked for `panic()` calls. The substring match is
+  removed.
+- **Python try/except dominance fix** — a guard inside a `try` body
+  whose `except` handler catches a broad type (`Exception`,
+  `BaseException`, or bare) with no re-raise no longer dominates the
+  sink. The swallowing handler defeats the guard's raise.
+- **Cross-language parity** — Python, TypeScript, and Go now agree on
+  every defeated-guard variant. New parity test
+  (`tests/test_guard_state_correctness.py`) compares guard outcomes, not
+  just sink families.
+
+### Bare-identifier sink pattern fixes (Work Orders 1.7–1.8)
+
+- **`handler.fetch()` false positive fixed** — the NET-EGRESS rule
+  matched bare `fetch`, which also matched member expressions like
+  `handler.fetch(request)` (an MCP HTTP handler entry point, not
+  outbound egress). Fixed with `bare_only_patterns`: the `fetch` pattern
+  matches only the bare identifier `fetch(url)` or a member expression
+  whose receiver is a recognised global (`window`, `globalThis`,
+  `self`).
+- **`regex.exec()` false positive fixed** — the EXEC-SHELL rule matched
+  bare `exec`, which also matched `RegExp.prototype.exec(str)` (input
+  validation, not shell execution). Fixed with `bare_only_patterns` +
+  `global_receivers` (`child_process`, `cp`) + child_process import
+  resolution. Bare `exec`/`spawn` imported from `child_process` still
+  flags; bare `exec`/`spawn` not resolvable to a child_process import
+  still flags (prefer false positive over false negative on
+  HIGH-severity shell execution).
+- **`pool.spawn()` false positive fixed** — same mechanism as `exec`.
+  Arbitrary member expressions like `pool.spawn(n)` no longer flag.
+- **Go `PAY-GENERIC-REFUND-GO` and `SECRET-READ-GO` receiver
+  constraints** — both rules used `method_name` match with no
+  `receiver_names` constraint, matching any method named `Refund`,
+  `Charge`, `GetSecretValue`, etc. on any receiver. Fixed with
+  receiver-name constraints (payment-like and secret-manager-like names).
+- **TypeScript `PAY-GENERIC-REFUND` bare patterns** — `refund`,
+  `createCharge`, `createRefund`, `issueRefund`, `processRefund` added
+  to `bare_only_patterns` to prevent `order.refund()` collisions.
+
+### GitHub Action
+
+- **`fail-on-unsupported` input** — new Action input (default `false`).
+  When set to `true`, the Action fails if any unsupported source files
+  are found. This prevents a silent clean report on a repo the scanner
+  could not fully read — the failure mode that produced the original Go
+  incident.
+- **JSON output version field** — JSON output now includes top-level
+  `scanner` ("actenon-scan") and `version` fields, so any JSON output
+  is attributable to a specific release without inspecting Action logs.
+
+### Release gate (Work Order 1.5)
+
+- **`release-gate.yml`** — new workflow that triggers on
+  `release: published` and consumes
+  `uses: Actenon/actenon-scan@<tag>` (the immutable tag, not `@v1`)
+  against a fixture. Verifies: package identity, Go guard recognition,
+  findings emitted, scanner version in JSON.
+- **`release-v1-tag.yml` refactored** — `advance-v1` job now
+  `needs: release-gate` and runs only on success. The v1 tag does not
+  advance until the gate passes.
+- **Tag-object cosmetic fix** — `git tag -a v1 -m "..."` instead of
+  `git tag -f v1 "$RELEASE_TAG"`, so the tag object's `tag` field reads
+  `v1`, not the release tag name.
+
+### Corpus precision correction
+
+The corpus precision figure changed from 21/21 (100%) to 21/23 (91%).
+Two `github-mcp-server` Go findings were triaged for the first time —
+they were never in the original corpus because the corpus was assembled
+before Go support shipped (v1.1.2). Both are FALSE_POSITIVE:
+`server.go:286` opens a server-config log file (not model-controlled);
+`actions.go:172` fetches a GitHub API URL (not directly model-controlled).
+Counted in the denominator: precision dropped from 100% to 91%. The
+true-positive count is unchanged at 21. This is the third published
+correction, after 30→28 (agno) and 28→21 (crewai/semantic-kernel).
+
+Full lineage: 63→51→30→28→21→21 (TP unchanged, precision 100%→91%).
+
+### Tests
+
+425 tests passing (was 374 at v1.2.0). New test files:
+- `tests/test_guard_state_correctness.py` (29 tests) — cross-language
+  guard-state parity.
+- `tests/test_ts_lexical_suppression.py` (4 tests) — regression for the
+  lexical-suppression bug.
+- `tests/test_ts_fetch_rule.py` (5 tests) — `handler.fetch` fix.
+- `tests/test_ts_exec_spawn_rule.py` (15 tests) — `exec`/`spawn`
+  bare-pattern fix + global-receiver allowlist.
+- `tests/benchmark/precision/p14_ts_handler_vocab.ts` — benchmark
+  fixture exercising realistic TS handler code.
+
+### Scanner version staleness check
+
+`scripts/generate_corpus_study.py --check` now verifies that the
+recorded scanner version in `corpus-triage.json` is not older than the
+current package version, and that precision figures in `FINDINGS.md`
+and `docs/CORPUS_RESULTS.md` agree with `corpus-triage.json`. This
+prevents silent drift between the corpus measurement and the published
+figures.
+
 ## [1.2.0] — 2026-07-27
 
 ### Inbound distribution infrastructure

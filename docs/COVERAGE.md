@@ -726,3 +726,80 @@ cleanup of a self-created temp file — the model cannot influence the path.
 This suppression is **anchored to the assignment source**, not to the
 `defer` keyword or the string "tmp". A model-supplied path that happens to
 be deleted in a defer is still a finding.
+
+## Work Order 1.5 — TypeScript guard analysis
+
+Before v1.2.1, TypeScript guard analysis was **lexical**: any guard-pattern
+word appearing on any line in the file suppressed every sink below it,
+regardless of function boundary, dominance, binding, or result-use. A
+comment mentioning "authorize", a string literal containing "unauthorized",
+or a variable named `authorizeButton` suppressed every sink below it in
+that file. This was unsound — the same class of false confidence that
+Python's v1 lexical heuristic had already been replaced with dominance
+analysis, but the TS port had not been done.
+
+v1.2.1 replaced the lexical heuristic with strict dominance, binding, and
+result-use analysis (640 lines ported from the Python and Go detectors).
+The three languages now agree on every defeated-guard variant. See
+`tests/test_guard_state_correctness.py` for the cross-language parity
+test.
+
+### Corpus exercise
+
+The corpus has 2,168 TypeScript files and 140 sink candidates, but only
+**1** sink candidate reached guard analysis (the reachability filter
+runs before guard analysis). The TS guard rewrite was therefore exercised
+on 1 data point in the corpus. Real-world validation was done on
+`modelcontextprotocol/typescript-sdk` (3 appeared, all FALSE_POSITIVE at
+the rule-matching level), `langchain-ai/langchainjs` (0 delta), and
+`getzep/zep-js` (0 delta).
+
+### TS reachability observation
+
+2,168 TS files yielding 1 sink candidate suggests TS reachability may be
+narrow. The TS detector's per-function reachability check requires a
+recognised tool registration signal (`setRequestHandler`,
+`server.registerTool`, `DynamicStructuredTool`, `execute:`, etc.). Many TS
+agent frameworks use patterns not yet recognised. This is a coverage
+limitation, not a soundness issue — the scanner is conservative (errs
+toward "not reachable" rather than "reachable and unguarded").
+
+### Known false positive: `handler.fetch()` matching NET-EGRESS — FIXED (v1.2.1)
+
+The NET-EGRESS rule matched bare `fetch`, which also matched member expressions
+like `handler.fetch(request)` — an MCP HTTP handler entry point that processes
+incoming requests, not outbound HTTP egress. This was hidden by the lexical
+false-negative suppression (guard words in comments and variable names
+suppressed the findings) until v1.2.1 removed it. The guard rewrite correctly
+removed the false-negative suppression, exposing the pre-existing rule-matching
+false positive.
+
+**Fix (Work Order 1.7):** the NET-EGRESS rule now uses `bare_only_patterns`
+for `fetch`. The `fetch` pattern matches only the bare identifier
+`fetch(url)` (the global Web API), not member expressions like
+`handler.fetch()`. Other qualified patterns (`axios.post`, `http.request`,
+etc.) are unaffected. Limitation: `window.fetch` and `globalThis.fetch`
+(which ARE the global) also don't match; these are rare in agent code.
+Aliased imports (`import { fetch as f }` → `f(url)`) are not caught by
+name-based matching regardless of this fix.
+
+### Known issue: `exec` and `spawn` bare patterns (not yet fixed)
+
+The EXEC-SHELL rule has bare-identifier patterns `"exec"` and `"spawn"` that
+use the same `endswith` matching as `fetch` did. These can match member
+expressions on unrelated objects:
+
+- `"exec"` matches `RegExp.prototype.exec(str)` — a regex match, not shell
+  execution. If an agent-reachable function calls `regex.exec(userInput)`,
+  it would false-positive as EXEC-SHELL.
+- `"spawn"` matches `Worker.spawn()` or similar — uncommon in agent code
+  but potentially a false positive.
+
+Not fixed in this work order. The fix is the same `bare_only_patterns`
+mechanism used for `fetch`, but applying it to `exec` and `spawn` requires
+verifying that `child_process.exec` and `child_process.spawn` (which ARE
+shell execution) are still caught — they have explicit qualified patterns
+(`"child_process.exec"`, `"child_process.spawn"`) so they would still
+match even with `bare_only`. Registered as a known issue; fix deferred to
+avoid expanding this work order's scope.
+
