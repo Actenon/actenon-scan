@@ -159,8 +159,38 @@ jobs:
           git add .
           git commit -m "fixture for release gate"
 
+      # Work Order 2.1, Item 5: Wait for PyPI propagation before running
+      # the Action. The Action's install step does pip install which fails
+      # if PyPI hasn't propagated. Retry up to 5 times with 15s backoff.
+      # A propagation timeout is distinguishable from a genuine assertion
+      # failure because this step only checks availability, not correctness.
+      - name: Wait for PyPI propagation
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+          echo "Waiting for actenon-scan==$VERSION to appear on PyPI..."
+          for i in 1 2 3 4 5; do
+            AVAILABLE=$(curl -sf "https://pypi.org/pypi/actenon-scan/$VERSION/json" 2>/dev/null | head -c1)
+            if [ -n "$AVAILABLE" ]; then
+              echo "OK: version $VERSION is available on PyPI (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i: not yet available. Waiting 15s..."
+            sleep 15
+          done
+          echo "FAIL: version $VERSION not available on PyPI after 5 attempts (75s)" >&2
+          echo "The publish workflow may have failed. Check:" >&2
+          echo "  https://github.com/Actenon/actenon-scan/actions/workflows/publish.yml" >&2
+          exit 1
+
       # Work Order 1.10, Item 2: uses: ./ against the checkout at the
       # released tag. This exercises action.yml end to end.
+      # Work Order 2.1, Item 5: bounded retry for PyPI propagation.
+      # The Action's install step does `pip install actenon-scan==<version>`
+      # which may fail if PyPI hasn't propagated yet. Retry up to 5 times
+      # with 15s backoff. A genuine assertion failure (wrong version,
+      # missing findings) is distinguishable from a propagation timeout.
       - name: Run actenon-scan Action (from checked-out tag)
         uses: ./
         with:

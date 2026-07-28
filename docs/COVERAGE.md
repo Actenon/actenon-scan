@@ -838,3 +838,30 @@ samples, or demos, it is example tier. If it is production code, it is
 production tier. When uncertain, default to production tier — a false
 example classification hides a real finding; a false production
 classification produces a reviewable finding.
+
+## Resource-boundary entry points (Work Order 2, Phase 3)
+
+Resource-boundary entry points are web-framework route handlers and CLI
+commands that receive external input. They are a different entry-point
+class from agent tool handlers but equally consequential.
+
+### Recognised frameworks per language
+
+| Language | Frameworks recognised | Status |
+|---|---|---|
+| Python | FastAPI (app/router), Flask (app/bp/Blueprint), generic route decorators | Supported |
+| TypeScript | Express, Fastify, Koa, Next.js route handlers | Not yet implemented |
+| Go | net/http HandlerFunc, chi, gin, echo | Not yet implemented |
+
+### Precision on web applications
+
+**Unmeasured.** The corpus is 25 agent frameworks. There is no measured
+precision on web application code. The five control repos at zero
+production-tier findings is a precision result for non-agent libraries,
+not evidence that the scanner behaves well when route handlers are entry
+points. FastAPI (18 example-tier) and Flask (1 example-tier) findings
+are correct — tutorial route handlers with unguarded sinks — but they
+do not constitute a precision measurement on production web applications.
+
+Do not claim web-application coverage beyond what the fixtures
+demonstrate. State it as supported entry points, not a supported use case.
