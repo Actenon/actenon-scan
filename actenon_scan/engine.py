@@ -607,6 +607,24 @@ def scan_path_parallel(
         guard_patterns=_ts_rules.guard_patterns,
     )
     for tf in ts_findings:
+        # Work Order 2, Phase 5: record TS capabilities (parallel path)
+        cap_state = guard_status_to_capability_state(tf.guard_status, True)
+        merged.capabilities.append(Capability(
+            file=tf.file,
+            line=tf.line,
+            col=tf.col,
+            rule_id=tf.rule_id,
+            category=tf.category,
+            severity=tf.severity,
+            call_text=tf.call_text,
+            state=cap_state,
+            guard_status=tf.guard_status,
+            guard_message=tf.guard_message,
+            confidence=tf.confidence,
+            reachability_source="handler",
+            tier=_assign_tier(tf.file),
+            language="typescript",
+        ))
         merged.findings.append(Finding(
             file=tf.file,
             line=tf.line,
@@ -983,6 +1001,30 @@ def scan_path(
         )
     if ts_findings:
         for tf in ts_findings:
+            # Work Order 2, Phase 5: record a Capability for each TS finding.
+            # Note: guarded TS findings are suppressed inside the detector
+            # and not returned here. This is a known gap — the TS detector
+            # would need to return guarded findings (with a flag) to record
+            # them as GUARD_FOUND capabilities. The Python and Go paths
+            # do record guarded capabilities.
+            cap_state = guard_status_to_capability_state(tf.guard_status, True)
+            capabilities.append(Capability(
+                file=tf.file,
+                line=tf.line,
+                col=tf.col,
+                rule_id=tf.rule_id,
+                category=tf.category,
+                severity=tf.severity,
+                call_text=tf.call_text,
+                state=cap_state,
+                guard_status=tf.guard_status,
+                guard_message=tf.guard_message,
+                confidence=tf.confidence,
+                reachability_reason="",
+                reachability_source="handler",  # TS reachability is handler-based
+                tier=_assign_tier(tf.file),
+                language="typescript",
+            ))
             findings.append(Finding(
                 file=tf.file,
                 line=tf.line,
@@ -1038,6 +1080,28 @@ def scan_path(
                 rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
                 go_findings = scan_go_file(rel, go_source, guard_patterns=rules.guard_patterns)
                 for gf in go_findings:
+                    # Work Order 2, Phase 5: record a Capability for every
+                    # Go finding, including guarded ones.
+                    cap_state = guard_status_to_capability_state(gf.guard_status, True)
+                    # Distinguish handler-registered from import-reachable
+                    reach_source = "handler" if "tool_registration" in (gf.reachability_reason or "") else "import"
+                    capabilities.append(Capability(
+                        file=gf.file,
+                        line=gf.line,
+                        col=gf.col,
+                        rule_id=gf.rule_id,
+                        category=gf.category,
+                        severity=gf.severity,
+                        call_text=gf.call_text,
+                        state=cap_state,
+                        guard_status=gf.guard_status,
+                        guard_message=gf.guard_message,
+                        confidence=gf.confidence,
+                        reachability_reason=gf.reachability_reason,
+                        reachability_source=reach_source,
+                        tier=_assign_tier(gf.file),
+                        language="go",
+                    ))
                     # ITEM 1: skip findings dominated by a parameter-bound guard
                     if gf.guard_status == "guarded":
                         continue
@@ -1089,6 +1153,8 @@ class TSFindingWithFile:
     col: int
     call_text: str
     confidence: str = "high"
+    guard_status: str = ""
+    guard_message: str = ""
 
 
 def _scan_typescript_files(
@@ -1206,6 +1272,8 @@ def _scan_typescript_files(
                 col=f.col,
                 call_text=f.call_text,
                 confidence="high",
+                guard_status=f.guard_status,
+                guard_message=f.guard_message,
             ))
         errors.extend(file_errors)
 
