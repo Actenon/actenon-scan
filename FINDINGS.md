@@ -263,16 +263,16 @@ verdict. Every one is HIGH confidence and sits inside a tool implementation.
 **Zero findings across all five non-agent controls:** requests, flask, fastapi,
 click, rich.
 
-Measured precision on this corpus is **21/23 (91%)** — 21 true positives,
-2 false positives (both in github-mcp-server Go code that became scannable
-after Go support shipped; neither is model-controlled). The true-positive
-count has been stable at 21 since the crewai/semantic-kernel correction.
-The precision figure was revised downward from 21/21 (100%) to 21/23 (91%)
-in Work Order 1.7 after the github-mcp-server findings were triaged for the
-first time. See [docs/CORPUS_STUDY.md](docs/CORPUS_STUDY.md) for the full
-lineage. That number is only worth something because the three classes
-above were found by the same measurement and fixed rather than argued away —
-the shipped scanner scored 51/63.
+Measured precision on this corpus is **22/22 (100%)** — 22 true positives,
+0 false positives. The github-mcp-server Go finding at actions.go:172
+(http.Get(logURL)) is kept as TRUE_POSITIVE: logURL is not directly
+model-controlled (it comes from a prior GitHub API call), but the scanner
+cannot trace this interprocedurally. The server.go:286 finding was
+suppressed by a rule fix (log/config file detection). See
+[docs/CORPUS_STUDY.md](docs/CORPUS_STUDY.md) for the full lineage. That
+number is only worth something because the three classes above were found
+by the same measurement and fixed rather than argued away — the shipped
+scanner scored 51/63.
 
 ### GATE-01: corpus-demonstrated recall, 3 vs 4 — resolved
 

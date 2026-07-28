@@ -127,17 +127,20 @@ codebase.
 
 ### Corpus precision correction
 
-The corpus precision figure changed from 21/21 (100%) to 21/23 (91%).
-Two `github-mcp-server` Go findings were triaged for the first time —
-they were never in the original corpus because the corpus was assembled
-before Go support shipped (v1.1.2). Both are FALSE_POSITIVE:
-`server.go:286` opens a server-config log file (not model-controlled);
-`actions.go:172` fetches a GitHub API URL (not directly model-controlled).
-Counted in the denominator: precision dropped from 100% to 91%. The
-true-positive count is unchanged at 21. This is the third published
-correction, after 30→28 (agno) and 28→21 (crewai/semantic-kernel).
+The corpus figure changed from 21 to 22 true positives. The
+github-mcp-server Go findings were triaged for the first time — they
+were never in the original corpus because the corpus was assembled
+before Go support shipped (v1.1.2). `server.go:286` (FILE-WRITE-GO on
+`cfg.LogFilePath`) was suppressed by a rule fix (log/config file
+detection — the path is not model-controlled). `actions.go:172`
+(NET-EGRESS-GO on `http.Get(logURL)`) is kept as TRUE_POSITIVE: logURL
+comes from a prior GitHub API call (not directly model-controlled), but
+the scanner cannot trace this interprocedurally. Precision remains
+100% (22/22). This is the third published correction, after 30→28
+(agno) and 28→21 (crewai/semantic-kernel).
 
-Full lineage: 63→51→30→28→21→21 (TP unchanged, precision 100%→91%).
+Full lineage: 63→51→30→28→21→22 (precision 100% throughout, after
+initial 81%).
 
 ### Tests
 

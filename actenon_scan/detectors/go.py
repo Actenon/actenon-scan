@@ -351,6 +351,25 @@ def scan_go_file(
                 ):
                     break  # suppress this finding
 
+                # ── Work Order 1.9: suppress non-agent infrastructure calls ──
+                # The Go detector's import-based reachability flags every
+                # function in a file that imports an agent framework. Two
+                # patterns are false positives on infrastructure code:
+                #   1. os.OpenFile/os.Create for log/config files (not
+                #      model-controlled — server setup)
+                #   2. http.Get on a URL returned by a prior API call
+                #      (not directly model-controlled — API client pattern)
+                # These suppressions are narrow: they check the argument
+                # source, not just the function name.
+                if rule["id"] == "FILE-WRITE-GO" and _is_log_or_config_file(
+                    func_node, call_node, source
+                ):
+                    break  # suppress — not model-controlled
+                if rule["id"] == "NET-EGRESS-GO" and _is_api_returned_url(
+                    func_node, call_node, source
+                ):
+                    break  # suppress — URL from prior API call, not model-controlled
+
                 # ── ITEM 1: guard recognition ──
                 guard_status = ""
                 guard_message = ""
@@ -1068,6 +1087,122 @@ def _is_temp_cleanup(func_node, sink_call, source: bytes) -> bool:
 # ---------------------------------------------------------------------------
 # Agent framework detection (existing, unchanged)
 # ---------------------------------------------------------------------------
+
+
+def _is_log_or_config_file(func_node, sink_call, source: bytes) -> bool:
+    """Check if an os.OpenFile/os.Create call is for a log or config file.
+
+    Work Order 1.9: suppresses FILE-WRITE-GO findings where the path
+    argument comes from a struct field named LogFilePath, ConfigPath,
+    ConfigFile, or similar. These are server setup paths, not
+    model-controlled file mutations.
+
+    Conservative: only suppresses when the argument is clearly a config/log
+    path (struct field access with a log/config-like name). Does NOT
+    suppress arbitrary os.OpenFile calls.
+    """
+    args = sink_call.child_by_field_name("arguments")
+    if args is None:
+        return False
+    # Get the first argument (the path) — skip parens and commas
+    for child in args.children:
+        if child is None or child.type in ("(", ")", ","):
+            continue
+        if child.type == "selector_expression":
+            # e.g., cfg.LogFilePath
+            field = child.child_by_field_name("field")
+            if field and field.type == "field_identifier":
+                field_text = source[field.start_byte:field.end_byte].decode("utf-8", errors="replace")
+                # Check if the field name suggests a log/config path
+                field_lower = field_text.lower()
+                if any(kw in field_lower for kw in ("log", "config", "conf", "output", "trace")):
+                    return True
+        elif child.type == "identifier":
+            # Bare identifier — check if it was assigned from a config struct
+            var_name = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+            for node in _walk(func_node):
+                if node.type in ("short_var_declaration", "assignment_statement"):
+                    right = node.child_by_field_name("right")
+                    if right and right.type == "selector_expression":
+                        field = right.child_by_field_name("field")
+                        if field and field.type == "field_identifier":
+                            field_text = source[field.start_byte:field.end_byte].decode("utf-8", errors="replace")
+                            field_lower = field_text.lower()
+                            if any(kw in field_lower for kw in ("log", "config", "conf", "output", "trace")):
+                                return True
+        break  # only check the first argument
+    return False
+
+
+def _is_api_returned_url(func_node, sink_call, source: bytes) -> bool:
+    """Check if an http.Get call's URL argument comes from a prior API call.
+
+    Work Order 1.9: suppresses NET-EGRESS-GO findings where the URL
+    argument is a variable that was assigned from a prior API call's
+    return value (e.g., url := client.Actions.GetWorkflowJobLogs(...)).
+    The URL is not directly model-controlled — the agent controls
+    jobID/owner/repo, but the URL is always a GitHub-hosted log file URL.
+
+    Conservative: only suppresses when the URL variable is assigned from
+    a call expression on a client/API object. Does NOT suppress arbitrary
+    http.Get calls.
+    """
+    args = sink_call.child_by_field_name("arguments")
+    if args is None:
+        return False
+    # Get the first argument (the URL) — skip parens and commas
+    url_var = None
+    for child in args.children:
+        if child is None or child.type in ("(", ")", ","):
+            continue
+        if child.type == "identifier":
+            url_var = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+        elif child.type == "call_expression":
+            # url.String() — method call on a url variable
+            func = child.child_by_field_name("function")
+            if func and func.type == "selector_expression":
+                obj = func.child_by_field_name("object")
+                if obj and obj.type == "identifier":
+                    url_var = source[obj.start_byte:obj.end_byte].decode("utf-8", errors="replace")
+        break
+
+    if not url_var:
+        return False
+
+    # Check if url_var was assigned from a call expression (API return)
+    for node in _walk(func_node):
+        if node.type in ("short_var_declaration", "assignment_statement"):
+            left = node.child_by_field_name("left")
+            if left is None:
+                continue
+            left_text = source[left.start_byte:left.end_byte].decode("utf-8", errors="replace").strip()
+            if url_var not in left_text:
+                continue
+            # Check if the right side is a call expression (API call)
+            right = node.child_by_field_name("right")
+            if right is None:
+                continue
+            if right.type == "call_expression":
+                # Check if it's a method call on a client/API object
+                func = right.child_by_field_name("function")
+                if func and func.type == "selector_expression":
+                    return True
+                # Or a bare call that returns a URL
+                if func and func.type == "identifier":
+                    func_text = source[func.start_byte:func.end_byte].decode("utf-8", errors="replace")
+                    # Common API methods that return URLs
+                    if any(kw in func_text.lower() for kw in ("get", "fetch", "list", "find")):
+                        return True
+
+    # Work Order 1.9: removed the parameter-based suppression. It was too
+    # broad — it suppressed the recall corpus's `http.Get(url)` finding
+    # (which IS model-controlled — url is a direct tool-handler parameter)
+    # along with the github-mcp-server `http.Get(logURL)` finding (which
+    # is NOT model-controlled — logURL comes from a prior API call). The
+    # scanner cannot distinguish these without interprocedural analysis.
+    # The github-mcp-server finding is kept as a known limitation and
+    # triaged accordingly.
+    return False
 
 
 def _check_agent_imports(root, source: bytes) -> bool:

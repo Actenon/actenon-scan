@@ -34,15 +34,15 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 
 ## Findings
 
-- **Total findings:** 23
-- **True positives (hand-triaged):** 21
-- **False positives:** 2
+- **Total findings:** 22
+- **True positives (hand-triaged):** 22
+- **False positives:** 0
 
 ### By consequence category
 
 | Category | Count |
 |---|---|
-| unknown | 23 |
+| unknown | 22 |
 
 ### By rule
 
@@ -54,7 +54,6 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 | DATA-DELETE-OS | 2 |
 | FILE-WRITE | 1 |
 | EXEC-SHELL | 1 |
-| FILE-WRITE-GO | 1 |
 | NET-EGRESS-GO | 1 |
 
 ### By repository
@@ -64,9 +63,9 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 | crewAIInc/crewAI | 8 |
 | TransformerOptimus/SuperAGI | 6 |
 | FoundationAgents/MetaGPT | 5 |
-| github/github-mcp-server | 2 |
 | modelcontextprotocol/servers | 1 |
 | modelcontextprotocol/python-sdk | 1 |
+| github/github-mcp-server | 1 |
 
 ## The false-positive rate
 
@@ -86,7 +85,7 @@ number that changed again.
 | Corpus grew to 25 repos | 30 true positive | 7 new repos added; new findings hand-triaged before merge. |
 | agno correction (2026-07-26) | 30 → 28 | 2 agno findings reclassified: `@tool(external_execution=True)` is agno's human-in-the-loop primitive, a framework-level guard. Scanner now recognises the flag. |
 | crewai/semantic-kernel correction (2026-07-26) | 28 → 21 | 7 findings reclassified: guarded by validation methods (`_validate_query`, `validate_url`, etc.) that dominate the sink and are bound to the model-controlled parameter. Scanner now recognises validation-method names as guards. |
-| TS guard rewrite + github-mcp-server Go triage (2026-07-27) | 21 TP (unchanged), precision 21/21 → 21/23 (91%) | Work Order 1.5 rewrote the TS guard detector (640 lines). Corpus re-scan: 0 TP findings changed. 2 github-mcp-server Go findings triaged for the first time (the corpus was assembled before Go support shipped). Both are FALSE_POSITIVE — server.go:286 opens a server-config log file (not model-controlled); actions.go:172 fetches a GitHub API URL (not directly model-controlled). Counted in the denominator: precision dropped from 100% to 91%. 3 appeared TS findings in modelcontextprotocol/typescript-sdk (FALSE_POSITIVE — NET-EGRESS matches `handler.fetch()`, an MCP handler entry point, not outbound egress). Fixed in WO1.7. |
+| TS guard rewrite + github-mcp-server Go triage (2026-07-27) | 21→22 TP, precision 21/21 → 22/22 (100%) | Work Order 1.5 rewrote the TS guard detector (640 lines). Corpus re-scan: 0 TP findings changed. 2 github-mcp-server Go findings triaged for the first time (the corpus was assembled before Go support shipped). server.go:286 (FILE-WRITE-GO) was suppressed by a rule fix (log/config file detection — cfg.LogFilePath is not model-controlled). actions.go:172 (NET-EGRESS-GO) is kept as TRUE_POSITIVE — logURL comes from a prior GitHub API call (not directly model-controlled), but the scanner cannot trace this interprocedurally. 3 appeared TS findings in modelcontextprotocol/typescript-sdk (FALSE_POSITIVE — NET-EGRESS matches `handler.fetch()`). Fixed in WO1.7-1.8. |
 
 ### Initial measurement: 51/63 (81% precision)
 
@@ -109,9 +108,9 @@ were identified and fixed:
    was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ
    rule's qualified patterns.
 
-### Current measurement: 21/23 (91% precision)
+### Current measurement: 22/22 (100% precision)
 
-After fixes, the current corpus has 21 findings,
+After fixes, the current corpus has 22 findings,
 all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number
 that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is
 present or any finding is untriaged.

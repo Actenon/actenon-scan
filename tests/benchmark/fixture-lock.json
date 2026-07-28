@@ -1,7 +1,7 @@
 {
   "tests/benchmark/corpus-evidence.json": "34a7b14a67990fa5b2d565fe592adea664ad42afbe9d10860712d27a6f380ca8",
   "tests/benchmark/corpus-results.json": "f95dc5ce91e9bcff966e6230b652c09307c143cd0d4c5cfea4603a492adda9f3",
-  "tests/benchmark/corpus-triage.json": "419c3db254dd1314bfffb660e0486dbeee94724c4c3dfdaa9ea14de5bdb93029",
+  "tests/benchmark/corpus-triage.json": "b0a87b7c392b8d487e3869350730d053b864dd62f6977a204070384d178a5e45",
   "tests/benchmark/perf-fixture.json": "8f8990b2d3b1b2eb7e17644ac5e4bc084e7adaa60a59c1bdc9f0ed2c335356a8",
   "tests/benchmark/pinned_repos.json": "b05b88c1868bf7a95658d608a49996f254e157cdd9e84f9c72230e919a0216d8",
   "tests/benchmark/precision/p01_standard_guard.py": "2414391cf7fd4ba18af916f8881c6fc2453c2ed7088e0210411832fdd71e138d",
@@ -18,6 +18,7 @@
   "tests/benchmark/precision/p12_playwright_docs_script.py": "083d84d32afc5f9ab12b43c12a10f9bbd8fde0936212281dfdeb388a66904a65",
   "tests/benchmark/precision/p13_a2a_send_message.py": "e759395c58946245e02f70b54a13c684bec8e2568d22474794c0d72803ebce11",
   "tests/benchmark/precision/p14_external_execution_guard.py": "e2dd54503ce2dbb13d1c91d581085515df93d7c6eb68848d8eab12bc7e41ae29",
+  "tests/benchmark/precision/p14_ts_handler_vocab.ts": "85061e5850fb5d414de38d91cbc7416036f9692bb239febc064603805c423e3c",
   "tests/benchmark/precision/p15_validation_guard.py": "19c8565502e38a1227e9174ec3aa22a4cfe908decec04838255d648e038f30ac",
   "tests/benchmark/recall/.gitkeep": "cc3c26c9d074f225a22f3a7f9555a505be256fac803a0be4dd6a79c311a8ea01",
   "tests/benchmark/recall/r01_mcp_tool.py": "e86d49ce5fa722aea577ab77f32d9130808b605f621d65832a6495ad93e6a270",
