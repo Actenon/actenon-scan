@@ -27,8 +27,33 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     The summary leads with the consequence map, then spotlights the
     most-exposed finding, then lists next-step commands. The old
     linter-style output is available via ``--format list``.
+
+    Work Order 2, Phase 6: when capabilities are available, the output
+    includes a capability summary showing guard-found vs review-required
+    counts. The existing finding-based output is preserved for backward
+    compatibility.
     """
     unsuppressed = [f for f in result.findings if not f.suppressed]
+
+    # Work Order 2, Phase 6: capability summary.
+    # Displayed when capabilities exist, before the finding-based output.
+    if result.capabilities:
+        cap_lines = _format_capability_summary(result)
+        if not unsuppressed:
+            # All capabilities are GUARD_FOUND — no findings to report
+            cap_lines.append("")
+            timing = f" ({elapsed:.2f}s)" if elapsed is not None else ""
+            cap_lines.append(f"{result.files_scanned} files scanned{timing}")
+            if result.unsupported_files:
+                cap_lines.append("")
+                cap_lines.extend(_format_unsupported(result))
+            return "\n".join(cap_lines) + "\n"
+        # Has both capabilities and findings — show capability summary
+        # then the existing blast-radius output
+        lines = cap_lines
+        lines.append("")
+    else:
+        lines = []
 
     if not unsuppressed:
         return _format_clean(result, elapsed)
@@ -36,7 +61,10 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     groups = group_by_consequence(unsuppressed)
     most_exposed = select_most_exposed(unsuppressed)
 
-    lines: list[str] = []
+    # Note: lines may already contain capability summary from above.
+    # If not, start fresh.
+    if not lines:
+        lines = []
 
     # Header line — confidence-aware wording (Part 1.1 + RULE 7).
     has_weak = any(f.confidence in ("low", "medium") for f in unsuppressed)
@@ -123,6 +151,29 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             lines.append(f"  ... and {len(result.analysis_errors) - 10} more")
 
     return "\n".join(lines) + "\n"
+
+
+def _format_capability_summary(result: ScanResult) -> list[str]:
+    """Format the capability summary for the blast-radius output.
+
+    Work Order 2, Phase 6: shows the total capabilities and their
+    breakdown by state (GUARD_FOUND, REVIEW_REQUIRED, etc.).
+    Uses observational language — never asserts safety.
+    """
+    summary = result.capability_summary
+    lines: list[str] = []
+    lines.append("YOUR AGENT'S BLAST RADIUS")
+    lines.append("")
+    lines.append(f"Consequential capabilities: {summary.total}")
+    if summary.guard_found:
+        lines.append(f"  Guard found on path:       {summary.guard_found}")
+    if summary.review_required:
+        lines.append(f"  Review required:           {summary.review_required}")
+    if summary.accepted_decision:
+        lines.append(f"  Accepted decision:         {summary.accepted_decision}")
+    if summary.not_analysed:
+        lines.append(f"  Not analysed:              {summary.not_analysed}")
+    return lines
 
 
 def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
