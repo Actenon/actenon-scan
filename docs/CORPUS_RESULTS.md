@@ -1,6 +1,6 @@
 <!-- HISTORICAL: This file is frozen at v0.4.0. The authoritative corpus -->
 <!-- study is docs/CORPUS_STUDY.md (auto-generated, CI-enforced). -->
-<!-- This file is preserved for the correction story (51/63 → 22/22). -->
+<!-- This file is preserved for the correction story (51/63 → 21/22). -->
 <!-- The current figure is 22 TP / 100% precision (0 false positives). See CORPUS_STUDY.md. -->
 
 # Corpus Validation Results — actenon-scan 0.4.0 (historical)

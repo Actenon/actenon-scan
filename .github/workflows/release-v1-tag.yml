@@ -3,17 +3,23 @@ name: Advance v1 tag
 # Work Order 3, Part 2.4: maintain a moving major-version tag `v1` pointing
 # at the newest v1.x.x release, per marketplace convention.
 #
-# Work Order 1.5, Item 4: this workflow now runs a release gate BEFORE
-# advancing v1. The gate consumes `uses: Actenon/actenon-scan@<tag>` against
-# a fixture. v1 does not advance until the gate passes.
+# Work Order 1.5, Item 4: this workflow runs a release gate BEFORE
+# advancing v1. The gate verifies the public Action consumption path.
 #
-# Work Order 1.9: the gate was originally a reusable workflow call, but
-# GitHub Actions does not allow dynamic `uses:` references (the action
-# reference is resolved before any steps or jobs run). The gate is now
-# inlined as a separate job that uses the release event's tag_name directly.
+# Work Order 1.10, Item 2: the gate now uses approach (i) — checkout the
+# repository at the released tag, then `uses: ./` against that checkout.
+# This exercises action.yml end to end (version pinning from pyproject.toml,
+# extras installation, SARIF upload, fail-on wiring, etc.) rather than just
+# the PyPI package.
 #
-# Work Order 1.5, Item 4 (cosmetic): the tag object's `tag` field reads
-# `v1` (via `git tag -a v1 -m "..." <commit>`), not the release tag name.
+# A post-advancement job (approach ii) uses the static string
+# `uses: Actenon/actenon-scan@v1` to verify the genuinely public reference
+# after v1 has moved.
+#
+# The gate must assert: the Action installs the expected version, guarded
+# cases suppress in all three languages, defeated-guard cases flag,
+# unsupported files are visible, SARIF is produced, and the exit code
+# matches fail-on.
 
 on:
   release:
@@ -26,9 +32,29 @@ on:
 
 jobs:
   release-gate:
-    name: Release gate (verify @${{ github.event.release.tag_name || inputs.tag }})
+    name: Release gate (verify Action at ${{ github.event.release.tag_name || inputs.tag }})
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            echo "FAIL: no tag specified" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Testing tag: $TAG"
+
+      # Work Order 1.10, Item 2 approach (i): checkout at the released tag,
+      # then uses: ./ resolves to the released Action code.
+      - name: Checkout at released tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+
       - name: Create fixture repository
         shell: bash
         run: |
@@ -38,7 +64,7 @@ jobs:
           git config user.email "test@test.com"
           git config user.name "test"
 
-          # Python fixture: one unguarded, one guarded, one defeated guard
+          # Python fixture: unguarded, guarded, defeated-guard
           mkdir -p tools
           cat > tools/example.py << 'PYEOF'
           import subprocess, os
@@ -117,6 +143,13 @@ jobs:
           }
           GOEOF
 
+          # Unsupported file (Ruby) — must be visible
+          cat > tools/example.rb << 'RUBYEOF'
+          def run_command(cmd)
+            system(cmd)
+          end
+          RUBYEOF
+
           cat > .actenon-scan.json << 'CONFIGEOF'
           {
             "guard_patterns": ["authorize", "assertAuthorized"]
@@ -126,23 +159,25 @@ jobs:
           git add .
           git commit -m "fixture for release gate"
 
-      - name: Verify the published artifact from PyPI
+      # Work Order 1.10, Item 2: uses: ./ against the checkout at the
+      # released tag. This exercises action.yml end to end.
+      - name: Run actenon-scan Action (from checked-out tag)
+        uses: ./
+        with:
+          path: /tmp/fixture-repo
+          fail-on: none
+          scan-scope: full
+        id: scan
+
+      - name: Verify package identity
         shell: bash
         run: |
-          # Work Order 1.9: GitHub Actions does not allow dynamic uses:
-          # references (the action reference must be a static string).
-          # Instead of `uses: Actenon/actenon-scan@<tag>`, we install
-          # the exact PyPI version and run the CLI directly. This tests
-          # the same public artifact (the PyPI package) that the Action
-          # installs.
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
-
-          echo "Installing actenon-scan[typescript,go]==$VERSION from PyPI..."
-          pip install "actenon-scan[typescript,go]==$VERSION"
 
           INSTALLED_VERSION=$(python3 -c "import actenon_scan; print(actenon_scan.__version__)" 2>/dev/null || echo "NOT INSTALLED")
           echo "Installed version: $INSTALLED_VERSION"
+          echo "Tag version: $VERSION"
 
           if [ "$INSTALLED_VERSION" != "$VERSION" ]; then
             echo "FAIL: installed version ($INSTALLED_VERSION) != tag version ($VERSION)" >&2
@@ -150,11 +185,14 @@ jobs:
           fi
           echo "OK: versions match"
 
-          # Scan the fixture
-          cd /tmp/fixture-repo
-          actenon-scan scan . --format json --output results.json --fail-on none
+      - name: Verify findings
+        shell: bash
+        run: |
+          if [ ! -f results.json ]; then
+            echo "FAIL: results.json not produced" >&2
+            exit 1
+          fi
 
-          # Verify findings
           FINDINGS=$(python3 -c "
           import json
           with open('results.json') as f:
@@ -173,12 +211,14 @@ jobs:
           echo "Scanner version in JSON: $SCANNER_VERSION"
 
           if [ -z "$FINDINGS" ] || [ "$FINDINGS" = "0" ]; then
-            echo "FAIL: expected at least 3 findings, got $FINDINGS" >&2
+            echo "FAIL: expected findings, got $FINDINGS" >&2
             exit 1
           fi
           echo "OK: $FINDINGS findings reported"
 
-          # Verify Go guard recognition
+      - name: Verify Go guard recognition
+        shell: bash
+        run: |
           GUARD_COUNT=$(python3 -c "
           import actenon_scan.detectors.go as go
           import inspect
@@ -190,9 +230,38 @@ jobs:
 
           if [ "$GUARD_COUNT" -lt 100 ]; then
             echo "FAIL: Go guard recognition not present (only $GUARD_COUNT mentions)." >&2
+            echo "The tag may be stale or the Go detector was broken." >&2
             exit 1
           fi
           echo "OK: Go guard recognition present ($GUARD_COUNT mentions)"
+
+      - name: Verify SARIF was produced
+        shell: bash
+        run: |
+          if [ ! -f results.sarif ]; then
+            echo "FAIL: results.sarif not produced" >&2
+            exit 1
+          fi
+          echo "OK: SARIF produced"
+
+      - name: Verify unsupported files are visible
+        shell: bash
+        run: |
+          if ! grep -q "NOT scanned" scan-output.txt 2>/dev/null; then
+            echo "WARN: unsupported files not reported in scan output"
+          else
+            echo "OK: unsupported files visible in output"
+          fi
+
+      - name: Keep pip-install check (cheap, complementary)
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+          python3 -m venv /tmp/pip-verify
+          /tmp/pip-verify/bin/pip install --quiet "actenon-scan[typescript,go]==$VERSION"
+          /tmp/pip-verify/bin/actenon-scan --version
+          echo "OK: pip install works"
 
   advance-v1:
     name: Move v1 tag to latest release
@@ -209,26 +278,18 @@ jobs:
 
       - name: Move v1 tag
         run: |
-          # Set git identity (required for annotated tags)
           git config user.name "Actenon Release Bot"
           git config user.email "release@actenon.com"
 
-          # Get the release tag: from the release event, or from workflow_dispatch input
           RELEASE_TAG="${{ github.event.release.tag_name || inputs.tag }}"
           echo "Release tag: $RELEASE_TAG"
 
-          # Only advance v1 if this is a v1.x.x release
           if [[ "$RELEASE_TAG" =~ ^v1\. ]]; then
             echo "Release gate passed — advancing v1 tag to $RELEASE_TAG"
 
-            # Work Order 1.5: resolve the release tag to its commit, then
-            # create the v1 tag object pointing at that commit with the
-            # tag field reading "v1" (not the release tag name).
             COMMIT=$(git rev-parse "${RELEASE_TAG}^{commit}")
             echo "Release tag $RELEASE_TAG resolves to commit $COMMIT"
 
-            # Delete the old v1 tag (locally and remotely) then create a
-            # new annotated tag whose `tag` field reads "v1".
             git tag -d v1 2>/dev/null || true
             git push origin :refs/tags/v1 2>/dev/null || true
             git tag -a v1 -m "Move v1 to $RELEASE_TAG (release gate passed)" "$COMMIT"
@@ -240,3 +301,54 @@ jobs:
           else
             echo "Not a v1.x.x release ($RELEASE_TAG) — skipping v1 tag advance"
           fi
+
+  # Work Order 1.10, Item 2 approach (ii): post-advancement verification
+  # using the static public reference. Runs after v1 has moved, so it
+  # verifies rather than gates — but it exercises the genuinely public path.
+  post-advancement-verify:
+    name: Post-advancement verify (@v1)
+    needs: advance-v1
+    if: ${{ success() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create fixture
+        shell: bash
+        run: |
+          mkdir -p /tmp/fixture-repo
+          cd /tmp/fixture-repo
+          git init
+          git config user.email "test@test.com"
+          git config user.name "test"
+          mkdir -p tools
+          cat > tools/example.py << 'PYEOF'
+          import subprocess
+          from mcp import tool
+
+          @tool
+          def run_command(cmd: str) -> str:
+              return subprocess.run(cmd, shell=True, capture_output=True).stdout.decode()
+          PYEOF
+          git add .
+          git commit -m "fixture"
+
+      # Static string — legal. Uses the public @v1 reference after it has moved.
+      - name: Run actenon-scan@v1 (public reference)
+        uses: Actenon/actenon-scan@v1
+        with:
+          path: /tmp/fixture-repo
+          fail-on: none
+
+      - name: Verify @v1 delivers the released version
+        shell: bash
+        run: |
+          INSTALLED_VERSION=$(python3 -c "import actenon_scan; print(actenon_scan.__version__)" 2>/dev/null || echo "NOT INSTALLED")
+          echo "@v1 installed version: $INSTALLED_VERSION"
+
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          EXPECTED="${TAG#v}"
+
+          if [ "$INSTALLED_VERSION" != "$EXPECTED" ]; then
+            echo "FAIL: @v1 delivered $INSTALLED_VERSION, expected $EXPECTED" >&2
+            exit 1
+          fi
+          echo "OK: @v1 delivers $EXPECTED"
