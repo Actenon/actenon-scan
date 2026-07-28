@@ -381,9 +381,10 @@ def scan_go_file(
                     guard_status = gs
                     guard_message = gm
 
-                # If guarded, suppress (don't append the finding)
-                if guard_status == "guarded":
-                    break  # suppress this finding
+                # Work Order 2.1: do NOT suppress guarded findings here.
+                # Return them with guard_status="guarded" so the engine can
+                # record them as GUARD_FOUND capabilities. The engine decides
+                # what becomes a finding (guarded → capability only, not finding).
 
                 # Build the rule_id + severity based on guard status
                 rule_id = rule["id"]

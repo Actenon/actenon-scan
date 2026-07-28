@@ -63,7 +63,7 @@ def generate() -> str:
     lines.append("")
     lines.append(f"- **Repos:** {total_repos} pinned by immutable commit SHA")
     lines.append(f"- **Files:** {total_files:,} ({total_py:,} Python, {total_ts:,} TypeScript)")
-    lines.append(f"- **Categories:** {len(cat_counts)} "
+    lines.append(f"- **Categories:** "
                  + ", ".join(f"{n} {cat}" for cat, n in cat_counts.most_common()))
     lines.append("")
 

@@ -607,7 +607,7 @@ def scan_path_parallel(
         guard_patterns=_ts_rules.guard_patterns,
     )
     for tf in ts_findings:
-        # Work Order 2, Phase 5: record TS capabilities (parallel path)
+        # Work Order 2.1: record TS capabilities (parallel path), including guarded
         cap_state = guard_status_to_capability_state(tf.guard_status, True)
         merged.capabilities.append(Capability(
             file=tf.file,
@@ -625,6 +625,9 @@ def scan_path_parallel(
             tier=_assign_tier(tf.file),
             language="typescript",
         ))
+        # Guarded findings are capabilities only — do not add to findings
+        if tf.guard_status == "guarded":
+            continue
         merged.findings.append(Finding(
             file=tf.file,
             line=tf.line,
@@ -1001,12 +1004,8 @@ def scan_path(
         )
     if ts_findings:
         for tf in ts_findings:
-            # Work Order 2, Phase 5: record a Capability for each TS finding.
-            # Note: guarded TS findings are suppressed inside the detector
-            # and not returned here. This is a known gap — the TS detector
-            # would need to return guarded findings (with a flag) to record
-            # them as GUARD_FOUND capabilities. The Python and Go paths
-            # do record guarded capabilities.
+            # Work Order 2.1: record a Capability for each TS finding,
+            # including guarded ones (now returned by the detector).
             cap_state = guard_status_to_capability_state(tf.guard_status, True)
             capabilities.append(Capability(
                 file=tf.file,
@@ -1025,6 +1024,9 @@ def scan_path(
                 tier=_assign_tier(tf.file),
                 language="typescript",
             ))
+            # Guarded findings are capabilities only — do not add to findings
+            if tf.guard_status == "guarded":
+                continue
             findings.append(Finding(
                 file=tf.file,
                 line=tf.line,

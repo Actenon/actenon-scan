@@ -9,7 +9,7 @@
 
 - **Repos:** 25 pinned by immutable commit SHA
 - **Files:** 23,476 (21,308 Python, 2,168 TypeScript)
-- **Categories:** 4 9 framework, 7 application, 5 control, 4 mcp_server
+- **Categories:** 9 framework, 7 application, 5 control, 4 mcp_server
 
 ## Methodology
 

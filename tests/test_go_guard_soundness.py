@@ -89,7 +89,7 @@ def test_go_guard_recognition_basic_harness(tmp_path: Path) -> None:
     findings = scan_go_file("tools.go", source, guard_patterns=rules.guard_patterns)
 
     # Filter out the authorize() definition itself (it's not a sink)
-    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     assert len(sink_findings) == 1, (
         f"Expected exactly 1 finding (the unguarded one), got {len(sink_findings)}: "
         f"{[(f.line, f.rule_id) for f in sink_findings]}"
@@ -133,7 +133,7 @@ def test_go_guard_discarded_error_is_weak(tmp_path: Path) -> None:
     source = (tmp_path / "tools.go").read_bytes()
     findings = scan_go_file("tools.go", source, guard_patterns=rules.guard_patterns)
 
-    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     assert len(sink_findings) == 1, (
         f"Expected 1 finding (WEAK), got {len(sink_findings)}"
     )
@@ -172,7 +172,7 @@ def test_go_guard_in_dead_branch_not_dominating(tmp_path: Path) -> None:
     source = (tmp_path / "tools.go").read_bytes()
     findings = scan_go_file("tools.go", source, guard_patterns=rules.guard_patterns)
 
-    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     assert len(sink_findings) == 1, (
         f"Guard in dead branch must NOT suppress. Got {len(sink_findings)} findings."
     )
@@ -208,7 +208,7 @@ def test_go_guard_in_nested_func_literal_not_dominating(tmp_path: Path) -> None:
     source = (tmp_path / "tools.go").read_bytes()
     findings = scan_go_file("tools.go", source, guard_patterns=rules.guard_patterns)
 
-    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     assert len(sink_findings) == 1, (
         f"Guard in nested func literal must NOT suppress. Got {len(sink_findings)} findings."
     )
@@ -244,7 +244,7 @@ def test_go_guard_checked_error_is_guarded(tmp_path: Path) -> None:
     source = (tmp_path / "tools.go").read_bytes()
     findings = scan_go_file("tools.go", source, guard_patterns=rules.guard_patterns)
 
-    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     assert len(sink_findings) == 0, (
         f"Guard with checked error should suppress the finding. Got {len(sink_findings)}."
     )
@@ -287,7 +287,7 @@ def test_go_guard_not_parameter_bound_is_unbound(tmp_path: Path) -> None:
     source = (tmp_path / "tools.go").read_bytes()
     findings = scan_go_file("tools.go", source, guard_patterns=custom_guard_patterns)
 
-    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    sink_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     # "myAccessCheck" is not assert-style (not in conventional_assert),
     # and "admin" (a literal) doesn't bind to "path" (the sink argument).
     # So this should be UNBOUND.
@@ -333,7 +333,7 @@ def test_go_temp_file_cleanup_suppressed(tmp_path: Path) -> None:
     source = (tmp_path / "tools.go").read_bytes()
     findings = scan_go_file("tools.go", source, guard_patterns=rules.guard_patterns)
 
-    delete_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    delete_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     assert len(delete_findings) == 0, (
         f"Temp file cleanup should be suppressed. Got {len(delete_findings)} findings."
     )
@@ -363,7 +363,7 @@ def test_go_model_controlled_delete_not_suppressed(tmp_path: Path) -> None:
     source = (tmp_path / "tools.go").read_bytes()
     findings = scan_go_file("tools.go", source, guard_patterns=rules.guard_patterns)
 
-    delete_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE")]
+    delete_findings = [f for f in findings if f.rule_id.startswith("DATA-DELETE") and f.guard_status != "guarded"]
     assert len(delete_findings) == 1, (
         f"Model-controlled delete must NOT be suppressed. Got {len(delete_findings)} findings."
     )

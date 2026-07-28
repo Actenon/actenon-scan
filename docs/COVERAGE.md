@@ -803,3 +803,65 @@ shell execution) are still caught — they have explicit qualified patterns
 match even with `bare_only`. Registered as a known issue; fix deferred to
 avoid expanding this work order's scope.
 
+
+## Tier classification rule (Work Order 2.1, Item 2b)
+
+**General rule:** a file is classified as `example` tier when it lives
+in a directory whose purpose is documentation, tutorials, samples, or
+demos — not production code. The decision is based on the directory
+name, not the file content.
+
+**Recognised example paths:**
+`/examples/`, `/example/`, `/cookbook/`, `/recipes/`, `/samples/`,
+`/sample/`, `/docs/`, `/doc/`, `/documentation/`, `/docs_src/`,
+`/doc_src/`, `/tutorials/`, `/tutorial/`, `/benchmarks/`, `/benchmark/`,
+`/demo/`, `/demos/`
+
+**Decision on `/docs_src/` (dated 2026-07-29):** FastAPI uses
+`docs_src/` to store the source code that appears in its documentation
+blocks. These files are both executable and documented — they run as
+part of the docs build, and their content appears verbatim in the
+ rendered documentation. The general rule classifies directories whose
+purpose is documentation as example tier. `docs_src/` satisfies this
+criterion: its purpose is documentation source, not production code.
+
+This decision was made independently of whether FastAPI produced
+findings. The path was added because `docs_src/` is a documentation
+source directory, matching the general rule. Had FastAPI produced zero
+findings, the path would still have been added — the rule is about
+purpose, not outcome.
+
+**Principle for future paths:** when a new directory name is encountered,
+classify it by its purpose in the repository, not by whether findings
+appear in it. If the directory's content is documentation, tutorials,
+samples, or demos, it is example tier. If it is production code, it is
+production tier. When uncertain, default to production tier — a false
+example classification hides a real finding; a false production
+classification produces a reviewable finding.
+
+## Resource-boundary entry points (Work Order 2, Phase 3)
+
+Resource-boundary entry points are web-framework route handlers and CLI
+commands that receive external input. They are a different entry-point
+class from agent tool handlers but equally consequential.
+
+### Recognised frameworks per language
+
+| Language | Frameworks recognised | Status |
+|---|---|---|
+| Python | FastAPI (app/router), Flask (app/bp/Blueprint), generic route decorators | Supported |
+| TypeScript | Express, Fastify, Koa, Next.js route handlers | Not yet implemented |
+| Go | net/http HandlerFunc, chi, gin, echo | Not yet implemented |
+
+### Precision on web applications
+
+**Unmeasured.** The corpus is 25 agent frameworks. There is no measured
+precision on web application code. The five control repos at zero
+production-tier findings is a precision result for non-agent libraries,
+not evidence that the scanner behaves well when route handlers are entry
+points. FastAPI (18 example-tier) and Flask (1 example-tier) findings
+are correct — tutorial route handlers with unguarded sinks — but they
+do not constitute a precision measurement on production web applications.
+
+Do not claim web-application coverage beyond what the fixtures
+demonstrate. State it as supported entry points, not a supported use case.
