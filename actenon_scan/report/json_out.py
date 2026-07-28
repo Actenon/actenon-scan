@@ -52,6 +52,32 @@ def format_json(result: ScanResult) -> str:
         "scanner": "actenon-scan",
         "version": scanner_version,
         "findings": findings,
+        # Work Order 2, Phase 4: capability surface alongside findings.
+        # Every agent-reachable consequential sink, including guarded ones.
+        # Findings remain the subset requiring review (REVIEW_REQUIRED).
+        "capabilities": [
+            {
+                "file": c.file,
+                "line": c.line,
+                "col": c.col,
+                "rule_id": c.rule_id,
+                "category": c.category,
+                "severity": c.severity,
+                "call_text": c.call_text,
+                "state": c.state,
+                "guard_status": c.guard_status,
+                "guard_message": c.guard_message,
+                "confidence": c.confidence,
+                "reachability_reason": c.reachability_reason,
+                "reachability_source": c.reachability_source,
+                "tier": c.tier,
+                "language": c.language,
+            }
+            for c in result.capabilities
+        ],
+        "capability_count": len(result.capabilities),
+        "guard_found_count": sum(1 for c in result.capabilities if c.state == "GUARD_FOUND"),
+        "review_required_count": sum(1 for c in result.capabilities if c.state == "REVIEW_REQUIRED"),
         "scanned": result.files_scanned,
         "unsupported": {
             "count": len(result.unsupported_files),

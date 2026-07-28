@@ -277,6 +277,18 @@ def main(argv: list[str] | None = None) -> int:
         default=False,
         help="With 'fix .', generate one diff covering every eligible finding.",
     )
+    fix_parser.add_argument(
+        "--with-tests",
+        action="store_true",
+        default=False,
+        help="Generate behavioural tests for the remediation (refusal + authorised execution).",
+    )
+    fix_parser.add_argument(
+        "--run-tests",
+        action="store_true",
+        default=False,
+        help="Execute generated tests. NOT sandboxed — runs repository test code.",
+    )
 
     # install
     install_parser = subparsers.add_parser(
@@ -1174,8 +1186,53 @@ def _cmd_fix(args: argparse.Namespace) -> int:
         print(fix.diff)
         if fix.applied:
             print(f"# Applied {fix.mode} fix to {file_path}")
+            state = "PATCH APPLIED"
         else:
             print(f"# Mode: {fix.mode}. Use --apply to write this change.")
+            state = "PATCH GENERATED — REVIEW REQUIRED"
+
+        # Work Order 2, Phase 8: test generation
+        if getattr(args, 'with_tests', False):
+            from actenon_scan.test_gen import generate_tests
+            # Re-scan to get the finding object
+            from actenon_scan.engine import scan_path
+            scan_result = scan_path(file_path)
+            finding = None
+            for f in scan_result.findings:
+                if f.line == line and not f.suppressed:
+                    finding = f
+                    break
+            # Determine the guard name from the fix mode
+            guard_name = "authorize"
+            if fix.mode == "guard":
+                # Try to detect the guard name from the diff
+                for diff_line in fix.diff.split("\n"):
+                    if diff_line.startswith("+") and "authorize" in diff_line.lower():
+                        # Extract the function name
+                        import re
+                        m = re.search(r'(authorize\w*)', diff_line)
+                        if m:
+                            guard_name = m.group(1)
+                        break
+
+            test_result = generate_tests(
+                file_path, line, finding, fix.mode, guard_name,
+                run=getattr(args, 'run_tests', False),
+            )
+            print(f"\n# Test generation: {test_result.state}")
+            if test_result.test_code:
+                print(f"# Test file: {test_result.test_file}")
+                print("# --- Generated test code ---")
+                print(test_result.test_code)
+                print("# --- End generated test code ---")
+            if test_result.note:
+                print(f"# {test_result.note}")
+            if test_result.state == "GENERATED TESTS PASSED":
+                print("# Generated tests PASSED.")
+            elif test_result.state == "GENERATED TESTS FAILED":
+                print("# Generated tests FAILED. Review the output above.")
+            elif test_result.state == "TEST GENERATION UNSUPPORTED":
+                print("# Test generation is not supported for this finding.")
     else:
         print(f"# Automatic remediation was not generated.")
         print(f"# {fix.note}")

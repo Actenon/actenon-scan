@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Callable
 from actenon_scan.detectors.guards import check_guard, GuardCheckResult
 from actenon_scan.detectors.reachability import detect_reachability
 from actenon_scan.detectors.sinks import detect_sinks
+from actenon_scan.capability import Capability, CapabilitySummary, guard_status_to_capability_state
 from actenon_scan.rules.loader import Ruleset, load_rules
 
 if TYPE_CHECKING:
@@ -63,6 +64,11 @@ class ScanResult:
     findings: list[Finding] = field(default_factory=list)
     files_scanned: int = 0
     rules_used: Ruleset | None = None
+    # Work Order 2, Phase 2: capability enumeration. Every consequential
+    # sink that is agent-reachable is recorded as a Capability, including
+    # those suppressed by guards (which become GUARD_FOUND). Findings
+    # remain the subset requiring review.
+    capabilities: list[Capability] = field(default_factory=list)
     # Per-file analysis errors caught by the defensive wrapper in scan_path.
     # Each entry is a (relative_path, error_message) tuple. A non-empty list
     # means part of the repo was skipped due to a detector crash, not
@@ -89,6 +95,14 @@ class ScanResult:
                 return True
         return False
 
+    @property
+    def capability_summary(self) -> CapabilitySummary:
+        """Aggregated capability counts by state."""
+        summary = CapabilitySummary()
+        for cap in self.capabilities:
+            summary.add(cap)
+        return summary
+
 
 def _assign_tier(filepath: str) -> str:
     """Assign a tier to a finding based on its file path.
@@ -101,6 +115,7 @@ def _assign_tier(filepath: str) -> str:
         "/cookbook/", "/recipes/",
         "/samples/", "/sample/",
         "/docs/", "/doc/", "/documentation/",
+        "/docs_src/", "/doc_src/",
         "/tutorials/", "/tutorial/",
         "/benchmarks/", "/benchmark/",
         "/demo/", "/demos/",
@@ -139,6 +154,7 @@ def _reachability_markers(reachability_cfg: dict) -> frozenset[str]:
     markers: set[str] = set()
     for key in (
         "tool_decorators",
+        "resource_boundary_decorators",
         "tool_wrappers",
         "tool_base_classes",
         "tool_methods",
@@ -575,6 +591,7 @@ def scan_path_parallel(
     merged = ScanResult()
     for r in results:
         merged.findings.extend(r.findings)
+        merged.capabilities.extend(r.capabilities)
         merged.analysis_errors.extend(r.analysis_errors)
         merged.files_scanned += r.files_scanned
         if merged.rules_used is None:
@@ -590,6 +607,24 @@ def scan_path_parallel(
         guard_patterns=_ts_rules.guard_patterns,
     )
     for tf in ts_findings:
+        # Work Order 2, Phase 5: record TS capabilities (parallel path)
+        cap_state = guard_status_to_capability_state(tf.guard_status, True)
+        merged.capabilities.append(Capability(
+            file=tf.file,
+            line=tf.line,
+            col=tf.col,
+            rule_id=tf.rule_id,
+            category=tf.category,
+            severity=tf.severity,
+            call_text=tf.call_text,
+            state=cap_state,
+            guard_status=tf.guard_status,
+            guard_message=tf.guard_message,
+            confidence=tf.confidence,
+            reachability_source="handler",
+            tier=_assign_tier(tf.file),
+            language="typescript",
+        ))
         merged.findings.append(Finding(
             file=tf.file,
             line=tf.line,
@@ -675,6 +710,7 @@ def scan_path(
     else:
         unsupported_files = _collect_unsupported_files(target, include_globs, exclude_globs)
     findings: list[Finding] = []
+    capabilities: list[Capability] = []
     analysis_errors: list[tuple[str, str]] = []
 
     # Auto-detect self_package from pyproject.toml if not provided
@@ -837,8 +873,39 @@ def scan_path(
                 # Find the sink AST node for binding analysis
                 sink_node = _find_call_at_line(tree, sf.line)
                 guard_result = check_guard(tree, sf.line, rules.guard_patterns, sink_node=sink_node)
+
+                # Work Order 2, Phase 2: record a Capability for every
+                # agent-reachable sink, including guarded ones. Guarded
+                # sinks become GUARD_FOUND capabilities rather than being
+                # silently discarded.
+                guard_status_str = "guarded" if guard_result.guarded else (
+                    "weak" if guard_result.weak else (
+                        "unbound" if guard_result.unbound else ""
+                    )
+                )
+                cap_state = guard_status_to_capability_state(guard_status_str, True)
+                capability = Capability(
+                    file=rel,
+                    line=sf.line,
+                    col=sf.col,
+                    rule_id=sf.rule_id,
+                    category=sf.category,
+                    severity=sf.severity,
+                    call_text=sf.call_text,
+                    state=cap_state,
+                    guard_status=guard_status_str,
+                    guard_message=guard_result.message,
+                    confidence=reach.confidence,
+                    reachability_reason=", ".join(reach.signals),
+                    reachability_source="handler",  # Python reachability is handler-based
+                    tier=_assign_tier(rel),
+                    language="python",
+                    snippet_hash=_compute_snippet_hash(source, sf.line),
+                )
+                capabilities.append(capability)
+
                 if guard_result.guarded:
-                    continue  # guard dominates, is bound, and result is used
+                    continue  # guard dominates — recorded as GUARD_FOUND, no finding needed
                 # WEAK and UNBOUND findings are kept but with reduced severity
 
                 # Check declarative guards (class-level authorization)
@@ -934,6 +1001,30 @@ def scan_path(
         )
     if ts_findings:
         for tf in ts_findings:
+            # Work Order 2, Phase 5: record a Capability for each TS finding.
+            # Note: guarded TS findings are suppressed inside the detector
+            # and not returned here. This is a known gap — the TS detector
+            # would need to return guarded findings (with a flag) to record
+            # them as GUARD_FOUND capabilities. The Python and Go paths
+            # do record guarded capabilities.
+            cap_state = guard_status_to_capability_state(tf.guard_status, True)
+            capabilities.append(Capability(
+                file=tf.file,
+                line=tf.line,
+                col=tf.col,
+                rule_id=tf.rule_id,
+                category=tf.category,
+                severity=tf.severity,
+                call_text=tf.call_text,
+                state=cap_state,
+                guard_status=tf.guard_status,
+                guard_message=tf.guard_message,
+                confidence=tf.confidence,
+                reachability_reason="",
+                reachability_source="handler",  # TS reachability is handler-based
+                tier=_assign_tier(tf.file),
+                language="typescript",
+            ))
             findings.append(Finding(
                 file=tf.file,
                 line=tf.line,
@@ -989,6 +1080,28 @@ def scan_path(
                 rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
                 go_findings = scan_go_file(rel, go_source, guard_patterns=rules.guard_patterns)
                 for gf in go_findings:
+                    # Work Order 2, Phase 5: record a Capability for every
+                    # Go finding, including guarded ones.
+                    cap_state = guard_status_to_capability_state(gf.guard_status, True)
+                    # Distinguish handler-registered from import-reachable
+                    reach_source = "handler" if "tool_registration" in (gf.reachability_reason or "") else "import"
+                    capabilities.append(Capability(
+                        file=gf.file,
+                        line=gf.line,
+                        col=gf.col,
+                        rule_id=gf.rule_id,
+                        category=gf.category,
+                        severity=gf.severity,
+                        call_text=gf.call_text,
+                        state=cap_state,
+                        guard_status=gf.guard_status,
+                        guard_message=gf.guard_message,
+                        confidence=gf.confidence,
+                        reachability_reason=gf.reachability_reason,
+                        reachability_source=reach_source,
+                        tier=_assign_tier(gf.file),
+                        language="go",
+                    ))
                     # ITEM 1: skip findings dominated by a parameter-bound guard
                     if gf.guard_status == "guarded":
                         continue
@@ -1022,6 +1135,7 @@ def scan_path(
         findings=findings,
         files_scanned=total_scanned,
         rules_used=rules,
+        capabilities=capabilities,
         analysis_errors=analysis_errors,
         unsupported_files=unsupported_files,
     )
@@ -1039,6 +1153,8 @@ class TSFindingWithFile:
     col: int
     call_text: str
     confidence: str = "high"
+    guard_status: str = ""
+    guard_message: str = ""
 
 
 def _scan_typescript_files(
@@ -1156,6 +1272,8 @@ def _scan_typescript_files(
                 col=f.col,
                 call_text=f.call_text,
                 confidence="high",
+                guard_status=f.guard_status,
+                guard_message=f.guard_message,
             ))
         errors.extend(file_errors)
 
