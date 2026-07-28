@@ -3,8 +3,8 @@
   "corpus_sha_source": "tests/benchmark/pinned_repos.json",
   "totals": {
     "findings": 22,
-    "true_positives": 22,
-    "false_positives": 0
+    "true_positives": 21,
+    "false_positives": 1
   },
   "false_positives_found_and_fixed_this_run": [
     {
@@ -256,8 +256,11 @@
       "line": 172,
       "rule_id": "NET-EGRESS-GO",
       "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "http.Get(logURL) in downloadLogContent. logURL is a function parameter received from getJobLogData, which gets it from client.Actions.GetWorkflowJobLogs. The URL is not directly model-controlled \u2014 the agent controls jobID/owner/repo, but the URL is always a GitHub-hosted log file URL. The scanner flags this because it cannot trace the URL's origin interprocedurally. This is a known limitation: without interprocedural dataflow analysis, the scanner cannot distinguish a model-controlled URL parameter from an API-returned URL parameter. The finding is kept as TRUE_POSITIVE because the scanner's behavior is correct given its analysis scope \u2014 a human reviewer can dismiss it as a non-issue. Tier: production (this is server code, not examples)."
+      "verdict": "FALSE_POSITIVE",
+      "rationale": "http.Get(logURL) in downloadLogContent. logURL is a function parameter received from getJobLogData, which gets it from client.Actions.GetWorkflowJobLogs. The URL is not directly model-controlled \u2014 the agent controls jobID/owner/repo, but the URL is always a GitHub-hosted log file URL that the agent cannot redirect to an arbitrary host. downloadLogContent is a helper function, not a registered tool handler. The Go detector's import-based reachability flags it because the file imports the agent framework. This is a FALSE_POSITIVE because: (1) the function is not directly agent-reachable (it's a helper called by a helper), and (2) the URL argument is not model-controlled (it comes from a prior GitHub API call). The scanner cannot determine either of these without interprocedural dataflow analysis. Recorded as unfixed with tracking issue #81.",
+      "status": "recorded",
+      "recorded_date": "2026-07-29",
+      "tracking_issue": 81
     }
   ],
   "corrections": [
@@ -291,6 +294,17 @@
       "corrected_count": 22,
       "original_precision": "21/21 (100%)",
       "corrected_precision": "22/22 (100%)"
+    },
+    {
+      "date": "2026-07-29",
+      "description": "Work Order 1.10: the corpus triage gate was fixed to allow recording unfixed false positives (previously the gate forbade any FALSE_POSITIVE entry, which made recording one impossible). With the gate fixed, actions.go:172 (http.Get(logURL) in github-mcp-server) was reclassified from TRUE_POSITIVE back to FALSE_POSITIVE on the merits: the function is not a registered tool handler, and the URL argument is not directly model-controlled (it comes from a prior GitHub API call). The scanner cannot determine either without interprocedural analysis. This is a known, recorded, unfixed false positive (tracking issue #81). server.go:286 was suppressed by a rule fix (log/config file detection) and is not counted. Precision: 21/22 (95.5%). The WO1.9 reclassification to TRUE_POSITIVE was made under gate pressure, not on the merits \u2014 this correction undoes it.",
+      "affected_repos": [
+        "github/github-mcp-server"
+      ],
+      "original_count": 22,
+      "corrected_count": 21,
+      "original_precision": "22/22 (100%)",
+      "corrected_precision": "21/22 (95.5%)"
     }
   ],
   "scanner_version_measured_with": "1.3.0",

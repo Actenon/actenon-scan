@@ -127,20 +127,33 @@ codebase.
 
 ### Corpus precision correction
 
-The corpus figure changed from 21 to 22 true positives. The
-github-mcp-server Go findings were triaged for the first time — they
-were never in the original corpus because the corpus was assembled
-before Go support shipped (v1.1.2). `server.go:286` (FILE-WRITE-GO on
-`cfg.LogFilePath`) was suppressed by a rule fix (log/config file
-detection — the path is not model-controlled). `actions.go:172`
-(NET-EGRESS-GO on `http.Get(logURL)`) is kept as TRUE_POSITIVE: logURL
-comes from a prior GitHub API call (not directly model-controlled), but
-the scanner cannot trace this interprocedurally. Precision remains
-100% (22/22). This is the third published correction, after 30→28
-(agno) and 28→21 (crewai/semantic-kernel).
+The corpus figure moved through three states during the v1.3.0 release
+cycle. The sequence, in order:
 
-Full lineage: 63→51→30→28→21→22 (precision 100% throughout, after
-initial 81%).
+1. **21/23 (91%)** — WO1.6 triaged the github-mcp-server Go findings
+   for the first time. Both were initially classified FALSE_POSITIVE.
+   The corpus gate forbade FALSE_POSITIVE entries, so the figure
+   dropped to 91%.
+
+2. **22/22 (100%)** — WO1.9 suppressed server.go:286 with a rule fix
+   (log/config file detection). actions.go:172 was reclassified from
+   FALSE_POSITIVE to TRUE_POSITIVE to satisfy the gate, not on the
+   merits. The figure returned to 100%.
+
+3. **21/22 (95.5%)** — WO1.10 fixed the gate to allow recording unfixed
+   false positives. actions.go:172 was reclassified back to
+   FALSE_POSITIVE (recorded, tracking issue #81) on the merits: the
+   function is not a registered tool handler, and the URL argument is
+   not directly model-controlled. server.go:286 remains suppressed by
+   the rule fix. The figure is 95.5%.
+
+The v1.3.0 release notes described state 2 (100%). That was published
+and cannot be unpublished. This CHANGELOG entry corrects the record
+going forward. The third published correction is the drop to 95.5%,
+made possible by fixing the gate that previously made recording a false
+positive impossible.
+
+Full lineage: 63→51→30→28→21→22→21 (precision: 81%→100%→100%→91%→100%→95.5%).
 
 ### Tests
 

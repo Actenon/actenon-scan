@@ -263,12 +263,14 @@ verdict. Every one is HIGH confidence and sits inside a tool implementation.
 **Zero findings across all five non-agent controls:** requests, flask, fastapi,
 click, rich.
 
-Measured precision on this corpus is **22/22 (100%)** — 22 true positives,
-0 false positives. The github-mcp-server Go finding at actions.go:172
-(http.Get(logURL)) is kept as TRUE_POSITIVE: logURL is not directly
-model-controlled (it comes from a prior GitHub API call), but the scanner
-cannot trace this interprocedurally. The server.go:286 finding was
-suppressed by a rule fix (log/config file detection). See
+Measured precision on this corpus is **21/22 (95.5%)** — 21 true positives,
+1 recorded false positive. The github-mcp-server Go finding at actions.go:172
+(http.Get(logURL) in downloadLogContent) is a recorded false positive:
+logURL is not directly model-controlled (it comes from a prior GitHub API
+call), and the function is not a registered tool handler. The scanner
+cannot determine either without interprocedural analysis. Recorded as
+unfixed with tracking issue #81. The server.go:286 finding was suppressed
+by a rule fix (log/config file detection). See
 [docs/CORPUS_STUDY.md](docs/CORPUS_STUDY.md) for the full lineage. That
 number is only worth something because the three classes above were found
 by the same measurement and fixed rather than argued away — the shipped
