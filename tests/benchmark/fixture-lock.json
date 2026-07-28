@@ -1,7 +1,7 @@
 {
   "tests/benchmark/corpus-evidence.json": "34a7b14a67990fa5b2d565fe592adea664ad42afbe9d10860712d27a6f380ca8",
   "tests/benchmark/corpus-results.json": "f95dc5ce91e9bcff966e6230b652c09307c143cd0d4c5cfea4603a492adda9f3",
-  "tests/benchmark/corpus-triage.json": "a8985c87d6c6754ccbb4242f62bef348dbbf08f320ccd4224acd12735cc0bdd1",
+  "tests/benchmark/corpus-triage.json": "b24e83f64931f169e8df1fa5a14bb2aaca54a491c3d4798c78e258ab578ec69d",
   "tests/benchmark/perf-fixture.json": "8f8990b2d3b1b2eb7e17644ac5e4bc084e7adaa60a59c1bdc9f0ed2c335356a8",
   "tests/benchmark/pinned_repos.json": "b05b88c1868bf7a95658d608a49996f254e157cdd9e84f9c72230e919a0216d8",
   "tests/benchmark/precision/p01_standard_guard.py": "2414391cf7fd4ba18af916f8881c6fc2453c2ed7088e0210411832fdd71e138d",
