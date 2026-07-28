@@ -33,6 +33,10 @@ inputs:
     description: "Upload SARIF to GitHub's Security tab. Default: true"
     required: false
     default: "true"
+  fail-on-unsupported:
+    description: "Fail the check when unsupported source files are found (e.g. .rb, .java). Default: false — unsupported files are reported in the scan output but do not fail the build. Set to 'true' to fail when any scannable-looking files were NOT scanned. This prevents a silent clean report on a repo the scanner could not fully read — the failure mode that produced the original Go incident."
+    required: false
+    default: "false"
   version:
     description: "actenon-scan package version to install (e.g. '0.8.0'). Default: uses the action's own released version for reproducibility."
     required: false
@@ -115,9 +119,16 @@ runs:
         # Config and baseline
         if [ -n "${{ inputs.config }}" ]; then COMMON_ARGS="$COMMON_ARGS --config ${{ inputs.config }}"; fi
         if [ -n "${{ inputs.baseline }}" ]; then COMMON_ARGS="$COMMON_ARGS --baseline ${{ inputs.baseline }}"; fi
+        # Work Order 1.5: --fail-on-unsupported (Action input). Only added
+        # to the JSON pass (the authoritative pass for exit code). The SARIF
+        # pass uses --fail-on none and must not fail on unsupported files.
+        UNSUPPORTED_ARG=""
+        if [ "${{ inputs.fail-on-unsupported }}" = "true" ]; then
+          UNSUPPORTED_ARG="--fail-on-unsupported"
+        fi
 
         # --- Pass 1: JSON (authoritative for counts + fail-on) ---
-        JSON_CMD="actenon-scan scan $SCAN_PATH --format json --output results.json --fail-on $FAIL_ON$COMMON_ARGS"
+        JSON_CMD="actenon-scan scan $SCAN_PATH --format json --output results.json --fail-on $FAIL_ON$UNSUPPORTED_ARG$COMMON_ARGS"
         echo "Running: $JSON_CMD"
         eval $JSON_CMD 2>&1 | tee scan-output.txt
         EXIT_CODE=$?
@@ -316,5 +327,8 @@ runs:
       if: ${{ steps.scan.outputs.exit_code == '1' }}
       shell: bash
       run: |
-        echo "Scan failed with exit code 1 (findings at or above --fail-on threshold)"
+        echo "Scan failed with exit code 1"
+        echo "This is either: (a) findings at or above the --fail-on threshold, or"
+        echo "(b) --fail-on-unsupported is set and unsupported source files were found."
+        echo "Check the scan output above for the specific reason."
         exit 1

@@ -581,8 +581,13 @@ def scan_path_parallel(
             merged.rules_used = r.rules_used
 
     # Ancillary passes run once in the parent: shards skipped them.
+    # Work Order 1.5: load the ruleset in the parent so we can pass
+    # guard_patterns to the TS scan (parity with Python/Go paths, which
+    # run inside workers where the ruleset is already loaded).
+    _ts_rules = load_rules(config)
     ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
-        target, include_globs, exclude_globs
+        target, include_globs, exclude_globs,
+        guard_patterns=_ts_rules.guard_patterns,
     )
     for tf in ts_findings:
         merged.findings.append(Finding(
@@ -917,12 +922,16 @@ def scan_path(
         ts_explicit = [f for f in explicit_files if f.suffix.lower() in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}]
         if ts_explicit:
             ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
-                target, include_globs, exclude_globs, explicit_files=ts_explicit
+                target, include_globs, exclude_globs, explicit_files=ts_explicit,
+                guard_patterns=rules.guard_patterns,
             )
         else:
             ts_findings, ts_scanned, ts_errors = [], 0, []
     else:
-        ts_findings, ts_scanned, ts_errors = _scan_typescript_files(target, include_globs, exclude_globs)
+        ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
+            target, include_globs, exclude_globs,
+            guard_patterns=rules.guard_patterns,
+        )
     if ts_findings:
         for tf in ts_findings:
             findings.append(Finding(
@@ -1037,11 +1046,16 @@ def _scan_typescript_files(
     include_globs: list[str] | None,
     exclude_globs: list[str] | None,
     explicit_files: list[Path] | None = None,
+    guard_patterns: list[str] | None = None,
 ) -> tuple[list, int, list[tuple[str, str]]]:
     """Scan TypeScript/JavaScript files if the [typescript] extra is installed.
 
     Returns (findings, files_scanned, errors). If the extra is not installed,
     returns ([], 0, []).
+
+    ``guard_patterns`` is the user-configured guard name list from
+    .actenon-scan.json. Work Order 1.5: passed through to the TS detector
+    so that custom guards are recognised (parity with Python/Go).
     """
     try:
         from actenon_scan.detectors.typescript import (
@@ -1130,7 +1144,7 @@ def _scan_typescript_files(
 
     for filepath in ts_files:
         rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
-        ts_findings, file_errors = analyze_typescript_file(filepath)
+        ts_findings, file_errors = analyze_typescript_file(filepath, guard_patterns=guard_patterns)
         for f in ts_findings:
             all_findings.append(TSFindingWithFile(
                 file=rel,

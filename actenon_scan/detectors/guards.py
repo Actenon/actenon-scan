@@ -222,6 +222,9 @@ def _dominates(
       - inside an `except` handler or `finally` the sink is not in
       - inside a nested FunctionDef, AsyncFunctionDef or Lambda
       - guarded by a statically-false test: `if False`, `if 0`, `if None`
+      - inside a `try` body whose `except` handler swallows exceptions
+        (Work Order 1.5: catches a broad type with an empty or pass-only
+        body and no re-raise). This defeats an assert-style guard's raise.
     """
     guard_line = guard.lineno
 
@@ -250,6 +253,19 @@ def _dominates(
             if current.finalbody and guard in current.finalbody:
                 if not _is_in_subtree(current.finalbody, sink_line):
                     return False
+            # Work Order 1.5: if guard is in the try body, check whether
+            # any except handler swallows exceptions (defeats assert-style
+            # guards that raise). A swallowing handler catches a broad
+            # exception type and has an empty or pass-only body with no
+            # re-raise.
+            if current.body and _is_in_subtree(current.body, guard_line):
+                # Only flag if the sink is NOT in the try body (i.e.,
+                # the sink runs after the try block, so a swallowed
+                # exception means the guard's raise didn't stop execution).
+                if not _is_in_subtree(current.body, sink_line):
+                    for handler in current.handlers:
+                        if _except_handler_swallows(handler):
+                            return False
 
         elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             # Guard is inside a nested function — it does not dominate
@@ -257,6 +273,41 @@ def _dominates(
 
         current = parent_map.get(id(current))
 
+    return True
+
+
+def _except_handler_swallows(handler: ast.ExceptHandler) -> bool:
+    """Check if an except handler swallows exceptions.
+
+    A handler swallows if it catches a broad type (bare `except:`,
+    `except Exception:`, `except BaseException:`) and its body is empty,
+    contains only `pass`, or contains statements but no `raise`.
+
+    Conservative: a handler with a specific type (e.g., `except ValueError:`)
+    or one that re-raises does NOT swallow.
+    """
+    # Check the exception type — bare except or Exception/BaseException
+    if handler.type is not None:
+        # Named type — get the name
+        if isinstance(handler.type, ast.Name):
+            type_name = handler.type.id
+            if type_name not in ("Exception", "BaseException"):
+                return False  # specific type — don't flag
+        elif isinstance(handler.type, ast.Tuple):
+            # Tuple of types — if all are broad, treat as broad
+            for elt in handler.type.elts:
+                if isinstance(elt, ast.Name) and elt.id in ("Exception", "BaseException"):
+                    continue
+                return False  # has a specific type — don't flag
+        else:
+            return False  # attribute or other — don't flag
+
+    # Walk the handler body looking for a raise statement
+    for child in ast.walk(handler):
+        if isinstance(child, ast.Raise):
+            return False  # re-raises — does not swallow
+
+    # No raise in the body. The handler swallows.
     return True
 
 

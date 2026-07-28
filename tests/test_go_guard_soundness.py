@@ -70,7 +70,14 @@ def test_go_guard_recognition_basic_harness(tmp_path: Path) -> None:
         }
 
         func authorize(path string) {
-            // In a real codebase this would check permissions and panic.
+            // Work Order 1.5: the body MUST contain a panic() call for the
+            // local-resolution assert-style classifier to recognise this as
+            // an assert-style guard. A stub with an empty body is correctly
+            // classified as boolean-style (returns without enforcing),
+            // which would make the result-discarded case flag as WEAK.
+            if path == "" {
+                panic("unauthorized")
+            }
         }
         ''')
 

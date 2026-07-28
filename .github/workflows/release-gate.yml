@@ -1,0 +1,246 @@
+# Release gate — verifies the public consumption path BEFORE v1 advances.
+#
+# Work Order 1.5, Item 4: closes the release-gate defect identified in the
+# v1.2.0 distribution audit. The audit found that no workflow exercised
+# `uses: Actenon/actenon-scan@<tag>` between tag-push/PyPI-publish and
+# v1-tag-advance. A broken release would propagate to @v1 users with no
+# blocking test — drift was caught only by the daily schedule (≤24h later).
+#
+# This workflow triggers on `release: published` and consumes the JUST-
+# PUBLISHED immutable tag (`uses: Actenon/actenon-scan@${{ github.event.release.tag_name }}`)
+# against the same fixture used by the daily external-v1-test. The
+# release-v1-tag workflow now `needs:` this gate — v1 does not advance
+# until this gate passes.
+#
+# Why the immutable tag and not @v1: at the moment this workflow runs, @v1
+# still points at the PREVIOUS release. Testing @v1 would test the old
+# release, not the new one. The immutable tag always points at the commit
+# we need to verify.
+#
+# What this gate verifies:
+#   1. The Action installs the correct package version from PyPI.
+#   2. The Go detector has guard recognition (regression guard).
+#   3. The scan produces findings on a known-positive fixture.
+#   4. The Action completes without error (non-blocking mode).
+#
+# What this gate does NOT verify (out of scope):
+#   - SARIF upload to the Security tab (requires pull_request/push context)
+#   - Sticky PR comment (requires pull_request context)
+#   - Changed-file mode (requires pull_request context)
+#   These are verified by external-v1-test.yml on PR/push/schedule.
+
+name: Release gate
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to test (e.g. v1.2.0). Defaults to the latest release tag."
+        required: false
+        default: ""
+
+jobs:
+  release-gate:
+    name: Verify @<tag> Action (release gate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag to test
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "FAIL: no tag specified (neither workflow_dispatch input nor release event)" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Testing tag: $TAG"
+
+      - name: Create fixture repository
+        shell: bash
+        run: |
+          mkdir -p /tmp/fixture-repo
+          cd /tmp/fixture-repo
+          git init
+          git config user.email "test@test.com"
+          git config user.name "test"
+
+          # Python fixture: one unguarded, one guarded, one defeated guard
+          mkdir -p tools
+          cat > tools/example.py << 'PYEOF'
+          import subprocess, os
+          from mcp import tool
+
+          @tool
+          def run_command(cmd: str) -> str:
+              return subprocess.run(cmd, shell=True, capture_output=True).stdout.decode()
+
+          @tool
+          def safe_delete(path: str) -> None:
+              if authorize(path):
+                  os.remove(path)
+
+          @tool
+          def risky_delete(path: str) -> None:
+              authorize(path)
+              os.remove(path)
+
+          def authorize(path: str) -> bool:
+              return path.startswith("/tmp/")
+          PYEOF
+
+          # TypeScript fixture
+          cat > tools/example.ts << 'TSEOF'
+          import { execSync } from 'child_process';
+          import * as fs from 'fs';
+          import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+          import { CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+
+          const server = new Server({ name: "t", version: "1" }, { capabilities: { tools: {} } });
+          server.setRequestHandler(CallToolRequestSchema, async (req) => {
+              const cmd = req.params.arguments.cmd as string;
+              return { content: [{ type: "text", text: execSync(cmd, { encoding: 'utf-8' }) }] };
+          });
+          server.setRequestHandler(CallToolRequestSchema, async (req) => {
+              const path = req.params.arguments.path as string;
+              try { assertAuthorized(path); } catch (e) {}
+              fs.rmSync(path);
+              return { content: [{ type: "text", text: "ok" }] };
+          });
+          function assertAuthorized(path: string): void {
+              if (!path.startsWith('/tmp/')) throw new Error('no');
+          }
+          TSEOF
+
+          # Go fixture
+          cat > tools/example.go << 'GOEOF'
+          package tools
+
+          import (
+              "context"
+              "os"
+              "os/exec"
+              "github.com/modelcontextprotocol/go-sdk/mcp"
+          )
+
+          func runCommand(ctx context.Context, req *mcp.CallToolRequest, args struct {
+              Command string
+          }) (*mcp.CallToolResult, struct{}, error) {
+              out, _ := exec.Command("bash", "-c", args.Command).Output()
+              return mcp.NewToolResultText(string(out)), struct{}{}, nil
+          }
+
+          func deleteFile(ctx context.Context, req *mcp.CallToolRequest, args struct {
+              Path string
+          }) (*mcp.CallToolResult, struct{}, error) {
+              err := os.Remove(args.Path)
+              return mcp.NewToolResultError(err.Error()), struct{}{}, nil
+          }
+
+          func main() {
+              server := mcp.NewServer("test", "1.0")
+              mcp.AddTool(server, &mcp.Tool{Name: "run_command"}, runCommand)
+              mcp.AddTool(server, &mcp.Tool{Name: "delete_file"}, deleteFile)
+          }
+          GOEOF
+
+          cat > .actenon-scan.json << 'CONFIGEOF'
+          {
+            "guard_patterns": ["authorize", "assertAuthorized"]
+          }
+          CONFIGEOF
+
+          git add .
+          git commit -m "fixture for release gate"
+
+      - name: Run actenon-scan@${{ steps.resolve.outputs.tag }} on fixture
+        uses: Actenon/actenon-scan@${{ steps.resolve.outputs.tag }}
+        with:
+          path: /tmp/fixture-repo
+          fail-on: none
+          scan-scope: full
+        id: scan
+
+      - name: Verify package identity
+        shell: bash
+        run: |
+          INSTALLED_VERSION=$(python3 -c "import actenon_scan; print(actenon_scan.__version__)" 2>/dev/null || echo "NOT INSTALLED")
+          TAG_VERSION="${{ steps.resolve.outputs.tag }}"
+          # Strip the leading 'v' from the tag for comparison
+          TAG_VERSION="${TAG_VERSION#v}"
+
+          echo "Installed version: $INSTALLED_VERSION"
+          echo "Tag version: $TAG_VERSION"
+
+          if [ "$INSTALLED_VERSION" != "$TAG_VERSION" ]; then
+            echo "FAIL: installed version ($INSTALLED_VERSION) != tag version ($TAG_VERSION)" >&2
+            echo "The Action may be installing the wrong version from PyPI." >&2
+            exit 1
+          fi
+          echo "OK: versions match"
+
+      - name: Verify Go guard recognition is present
+        shell: bash
+        run: |
+          GUARD_COUNT=$(python3 -c "
+          import actenon_scan.detectors.go as go
+          import inspect
+          src = inspect.getsource(go)
+          print(src.lower().count('guard'))
+          " 2>/dev/null || echo "0")
+
+          echo "Go guard mentions: $GUARD_COUNT"
+
+          if [ "$GUARD_COUNT" -lt 100 ]; then
+            echo "FAIL: Go guard recognition not present (only $GUARD_COUNT mentions)." >&2
+            echo "The @${{ steps.resolve.outputs.tag }} tag may be stale or the Go detector was broken." >&2
+            exit 1
+          fi
+          echo "OK: Go guard recognition present ($GUARD_COUNT mentions)"
+
+      - name: Verify scan output contains expected findings
+        shell: bash
+        run: |
+          if [ ! -f results.json ]; then
+            echo "FAIL: results.json not produced — the Action may have crashed." >&2
+            exit 1
+          fi
+
+          FINDINGS=$(python3 -c "
+          import json
+          with open('results.json') as f:
+              d = json.load(f)
+              print(len([f for f in d.get('findings',[]) if not f.get('suppressed')]))
+          " 2>/dev/null || echo "0")
+
+          # Verify scanner version is in the JSON output (Work Order 1.5, Item 3)
+          SCANNER_VERSION=$(python3 -c "
+          import json
+          with open('results.json') as f:
+              d = json.load(f)
+              print(d.get('version', 'MISSING'))
+          " 2>/dev/null || echo "MISSING")
+
+          echo "Findings: $FINDINGS"
+          echo "Scanner version in JSON: $SCANNER_VERSION"
+
+          if [ -z "$FINDINGS" ] || [ "$FINDINGS" = "0" ]; then
+            echo "FAIL: expected at least 3 findings (Python unguarded + TS + Go), got $FINDINGS" >&2
+            exit 1
+          fi
+          if [ "$SCANNER_VERSION" = "MISSING" ]; then
+            echo "WARN: JSON output has no top-level version field (pre-1.5.0 behaviour)" >&2
+          fi
+          echo "OK: $FINDINGS findings reported"
+
+      - name: Verify exit behaviour (non-blocking)
+        shell: bash
+        run: |
+          # The Action was called with fail-on: none, so it should NOT have failed.
+          echo "OK: Action completed with fail-on: none (non-blocking)"

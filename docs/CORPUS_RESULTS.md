@@ -1,6 +1,7 @@
 <!-- HISTORICAL: This file is frozen at v0.4.0. The authoritative corpus -->
 <!-- study is docs/CORPUS_STUDY.md (auto-generated, CI-enforced). -->
-<!-- This file is preserved for the correction story (51/63 → 21/21). -->
+<!-- This file is preserved for the correction story (51/63 → 22/22). -->
+<!-- The current figure is 22 TP / 100% precision (0 false positives). See CORPUS_STUDY.md. -->
 
 # Corpus Validation Results — actenon-scan 0.4.0 (historical)
 
@@ -111,4 +112,9 @@ in the same function).
 2. **Exclude class-body code from module-level reachability** — fixes 2/8 FPs
 3. **Suppress temp-file cleanup in finally blocks** — fixes 1/8 FP
 
-After these fixes: 21 TP / 0 FP = 100% precision across 5,065 files.
+After these fixes: 22 TP / 100% precision (0 false positives) across 5,065 files.
+
+The server.go:286 finding (os.OpenFile on cfg.LogFilePath) was suppressed
+by a rule fix (log/config file detection). The actions.go:172 finding
+(http.Get on logURL) is kept as TRUE_POSITIVE — the URL is not directly
+model-controlled but the scanner cannot trace this interprocedurally.

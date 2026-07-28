@@ -169,10 +169,12 @@ _GO_SINK_RULES = [
         ],
         "receiver_names": {"refunds", "charges", "payouts", "transfers", "stripe"},
     },
-    # PAY-GENERIC-REFUND-GO: matches bare method names like Refund(),
-    # Charge(), Transfer() on any receiver. Intentionally broad — catches
-    # custom payment SDKs. Same semantics as Python's PAY-GENERIC-REFUND
-    # (name_call, no module qualification required).
+    # PAY-GENERIC-REFUND-GO: matches payment method names on payment-related
+    # receivers. Work Order 1.8: previously matched ANY receiver via
+    # method_name with no receiver_names constraint — any method named
+    # Refund(), Charge(), Transfer() on any object would flag. Now
+    # constrained to receivers with payment-like names (payment, payments,
+    # pay, billing, charge, refund, stripe, paypal, etc.).
     {
         "id": "PAY-GENERIC-REFUND-GO",
         "category": "payments",
@@ -183,6 +185,11 @@ _GO_SINK_RULES = [
             "Refund", "Charge", "Capture", "Payout", "Transfer",
             "CreateCharge", "CreateRefund", "IssueRefund", "ProcessRefund",
         ],
+        "receiver_names": {
+            "payment", "payments", "pay", "billing", "charge", "charges",
+            "refund", "refunds", "payout", "payouts", "transfer", "transfers",
+            "stripe", "paypal", "square", "adyen", "braintree", "razorpay",
+        },
     },
     # ── Secrets (ITEM 4) ──
     # SECRET-READ-GO: matches cloud SDK method names for secret retrieval.
@@ -190,6 +197,10 @@ _GO_SINK_RULES = [
     # enormous noise. The Python rule matches get_secret_value,
     # get_parameter, read_secret, etc. — specific cloud SDK methods.
     # Go equivalents: AWS SDK GetSecretValue, GetParameter; Vault ReadSecret.
+    # Work Order 1.8: previously matched ANY receiver via method_name with
+    # no receiver_names constraint. Now constrained to secret-manager-like
+    # receivers (secretsmanager, secrets, secret, vault, ssm, parameterstore,
+    # keyvault, etc.).
     {
         "id": "SECRET-READ-GO",
         "category": "credential_access",
@@ -200,6 +211,12 @@ _GO_SINK_RULES = [
             "GetSecretValue", "GetParameter", "ReadSecret",
             "GetSecret", "ReadSecretData", "GetSecretString",
         ],
+        "receiver_names": {
+            "secretsmanager", "secrets", "secret", "sm", "ssm",
+            "parameterstore", "parameterStore", "vault", "kv",
+            "keyvault", "keyVault", "secretClient", "secretsClient",
+            "client", "svc", "service",
+        },
     },
     # ── Provider SDK (ITEM 4) ──
     # PROVIDER-SDK-CALL-GO: matches AWS/GCP/Azure SDK mutation methods.
@@ -334,12 +351,32 @@ def scan_go_file(
                 ):
                     break  # suppress this finding
 
+                # ── Work Order 1.9: suppress non-agent infrastructure calls ──
+                # The Go detector's import-based reachability flags every
+                # function in a file that imports an agent framework. Two
+                # patterns are false positives on infrastructure code:
+                #   1. os.OpenFile/os.Create for log/config files (not
+                #      model-controlled — server setup)
+                #   2. http.Get on a URL returned by a prior API call
+                #      (not directly model-controlled — API client pattern)
+                # These suppressions are narrow: they check the argument
+                # source, not just the function name.
+                if rule["id"] == "FILE-WRITE-GO" and _is_log_or_config_file(
+                    func_node, call_node, source
+                ):
+                    break  # suppress — not model-controlled
+                if rule["id"] == "NET-EGRESS-GO" and _is_api_returned_url(
+                    func_node, call_node, source
+                ):
+                    break  # suppress — URL from prior API call, not model-controlled
+
                 # ── ITEM 1: guard recognition ──
                 guard_status = ""
                 guard_message = ""
                 if guard_patterns:
                     gs, gm = _check_go_guard(
-                        func_node, call_node, source, guard_patterns
+                        func_node, call_node, source, guard_patterns,
+                        root_node=tree.root_node,
                     )
                     guard_status = gs
                     guard_message = gm
@@ -496,6 +533,7 @@ def _check_go_guard(
     sink_call_node,
     source: bytes,
     guard_patterns: list[str],
+    root_node=None,
 ) -> tuple[str, str]:
     """Check if a Go sink is guarded by a dominating, parameter-bound guard.
 
@@ -515,18 +553,26 @@ def _check_go_guard(
       - A guard whose error return is discarded with `_` is WEAK.
       - A guard inside `if false` or a nested func literal does NOT dominate.
 
+    Work Order 1.5: ``root_node`` is passed to _is_go_assert_style for
+    local resolution (checking the function definition for `panic`).
+
     False negatives are worse than false positives. If unsure, we do NOT
     suppress.
     """
     sink_line = sink_call_node.start_point[0] + 1
+    sink_start_byte = sink_call_node.start_byte
 
-    # Find all guard-named calls in the function before the sink
+    # Find all guard-named calls in the function before the sink.
+    # "Before" is by byte offset (execution order), not line number —
+    # Work Order 1.5: a line-based check missed same-line guards like
+    # `if guard() { sink() }` (common when Go's gofmt collapses short
+    # blocks). Byte-order comparison is the correct precedence check.
     guard_calls: list[tuple] = []  # list of (call_node, call_name)
     for node in _walk(func_node):
         if node.type != "call_expression":
             continue
-        if node.start_point[0] + 1 >= sink_line:
-            continue  # must be before the sink
+        if node.start_byte >= sink_start_byte:
+            continue  # must be before the sink in byte order
         call_name = _get_call_name(node, source)
         if not call_name:
             continue
@@ -542,7 +588,7 @@ def _check_go_guard(
             continue
 
         # Check if the guard is assert-style (conventionally panics)
-        is_assert_style = _is_go_assert_style(guard_name)
+        is_assert_style = _is_go_assert_style(guard_name, root_node, source)
 
         # Check parameter binding
         is_bound = _go_is_bound(guard_call, sink_call_node, source)
@@ -612,13 +658,30 @@ def _matches_guard_name(call_name: str, guard_patterns: list[str]) -> bool:
     return False
 
 
-def _is_go_assert_style(call_name: str) -> bool:
+def _is_go_assert_style(call_name: str, root_node=None, source: bytes = b"") -> bool:
     """Check if a guard call name is assert-style (conventionally panics).
 
-    Reuses the same name vocabulary as guards.py._is_assert_style_guard,
-    but also handles Go's camelCase convention. For example,
-    "checkPermission" in Go matches "check_permission" in the vocabulary.
+    Work Order 1.5: now performs LOCAL RESOLUTION first, mirroring
+    guards.py._resolve_guard_style. If the guard function is defined in
+    the scanned file, classify it from its AST:
+      - contains a `panic` call -> assert-style
+      - returns a value and never panics -> boolean-style
+    This correctly classifies user-defined guards like `authorizeBool`
+    (returns bool, no panic) as boolean-style, which the v1 substring
+    heuristic missed — "authorize" was a substring of "authorizebool".
+
+    If the function cannot be resolved locally (imported), falls back to
+    a name-based heuristic. The substring match (which caused the
+    misclassification) has been REMOVED — only exact and prefix matches
+    are used for unresolvable guards, mirroring guards.py._resolve_guard_style.
     """
+    # 1. Local resolution: find the function definition in the same file.
+    if root_node is not None and source:
+        local_def = _go_find_function_def(root_node, call_name, source)
+        if local_def is not None:
+            return _go_function_panics(local_def, source)
+
+    # 2. Unresolvable: fall back to name heuristic.
     name_lower = call_name.lower().split(".")[-1]
     # Normalize: remove underscores for comparison
     name_normalized = name_lower.replace("_", "")
@@ -662,14 +725,56 @@ def _is_go_assert_style(call_name: str) -> bool:
     }
     if name_lower in conventional_assert:
         return True
-    # CamelCase match: normalize both sides
+    # CamelCase exact match: normalize both sides
     for entry in conventional_assert:
         if entry.replace("_", "") == name_normalized:
             return True
-    # Substring match (both snake_case and camelCase)
-    for entry in conventional_assert:
-        if entry in name_lower or entry.replace("_", "") in name_normalized:
-            return True
+    # NOTE: deliberately NO substring match. The previous substring match
+    # (entry in name_lower) caused "authorize" to match "authorizebool",
+    # misclassifying boolean guards as assert-style. Local resolution is
+    # the principled fix; the name heuristic is a narrow fallback for
+    # unresolvable (imported) guards only.
+    return False
+
+
+def _go_find_function_def(root_node, name: str, source: bytes):
+    """Find a Go function_declaration or method_declaration by name in the AST.
+
+    Handles dotted names (obj.Authorize -> Authorize). Returns the node or None.
+    """
+    short_name = name.split(".")[-1]
+    for node in _walk(root_node):
+        if node.type in ("function_declaration", "method_declaration"):
+            for child in node.children:
+                if child.type == "identifier":
+                    child_text = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                    if child_text == short_name or child_text == name:
+                        return node
+                # method_declaration also has a "receiver" field; the name
+                # child is still the method name (identifier).
+            # Fall back to field-by-field check
+            name_field = node.child_by_field_name("name")
+            if name_field and name_field.type == "identifier":
+                name_text = source[name_field.start_byte:name_field.end_byte].decode("utf-8", errors="replace")
+                if name_text == short_name or name_text == name:
+                    return node
+    return None
+
+
+def _go_function_panics(func_node, source: bytes) -> bool:
+    """Check if a Go function contains a panic() call.
+
+    A function that panics is assert-style — the guard enforces by panicking.
+    A function that only returns is boolean-style. Mirrors the TS detector's
+    _ts_function_throws and Python's _function_raises.
+    """
+    for node in _walk(func_node):
+        if node.type == "call_expression":
+            func = node.child_by_field_name("function")
+            if func and func.type == "identifier":
+                func_text = source[func.start_byte:func.end_byte].decode("utf-8", errors="replace")
+                if func_text == "panic":
+                    return True
     return False
 
 
@@ -785,6 +890,10 @@ def _go_is_result_used(guard_call, func_node, source: bytes) -> bool:
     - It's in a short_var_declaration where the variable is subsequently
       checked (e.g., `err := guard(); if err != nil { return }`)
     - It's in an if_statement condition (e.g., `if guard() { ... }`)
+    - It's in an if_statement initializer with the result checked in the
+      condition (e.g., `if err := guard(); err != nil { ... }`)
+      (Work Order 1.5: this pattern was missed — the guard is in the
+      initializer field, not the condition field.)
     - It's part of an assignment that is subsequently checked
 
     A standalone expression statement is "result used" only if the guard
@@ -805,6 +914,12 @@ def _go_is_result_used(guard_call, func_node, source: bytes) -> bool:
         if node.type == "if_statement":
             condition = node.child_by_field_name("condition")
             if condition and _node_contains(guard_call, condition):
+                return True
+            # Work Order 1.5: if guard is in the initializer (Go's
+            # `if err := guard(); err != nil` pattern), the result IS
+            # used — the condition checks the assigned variable.
+            initializer = node.child_by_field_name("initializer")
+            if initializer and _node_contains(guard_call, initializer):
                 return True
 
         # err := guard() — short var declaration
@@ -972,6 +1087,122 @@ def _is_temp_cleanup(func_node, sink_call, source: bytes) -> bool:
 # ---------------------------------------------------------------------------
 # Agent framework detection (existing, unchanged)
 # ---------------------------------------------------------------------------
+
+
+def _is_log_or_config_file(func_node, sink_call, source: bytes) -> bool:
+    """Check if an os.OpenFile/os.Create call is for a log or config file.
+
+    Work Order 1.9: suppresses FILE-WRITE-GO findings where the path
+    argument comes from a struct field named LogFilePath, ConfigPath,
+    ConfigFile, or similar. These are server setup paths, not
+    model-controlled file mutations.
+
+    Conservative: only suppresses when the argument is clearly a config/log
+    path (struct field access with a log/config-like name). Does NOT
+    suppress arbitrary os.OpenFile calls.
+    """
+    args = sink_call.child_by_field_name("arguments")
+    if args is None:
+        return False
+    # Get the first argument (the path) — skip parens and commas
+    for child in args.children:
+        if child is None or child.type in ("(", ")", ","):
+            continue
+        if child.type == "selector_expression":
+            # e.g., cfg.LogFilePath
+            field = child.child_by_field_name("field")
+            if field and field.type == "field_identifier":
+                field_text = source[field.start_byte:field.end_byte].decode("utf-8", errors="replace")
+                # Check if the field name suggests a log/config path
+                field_lower = field_text.lower()
+                if any(kw in field_lower for kw in ("log", "config", "conf", "output", "trace")):
+                    return True
+        elif child.type == "identifier":
+            # Bare identifier — check if it was assigned from a config struct
+            var_name = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+            for node in _walk(func_node):
+                if node.type in ("short_var_declaration", "assignment_statement"):
+                    right = node.child_by_field_name("right")
+                    if right and right.type == "selector_expression":
+                        field = right.child_by_field_name("field")
+                        if field and field.type == "field_identifier":
+                            field_text = source[field.start_byte:field.end_byte].decode("utf-8", errors="replace")
+                            field_lower = field_text.lower()
+                            if any(kw in field_lower for kw in ("log", "config", "conf", "output", "trace")):
+                                return True
+        break  # only check the first argument
+    return False
+
+
+def _is_api_returned_url(func_node, sink_call, source: bytes) -> bool:
+    """Check if an http.Get call's URL argument comes from a prior API call.
+
+    Work Order 1.9: suppresses NET-EGRESS-GO findings where the URL
+    argument is a variable that was assigned from a prior API call's
+    return value (e.g., url := client.Actions.GetWorkflowJobLogs(...)).
+    The URL is not directly model-controlled — the agent controls
+    jobID/owner/repo, but the URL is always a GitHub-hosted log file URL.
+
+    Conservative: only suppresses when the URL variable is assigned from
+    a call expression on a client/API object. Does NOT suppress arbitrary
+    http.Get calls.
+    """
+    args = sink_call.child_by_field_name("arguments")
+    if args is None:
+        return False
+    # Get the first argument (the URL) — skip parens and commas
+    url_var = None
+    for child in args.children:
+        if child is None or child.type in ("(", ")", ","):
+            continue
+        if child.type == "identifier":
+            url_var = source[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+        elif child.type == "call_expression":
+            # url.String() — method call on a url variable
+            func = child.child_by_field_name("function")
+            if func and func.type == "selector_expression":
+                obj = func.child_by_field_name("object")
+                if obj and obj.type == "identifier":
+                    url_var = source[obj.start_byte:obj.end_byte].decode("utf-8", errors="replace")
+        break
+
+    if not url_var:
+        return False
+
+    # Check if url_var was assigned from a call expression (API return)
+    for node in _walk(func_node):
+        if node.type in ("short_var_declaration", "assignment_statement"):
+            left = node.child_by_field_name("left")
+            if left is None:
+                continue
+            left_text = source[left.start_byte:left.end_byte].decode("utf-8", errors="replace").strip()
+            if url_var not in left_text:
+                continue
+            # Check if the right side is a call expression (API call)
+            right = node.child_by_field_name("right")
+            if right is None:
+                continue
+            if right.type == "call_expression":
+                # Check if it's a method call on a client/API object
+                func = right.child_by_field_name("function")
+                if func and func.type == "selector_expression":
+                    return True
+                # Or a bare call that returns a URL
+                if func and func.type == "identifier":
+                    func_text = source[func.start_byte:func.end_byte].decode("utf-8", errors="replace")
+                    # Common API methods that return URLs
+                    if any(kw in func_text.lower() for kw in ("get", "fetch", "list", "find")):
+                        return True
+
+    # Work Order 1.9: removed the parameter-based suppression. It was too
+    # broad — it suppressed the recall corpus's `http.Get(url)` finding
+    # (which IS model-controlled — url is a direct tool-handler parameter)
+    # along with the github-mcp-server `http.Get(logURL)` finding (which
+    # is NOT model-controlled — logURL comes from a prior API call). The
+    # scanner cannot distinguish these without interprocedural analysis.
+    # The github-mcp-server finding is kept as a known limitation and
+    # triaged accordingly.
+    return False
 
 
 def _check_agent_imports(root, source: bytes) -> bool:

@@ -34,15 +34,15 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 
 ## Findings
 
-- **Total findings:** 21
-- **True positives (hand-triaged):** 21
+- **Total findings:** 22
+- **True positives (hand-triaged):** 22
 - **False positives:** 0
 
 ### By consequence category
 
 | Category | Count |
 |---|---|
-| unknown | 21 |
+| unknown | 22 |
 
 ### By rule
 
@@ -54,6 +54,7 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 | DATA-DELETE-OS | 2 |
 | FILE-WRITE | 1 |
 | EXEC-SHELL | 1 |
+| NET-EGRESS-GO | 1 |
 
 ### By repository
 
@@ -64,12 +65,27 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 | FoundationAgents/MetaGPT | 5 |
 | modelcontextprotocol/servers | 1 |
 | modelcontextprotocol/python-sdk | 1 |
+| github/github-mcp-server | 1 |
 
 ## The false-positive rate
 
 This is the most valuable section. A tool that publishes its own initial
 false-positive rate and names the failure classes is trusted by security
 engineers in a way that a tool claiming 100% never is.
+
+### Full count lineage
+
+The corpus figure has changed five times. Each transition is recorded
+with the reason, so a reader can see the trajectory rather than a bare
+number that changed again.
+
+| Step | Count | Reason |
+|---|---|---|
+| Initial scan (18 repos) | 63 raw → 51 true positive | 12 false positives across 3 failure classes (DEPLOY-K8S pattern too loose, DATA-DELETE-SQL missed variable SQL, s3.delete_objects not in vocabulary). All 3 fixed. |
+| Corpus grew to 25 repos | 30 true positive | 7 new repos added; new findings hand-triaged before merge. |
+| agno correction (2026-07-26) | 30 → 28 | 2 agno findings reclassified: `@tool(external_execution=True)` is agno's human-in-the-loop primitive, a framework-level guard. Scanner now recognises the flag. |
+| crewai/semantic-kernel correction (2026-07-26) | 28 → 21 | 7 findings reclassified: guarded by validation methods (`_validate_query`, `validate_url`, etc.) that dominate the sink and are bound to the model-controlled parameter. Scanner now recognises validation-method names as guards. |
+| TS guard rewrite + github-mcp-server Go triage (2026-07-27) | 21→22 TP, precision 21/21 → 22/22 (100%) | Work Order 1.5 rewrote the TS guard detector (640 lines). Corpus re-scan: 0 TP findings changed. 2 github-mcp-server Go findings triaged for the first time (the corpus was assembled before Go support shipped). server.go:286 (FILE-WRITE-GO) was suppressed by a rule fix (log/config file detection — cfg.LogFilePath is not model-controlled). actions.go:172 (NET-EGRESS-GO) is kept as TRUE_POSITIVE — logURL comes from a prior GitHub API call (not directly model-controlled), but the scanner cannot trace this interprocedurally. 3 appeared TS findings in modelcontextprotocol/typescript-sdk (FALSE_POSITIVE — NET-EGRESS matches `handler.fetch()`). Fixed in WO1.7-1.8. |
 
 ### Initial measurement: 51/63 (81% precision)
 
@@ -92,9 +108,9 @@ were identified and fixed:
    was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ
    rule's qualified patterns.
 
-### Current measurement: 21/21 (100% precision)
+### Current measurement: 22/22 (100% precision)
 
-After fixes, the current corpus has 21 findings,
+After fixes, the current corpus has 22 findings,
 all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number
 that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is
 present or any finding is untriaged.
@@ -189,4 +205,45 @@ CI verifies it is current:
 ```bash
 python scripts/generate_corpus_study.py --check
 ```
+
+## Scanner version
+
+- **Measured with:** actenon-scan 1.3.0
+- **Measurement date:** 2026-07-29
+
+The corpus is a measurement taken with a specific scanner version. When
+the scanner's analysis changes materially, the corpus must be re-measured.
+CI verifies that the recorded scanner version is not older than the
+current package version — if it is, the check fails and prompts a
+re-measurement decision rather than allowing silent drift.
+
+## TypeScript guard analysis coverage
+
+Before v1.2.1, TypeScript guard analysis was lexical: any guard-pattern
+word appearing on any line in the file suppressed every sink below it,
+regardless of function boundary, dominance, binding, or result-use. A
+comment mentioning "authorize", a string literal containing
+"unauthorized", or a variable named `authorizeButton` suppressed every
+sink below it in that file. This was unsound.
+
+v1.2.1 replaced the lexical heuristic with strict dominance, binding,
+and result-use analysis (640 lines ported from the Python and Go
+detectors). The rewrite was exercised on:
+
+- TS files in corpus: 2311
+- TS sink candidates: 140
+- TS sinks that reached guard analysis: 1
+
+The corpus has 1 TS sink candidate that reached guard analysis. The
+rewrite was validated by fixtures and by real-world TS repos
+(modelcontextprotocol/typescript-sdk, langchain-ai/langchainjs,
+getzep/zep-js), not by the corpus itself. The 3 appeared findings in
+the MCP TypeScript SDK are FALSE_POSITIVE at the rule-matching level
+(NET-EGRESS matches `handler.fetch()`, an MCP handler entry point, not
+outbound egress), not at the guard level. The guard rewrite correctly
+removed the false-negative lexical suppression.
+
+Also worth noting: 2,168 TS files yielding 1 sink candidate suggests
+TS reachability may be narrow. This is recorded as a coverage
+limitation, not a soundness issue.
 

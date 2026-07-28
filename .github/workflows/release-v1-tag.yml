@@ -3,20 +3,40 @@ name: Advance v1 tag
 # Work Order 3, Part 2.4: maintain a moving major-version tag `v1` pointing
 # at the newest v1.x.x release, per marketplace convention. Users pin @v1
 # and expect fixes without updating their workflow.
+#
+# Work Order 1.5, Item 4: this workflow now `needs:` the release-gate job.
+# The v1 tag does not advance until the release gate has verified that
+# `uses: Actenon/actenon-scan@<tag>` works against the just-published
+# immutable tag. This closes the release-gate defect where a broken
+# release would propagate to @v1 users with no blocking test.
+#
+# Work Order 1.5, Item 4 (cosmetic): the tag object's `tag` field now
+# reads `v1` (via `git tag -f v1 -m "..." <commit>`), not the release tag
+# name. The old form (`git tag -f v1 "$RELEASE_TAG"`) created a tag object
+# whose `tag` field read `v1.2.0`, which was cosmetically confusing in
+# `git cat-file -p v1` even though functionally correct.
 
 on:
   release:
     types: [published]
 
 jobs:
+  release-gate:
+    name: Release gate (verify @<tag> before v1 advances)
+    uses: ./.github/workflows/release-gate.yml
+
   advance-v1:
     name: Move v1 tag to latest release
+    needs: release-gate
+    if: ${{ success() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Move v1 tag
         run: |
@@ -26,10 +46,24 @@ jobs:
 
           # Only advance v1 if this is a v1.x.x release
           if [[ "$RELEASE_TAG" =~ ^v1\. ]]; then
-            echo "Advancing v1 tag to $RELEASE_TAG"
-            git tag -f v1 "$RELEASE_TAG"
-            git push origin v1 --force
-            echo "v1 now points at $RELEASE_TAG"
+            echo "Release gate passed — advancing v1 tag to $RELEASE_TAG"
+
+            # Work Order 1.5: resolve the release tag to its commit, then
+            # create the v1 tag object pointing at that commit with the
+            # tag field reading "v1" (not the release tag name).
+            COMMIT=$(git rev-parse "${RELEASE_TAG}^{commit}")
+            echo "Release tag $RELEASE_TAG resolves to commit $COMMIT"
+
+            # Delete the old v1 tag (locally and remotely) then create a
+            # new annotated tag whose `tag` field reads "v1".
+            git tag -d v1 2>/dev/null || true
+            git push origin :refs/tags/v1 2>/dev/null || true
+            git tag -a v1 -m "Move v1 to $RELEASE_TAG (release gate passed)" "$COMMIT"
+            git push origin v1
+
+            echo "v1 now points at $RELEASE_TAG (commit $COMMIT)"
+            echo "Tag object contents:"
+            git cat-file -p v1
           else
             echo "Not a v1.x.x release ($RELEASE_TAG) — skipping v1 tag advance"
           fi
