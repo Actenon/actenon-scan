@@ -209,6 +209,10 @@ jobs:
 
       - name: Move v1 tag
         run: |
+          # Set git identity (required for annotated tags)
+          git config user.name "Actenon Release Bot"
+          git config user.email "release@actenon.com"
+
           # Get the release tag: from the release event, or from workflow_dispatch input
           RELEASE_TAG="${{ github.event.release.tag_name || inputs.tag }}"
           echo "Release tag: $RELEASE_TAG"
