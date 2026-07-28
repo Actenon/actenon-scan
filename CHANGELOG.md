@@ -148,10 +148,11 @@ cycle. The sequence, in order:
    the rule fix. The figure is 95.5%.
 
 The v1.3.0 release notes described state 2 (100%). That was published
-and cannot be unpublished. This CHANGELOG entry corrects the record
-going forward. The third published correction is the drop to 95.5%,
-made possible by fixing the gate that previously made recording a false
-positive impossible.
+and has since been annotated with a correction note at the top of the
+release body pointing to docs/CORPUS_STUDY.md for the current figure.
+This CHANGELOG entry corrects the record going forward. The third
+published correction is the drop to 95.5%, made possible by fixing the
+gate that previously made recording a false positive impossible.
 
 Full lineage: 63→51→30→28→21→22→21 (precision: 81%→100%→100%→91%→100%→95.5%).
 

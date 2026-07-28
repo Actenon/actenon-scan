@@ -182,6 +182,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required for --changed-only to diff against the base branch
       - uses: Actenon/actenon-scan@v1
 ```
 

@@ -103,11 +103,14 @@ jobs:
         # not on PRs (where the version may be bumped before publishing).
         #
         # Work Order 1.10, Item 5: tolerate an unpublished version bump.
-        # A version bump on main that hasn't been tagged/published yet is
-        # normal (the tag push happens after merge). The check passes when
-        # pyproject > PyPI (unpublished bump, no tag yet) and fails when
-        # they diverge in any other direction (e.g. PyPI has a version
-        # that pyproject doesn't — a rollback or yank).
+        # Work Order 1.11, Item 2: corrected the four conditions:
+        #
+        #   pyproject == pypi                          PASS   normal steady state
+        #   pyproject > pypi, no tag for that version  PASS   bump merged, not yet released
+        #   pyproject > pypi, tag exists               FAIL   tag pushed but publish
+        #                                                    did not land — a failed
+        #                                                    release sitting unnoticed
+        #   pypi > pyproject                           FAIL   rollback, yank, or drift
         if: github.ref == 'refs/heads/main'
         run: |
           PYPROJECT_VERSION=$(grep '^version' pyproject.toml | sed 's/.*"\(.*\)"/\1/')
@@ -116,35 +119,34 @@ jobs:
           echo "pyproject.toml: $PYPROJECT_VERSION"
           echo "PyPI latest: $PYPI_VERSION"
 
-          if [ "$PYPROJECT_VERSION" = "$PYPI_VERSION" ]; then
-            echo "OK: versions match"
-          elif python3 -c "
+          python3 -c "
           from packaging.version import Version
-          import sys
+          import subprocess, sys
+
           py = Version('$PYPROJECT_VERSION')
           pypi = Version('$PYPI_VERSION')
-          # Pass if pyproject is NEWER than PyPI (unpublished bump)
-          if py > pypi:
-            # Check if a tag exists for the pyproject version
-            import subprocess
-            result = subprocess.run(['git', 'tag', '-l', 'v$PYPROJECT_VERSION'], capture_output=True, text=True)
-            if result.stdout.strip():
-              # Tag exists but PyPI doesn't have it yet — publish in progress
-              print('OK: pyproject version is newer than PyPI (tag exists, publish in progress)')
+
+          if py == pypi:
+              print('OK: versions match')
               sys.exit(0)
-            else:
-              # No tag yet — unpublished bump, normal state between merge and tag
-              print('OK: pyproject version is newer than PyPI (unpublished bump, no tag yet)')
-              sys.exit(0)
+          elif py > pypi:
+              # Check if a tag exists for the pyproject version
+              result = subprocess.run(['git', 'tag', '-l', 'v$PYPROJECT_VERSION'], capture_output=True, text=True)
+              if result.stdout.strip():
+                  # Tag exists but PyPI doesn't have it — publish failed
+                  print(f'FAIL: tag v$PYPROJECT_VERSION exists but PyPI has $PYPI_VERSION', file=sys.stderr)
+                  print('The publish workflow may have failed. Check:', file=sys.stderr)
+                  print('  https://github.com/Actenon/actenon-scan/actions/workflows/publish.yml', file=sys.stderr)
+                  sys.exit(1)
+              else:
+                  # No tag yet — unpublished bump, normal state between merge and tag
+                  print('OK: pyproject version is newer than PyPI (unpublished bump, no tag yet)')
+                  sys.exit(0)
           else:
-            # PyPI is newer than pyproject — rollback, yank, or drift
-            print(f'FAIL: PyPI version ($PYPI_VERSION) is newer than pyproject ($PYPROJECT_VERSION)', file=sys.stderr)
-            sys.exit(1)
-          "; then
-            echo "OK"
-          else
-            exit 1
-          fi
+              # PyPI is newer than pyproject — rollback, yank, or drift
+              print(f'FAIL: PyPI version ($PYPI_VERSION) is newer than pyproject ($PYPROJECT_VERSION)', file=sys.stderr)
+              sys.exit(1)
+          "
 
       - name: CORPUS_STUDY.md is current
         # Work Order 3, Part 5.3: the corpus study must not drift from the
