@@ -49,16 +49,20 @@ uvx actenon-scan scan .
 ```
 
 No install, no config, no cloud account. The first run produces a
-blast-radius summary — what your agent can reach without an authority check:
+blast-radius summary — what your agent can reach and whether a
+recognised guard sits on the path:
 
 ```
-Your agent can reach 12 consequential actions without a dominating authorization check.
+YOUR AGENT'S BLAST RADIUS
 
-  REPOSITORY       4   create_file, merge, delete_ref, publish_release
-  MONEY            3   process_refund, issue_credit, charge_card
-  DATA LOSS        2   delete_s3_prefix, purge_workspace
-  EXECUTION        2   deploy, run_migration
-  EGRESS           1   notify_customers
+Consequential capabilities: 12
+  Guard found on path:       9
+  Review required:           3
+
+Your agent can reach 3 consequential actions without a dominating authorization check.
+
+  REPOSITORY       2   create_file, merge
+  MONEY            1   process_refund
 
 Most exposed: app/tools.py:47  process_refund()
   Reachable by:              @mcp.tool()
@@ -66,11 +70,26 @@ Most exposed: app/tools.py:47  process_refund()
   Guard evidence:            none found on the analysed path
   Model-controlled inputs:   payment_intent, amount
 
-12 findings in 340 files (0.42s)
+3 findings in 340 files (0.42s)
 Next:
   actenon-scan explain app/tools.py:47
   actenon-scan fix app/tools.py:47
 ```
+
+**What this means:** the scanner found 12 consequential capabilities
+in your code — actions an agent can reach that change, delete, send,
+deploy, or spend. 9 have a recognised guard on the path. 3 do not,
+and those are the findings above.
+
+**Your code stays local.** The scanner parses source files on your
+machine. Nothing is uploaded. The GitHub Action runs in your repo's
+CI — same boundary.
+
+**No runtime required.** Actenon Scan is a static analyser. It does
+not require the Actenon Kernel, Permit, or any runtime adoption. The
+`fix` command generates repository-native guards (your own `authorize()`
+convention) by default. Actenon enforcement is one option among several,
+not a dependency.
 
 Then dig deeper:
 
