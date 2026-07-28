@@ -30,6 +30,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No changes yet._
 
+## [1.4.0] — 2026-07-29
+
+### Capability model
+
+The scanner now records every agent-reachable consequential sink as a
+Capability, including guarded ones (previously discarded). Four
+observational states:
+
+- **GUARD_FOUND** — a recognised guard dominates the analysed path
+- **REVIEW_REQUIRED** — no recognised guard found
+- **ACCEPTED_DECISION** — human adjudicated (future)
+- **NOT_ANALYSED** — coverage gap
+
+No state asserts safety, correctness, or absence of vulnerability.
+"Guard found" means the scanner identified a dominating guard, not that
+the guard is correct.
+
+JSON output now includes `capabilities[]`, `capability_count`,
+`guard_found_count`, `review_required_count` alongside existing
+`findings[]`. Backward compatible — findings are unchanged.
+
+### Resource-boundary entry points
+
+FastAPI, Flask, Blueprint, and APIRouter route handlers are now
+detected as reachable entry points. `@app.post("/run")`,
+`@bp.route("/delete")`, `@router.get("/items")` etc. are recognised.
+Control repos: 0 production findings.
+
+### Terminal output
+
+The default `scan` output now shows `YOUR AGENT'S BLAST RADIUS` with
+capability counts (guard found, review required) before the finding
+details. A repository with all capabilities guarded shows the
+capability summary rather than "No findings."
+
+### Test generation
+
+`actenon-scan fix <file:line> --with-tests` generates two behavioural
+tests: a refusal test (guard denies → sink not called) and an
+authorised-execution test (guard allows → sink called). `--run-tests`
+executes them. Test execution is NOT sandboxed — the risk is explicit.
+
+### Single-source corpus figure
+
+Version coherence check extracted into a testable function with four
+conditions. Figure-drift check extended to CORPUS_RESULTS.md. Corpus
+figure: 21/22 (95.5%), 1 recorded false positive (issue #81).
+
+### Other
+
+- README rewritten with capability-based output and "Your code stays
+  local" / "No runtime required" positioning
+- `actenon_scan/version_check.py`: testable version coherence function
+- 464 tests (was 437 at v1.3.1)
+
 ## [1.3.1] — 2026-07-29
 
 ### Critical fix: silent zero-finding PR scans
