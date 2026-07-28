@@ -342,7 +342,7 @@ def _scan_py(source: str) -> list:
 
 
 def _scan_ts(source: str) -> list:
-    """Scan a TS source string and return findings."""
+    """Scan a TS source string and return findings (excluding guarded, as the engine does)."""
     from actenon_scan.detectors.typescript import analyze_typescript_file
     import tempfile
     with tempfile.TemporaryDirectory() as td:
@@ -350,14 +350,19 @@ def _scan_ts(source: str) -> list:
         p.write_text(textwrap.dedent(source))
         findings, errors = analyze_typescript_file(p, guard_patterns=GUARD_PATTERNS)
         assert not errors, f"TS analysis errors: {errors}"
-        return findings
+        # Filter out guarded findings — the engine does this, and tests
+        # check what the user would see (findings, not capabilities).
+        return [f for f in findings if f.guard_status != "guarded"]
 
 
 def _scan_go(source: str) -> list:
-    """Scan a Go source string and return findings."""
+    """Scan a Go source string and return findings (excluding guarded, as the engine does)."""
     from actenon_scan.detectors.go import scan_go_file
-    return scan_go_file("test.go", textwrap.dedent(source).encode("utf-8"),
+    findings = scan_go_file("test.go", textwrap.dedent(source).encode("utf-8"),
                         guard_patterns=GUARD_PATTERNS)
+    # Filter out guarded findings — the engine does this, and tests
+    # check what the user would see (findings, not capabilities).
+    return [f for f in findings if f.guard_status != "guarded"]
 
 
 def _finding_state(findings: list, sink_substring: str = "remove") -> str:
