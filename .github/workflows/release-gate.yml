@@ -39,6 +39,7 @@ on:
       tag:
         description: "Tag to test (e.g. v1.3.0). Defaults to the latest release tag."
         required: false
+        type: string
         default: ""
   workflow_dispatch:
     inputs:
