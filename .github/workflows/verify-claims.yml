@@ -97,6 +97,10 @@ jobs:
           fi
           echo "OK: v1 points at $NEWEST"
 
+      - name: Install packaging
+        shell: bash
+        run: pip install packaging
+
       - name: Action pyproject.toml version matches PyPI
         # ITEM 6: the version in pyproject.toml must equal the newest
         # published PyPI version. Only enforced on main (post-release),
