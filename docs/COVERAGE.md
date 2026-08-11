@@ -865,3 +865,53 @@ do not constitute a precision measurement on production web applications.
 
 Do not claim web-application coverage beyond what the fixtures
 demonstrate. State it as supported entry points, not a supported use case.
+
+## Capability Diff (WO3)
+
+The `actenon-scan diff` command compares two capability manifests and
+classifies every change. It is the product argument for capability diff
+over scanning: it works on a mature repository with an untriaged backlog.
+
+### Classifications
+
+**10 implemented:**
+  - NEW_CAPABILITY — new agent-reachable sink appeared
+  - REMOVED_CAPABILITY — existing capability disappeared (coverage-checked)
+  - NEW_ENTRY_POINT — new function registered as a tool handler
+  - REMOVED_ENTRY_POINT — function no longer registered
+  - GUARD_REMOVED — guard was present, now absent
+  - GUARD_ADDED — guard was absent, now present
+  - GUARD_BINDING_WEAKENED — guarded → weak or unbound
+  - GUARD_BINDING_STRENGTHENED — weak/unbound → guarded
+  - COVERAGE_REGRESSION — head cannot analyse what base could
+  - UNCHANGED_LEGACY_CANDIDATE — pre-existing, unchanged, REVIEW_REQUIRED
+
+**4 registered unavailable (fields absent on Capability):**
+  - RESOURCE_SCOPE_BROADENED — resource_scope not populated
+  - RESOURCE_SCOPE_NARROWED — resource_scope not populated
+  - REVERSIBILITY_WORSENED — reversibility not populated
+  - REVERSIBILITY_IMPROVED — reversibility not populated
+
+**Clean result:** NO_BLAST_RADIUS_CHANGE
+
+### TypeScript and Go guard transitions
+
+TS and Go detectors return guarded findings with `guard_status="guarded"`
+(WO2.1 fix). The engine records them as GUARD_FOUND capabilities. The diff
+engine can therefore detect guard removal, weakening, and strengthening
+in all three languages.
+
+### Coverage safety
+
+The governing rule: never classify a capability as removed when head
+cannot analyse it. Emit COVERAGE_REGRESSION and require review. This
+prevents parser errors, missing language support, or config changes from
+being silently reported as capability removals.
+
+### Exit codes
+
+  0 = no issues / report-only mode
+  1 = changes present matching --fail-on policy
+  2 = error (bad input, missing file)
+
+UNCHANGED_LEGACY_CANDIDATE never causes failure.

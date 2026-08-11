@@ -4,6 +4,9 @@ Lessons from WO1.9 (v1.3.0 release) and WO1.10-1.11.
 
 ## Pre-release
 
+0. **Push the branch before reporting.** Not after. Not as a suggested next step. A branch that exists only locally is a branch that can be lost. This rule applies to every work order, not just releases.
+
+
 1. **Full test suite passes** — all extras installed, all suites green.
 2. **Corpus study check passes** — `python scripts/generate_corpus_study.py --check`.
 3. **Corpus verification** — `python scripts/verify_corpus_scan.py --scan-dir <corpus-scan-dir>`.
