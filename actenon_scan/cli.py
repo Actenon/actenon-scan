@@ -332,6 +332,50 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to an actenon-scan config file (JSON or YAML).",
     )
 
+    # ── manifest (WO3) ────────────────────────────────────────────
+    manifest_parser = subparsers.add_parser(
+        "manifest",
+        help="Generate a deterministic capability manifest for a path.",
+    )
+    manifest_parser.add_argument("path", help="File or directory to scan.")
+    manifest_parser.add_argument(
+        "--output", "-o", default=None,
+        help="Write manifest to this file (default: stdout).",
+    )
+    manifest_parser.add_argument(
+        "--config", default=None,
+        help="Path to an actenon-scan config file (JSON or YAML).",
+    )
+
+    # ── diff (WO3) ────────────────────────────────────────────────
+    diff_parser = subparsers.add_parser(
+        "diff",
+        help="Compare two capability manifests and classify changes.",
+    )
+    diff_parser.add_argument(
+        "--base", required=True,
+        help="Base manifest file (JSON).",
+    )
+    diff_parser.add_argument(
+        "--head", required=True,
+        help="Head manifest file (JSON).",
+    )
+    diff_parser.add_argument(
+        "--format",
+        choices=["summary", "json"],
+        default="summary",
+        help="Output format. 'summary' = human-readable (default). 'json' = machine-readable.",
+    )
+    diff_parser.add_argument(
+        "--fail-on",
+        choices=["none", "new-capability", "guard-removal", "guard-weakened",
+                 "coverage-regression", "breaking", "selected"],
+        default="none",
+        help="Exit non-zero if any change of this type is present. "
+             "'breaking' = new-capability + guard-removal + guard-weakened + coverage-regression. "
+             "Default: 'none' (report only). UNCHANGED_LEGACY_CANDIDATE never fails.",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "scan":
@@ -352,6 +396,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_fix(args)
     elif args.command == "install":
         return _cmd_install(args)
+    elif args.command == "manifest":
+        return _cmd_manifest(args)
+    elif args.command == "diff":
+        return _cmd_diff(args)
     else:
         parser.print_help()
         return 0
@@ -1390,3 +1438,282 @@ def _find_git_root(start: Path) -> Path | None:
         if current.parent == current:
             return None
         current = current.parent
+
+
+# ════════════════════════════════════════════════════════════════════════
+# WO3 — manifest and diff commands
+# ════════════════════════════════════════════════════════════════════════
+
+
+def _cmd_manifest(args: argparse.Namespace) -> int:
+    """Generate a deterministic capability manifest for a path."""
+    import sys
+
+    from actenon_scan.engine import scan_path
+    from actenon_scan.manifest import build_manifest, CoverageBlock
+
+    target = Path(args.path)
+    if not target.exists():
+        print(f"actenon-scan: path not found: {target}", file=sys.stderr)
+        return 1
+
+    result = scan_path(target, config=args.config)
+    caps = result.capabilities if hasattr(result, "capabilities") else []
+    coverage = CoverageBlock(
+        files_discovered=result.files_scanned,
+        files_analysed=result.files_scanned - len(result.analysis_errors),
+        files_unsupported=0,
+        files_failed=len(result.analysis_errors),
+        languages=list({c.language for c in caps}) if caps else ["python"],
+        analysis_errors=[{"file": f, "error": str(e)} for f, e in result.analysis_errors],
+    )
+    manifest = build_manifest(caps, coverage)
+    json_out = manifest.to_json()
+
+    if args.output:
+        Path(args.output).write_text(json_out, encoding="utf-8")
+        print(f"Manifest written to {args.output} ({manifest.manifest_hash})", file=sys.stderr)
+    else:
+        sys.stdout.write(json_out)
+    return 0
+
+
+def _cmd_diff(args: argparse.Namespace) -> int:
+    """Compare two capability manifests and classify changes."""
+    import json
+    import sys
+
+    from actenon_scan.manifest import load_manifest
+    from actenon_scan.diff import diff_manifests, ChangeType
+
+    base = load_manifest(args.base)
+    head = load_manifest(args.head)
+    result = diff_manifests(base, head)
+
+    if args.format == "json":
+        output: dict[str, Any] = {
+            "summary": result.summary,
+            "changes": [
+                {
+                    "type": c.change_type.value,
+                    "key": c.key,
+                    "detail": c.detail,
+                    "base_file": c.base.get("file") if c.base else None,
+                    "base_line": c.base.get("line") if c.base else None,
+                    "head_file": c.head.get("file") if c.head else None,
+                    "head_line": c.head.get("line") if c.head else None,
+                }
+                for c in result.changes
+            ],
+            "coverage_regressions": result.coverage_regressions,
+        }
+        sys.stdout.write(json.dumps(output, indent=2) + "\n")
+    else:
+        # Summary format
+        print()
+        print("BLAST RADIUS CHANGE")
+        print()
+        print(f"  New capabilities:             {result.summary.get('NEW_CAPABILITY', 0)}")
+        print(f"  Removed capabilities:          {result.summary.get('REMOVED_CAPABILITY', 0)}")
+        print(f"  Guard removed:                 {result.summary.get('GUARD_REMOVED', 0)}")
+        print(f"  Guard added:                   {result.summary.get('GUARD_ADDED', 0)}")
+        print(f"  Guard binding weakened:        {result.summary.get('GUARD_BINDING_WEAKENED', 0)}")
+        print(f"  Guard binding strengthened:    {result.summary.get('GUARD_BINDING_STRENGTHENED', 0)}")
+        print(f"  Coverage regressions:          {result.summary.get('COVERAGE_REGRESSION', 0)}")
+        print(f"  Unchanged legacy candidates:  {result.summary.get('UNCHANGED_LEGACY_CANDIDATE', 0)}")
+        print()
+
+        for change in result.changes:
+            if change.change_type == ChangeType.NO_BLAST_RADIUS_CHANGE:
+                continue
+            if change.change_type == ChangeType.UNCHANGED_LEGACY_CANDIDATE:
+                continue  # don't dump legacy candidates in default output
+            print(f"  {change.change_type.value}")
+            if change.head:
+                fn = change.head.get("function_name", "")
+                file = change.head.get("file", "")
+                line = change.head.get("line", "")
+                print(f"    + {fn}")
+                print(f"      Entry point: {file}:{fn}")
+                print(f"      State: {change.head.get('state', '')}")
+            elif change.base:
+                fn = change.base.get("function_name", "")
+                file = change.base.get("file", "")
+                print(f"    - {fn}")
+                print(f"      Was at: {file}")
+            if change.detail:
+                print(f"      {change.detail}")
+            print()
+
+        if not result.has_changes:
+            print("  No blast-radius change detected.")
+            print()
+
+    # Exit code based on --fail-on policy
+    # Exit codes (reconciled with scan):
+    #   0 = no issues found (or report-only mode)
+    #   1 = findings/changes present (fail-on policy triggered)
+    #   2 = error (bad input, missing file, etc.)
+    fail_on = args.fail_on
+    if fail_on == "none":
+        return 0
+
+    # UNCHANGED_LEGACY_CANDIDATE never causes failure
+    breaking_types: set[str] = set()
+    if fail_on == "new-capability":
+        breaking_types = {"NEW_CAPABILITY"}
+    elif fail_on == "guard-removal":
+        breaking_types = {"GUARD_REMOVED"}
+    elif fail_on == "guard-weakened":
+        breaking_types = {"GUARD_BINDING_WEAKENED"}
+    elif fail_on == "coverage-regression":
+        breaking_types = {"COVERAGE_REGRESSION"}
+    elif fail_on == "breaking":
+        breaking_types = {
+            "NEW_CAPABILITY", "GUARD_REMOVED",
+            "GUARD_BINDING_WEAKENED", "COVERAGE_REGRESSION",
+        }
+    elif fail_on == "selected":
+        breaking_types = {
+            "NEW_CAPABILITY", "REMOVED_CAPABILITY",
+            "GUARD_REMOVED", "GUARD_BINDING_WEAKENED",
+            "COVERAGE_REGRESSION",
+        }
+
+    for change in result.changes:
+        if change.change_type.value in breaking_types:
+            return 1
+
+    return 0
+
+
+# ════════════════════════════════════════════════════════════════════════
+# WO3 — manifest and diff commands
+# ════════════════════════════════════════════════════════════════════════
+
+
+def _cmd_manifest(args: argparse.Namespace) -> int:
+    """Generate a deterministic capability manifest for a path."""
+    import sys
+
+    from actenon_scan.engine import scan_path
+    from actenon_scan.manifest import build_manifest, CoverageBlock
+
+    target = Path(args.path)
+    if not target.exists():
+        print(f"actenon-scan: path not found: {target}", file=sys.stderr)
+        return 1
+
+    result = scan_path(target, config=args.config)
+    caps = result.capabilities if hasattr(result, "capabilities") else []
+    coverage = CoverageBlock(
+        files_discovered=result.files_scanned,
+        files_analysed=result.files_scanned - len(result.analysis_errors),
+        files_unsupported=0,
+        files_failed=len(result.analysis_errors),
+        languages=list({c.language for c in caps}) if caps else ["python"],
+        analysis_errors=[{"file": f, "error": str(e)} for f, e in result.analysis_errors],
+    )
+    manifest = build_manifest(caps, coverage)
+    json_out = manifest.to_json()
+
+    if args.output:
+        Path(args.output).write_text(json_out, encoding="utf-8")
+        print(f"Manifest written to {args.output} ({manifest.manifest_hash})", file=sys.stderr)
+    else:
+        sys.stdout.write(json_out)
+    return 0
+
+
+def _cmd_diff(args: argparse.Namespace) -> int:
+    """Compare two capability manifests and classify changes."""
+    import json
+    import sys
+
+    from actenon_scan.manifest import load_manifest
+    from actenon_scan.diff import diff_manifests, ChangeType
+
+    base = load_manifest(args.base)
+    head = load_manifest(args.head)
+    result = diff_manifests(base, head)
+
+    if args.format == "json":
+        output = {
+            "summary": result.summary,
+            "changes": [
+                {
+                    "type": c.change_type.value,
+                    "key": c.key,
+                    "detail": c.detail,
+                }
+                for c in result.changes
+            ],
+            "coverage_regressions": result.coverage_regressions,
+        }
+        sys.stdout.write(json.dumps(output, indent=2) + "\n")
+    else:
+        # Summary format
+        print()
+        print("BLAST RADIUS CHANGE")
+        print()
+        print(f"  New capabilities:             {result.summary.get('NEW_CAPABILITY', 0)}")
+        print(f"  Removed capabilities:          {result.summary.get('REMOVED_CAPABILITY', 0)}")
+        print(f"  Guard removed:                 {result.summary.get('GUARD_REMOVED', 0)}")
+        print(f"  Guard added:                   {result.summary.get('GUARD_ADDED', 0)}")
+        print(f"  Guard binding weakened:        {result.summary.get('GUARD_BINDING_WEAKENED', 0)}")
+        print(f"  Guard binding strengthened:    {result.summary.get('GUARD_BINDING_STRENGTHENED', 0)}")
+        print(f"  Coverage regressions:          {result.summary.get('COVERAGE_REGRESSION', 0)}")
+        print(f"  Unchanged legacy candidates:  {result.summary.get('UNCHANGED_LEGACY_CANDIDATE', 0)}")
+        print()
+
+        for change in result.changes:
+            if change.change_type in (ChangeType.NO_BLAST_RADIUS_CHANGE,
+                                      ChangeType.UNCHANGED_LEGACY_CANDIDATE):
+                continue
+            print(f"  {change.change_type.value}")
+            if change.head:
+                fn = change.head.get("function_name", "")
+                file = change.head.get("file", "")
+                print(f"    + {fn}")
+                print(f"      Entry point: {file}:{fn}")
+                print(f"      State: {change.head.get('state', '')}")
+            elif change.base:
+                fn = change.base.get("function_name", "")
+                file = change.base.get("file", "")
+                print(f"    - {fn}")
+                print(f"      Was at: {file}")
+            if change.detail:
+                print(f"      {change.detail}")
+            print()
+
+        if not result.has_changes:
+            print("  No blast-radius change detected.")
+            print()
+
+    # Exit code based on --fail-on policy
+    fail_on = args.fail_on
+    if fail_on == "none":
+        return 0
+
+    breaking_types = set()
+    if fail_on == "new-capability":
+        breaking_types = {"NEW_CAPABILITY"}
+    elif fail_on == "guard-removal":
+        breaking_types = {"GUARD_REMOVED"}
+    elif fail_on == "guard-weakened":
+        breaking_types = {"GUARD_BINDING_WEAKENED"}
+    elif fail_on == "coverage-regression":
+        breaking_types = {"COVERAGE_REGRESSION"}
+    elif fail_on == "breaking":
+        breaking_types = {"NEW_CAPABILITY", "GUARD_REMOVED",
+                          "GUARD_BINDING_WEAKENED", "COVERAGE_REGRESSION"}
+    elif fail_on == "selected":
+        breaking_types = {"NEW_CAPABILITY", "REMOVED_CAPABILITY",
+                          "GUARD_REMOVED", "GUARD_BINDING_WEAKENED",
+                          "COVERAGE_REGRESSION"}
+
+    for change in result.changes:
+        if change.change_type.value in breaking_types:
+            return 1
+
+    return 0
