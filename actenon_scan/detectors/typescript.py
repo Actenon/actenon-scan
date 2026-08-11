@@ -35,6 +35,7 @@ class TSFinding:
     # "weak" means downgrade to LOW; "unbound" means downgrade to MEDIUM.
     guard_status: str = ""
     guard_message: str = ""
+    function_name: str = ""  # WO3: bare name of enclosing function
 
 
 # TypeScript sink rules — same rule IDs and categories as Python.
@@ -501,6 +502,7 @@ def analyze_typescript_file(
                     call_text=call_name,
                     guard_status=guard_status,
                     guard_message=guard_message,
+                    function_name=_get_function_name(enclosing_func, source_lines) if enclosing_func else "",
                 ))
                 break  # one finding per call — exit for-pattern loop
             else:

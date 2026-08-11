@@ -69,6 +69,7 @@ class Capability:
     tier: str = "production"
     language: str = "python"
     snippet_hash: str = ""
+    function_name: str = ""  # bare name of enclosing function (WO3)
 
 
 @dataclass

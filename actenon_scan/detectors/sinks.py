@@ -23,6 +23,7 @@ class SinkFinding:
     suppressed: bool = False
     suppression_reason: str = ""
     tier: str = "production"
+    function_name: str = ""  # WO3: bare name of enclosing function
 
 
 def detect_sinks(
@@ -98,6 +99,7 @@ def detect_sinks(
                         line=node.lineno,
                         col=node.col_offset,
                         call_text=_call_to_text(node),
+                        function_name=_get_enclosing_function_name(node, parent_map),
                     ))
                     break  # one finding per call
 
@@ -120,6 +122,7 @@ def detect_sinks(
                             line=node.lineno,
                             col=node.col_offset,
                             call_text=_call_to_text(node),
+                            function_name=_get_enclosing_function_name(node, parent_map),
                         ))
                         break
 
@@ -135,6 +138,7 @@ def detect_sinks(
                             line=node.lineno,
                             col=node.col_offset,
                             call_text=_call_to_text(node),
+                            function_name=_get_enclosing_function_name(node, parent_map),
                         ))
                         break
 
@@ -158,6 +162,7 @@ def detect_sinks(
                                             line=node.lineno,
                                             col=node.col_offset,
                                             call_text=repr(node.value.value[:80]),
+                                            function_name=_get_enclosing_function_name(node, parent_map),
                                         ))
                                         break
 
@@ -184,6 +189,22 @@ def _find_enclosing_function_with_parents(
         current = parent_map.get(id(current))
     return None
 
+
+def _get_enclosing_function_name(
+    node: ast.AST, parent_map: dict[int, ast.AST]
+) -> str:
+    """Return the bare name of the function enclosing ``node``, or "".
+
+    WO3: used to populate ``SinkFinding.function_name`` for capability
+    identity. Bare name, not qualified — the scanner does not track
+    class membership, so two same-named methods in different classes
+    in one file collide. This is a documented limitation (see
+    docs/IDENTITY_DESIGN.md).
+    """
+    func = _find_enclosing_function_with_parents(node, parent_map)
+    if func is not None:
+        return func.name
+    return ""
 
 def _check_escalate(
     node: ast.Call,

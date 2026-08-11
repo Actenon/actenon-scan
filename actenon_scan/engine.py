@@ -18,6 +18,20 @@ if TYPE_CHECKING:
     from actenon_scan.cache import FileCache
 
 
+def _normalise_path(path: str) -> str:
+    r"""Normalise a file path to POSIX separators for stable identity.
+
+    WO3: paths are normalised at capability construction time, not at
+    serialisation. This ensures a Windows-style path (``src\pkg\mod.py``)
+    and a POSIX path (``src/pkg/mod.py``) for the same file produce the
+    same capability key.
+
+    Only backslash → forward slash conversion; no case folding, no
+    symlink resolution, no canonicalisation beyond the separator.
+    """
+    return path.replace("\\", "/")
+
+
 @dataclass
 class Finding:
     file: str
@@ -624,6 +638,7 @@ def scan_path_parallel(
             reachability_source="handler",
             tier=_assign_tier(tf.file),
             language="typescript",
+            function_name=tf.function_name,
         ))
         # Guarded findings are capabilities only — do not add to findings
         if tf.guard_status == "guarded":
@@ -758,7 +773,7 @@ def scan_path(
     REACH_MARKERS = _reachability_markers(rules.reachability)
 
     for filepath in files:
-        rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
+        rel = _normalise_path(str(filepath.relative_to(target) if target.is_dir() else filepath.name))
         try:
             # utf-8-sig strips a UTF-8 BOM if present. Windows-based developers
             # and some Linux editors save files with BOMs; without this, those
@@ -904,6 +919,7 @@ def scan_path(
                     tier=_assign_tier(rel),
                     language="python",
                     snippet_hash=_compute_snippet_hash(source, sf.line),
+                    function_name=sf.function_name,
                 )
                 capabilities.append(capability)
 
@@ -1023,6 +1039,7 @@ def scan_path(
                 reachability_source="handler",  # TS reachability is handler-based
                 tier=_assign_tier(tf.file),
                 language="typescript",
+                function_name=tf.function_name,
             ))
             # Guarded findings are capabilities only — do not add to findings
             if tf.guard_status == "guarded":
@@ -1079,7 +1096,7 @@ def scan_path(
         for go_file in go_files:
             try:
                 go_source = go_file.read_bytes()
-                rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
+                rel = _normalise_path(str(go_file.relative_to(target)) if target.is_dir() else go_file.name)
                 go_findings = scan_go_file(rel, go_source, guard_patterns=rules.guard_patterns)
                 for gf in go_findings:
                     # Work Order 2, Phase 5: record a Capability for every
@@ -1103,6 +1120,7 @@ def scan_path(
                         reachability_source=reach_source,
                         tier=_assign_tier(gf.file),
                         language="go",
+                        function_name=gf.function_name,
                     ))
                     # ITEM 1: skip findings dominated by a parameter-bound guard
                     if gf.guard_status == "guarded":
@@ -1124,7 +1142,7 @@ def scan_path(
                     ))
                 go_scanned += 1
             except Exception as exc:
-                rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
+                rel = _normalise_path(str(go_file.relative_to(target)) if target.is_dir() else go_file.name)
                 go_errors.append((rel, f"{type(exc).__name__}: {exc}"))
         analysis_errors.extend(go_errors)
         # Remove Go files from unsupported_files
@@ -1261,7 +1279,7 @@ def _scan_typescript_files(
     errors: list[tuple[str, str]] = []
 
     for filepath in ts_files:
-        rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
+        rel = _normalise_path(str(filepath.relative_to(target) if target.is_dir() else filepath.name))
         ts_findings, file_errors = analyze_typescript_file(filepath, guard_patterns=guard_patterns)
         for f in ts_findings:
             all_findings.append(TSFindingWithFile(
