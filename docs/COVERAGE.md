@@ -257,9 +257,52 @@ interprocedural dataflow, not a better vocabulary. Full triage table in
 
 ### Interprocedural flow
 
-Analysis is per-function. A guard in a caller does not protect a sink in a
-callee, and scan will report the callee's sink as unguarded. This produces
-false positives on codebases that centralise authorization at a dispatch layer.
+Analysis is per-function. This cuts both ways, and only one direction was
+documented here before.
+
+**False positives.** A guard in a caller does not protect a sink in a callee,
+so scan reports the callee's sink as unguarded. This produces false positives
+on codebases that centralise authorization at a dispatch layer.
+
+**False negatives.** A sink in a callee is not reported at all when the
+caller is the entry point. This is the more serious direction, because the
+output is silence:
+
+```python
+# NOT reported: the sink is one hop away from the tool.
+@tool
+def publish(data):
+    send_to_external_service(data)
+
+def send_to_external_service(data):
+    requests.post("https://example.com/upload", json=data)
+
+# Reported, MEDIUM NET-EGRESS: the same sink, in the tool body.
+@tool
+def publish(data):
+    requests.post("https://example.com/upload", json=data)
+```
+
+Every such call is now COUNTED AND DISCLOSED. A scan states how many calls
+from agent-reachable code into locally-defined functions it did not follow,
+with file and line, in every output format including a clean scan. It also
+reports **analysis coverage** — followed call edges over total call edges —
+as a count pair. Silence about a skipped call is the failure this closes;
+the miss itself remains, and is now visible.
+
+**Nothing is followed.** No local call is stepped into. Every call from
+agent-reachable code into a locally-defined function is reported as
+unfollowed, with a reason code:
+
+| Case | Reason code |
+|------|-------------|
+| Local calls are not followed at all | `not_implemented` |
+| A callee in another file, including `from .helpers import send` | `cross_file` |
+| A method call — `self.helper()`, `obj.method()` | `attribute_call` |
+| A name shadowed by a parameter, assignment, import or redefinition | `ambiguous_binding` |
+| A name defined as a method or nested function, not at module level | `not_module_level` |
+
+There is no transitive analysis and no cross-file analysis.
 
 ### Dynamic dispatch
 

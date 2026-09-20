@@ -66,6 +66,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Changed — documentation
+
+- `docs/COVERAGE.md` "Interprocedural flow" now states the false-NEGATIVE
+  direction, with the worked pair, alongside the false-positive direction it
+  already documented. It lists every reason an edge goes unfollowed.
+- `README.md`: "What it does not establish" gained the claim that the
+  findings are not all of them, with the disclosure output shown, and an
+  explicit note that analysis coverage is not a safety figure and that no
+  "% protected" figure exists. The fixture section documents the new
+  wherever-it-appears exclusion and `--include-fixtures`. The
+  machine-verified list gained the printed-command gate.
+
 ### Fixed — self-scan flooding
 
 - **Scanning a directory that contains a clone of this repo reported this

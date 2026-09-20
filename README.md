@@ -153,7 +153,35 @@ The scanner does **not** automatically establish that:
 - no guard exists outside the analysed file or supported architecture;
 - exploitation is practical;
 - the operation is irreversible;
-- the finding is a vulnerability.
+- the finding is a vulnerability;
+- **the findings are all of them.** Analysis is per-function, so a sink one
+  hop away — in a helper the tool calls — is not reported. The count is a
+  floor, not a total.
+
+### The count is a floor
+
+Every scan states how many calls from agent-reachable code into
+locally-defined functions it did not follow, and reports **analysis
+coverage** as a count pair:
+
+```
+2 call(s) from agent-reachable code into locally-defined functions were not
+followed; sinks reached only through them are not reported.
+  app/tools.py:14  publish() -> send_to_external_service()  [not_implemented]
+Call edges from agent-reachable code: 0 followed, 2 not followed (0.0%).
+```
+
+This appears on clean scans too — a clean scan is where silence is most
+likely to be read as safety. It is printed by every output format:
+`pretty`, `list`, `json`, `sarif` (as `toolExecutionNotifications`),
+`markdown` and `html`.
+
+Analysis coverage measures **how much of the call structure was examined**.
+It is not a measure of how safe the code is, and there is deliberately no
+figure of the form "% of actions protected" or "authority coverage": that
+denominator would be the total number of consequential actions in the code,
+which is unknown by exactly the amount the unfollowed count describes. See
+[`docs/COVERAGE.md`](docs/COVERAGE.md#interprocedural-flow).
 
 ## How to explain a finding
 
@@ -336,6 +364,19 @@ The file is auto-detected by `actenon-scan scan .` — no `--config` flag
 needed. This repo ships one itself; see
 [`.actenon-scan.json`](.actenon-scan.json).
 
+**actenon-scan's own fixtures are excluded wherever they appear.** If you
+clone this repo into a workspace and scan the workspace, that
+`.actenon-scan.json` does not apply — it is only read when the scan target is
+the repo root. Those fixture trees are therefore recognised by path and held
+aside, confirmed by checking that the tree really is an actenon-scan
+checkout, so your own `tests/benchmark/` directory is unaffected. The count
+is stated and `--include-fixtures` shows them:
+
+```
+79 finding(s) in actenon-scan's own test fixtures were excluded;
+--include-fixtures to show
+```
+
 ## How to configure custom guards
 
 ```bash
@@ -397,6 +438,12 @@ makes about the package stops being true:
   hand-edited.
 - **The ecosystem table** — rendered from the protocol's `ecosystem.yaml`,
   never hand-edited.
+- **Every command the tool prints** — each `actenon-scan <subcommand>` string
+  reachable in the package is resolved against the subparser registry of the
+  same build ([`scripts/check_printed_commands.py`](scripts/check_printed_commands.py)).
+  Output that advertises a subcommand the shipped build does not have sends
+  users to `invalid choice`, which is the same failure class as a silent
+  miss: the output describes a build the reader is not holding.
 
 If a claim drifts, the badge goes red before a human notices.
 
