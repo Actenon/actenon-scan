@@ -66,6 +66,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Added — analysis coverage
+
+- An analysis-coverage figure with a fully observed denominator, reported as
+  a count pair with the percentage secondary: "Call edges from agent-reachable
+  code: 214 followed, 37 not followed (85.3%)." An EDGE is a call site inside
+  an agent-reachable function whose callee is defined in the same file. Both
+  terms are observed, never estimated. On `ScanResult.analysis_coverage` and
+  in every output path.
+- The figure is labelled *analysis coverage* and states what it is not:
+  "how much of the call structure was examined. It is not a measure of how
+  safe this code is." There is deliberately no "authority coverage",
+  "% of actions protected" or "% safe" figure: any such ratio divides by an
+  estimate of the total number of consequential actions, and that total is
+  unknown by exactly the amount the unfollowed-call count reports.
+  `tests/test_forbidden_coverage_metric.py` fails the build if one appears.
+
 ### Added
 
 - `scripts/check_printed_commands.py` and a CI step in `ci.yml` and

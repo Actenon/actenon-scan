@@ -27,10 +27,11 @@ def _html_unfollowed(result) -> list[str]:
     was checked, so the limits of what was checked travel with it.
     """
     edges = result.unfollowed_local_calls
-    if not edges:
+    followed, unfollowed, pct = result.analysis_coverage
+    if not edges and not followed:
         return []
     parts: list[str] = ['<section class="coverage">']
-    parts.append("<h2>Calls not followed</h2>")
+    parts.append("<h2>Analysis coverage</h2>")
     if edges:
         n = len(edges)
         call_word = "call" if n == 1 else "calls"
@@ -52,6 +53,16 @@ def _html_unfollowed(result) -> list[str]:
         if n > 20:
             parts.append(f"<li>... and {n - 20} more</li>")
         parts.append("</ul>")
+    if pct is not None:
+        parts.append(
+            f"<p><strong>Call edges from agent-reachable code:</strong> "
+            f"{followed} followed, {unfollowed} not followed ({pct:.1f}%).</p>"
+        )
+        parts.append(
+            "<p>This is <em>analysis coverage</em> &mdash; how much of the call "
+            "structure was examined. It is not a measure of how safe this code "
+            "is.</p>"
+        )
     parts.append("</section>")
     return parts
 

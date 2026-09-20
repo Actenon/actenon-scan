@@ -120,6 +120,7 @@ def format_sarif(result: ScanResult) -> str:
     # Putting the unfollowed calls there means a SARIF consumer — including
     # GitHub code scanning — surfaces the gap next to the results rather than
     # presenting an empty results array as an all-clear.
+    followed, unfollowed, pct = result.analysis_coverage
     notifications = []
     for e in result.unfollowed_local_calls:
         notifications.append({
@@ -156,6 +157,18 @@ def format_sarif(result: ScanResult) -> str:
         },
         "invocations": [invocation],
         "results": results,
+        "properties": {
+            "analysisCoverage": {
+                "followedEdges": followed,
+                "unfollowedEdges": unfollowed,
+                "percentFollowed": round(pct, 1) if pct is not None else None,
+                "meaning": (
+                    "Call edges from agent-reachable code into functions "
+                    "defined in the same file. Analysis coverage, not safety "
+                    "coverage."
+                ),
+            }
+        },
     }
 
     sarif = {

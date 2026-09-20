@@ -189,7 +189,8 @@ def format_unfollowed_calls(
     every edge it found prints no apology it does not owe.
     """
     edges = result.unfollowed_local_calls
-    if not edges:
+    followed, unfollowed, pct = result.analysis_coverage
+    if not edges and not followed:
         return []
 
     lines: list[str] = []
@@ -210,6 +211,16 @@ def format_unfollowed_calls(
             )
         if n > 10:
             lines.append(f"{indent}  ... and {n - 10} more")
+    if pct is not None:
+        # Counts first, percentage second. The pair is what is observed; the
+        # percentage is a convenience derived from it, and leading with the
+        # percentage would invite it to be quoted on its own.
+        lines.append(
+            f"{indent}Call edges from agent-reachable code: {followed} followed, "
+            f"{unfollowed} not followed ({pct:.1f}%). This is analysis coverage — "
+            f"how much of the call structure was examined. It is not a measure "
+            f"of how safe this code is."
+        )
     return lines
 
 

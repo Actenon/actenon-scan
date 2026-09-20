@@ -95,8 +95,9 @@ def test_every_text_output_path_discloses_the_gap(one_hop_tree, formatter):
 
 def test_json_carries_the_gap_machine_readably(one_hop_tree):
     d = json.loads(format_json(scan_path(one_hop_tree)))
-    assert len(d["unfollowed_local_calls"]) == 1
-    assert d["unfollowed_local_calls"][0]["callee"] == "send_to_external_service"
+    cov = d["analysis_coverage"]
+    assert cov["unfollowed_edges"] == 1
+    assert cov["unfollowed_calls"][0]["callee"] == "send_to_external_service"
 
 
 def test_sarif_reports_the_gap_as_a_tool_execution_notification(one_hop_tree):
@@ -106,6 +107,7 @@ def test_sarif_reports_the_gap_as_a_tool_execution_notification(one_hop_tree):
     notes = run["invocations"][0]["toolExecutionNotifications"]
     assert len(notes) == 1
     assert "was not followed" in notes[0]["message"]["text"]
+    assert run["properties"]["analysisCoverage"]["unfollowedEdges"] == 1
 
 
 def test_headline_does_not_stand_alone_while_calls_are_unfollowed(tmp_path: Path):
@@ -126,6 +128,13 @@ def test_clean_scan_limitations_states_the_real_count_not_a_literal_N(one_hop_tr
     assert "1 call from agent-reachable code" in out
 
 
+def test_coverage_pair_is_counts_first_percentage_second(one_hop_tree):
+    out = format_list(scan_path(one_hop_tree))
+    assert "0 followed, 1 not followed (0.0%)" in out
+    # The figure must never be labelled as a safety or protection measure.
+    lowered = out.lower()
+    for banned in ("authority coverage", "% safe", "protected", "risk coverage"):
+        assert banned not in lowered
 
 
 def test_ambiguous_binding_is_disclosed_not_followed(tmp_path: Path):
@@ -153,6 +162,7 @@ def test_a_call_to_a_library_function_is_not_an_edge(tmp_path: Path):
     )
     result = scan_path(tmp_path)
     assert result.unfollowed_local_calls == []
+    assert result.followed_local_calls == 0
 
 
 def test_cache_hit_discloses_the_same_gap_as_a_fresh_scan(one_hop_tree, tmp_path: Path):
@@ -162,6 +172,7 @@ def test_cache_hit_discloses_the_same_gap_as_a_fresh_scan(one_hop_tree, tmp_path
     cache = FileCache(tmp_path / "cachedir")
     first = scan_path(one_hop_tree, cache=cache)
     second = scan_path(one_hop_tree, cache=cache)
+    assert second.analysis_coverage == first.analysis_coverage
     assert [
         (e.file, e.line, e.callee) for e in second.unfollowed_local_calls
     ] == [(e.file, e.line, e.callee) for e in first.unfollowed_local_calls]

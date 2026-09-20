@@ -26,9 +26,10 @@ def _markdown_unfollowed(result) -> list[str]:
     in a PR comment where nobody re-runs the tool to check.
     """
     edges = result.unfollowed_local_calls
-    if not edges:
+    followed, unfollowed, pct = result.analysis_coverage
+    if not edges and not followed:
         return []
-    lines: list[str] = ["", "## Calls not followed", ""]
+    lines: list[str] = ["", "## Analysis coverage", ""]
     if edges:
         n = len(edges)
         call_word = "call" if n == 1 else "calls"
@@ -49,6 +50,16 @@ def _markdown_unfollowed(result) -> list[str]:
         if n > 20:
             lines.append(f"| ... and {n - 20} more | | |")
         lines.append("")
+    if pct is not None:
+        lines.append(
+            f"**Call edges from agent-reachable code:** {followed} followed, "
+            f"{unfollowed} not followed ({pct:.1f}%)."
+        )
+        lines.append("")
+        lines.append(
+            "This is *analysis coverage* — how much of the call structure was "
+            "examined. It is not a measure of how safe this code is."
+        )
     return lines
 
 

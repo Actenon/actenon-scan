@@ -87,20 +87,34 @@ def format_json(result: ScanResult) -> str:
                 for rel, lang in result.unsupported_files
             ],
         },
-        # Calls the analysis did not follow. Machine-readable counterpart to
-        # the disclosure printed in the text formats. A consumer that reads
-        # finding_count without reading this is reading a floor as a total.
-        "unfollowed_local_calls": [
-            {
-                "file": e.file,
-                "line": e.line,
-                "col": e.col,
-                "caller": e.caller,
-                "callee": e.callee,
-                "reason": e.reason,
-            }
-            for e in result.unfollowed_local_calls
-        ],
+        # Analysis coverage. Machine-readable counterpart to the disclosure
+        # printed in the text formats. A consumer that reads finding_count
+        # without reading this is reading a floor as if it were a total.
+        "analysis_coverage": {
+            "followed_edges": result.analysis_coverage[0],
+            "unfollowed_edges": result.analysis_coverage[1],
+            "percent_followed": (
+                round(result.analysis_coverage[2], 1)
+                if result.analysis_coverage[2] is not None else None
+            ),
+            "_meaning": (
+                "Call edges from agent-reachable code into functions defined "
+                "in the same file. This is analysis coverage, not safety "
+                "coverage: it says how much of the call structure was "
+                "examined, not how much of the code is protected."
+            ),
+            "unfollowed_calls": [
+                {
+                    "file": e.file,
+                    "line": e.line,
+                    "col": e.col,
+                    "caller": e.caller,
+                    "callee": e.callee,
+                    "reason": e.reason,
+                }
+                for e in result.unfollowed_local_calls
+            ],
+        },
         "errored": {
             "count": len(result.analysis_errors),
             "files": [

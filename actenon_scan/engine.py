@@ -87,10 +87,37 @@ class ScanResult:
     unsupported_files: list[tuple[str, str]] = field(default_factory=list)
     # Call edges from agent-reachable code into functions defined in the same
     # file. The analysis is per-function: a sink one hop from an entry point
-    # is not reported. Before this field existed, that gap was silent and a
+    # is not reported. Before these fields existed, that gap was silent and a
     # scan of such code printed CLEAN with nothing to say a call had been
-    # stepped over. Every output path prints it.
+    # stepped over. `unfollowed_local_calls` is the disclosure — every output
+    # path prints it — and `followed_local_calls` is the other half of the
+    # coverage ratio. Both come from the same walk, so they cannot disagree.
     unfollowed_local_calls: list[LocalCallEdge] = field(default_factory=list)
+    followed_local_calls: int = 0
+
+    @property
+    def analysis_coverage(self) -> tuple[int, int, float | None]:
+        """(followed, unfollowed, percentage) over local call edges.
+
+        An EDGE is a call site inside an agent-reachable function whose callee
+        is a function defined in the file being analysed. Both terms are
+        DIRECTLY OBSERVED: the edge was seen, and it was either followed or
+        not. That is the whole point of this figure and the reason it is the
+        only coverage number this tool reports.
+
+        There is deliberately no figure of the form "authority coverage",
+        "% of actions protected" or "% safe" — anything dividing findings by
+        an ESTIMATE of the total number of consequential actions. That
+        denominator is unknown by exactly the amount `unfollowed_local_calls`
+        describes. Publishing such a ratio would convert this tool's central
+        disclosure into a reassuring percentage, which is the failure mode it
+        exists to prevent.
+        """
+        followed = self.followed_local_calls
+        unfollowed = len(self.unfollowed_local_calls)
+        total = followed + unfollowed
+        pct = (followed / total * 100.0) if total else None
+        return followed, unfollowed, pct
 
     @property
     def finding_count(self) -> int:
@@ -617,6 +644,7 @@ def scan_path_parallel(
         # scan that dropped it would report a smaller gap than the serial
         # scan of the same tree, purely because of a --jobs flag.
         merged.unfollowed_local_calls.extend(r.unfollowed_local_calls)
+        merged.followed_local_calls += r.followed_local_calls
         merged.files_scanned += r.files_scanned
         if merged.rules_used is None:
             merged.rules_used = r.rules_used
@@ -1205,6 +1233,7 @@ def scan_path(
             (e for e in local_call_edges if not e.followed),
             key=lambda e: (e.file, e.line, e.col),
         ),
+        followed_local_calls=sum(1 for e in local_call_edges if e.followed),
     )
 
 
