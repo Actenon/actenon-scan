@@ -15,6 +15,18 @@ from actenon_scan.engine import scan_path
 
 
 def _scan_source(source: str):
+    """Scan source with resource-boundary enabled (Task 4c: the signal
+    is now opt-in). Tests that expect resource-boundary findings must
+    pass resource_boundary=True."""
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "test.py"
+        p.write_text(source)
+        return scan_path(Path(td), resource_boundary=True)
+
+
+def _scan_source_defaults(source: str):
+    """Scan source with DEFAULTS (resource-boundary OFF). Used to verify
+    that resource-boundary is opt-in (Task 4c)."""
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "test.py"
         p.write_text(source)
@@ -141,3 +153,53 @@ def run_command(cmd: str):
     caps = result.capabilities
     assert len(caps) >= 1
     assert "resource_boundary" in caps[0].reachability_reason
+
+
+def test_resource_boundary_off_at_defaults():
+    """Task 4c: resource-boundary is OPT-IN. At defaults (no flag), a
+    FastAPI/Flask route handler is NOT detected as reachable — a route
+    decorator is not evidence that an agent is involved."""
+    source = '''import subprocess
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.post("/run")
+def run_command(cmd: str):
+    return subprocess.run(cmd, shell=True, capture_output=True).stdout.decode()
+'''
+    result = _scan_source_defaults(source)
+    active = [f for f in result.findings if not f.suppressed]
+    assert len(active) == 0, (
+        "resource-boundary must be OFF at defaults — a route decorator is "
+        "not evidence that an agent is involved. Pass --resource-boundary "
+        "to enable. See docs/COVERAGE.md."
+    )
+
+
+def test_patch_from_unittest_mock_not_matched():
+    """Task 4c: bare decorator names (@patch, @get, @post) are NEVER
+    matched — they collide with @patch from unittest.mock. Only
+    qualified forms (@app.get, @router.post) are matched, and only
+    when --resource-boundary is enabled."""
+    source = '''import subprocess
+from unittest.mock import patch
+
+@patch("__main__.subprocess.run")
+def mock_handler(mock_run):
+    subprocess.run("ls", shell=True)
+'''
+    # At defaults: no finding
+    result_defaults = _scan_source_defaults(source)
+    active_defaults = [f for f in result_defaults.findings if not f.suppressed]
+    assert len(active_defaults) == 0, (
+        "@patch from unittest.mock must NOT be matched at defaults — "
+        "bare decorator names are never in resource_boundary_decorators."
+    )
+    # Even with --resource-boundary: no finding (bare @patch is never matched)
+    result_flag = _scan_source(source)
+    active_flag = [f for f in result_flag.findings if not f.suppressed]
+    assert len(active_flag) == 0, (
+        "@patch from unittest.mock must NOT be matched even with "
+        "--resource-boundary — bare decorator names are removed from "
+        "resource_boundary_decorators to prevent collision."
+    )

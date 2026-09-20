@@ -878,11 +878,51 @@ Resource-boundary entry points are web-framework route handlers and CLI
 commands that receive external input. They are a different entry-point
 class from agent tool handlers but equally consequential.
 
+### Task 4c reconciliation: bare-verb removal + opt-in gating
+
+**Decision (recorded here because two sessions disagreed):**
+
+- **Session two** removed bare decorator names (`@get`, `@post`, `@patch`,
+  etc.) from `resource_boundary_decorators` and gated the signal behind
+  `--resource-boundary`. Reasoning: `@patch` from `unittest.mock` scored
+  HIGH as a web route; bare names match any decorator with that name in
+  any codebase.
+
+- **Session three** declined, reasoning that removal drops genuine
+  routers like `org_router.get` — a custom router object named
+  `org_router` with a `.get` method is a real route handler.
+
+- **Reconciliation (this session):** Both are partly right. The fix is:
+  (a) keep **qualified forms** only (`app.get`, `router.post`,
+  `bp.route`, `blueprint.route`, and custom routers like
+  `org_router.get` — any `*.get`/`*.post`/etc. pattern);
+  (b) remove **bare forms** (`get`, `post`, `put`, `delete`, `patch`,
+  `route`, `api_route`) — they match `@patch` from `unittest.mock`
+  and any other bare decorator;
+  (c) gate the entire signal behind `--resource-boundary` (opt-in,
+  not default) — a route decorator is not evidence that an agent is
+  involved.
+
+**Verification (acceptance tests D and E):**
+
+- Flask tutorial at defaults → 0 findings ✅
+- Flask tutorial with `--resource-boundary` → `DATABASE-MUTATE`
+  finding at the INSERT line ✅
+- Custom router `org_router.get` with `--resource-boundary` → still
+  resolves (qualified form matches) ✅
+- `@patch` from `unittest.mock` at defaults → 0 findings ✅
+- `@patch` from `unittest.mock` with `--resource-boundary` → still 0
+  findings (bare `@patch` is never in `resource_boundary_decorators`) ✅
+
+Tests: `tests/test_resource_boundary.py` — 9 tests including
+`test_resource_boundary_off_at_defaults` and
+`test_patch_from_unittest_mock_not_matched`.
+
 ### Recognised frameworks per language
 
 | Language | Frameworks recognised | Status |
 |---|---|---|
-| Python | FastAPI (app/router), Flask (app/bp/Blueprint), generic route decorators | Supported |
+| Python | FastAPI (app/router), Flask (app/bp/Blueprint), custom routers (org_router.get) | Supported (opt-in via `--resource-boundary`) |
 | TypeScript | Express, Fastify, Koa, Next.js route handlers | Not yet implemented |
 | Go | net/http HandlerFunc, chi, gin, echo | Not yet implemented |
 

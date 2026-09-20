@@ -141,6 +141,20 @@ def main(argv: list[str] | None = None) -> int:
         help=argparse.SUPPRESS,
     )
 
+    # Task 4c: --resource-boundary makes web route handlers opt-in.
+    scan_parser.add_argument(
+        "--resource-boundary",
+        action="store_true",
+        default=False,
+        help="Also treat web route handlers (@app.route, @router.post, "
+             "@bp.get, etc.) as entry points. Off by default: a route "
+             "decorator is not evidence that an agent is involved, and "
+             "enabling it reports plain web views with no agent "
+             "framework present. Bare decorator names (@get, @post) "
+             "are NEVER matched — they collide with @patch from "
+             "unittest.mock and similar.",
+    )
+
     # rules
     _rules_parser = subparsers.add_parser("rules", help="List active rules.")
 
@@ -632,6 +646,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 cache=cache,
                 on_finding=on_finding,
                 repository_analysis=not getattr(args, "no_repository_analysis", False),
+                resource_boundary=(
+                    True if getattr(args, "resource_boundary", False) else None
+                ),
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:

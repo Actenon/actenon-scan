@@ -63,7 +63,17 @@ def detect_reachability(
     # FastAPI/Flask/Django route handlers, CLI commands. These are web
     # endpoints that receive external input — a different entry-point
     # class than agent tool handlers, but equally consequential.
-    resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
+    #
+    # Task 4c (bare-verb reconciliation): this signal is now OPT-IN.
+    # A route decorator is not evidence that an agent is involved. The
+    # README's headline question is "what can your AI agent do without
+    # permission?", and a Flask tutorial with no agent framework is not
+    # an answer to that question. Enable with --resource-boundary or the
+    # config key reachability.resource_boundary_enabled.
+    if not reachability_cfg.get("resource_boundary_enabled", False):
+        resource_decorators = []
+    else:
+        resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
     if resource_decorators and _has_resource_boundary_decorator(func_node, resource_decorators):
         result.confidence = "high"
         result.signals.append("resource_boundary")

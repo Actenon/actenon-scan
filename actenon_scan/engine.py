@@ -178,6 +178,13 @@ def _reachability_markers(reachability_cfg: dict) -> frozenset[str]:
         "tool_list_params",
         "agent_framework_imports",
     ):
+        # Task 4c: resource_boundary_decorators are only markers when the
+        # signal is enabled (--resource-boundary). When disabled (default),
+        # they are not markers — a file with only route decorators and no
+        # agent framework cannot produce a finding.
+        if key == "resource_boundary_decorators":
+            if not reachability_cfg.get("resource_boundary_enabled", False):
+                continue
         for item in reachability_cfg.get(key) or []:
             if isinstance(item, str):
                 # Match on the final attribute so "langchain.tools.tool"
@@ -720,6 +727,14 @@ def scan_path(
     # reachability. Pass ``repository_analysis=False`` to opt out
     # (backwards-compat with pre-5-A1 behaviour).
     repository_analysis: bool = True,
+    # Task 4c: resource-boundary entry points (web route handlers) are
+    # OPT-IN. A route decorator is not evidence that an agent is
+    # involved. Enable with --resource-boundary or the config key
+    # reachability.resource_boundary_enabled. When True, qualified
+    # forms like @app.get and @router.post are detected; bare forms
+    # like @get and @post are NEVER detected (they match @patch from
+    # unittest.mock).
+    resource_boundary: bool | None = None,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -750,6 +765,11 @@ def scan_path(
             ``--no-repository-analysis`` opt-out flag.
     """
     rules = load_rules(config)
+    # Task 4c: apply resource_boundary flag to the loaded ruleset so it
+    # is part of the cache key (a scan with it on cannot return results
+    # cached from a scan with it off).
+    if resource_boundary is not None:
+        rules.reachability["resource_boundary_enabled"] = bool(resource_boundary)
     target = Path(target)
     # Task 5-A1: disclosure counts. Initialised to defaults here and
     # populated from RepositoryAnalysisResult inside the repo block
