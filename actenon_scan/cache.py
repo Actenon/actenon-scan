@@ -148,6 +148,13 @@ class CacheEntry:
     #: the unfollowed-call count would under-report the gap on every run
     #: after the first — the same silent-clean failure, one run later.
     local_call_edges: list[dict] = field(default_factory=list)
+    #: Capabilities found in this file. Cached for the same reason as the
+    #: findings and the edges: a cache hit must describe the file exactly as
+    #: a fresh scan would. They were previously not cached at all, so a warm
+    #: cache reported the findings while the capability summary above them
+    #: counted only the files that happened to miss — "Consequential
+    #: capabilities: 5" over "can reach 87 consequential actions".
+    capabilities: list[dict] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps({
@@ -156,6 +163,7 @@ class CacheEntry:
             "findings": self.findings,
             "analysis_error": self.analysis_error,
             "local_call_edges": self.local_call_edges,
+            "capabilities": self.capabilities,
         }, sort_keys=True)
 
     @classmethod
@@ -169,6 +177,7 @@ class CacheEntry:
                 findings=d.get("findings", []),
                 analysis_error=d.get("analysis_error"),
                 local_call_edges=d.get("local_call_edges", []),
+                capabilities=d.get("capabilities", []),
             )
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
@@ -192,6 +201,29 @@ def _dict_to_edge(d: dict) -> "LocalCallEdge":
         caller=d.get("caller", ""), callee=d.get("callee", ""),
         followed=d.get("followed", False), reason=d.get("reason", ""),
     )
+
+
+_CAPABILITY_FIELDS = (
+    "file", "line", "col", "rule_id", "category", "severity", "call_text",
+    "state", "guard_status", "guard_message", "confidence",
+    "reachability_reason", "reachability_source", "tier", "language",
+    "snippet_hash",
+)
+
+
+def _capability_to_dict(c) -> dict:
+    """Serialise a Capability to a JSON-compatible dict."""
+    return {name: getattr(c, name, None) for name in _CAPABILITY_FIELDS}
+
+
+def _dict_to_capability(d: dict):
+    """Reconstruct a Capability from its cached dict."""
+    from actenon_scan.capability import Capability
+
+    return Capability(**{
+        name: d[name] for name in _CAPABILITY_FIELDS
+        if name in d and d[name] is not None
+    })
 
 
 def _finding_to_dict(f: Finding) -> dict:
@@ -309,13 +341,14 @@ class FileCache:
     def findings_for(
         self, source: str, file_rel: str, config: Any,
         analysis_flags: dict[str, Any] | None = None,
-    ) -> tuple[list[Finding], str | None, list["LocalCallEdge"]] | None:
+    ) -> tuple[list[Finding], str | None, list["LocalCallEdge"], list] | None:
         """Return cached (findings, analysis_error, edges) or None on miss.
 
         On a cache hit, the returned findings are IDENTICAL to what a
         fresh scan would produce (RULE 5: cache never changes findings).
-        The same holds for the local call edges: a cache hit discloses the
-        same analysis gap as a fresh scan.
+        The same holds for the local call edges and the capabilities: a cache
+        hit discloses the same analysis gap, and reports the same capability
+        counts, as a fresh scan.
         """
         key = compute_cache_key(source, config, analysis_flags)
         entry = self.get(key)
@@ -323,13 +356,15 @@ class FileCache:
             return None
         findings = [_dict_to_finding(d) for d in entry.findings]
         edges = [_dict_to_edge(d) for d in entry.local_call_edges]
-        return (findings, entry.analysis_error, edges)
+        caps = [_dict_to_capability(d) for d in entry.capabilities]
+        return (findings, entry.analysis_error, edges, caps)
 
     def store(
         self, source: str, file_rel: str, config: Any,
         findings: list[Finding], analysis_error: str | None,
         analysis_flags: dict[str, Any] | None = None,
         local_call_edges: "list[LocalCallEdge] | None" = None,
+        capabilities: list | None = None,
     ) -> None:
         """Store a per-file scan result in the cache."""
         key = compute_cache_key(source, config, analysis_flags)
@@ -339,6 +374,7 @@ class FileCache:
             findings=[_finding_to_dict(f) for f in findings],
             analysis_error=analysis_error,
             local_call_edges=[_edge_to_dict(e) for e in (local_call_edges or [])],
+            capabilities=[_capability_to_dict(c) for c in (capabilities or [])],
         )
         self.put(entry)
 

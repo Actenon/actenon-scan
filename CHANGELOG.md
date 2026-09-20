@@ -66,6 +66,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Fixed — the cache changed findings
+
+Both surfaced by the A4 reconciliation, which is what making the printed
+numbers agree is for: a contradiction that used to be invisible now fails.
+
+- **Capabilities were never cached.** A warm cache reported the findings
+  while the capability summary counted only the files that happened to miss —
+  "Consequential capabilities: 5" printed directly above "can reach 87
+  consequential actions". Capabilities now travel in the cache entry, as the
+  findings and the call edges do.
+- **A cache hit dropped declarative-guard suppression.** The hit path reset
+  every finding's suppression state and re-applied only baseline and inline
+  suppressions, so a cached scan REPORTED findings a fresh scan suppresses —
+  the cache changing findings, in the false-positive direction, against this
+  project's own RULE 5. Suppression that follows from the file content is now
+  preserved; user-supplied suppression is still re-applied from the current
+  run, which is what the reset was for.
+
 ### Added — hop-depth recall axis
 
 - `tests/benchmark/recall/depth/` holds depth-stratified fixtures for three

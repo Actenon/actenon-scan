@@ -1006,8 +1006,9 @@ def scan_path(
         if cache is not None:
             cached = cache.findings_for(source, rel, rules)
             if cached is not None:
-                cached_findings, _cached_file_error, _cached_edges = cached
+                cached_findings, _cached_file_error, _cached_edges, _cached_caps = cached
                 local_call_edges.extend(_cached_edges)
+                capabilities.extend(_cached_caps)
                 for cf in cached_findings:
                     # Reset suppression state and re-apply from the CURRENT
                     # baseline + suppressions sets. The cache stores findings
@@ -1018,8 +1019,24 @@ def scan_path(
                     # then `scan . --baseline b.json` would see all findings
                     # unsuppressed because the cache short-circuits the
                     # baseline check. (Round-3 audit P0.)
-                    cf.suppressed = False
-                    cf.suppression_reason = ""
+                    # Suppression that follows from the FILE CONTENT is kept:
+                    # a declarative guard (a class attribute, decorator or
+                    # constructor parameter) is a property of the source, and
+                    # the source is exactly what the cache key hashes. Reset it
+                    # and a cached scan reports findings a fresh scan
+                    # suppresses — the cache CHANGING findings, in the
+                    # false-positive direction, against this project's own
+                    # RULE 5. Only the user-supplied suppressions below are
+                    # reset, because those can change between runs without the
+                    # file changing.
+                    _declarative = (
+                        cf.suppression_reason
+                        if cf.suppressed
+                        and cf.suppression_reason.startswith("declarative_guard")
+                        else ""
+                    )
+                    cf.suppressed = bool(_declarative)
+                    cf.suppression_reason = _declarative
                     if suppressions and (rel, cf.rule_id) in suppressions:
                         cf.suppressed = True
                         cf.suppression_reason = "inline_suppression"
@@ -1093,6 +1110,7 @@ def scan_path(
         # Track per-file findings for caching. Findings for this file
         # start at this index in the findings list.
         _per_file_start = len(findings)
+        _per_file_cap_start = len(capabilities)
         _per_file_error: str | None = None
         _per_file_edges: list[LocalCallEdge] = []
 
@@ -1281,7 +1299,8 @@ def scan_path(
         if cache is not None:
             _per_file_findings = findings[_per_file_start:]
             cache.store(source, rel, rules, _per_file_findings, _per_file_error,
-                        local_call_edges=_per_file_edges)
+                        local_call_edges=_per_file_edges,
+                        capabilities=capabilities[_per_file_cap_start:])
 
     # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
     if explicit_files is not None:
