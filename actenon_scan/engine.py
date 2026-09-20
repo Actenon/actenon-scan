@@ -81,6 +81,23 @@ class ScanResult:
     # was never examined — reporting "No findings" in that case is a safety
     # defect because the user reads it as clean.
     unsupported_files: list[tuple[str, str]] = field(default_factory=list)
+    # Task 5-A1: transitive-reachability disclosure counts, surfaced in the
+    # clean-scan output (and JSON) so users know which agent-reachable call
+    # sites the repository layer proved transitively reachable vs. could
+    # not resolve. ``transitive_followed_count`` = number of NEW findings
+    # the repo layer added (sinks in helpers the per-file scan missed
+    # because the helper isn't directly @tool-decorated, but the repo
+    # layer proved reachable from an agent entrypoint).
+    # ``transitive_unfollowed_count`` = number of UNRESOLVED call sites
+    # out of agent entrypoints (dynamic dispatch, external modules) —
+    # sinks reached only through these are NOT in findings.
+    # ``repository_analysis_enabled`` records whether the repo layer ran
+    # at all (False when the user passed --no-repository-analysis, when
+    # the target is a single file, or when the file list was empty).
+    # Populated from RepositoryAnalysisResult in scan_path's repo block.
+    transitive_followed_count: int = 0
+    transitive_unfollowed_count: int = 0
+    repository_analysis_enabled: bool = False
 
     @property
     def finding_count(self) -> int:
@@ -508,6 +525,14 @@ def _scan_shard(args: tuple) -> "ScanResult":
     if cache_dir is not None:
         from actenon_scan.cache import FileCache
         cache = FileCache(cache_dir)
+    # Task 5-A1: repository analysis is DISABLED on shards. Each shard
+    # only sees its own subset of files, so running the repo layer per
+    # shard would (a) fragment the call graph (cross-shard transitive
+    # calls would be missed), and (b) break the parallel≡serial
+    # equivalence test (test_engine_parallel.py) because serial runs
+    # the repo layer once on ALL files while parallel would run it N
+    # times on disjoint subsets. The repo layer is run by the parent
+    # (or by the small-repo serial fallback) — see scan_path_parallel.
     return scan_path(
         target,
         config=config,
@@ -517,6 +542,7 @@ def _scan_shard(args: tuple) -> "ScanResult":
         baseline_findings=baseline,
         explicit_files=shard,
         cache=cache,
+        repository_analysis=False,
     )
 
 
@@ -552,11 +578,20 @@ def scan_path_parallel(
     cache_dir = str(cache.cache_dir) if cache is not None and cache.enabled else None
 
     def serial() -> ScanResult:
+        # Task 5-A1: the parallel path's serial fallback respects the
+        # new default ``repository_analysis=True`` (this fallback only
+        # fires for small repos where parallelism doesn't pay off, and
+        # for those the repo layer should run). Shards (above) disable
+        # the repo layer per-shard; the parent doesn't currently
+        # re-run it after merge, so large-repo parallel scans do NOT
+        # run the repo layer — documented limitation (use ``--jobs 1``
+        # to force serial + repo analysis on large repos).
         return scan_path(
             target, config=config, include_globs=include_globs,
             exclude_globs=exclude_globs, suppressions=suppressions,
             baseline_findings=baseline_findings, self_package=self_package,
             cache=cache, on_finding=on_finding,
+            repository_analysis=True,
         )
 
     if jobs <= 1 or not target.is_dir():
@@ -675,7 +710,16 @@ def scan_path(
     explicit_files: list[Path] | None = None,
     cache: "FileCache | None" = None,
     on_finding: "Callable[[Finding], None] | None" = None,
-    repository_analysis: bool = False,
+    # Task 5-A1: repository-level analysis is now ON by default. The
+    # repo layer AUGMENTS per-file findings (never suppresses) with
+    # sinks in helpers only reachable transitively from @tool
+    # entrypoints — Claude's review case: ``@mcp.tool() def my_tool():
+    # helper()`` where ``helper`` does ``requests.post(...)``. The
+    # per-file scan misses the sink because ``helper`` isn't
+    # @tool-decorated; the repo layer catches it via transitive
+    # reachability. Pass ``repository_analysis=False`` to opt out
+    # (backwards-compat with pre-5-A1 behaviour).
+    repository_analysis: bool = True,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -695,9 +739,26 @@ def scan_path(
             The callback receives a Finding object. Findings may arrive
             in non-deterministic order; the final ScanResult.findings
             list is sorted by file/line for stable output.
+        repository_analysis: Whether to run the repository-level
+            augmentation pass (call-graph + transitive reachability +
+            effect summaries). Default ``True`` (Task 5-A1) — the repo
+            layer AUGMENTS per-file findings with sinks in helpers
+            only reachable transitively from @tool entrypoints. The
+            repo layer never suppresses existing findings. Pass
+            ``False`` for backwards-compat with pre-5-A1 behaviour
+            (per-file scan only). The CLI exposes this as the
+            ``--no-repository-analysis`` opt-out flag.
     """
     rules = load_rules(config)
     target = Path(target)
+    # Task 5-A1: disclosure counts. Initialised to defaults here and
+    # populated from RepositoryAnalysisResult inside the repo block
+    # below. ``repository_analysis_enabled`` distinguishes "the repo
+    # layer ran and found 0/0" from "the user disabled the repo layer"
+    # — needed by the clean-scan disclosure line.
+    transitive_followed_count = 0
+    transitive_unfollowed_count = 0
+    repository_analysis_enabled = False
     # --changed-only supplies the exact file list from the git diff. Walking
     # the whole tree and then glob-filtering it down to 1-3 files was the fixed
     # cost that dominated the pre-commit path.
@@ -1141,15 +1202,19 @@ def scan_path(
     # reachable only transitively) and augments existing findings'
     # reachability_reason with the call chain.
     #
-    # Opt-in via the `repository_analysis` flag (default False to
-    # preserve backwards compatibility and avoid fixture-lock changes
-    # in this slice). When enabled, this layer:
+    # Task 5-A1: this layer is now ON by default (``repository_analysis``
+    # default flipped from False to True). The opt-out is the CLI flag
+    # ``--no-repository-analysis``. When enabled, this layer:
     #   1. Builds a RepositoryIndex from all .py files under target.
     #   2. Discovers agent entrypoints from reachability config.
     #   3. Computes transitive reachability through the call graph.
     #   4. Propagates effect summaries from per-file sinks.
     #   5. Adds new findings for sinks reachable only transitively.
     #   6. Augments existing findings' reachability_reason with the chain.
+    #   7. Records the transitive_followed_count / _unfollowed_count
+    #      disclosure counts on ScanResult so the clean-scan output
+    #      can honestly state how many agent-reachable calls were
+    #      followed vs. could not be resolved.
     if repository_analysis and target.is_dir() and files:
         from actenon_scan.repository.engine_augment import (
             RepositoryAnalysisConfig,
@@ -1187,6 +1252,11 @@ def scan_path(
         # Record the analysis error if any.
         if repo_result.analysis_error:
             analysis_errors.append(("<repository-analysis>", repo_result.analysis_error))
+        # Task 5-A1: populate the disclosure counts. Even if 0/0, the
+        # clean-scan output discloses that the layer ran.
+        transitive_followed_count = repo_result.transitive_followed_count
+        transitive_unfollowed_count = repo_result.transitive_unfollowed_count
+        repository_analysis_enabled = True
 
     return ScanResult(
         findings=findings,
@@ -1195,6 +1265,9 @@ def scan_path(
         capabilities=capabilities,
         analysis_errors=analysis_errors,
         unsupported_files=unsupported_files,
+        transitive_followed_count=transitive_followed_count,
+        transitive_unfollowed_count=transitive_unfollowed_count,
+        repository_analysis_enabled=repository_analysis_enabled,
     )
 
 

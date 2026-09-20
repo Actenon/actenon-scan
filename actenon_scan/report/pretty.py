@@ -18,6 +18,7 @@ from actenon_scan.report.blast_radius import (
     consequence_label,
     group_by_consequence,
     select_most_exposed,
+    transitive_disclosure_line,
 )
 
 
@@ -47,6 +48,16 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             if result.unsupported_files:
                 cap_lines.append("")
                 cap_lines.extend(_format_unsupported(result))
+            # Task 5-A1: also surface the transitive-reachability
+            # disclosure line on the all-guarded clean scan, so users
+            # with capabilities-but-no-findings still see which
+            # agent-reachable calls the repo layer proved reachable
+            # vs. could not resolve. Omitted when the layer was
+            # disabled (--no-repository-analysis).
+            disclosure = transitive_disclosure_line(result)
+            if disclosure is not None:
+                cap_lines.append("")
+                cap_lines.append(disclosure)
             return "\n".join(cap_lines) + "\n"
         # Has both capabilities and findings — show capability summary
         # then the existing blast-radius output
@@ -186,6 +197,15 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
     lines.append("")
     lines.append(CLEAN_SCAN_LIMITATIONS)
     lines.append("")
+    # Task 5-A1: transitive-reachability disclosure. Only rendered when
+    # the repo layer actually ran (``repository_analysis_enabled=True``).
+    # When the user passed ``--no-repository-analysis``, the line is
+    # omitted entirely to preserve the pre-5-A1 output shape for
+    # backwards compat with output parsers (verification step 5).
+    disclosure = transitive_disclosure_line(result)
+    if disclosure is not None:
+        lines.append(disclosure)
+        lines.append("")
 
     if result.unsupported_files:
         lang_counts = Counter(lang for _, lang in result.unsupported_files)

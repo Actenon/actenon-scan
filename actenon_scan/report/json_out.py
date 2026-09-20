@@ -106,6 +106,21 @@ def format_json(result: ScanResult) -> str:
             {"file": rel, "error": err}
             for rel, err in result.analysis_errors
         ],
+        # Task 5-A1: repository-level disclosure counts. Always present
+        # (even when the layer was disabled — both 0 in that case).
+        # ``transitive_followed_count`` = NEW findings the repo layer
+        # ADDED (sinks in helpers the per-file scan missed because the
+        # helper isn't @tool-decorated, but the repo layer proved
+        # transitively reachable from an agent entrypoint).
+        # ``transitive_unfollowed_count`` = UNRESOLVED call sites out
+        # of agent entrypoints (dynamic dispatch, external modules).
+        # Sinks reached only through these are NOT in the findings list.
+        # ``repository_analysis_enabled`` = whether the repo layer ran
+        # at all (False when the user passed --no-repository-analysis,
+        # or when the target was a single file rather than a dir).
+        "transitive_followed_count": getattr(result, "transitive_followed_count", 0),
+        "transitive_unfollowed_count": getattr(result, "transitive_unfollowed_count", 0),
+        "repository_analysis_enabled": getattr(result, "repository_analysis_enabled", False),
         # Field semantics: the "confidence" field on each finding measures
         # REACHABILITY confidence — how confident the scanner is that the
         # sink is agent-reachable (i.e., inside a @tool or @mcp.tool

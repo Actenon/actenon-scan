@@ -335,6 +335,21 @@ class RepositoryAnalysisResult:
     effect_summaries_count: int = 0
     incomplete_summaries_count: int = 0
     analysis_error: str | None = None
+    # Disclosure counts (Task 5-A1). Surfaced in the clean-scan output
+    # so users know which agent-reachable call sites the repo layer
+    # proved transitively reachable vs. could not resolve.
+    # ``transitive_followed_count`` = number of NEW findings the repo
+    # layer added (sinks in helpers the per-file scan missed because
+    # the helper isn't directly @tool-decorated). This is the count of
+    # transitive call-chains that produced a finding.
+    # ``transitive_unfollowed_count`` = number of UNRESOLVED call sites
+    # out of agent entrypoints (e.g. ``getattr(obj, 'method')()``,
+    # external-module calls). The repo layer could not follow these,
+    # so any sinks reached only through them are NOT in the findings
+    # list. This disclosure is the honest signal that those calls
+    # exist in agent-reachable code.
+    transitive_followed_count: int = 0
+    transitive_unfollowed_count: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +420,19 @@ def analyze_repository(
         # Transitive reachability
         ep_qnames = [e.qualified_name for e in entrypoints]
         reach = transitive_reachable(graph, ep_qnames, max_depth=cfg.max_depth)
+
+        # Disclosure: count UNRESOLVED edges out of agent entrypoints.
+        # These are call sites the repo layer could NOT follow —
+        # dynamic dispatch (``getattr(obj, 'm')()``), external-module
+        # calls, etc. Sinks reached only through such calls are NOT in
+        # the findings list; the disclosure count tells the user these
+        # unfollowable calls exist so they can audit them manually.
+        unfollowed = 0
+        for ep_qname in ep_qnames:
+            for edge in graph.edges_by_caller.get(ep_qname, []):
+                if edge.is_unresolved():
+                    unfollowed += 1
+        result.transitive_unfollowed_count = unfollowed
 
         # Seed effect summaries from per-file findings/capabilities AND
         # independent sink detection.
@@ -487,6 +515,15 @@ def analyze_repository(
                 )
                 result.new_findings.append(new_finding)
 
+        # Task 5-A2: substrate-module evidence pass. AUGMENTS each
+        # existing per-file finding AND capability with cross-file guard
+        # resolution, semantic guard taxonomy, and authority-to-sink
+        # value-binding evidence appended to ``reachability_reason``.
+        # Best-effort: any failure is silently skipped (per the
+        # NON-NEGOTIABLE constraint — the repo layer must remain
+        # non-fatal). NEVER suppresses or downgrades an existing finding.
+        _augment_with_substrate_evidence(index, findings, capabilities)
+
     except Exception as exc:
         # Never let the augmentation crash the scan.
         import sys
@@ -495,6 +532,15 @@ def analyze_repository(
             f"actenon-scan: warning: repository analysis failed: {result.analysis_error}",
             file=sys.stderr,
         )
+
+    # Disclosure: the followed count is the number of NEW findings the
+    # repo layer added — i.e. sinks in helpers that the per-file scan
+    # missed (because the enclosing function isn't directly
+    # @tool-decorated) but the repo layer proved transitively reachable
+    # from an agent entrypoint. Computed AFTER the new-findings loop so
+    # it reflects the final list (including any added during exception
+    # recovery, though that path doesn't add findings).
+    result.transitive_followed_count = len(result.new_findings)
 
     return result
 
@@ -570,3 +616,379 @@ def _remediation_for_effect(effect: EffectType) -> str:
         EffectType.UNKNOWN_EFFECT: "Verify authority dominates this sink.",
     }
     return hints.get(effect, "Verify authority dominates this sink.")
+
+
+# ---------------------------------------------------------------------------
+# Task 5-A2: substrate-module evidence wiring
+# ---------------------------------------------------------------------------
+#
+# This pass runs AFTER the existing propagate_effects / new-findings loop
+# and AUGMENTS each existing per-file finding AND capability with evidence
+# from the three substrate modules:
+#
+#   1. guard_resolution.resolve_guard_call — cross-file guard body
+#      inspection. If the guard is RESOLVED cross-file with an ASSERT
+#      or PREDICATE style, the finding's reachability_reason gains:
+#          [cross-file guard: <qname> ASSERT (raises at line N)]
+#
+#   2. guard_semantics.classify_guard_name — semantic taxonomy:
+#      AUTHENTICATION / AUTHORIZATION / VALIDATION / SANITIZATION /
+#      HUMAN_APPROVAL / POLICY_ENFORCEMENT / CAPABILITY_PROOF /
+#      RATE_LIMIT / UNKNOWN_GUARD. AUTHENTICATION and VALIDATION (and
+#      the other non-action-authorization kinds) MUST be explicitly
+#      labelled "does NOT authorize this action" — they CANNOT authorize
+#      a specific action (the CRITICAL hostile invariant from the
+#      brief: ``authenticate(user)`` does not authorize ``refund``).
+#          [guard kind: AUTHORIZATION]
+#          [guard kind: AUTHENTICATION — does NOT authorize this action]
+#
+#   3. authority_binding.compare_authority_to_sink — parameter plumbing
+#      comparison; BOUND / UNBOUND / UNKNOWN. The action-label
+#      soundness gate runs FIRST inside compare_authority_to_sink, so
+#      an ``authorize_read`` authority CANNOT bind to a ``refund`` sink
+#      even when parameters match — the action labels differ.
+#          [authority binding: BOUND — both args trace back to ...]
+#          [authority binding: UNBOUND — authority action 'read'
+#           differs from sink action 'refund' ...]
+#
+# Conservative properties (NON-NEGOTIABLE):
+# - This pass ONLY appends evidence to reachability_reason. It NEVER
+#   removes, suppresses, or downgrades a finding.
+# - Best-effort: any failure (AST parse error, unresolved guard, etc.)
+#   is silently skipped per-finding. The repo layer must remain
+#   non-fatal.
+# - AUTHENTICATION and VALIDATION guards are explicitly labelled
+#   "does NOT authorize this action" — never silently treated as
+#   authorizing.
+#
+# The substrate modules now affect the scan's output — every existing
+# finding/capability that has a guard nearby gets richer evidence in its
+# reachability_reason field.
+
+
+# Guard kinds that CANNOT authorize a specific action. Their evidence
+# must explicitly say "does NOT authorize this action".
+_NON_AUTHZ_KINDS = frozenset(
+    {
+        "AUTHENTICATION",
+        "VALIDATION",
+        "SANITIZATION",
+        "HUMAN_APPROVAL",
+        "RATE_LIMIT",
+        "UNKNOWN_GUARD",
+    }
+)
+
+
+def _augment_with_substrate_evidence(
+    index: RepositoryIndex,
+    findings: list,
+    capabilities: list,
+) -> None:
+    """Augment per-file findings and capabilities with substrate evidence.
+
+    Best-effort: never raises. See the module docstring above for the
+    conservative invariants.
+    """
+    # Lazy import — keeps the module import side-effect free and silently
+    # skips if any substrate module is unavailable (shouldn't happen in
+    # normal installs, but the constraint is non-fatal best-effort).
+    try:
+        from actenon_scan.repository.guard_resolution import (
+            resolve_guard_call,
+            GuardStyle,
+        )
+        from actenon_scan.repository.guard_semantics import (
+            classify_guard_call,
+            GuardKind,
+        )
+        from actenon_scan.repository.authority_binding import (
+            compare_authority_to_sink,
+        )
+        # The AST-ancestry dominance check is the active path in
+        # guards.py — re-use it verbatim (don't wire in cfg.py yet;
+        # that's a future slice and we don't want to change behaviour).
+        from actenon_scan.detectors.guards import (
+            _dominates,
+            _build_parent_map,
+        )
+    except ImportError:
+        # Substrate modules not available — best-effort skip.
+        return
+
+    # Iterate over BOTH findings AND capabilities. Capabilities with
+    # state=GUARD_FOUND are exactly the case where the substrate
+    # evidence (cross-file guard body inspection, semantic taxonomy,
+    # authority binding) is most informative: the per-file scan
+    # already knows a guard call exists, and the substrate modules
+    # enrich WHY that guard does (or does NOT) actually authorize
+    # the sink.
+    for f in list(findings) + list(capabilities):
+        try:
+            _augment_one_substrate(
+                f,
+                index,
+                resolve_guard_call,
+                GuardStyle,
+                classify_guard_call,
+                GuardKind,
+                compare_authority_to_sink,
+                _dominates,
+                _build_parent_map,
+            )
+        except Exception:
+            # Per-finding best-effort: silently skip on any error.
+            # The repo layer must remain non-fatal.
+            continue
+
+
+def _augment_one_substrate(
+    f,
+    index: RepositoryIndex,
+    resolve_guard_call,
+    GuardStyle,
+    classify_guard_call,
+    GuardKind,
+    compare_authority_to_sink,
+    _dominates,
+    _build_parent_map,
+) -> None:
+    """Augment a single finding/capability with substrate evidence.
+
+    Mutates ``f.reachability_reason`` in place by APPENDING evidence
+    strings (never replaces, never removes). See the module docstring
+    above for the conservative invariants.
+    """
+    file_rel = getattr(f, "file", None)
+    line = getattr(f, "line", None)
+    if not file_rel or line is None:
+        return
+    ast_info = index.get_ast(file_rel)
+    if ast_info is None:
+        return
+    _src, tree = ast_info
+
+    # Find the enclosing function AST node for this sink line.
+    func_node = _find_enclosing_function_node(tree, line)
+    if func_node is None:
+        return
+
+    # Build the parent map ONCE for the dominance check (mirrors
+    # guards.py's _build_parent_map to keep behaviour consistent with
+    # the per-file guard analyzer).
+    parent_map = _build_parent_map(func_node)
+
+    module_qname = index._module_qualified_name(file_rel)
+
+    # Locate the sink Call node at the finding's line (best-effort).
+    sink_node = _find_call_at_line_in_subtree(func_node, line)
+
+    # Walk the function body for guard calls — ast.Call nodes whose
+    # callable name classifies as something other than UNKNOWN_GUARD.
+    # Skip calls inside nested FunctionDef / AsyncFunctionDef / Lambda
+    # — they're not in our function's scope.
+    guard_calls: list[tuple] = []  # list of (call_node, guard_name, classification)
+    for node in ast.walk(func_node):
+        if not isinstance(node, ast.Call):
+            continue
+        if _is_inside_nested_function(node, func_node, parent_map):
+            continue
+        if node is sink_node:
+            continue
+        classification = classify_guard_call(node)
+        if classification.kind == GuardKind.UNKNOWN_GUARD:
+            continue
+        name = _call_name_text(node)
+        if not name:
+            continue
+        guard_calls.append((node, name, classification))
+
+    if not guard_calls:
+        return  # nothing to add
+
+    # For each guard call: cross-file resolution + semantic taxonomy.
+    for guard_node, guard_name, classification in guard_calls:
+        # --- Cross-file guard resolution ------------------------------
+        try:
+            resolution = resolve_guard_call(guard_node, module_qname, index)
+        except Exception:
+            resolution = None
+
+        if (
+            resolution is not None
+            and resolution.resolved
+            and resolution.style in (GuardStyle.ASSERT, GuardStyle.PREDICATE)
+        ):
+            target_qname = _resolve_qname_for_call(
+                index, guard_node, module_qname
+            )
+            style_name = resolution.style.name  # 'ASSERT' or 'PREDICATE'
+            detail = ""
+            if resolution.body_inspection is not None:
+                lines = resolution.body_inspection.evidence_lines
+                if lines:
+                    kind_word = (
+                        "raises"
+                        if resolution.style == GuardStyle.ASSERT
+                        else "returns"
+                    )
+                    detail = (
+                        f"{kind_word} at line "
+                        + ", ".join(str(ln) for ln in lines)
+                    )
+            evidence_str = (
+                f"[cross-file guard: {target_qname} {style_name}"
+                + (f" ({detail})" if detail else "")
+                + "]"
+            )
+            _append_substrate_evidence(f, evidence_str)
+
+        # --- Semantic guard taxonomy ---------------------------------
+        kind_name = classification.kind.name  # 'AUTHENTICATION', etc.
+        if kind_name in _NON_AUTHZ_KINDS:
+            # CRITICAL hostile invariant: AUTHENTICATION and VALIDATION
+            # (and other non-action-authorization kinds) MUST be
+            # explicitly labelled as "does NOT authorize this action"
+            # — never silently treated as authorizing.
+            evidence_str = (
+                f"[guard kind: {kind_name} — does NOT authorize this action]"
+            )
+        else:
+            evidence_str = f"[guard kind: {kind_name}]"
+        _append_substrate_evidence(f, evidence_str)
+
+    # --- Authority/action value binding -----------------------------
+    # For each (guard_call, sink_call) pair where the guard dominates
+    # the sink (per the existing AST-ancestry check from guards.py),
+    # compare parameter binding. Only run for AUTHORIZATION-kind
+    # guards (others cannot authorize an action, so binding comparison
+    # is moot — the kind evidence already says "does NOT authorize").
+    if sink_node is None:
+        return
+
+    sink_line = sink_node.lineno
+    for guard_node, guard_name, classification in guard_calls:
+        # Skip guards that come AFTER the sink (line-number check).
+        if guard_node.lineno >= sink_line:
+            continue
+        # Only run binding comparison for AUTHORIZATION-kind guards.
+        # AUTHENTICATION, VALIDATION, etc. cannot authorize — the
+        # kind evidence already says so. Binding would be misleading.
+        if classification.kind != GuardKind.AUTHORIZATION:
+            continue
+        # Dominance check via the existing AST-ancestry path in
+        # guards.py (don't wire in cfg.py yet — that's a future slice).
+        try:
+            if not _dominates(guard_node, sink_line, parent_map, func_node):
+                continue
+        except Exception:
+            continue
+        try:
+            binding = compare_authority_to_sink(
+                guard_node,
+                sink_node,
+                func_node,
+                index=index,
+                module_qname=module_qname,
+            )
+        except Exception:
+            continue
+        state_name = binding.state.name  # 'BOUND', 'UNBOUND', 'UNKNOWN'
+        evidence_str = (
+            f"[authority binding: {state_name} — {binding.evidence}]"
+        )
+        _append_substrate_evidence(f, evidence_str)
+
+
+def _append_substrate_evidence(f, evidence_str: str) -> None:
+    """Append substrate evidence to a finding/capability's
+    reachability_reason field. De-dups; never replaces or removes."""
+    current = getattr(f, "reachability_reason", "") or ""
+    if evidence_str in current:
+        return
+    if current:
+        f.reachability_reason = f"{current} {evidence_str}"
+    else:
+        f.reachability_reason = evidence_str
+
+
+def _find_enclosing_function_node(
+    tree: ast.Module, line: int
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    """Find the innermost FunctionDef / AsyncFunctionDef whose line
+    range contains ``line``. Returns None if no enclosing function."""
+    candidate: ast.FunctionDef | ast.AsyncFunctionDef | None = None
+    candidate_range: tuple[int, int] | None = None
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        start = node.lineno
+        end = getattr(node, "end_lineno", None) or start
+        if start <= line <= end:
+            if (
+                candidate_range is None
+                or (end - start) < (candidate_range[1] - candidate_range[0])
+            ):
+                candidate = node
+                candidate_range = (start, end)
+    return candidate
+
+
+def _find_call_at_line_in_subtree(
+    func_node: ast.AST, line: int
+) -> ast.Call | None:
+    """Find the first ast.Call at the given line within func_node's
+    subtree. Best-effort — returns None if no Call matches."""
+    for node in ast.walk(func_node):
+        if isinstance(node, ast.Call) and getattr(node, "lineno", None) == line:
+            return node
+    return None
+
+
+def _is_inside_nested_function(
+    node: ast.AST,
+    func_node: ast.AST,
+    parent_map: dict[int, ast.AST],
+) -> bool:
+    """True if ``node`` is inside a nested FunctionDef /
+    AsyncFunctionDef / Lambda (i.e., not directly in ``func_node``'s
+    body but inside an inner function definition)."""
+    current = parent_map.get(id(node))
+    while current is not None and current is not func_node:
+        if isinstance(
+            current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+        ):
+            return True
+        current = parent_map.get(id(current))
+    return False
+
+
+def _call_name_text(call_node: ast.Call) -> str:
+    """Best-effort textual callee name from an ast.Call's func.
+
+    ast.Name → id; ast.Attribute → attr; otherwise empty string.
+    Mirrors guard_resolution._get_call_name /
+    authority_binding._call_name_text.
+    """
+    func = call_node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def _resolve_qname_for_call(
+    index: RepositoryIndex, call_node: ast.Call, module_qname: str
+) -> str:
+    """Re-resolve a guard call's target qname for the cross-file
+    evidence string. Falls back to the textual callee if unresolved."""
+    try:
+        sym, _certainty, qname_attempt = index.resolve_call_target(
+            call_node.func, in_module=module_qname
+        )
+        if sym is not None:
+            return sym.qualified_name
+        return qname_attempt or _call_name_text(call_node) or "<unknown>"
+    except Exception:
+        return _call_name_text(call_node) or "<unknown>"

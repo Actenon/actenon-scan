@@ -115,18 +115,30 @@ def main(argv: list[str] | None = None) -> int:
              "across runs, or to avoid polluting the workspace.",
     )
     scan_parser.add_argument(
+        "--no-repository-analysis",
+        action="store_true",
+        default=False,
+        help="Disable repository-level consequence analysis (the DEFAULT "
+             "since v0.x): call-graph construction, transitive "
+             "reachability from @tool entrypoints, effect-summary "
+             "propagation. By default the scanner AUGMENTS per-file "
+             "findings with sinks in helpers only reachable "
+             "transitively (Claude's review case: @mcp.tool() calls a "
+             "one-line local helper that does requests.post — per-file "
+             "scan misses it; default scan catches it). Pass this flag "
+             "to opt OUT for backwards-compat with pre-v0.x behaviour "
+             "(per-file scan only). Per-file findings are NEVER "
+             "suppressed by the repo layer.",
+    )
+    # Backwards-compat: --repository-analysis is now a no-op (it was
+    # opt-in before Task 5-A1; the layer is now ON by default). We
+    # accept the flag, print a one-line deprecation warning to stderr,
+    # and continue. Hidden from --help to avoid confusion.
+    scan_parser.add_argument(
         "--repository-analysis",
         action="store_true",
         default=False,
-        help="Enable repository-level consequence analysis: builds a "
-             "call graph, computes transitive reachability from agent "
-             "entrypoints, propagates function effect summaries, and "
-             "AUGMENTS per-file findings with call-chain evidence. "
-             "Catches sinks in helpers that are only reachable via "
-             "transitive calls (e.g. agent_action → layer_one → "
-             "layer_two → subprocess.run). Per-file findings are never "
-             "suppressed. New findings are only added when the call "
-             "path is fully RESOLVED.",
+        help=argparse.SUPPRESS,
     )
 
     # rules
@@ -372,6 +384,17 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:
+    # Task 5-A1: --repository-analysis is now a no-op (the layer is ON
+    # by default). Print a one-line deprecation warning so users know to
+    # stop passing the flag. Behaviour is unchanged: the layer still
+    # runs (because that's what --repository-analysis used to request).
+    if getattr(args, "repository_analysis", False):
+        print(
+            "actenon-scan: warning: --repository-analysis is a no-op "
+            "(repository analysis is now the default). Re-run without "
+            "the flag, or use --no-repository-analysis to disable.",
+            file=sys.stderr,
+        )
     # Normalize to a single `target` plus optional `explicit_files` for the
     # multi-path case (pre-commit passes one path per changed file).
     paths = [Path(p) for p in args.path]
@@ -593,6 +616,11 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 on_finding=on_finding,
             )
         else:
+            # Task 5-A1: ``repository_analysis`` is now ON by default.
+            # ``--no-repository-analysis`` flips it off (backwards-compat
+            # with pre-5-A1 behaviour). The deprecated
+            # ``--repository-analysis`` flag is a no-op (warning printed
+            # above); the layer runs because it's the default.
             result = scan_path(
                 target,
                 config=config_path,
@@ -603,7 +631,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 baseline_findings=baseline,
                 cache=cache,
                 on_finding=on_finding,
-                repository_analysis=getattr(args, "repository_analysis", False),
+                repository_analysis=not getattr(args, "no_repository_analysis", False),
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:

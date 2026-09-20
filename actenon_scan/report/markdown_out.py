@@ -15,6 +15,7 @@ from actenon_scan.report.blast_radius import (
     consequence_label,
     group_by_consequence,
     select_most_exposed,
+    transitive_disclosure_line,
 )
 
 
@@ -47,6 +48,15 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
             "the analysed path, external reachability, or practical exploitability. "
             "See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits."
         )
+        # Task 5-A1: transitive-reachability disclosure. Only rendered
+        # when the repo layer actually ran. Omitted when the user passed
+        # --no-repository-analysis to preserve pre-5-A1 output shape.
+        disclosure = transitive_disclosure_line(result)
+        if disclosure is not None:
+            lines.append("")
+            lines.append("## Repository analysis")
+            lines.append("")
+            lines.append(disclosure)
         return "\n".join(lines) + "\n"
 
     groups = group_by_consequence(unsuppressed)

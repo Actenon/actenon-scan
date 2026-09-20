@@ -16,6 +16,7 @@ from actenon_scan.report.blast_radius import (
     consequence_label,
     group_by_consequence,
     select_most_exposed,
+    transitive_disclosure_line,
 )
 
 
@@ -62,6 +63,13 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
         parts.append("<h2>What this scan did not verify</h2>")
         parts.append("<p>Unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.</p>")
         parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
+        # Task 5-A1: transitive-reachability disclosure. Only rendered
+        # when the repo layer actually ran. Omitted when the user passed
+        # --no-repository-analysis to preserve pre-5-A1 output shape.
+        disclosure = transitive_disclosure_line(result)
+        if disclosure is not None:
+            parts.append("<h2>Repository analysis</h2>")
+            parts.append(f"<p>{html.escape(disclosure)}</p>")
         parts.append("</section>")
         parts.append("</main>")
         parts.append("</body>")

@@ -272,6 +272,49 @@ CLEAN_SCAN_LIMITATIONS = (
 )
 
 
+def transitive_disclosure_line(result: ScanResult) -> str | None:
+    """Render the repository-analysis disclosure line for the clean-scan
+    output (Task 5-A1).
+
+    Returns ``None`` when the repository-level augmentation pass did NOT
+    run (i.e. ``repository_analysis_enabled=False``). In that case the
+    reporters skip the disclosure line entirely, preserving the
+    pre-5-A1 output shape for backwards compat with users who pass
+    ``--no-repository-analysis`` and parse the output.
+
+    When the layer DID run, the line discloses:
+      * how many transitively-reachable sinks it caught (sinks the
+        per-file scan missed because the enclosing helper isn't
+        @tool-decorated, but the repo layer proved reachable from an
+        agent entrypoint) — ``transitive_followed_count``.
+      * how many call sites out of agent entrypoints could NOT be
+        resolved (dynamic dispatch, external modules) —
+        ``transitive_unfollowed_count``. Sinks reached only through
+        these calls are NOT in the findings list; the disclosure tells
+        the user these unfollowable calls exist so they can audit them.
+
+    The wording is observational, not absolute. RULE 7 (no overstatement
+    of safety) applies: we never claim "no transitive sinks exist",
+    only "0 transitively-reachable sinks were identified".
+    """
+    if not getattr(result, "repository_analysis_enabled", False):
+        # Layer disabled — return None so reporters can skip the line
+        # and preserve the pre-5-A1 output shape (verification step 5:
+        # ``--no-repository-analysis`` produces the OLD output).
+        return None
+    followed = getattr(result, "transitive_followed_count", 0)
+    unfollowed = getattr(result, "transitive_unfollowed_count", 0)
+    # Pluralisation
+    sink_word = "sink" if followed == 1 else "sinks"
+    call_word = "call" if unfollowed == 1 else "calls"
+    return (
+        f"Repository analysis: {followed} transitively-reachable {sink_word} "
+        f"caught (would have been missed by per-file scan); "
+        f"{unfollowed} unresolved agent-entrypoint {call_word} not followed "
+        f"(dynamic dispatch / external modules)."
+    )
+
+
 def _extract_method_name(call_text: str) -> str:
     """Extract the final method name from a call text.
 

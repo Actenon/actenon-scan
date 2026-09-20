@@ -21,6 +21,23 @@ never silently treated as clean).
 [![Code style: ruff](https://img.shields.io/badge/Code%20style-ruff-black.svg)](https://docs.astral.sh/ruff/)
 [![Vendor-neutral](https://img.shields.io/badge/Stance-vendor%20neutral-2ea44f.svg)](#what-it-does-not-establish)
 
+## Soundness Challenge
+
+Scan has known blind spots — custom agent loops, action/observation
+dispatchers, dynamic dispatch, the per-file analysis limit, the
+parameter-binding limitation for assert-style guards. The full list
+is in [`docs/COVERAGE.md`](docs/COVERAGE.md). Silence must never
+imply safety: the boundary is published, not hidden.
+
+If you find a case scan gets wrong, submit it. The template is at
+[`community-scans/CHALLENGE_TEMPLATE.md`](community-scans/CHALLENGE_TEMPLATE.md);
+the live scoreboard (open and fixed cases) is at
+[`docs/SOUNDNESS_CHALLENGE.md`](docs/SOUNDNESS_CHALLENGE.md). We
+commit to responding to every submission within 30 days. Accepted
+challenges become permanent regression tests when fixed.
+
+---
+
 ## Three ways to use it
 
 **Run locally** — no account, no cloud upload, zero-config first run:
