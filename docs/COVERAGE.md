@@ -290,19 +290,36 @@ reports **analysis coverage** — followed call edges over total call edges —
 as a count pair. Silence about a skipped call is the failure this closes;
 the miss itself remains, and is now visible.
 
-**Nothing is followed.** No local call is stepped into. Every call from
-agent-reachable code into a locally-defined function is reported as
-unfollowed, with a reason code:
+**What IS followed:** a depth-1 call to a function defined at module level
+in the SAME file, and only when the name resolves to exactly one such
+definition that no parameter, local assignment, import or redefinition
+shadows. A sink found this way is reported with the signal `one_hop_local`
+at MEDIUM reachability confidence — never at the HIGH confidence of a sink
+in the tool body, because a helper may have other callers, other
+preconditions and guards the analysis has not examined.
+
+A guard dominating the call site **in the caller** counts as dominating for
+the callee, and every call site must be guarded for that to hold — one
+unguarded caller is an unguarded path. Without this rule, following calls
+would multiply the dispatch-layer false positives described above rather
+than fix them.
+
+**What is NOT followed**, and is disclosed as unfollowed instead:
 
 | Case | Reason code |
 |------|-------------|
-| Local calls are not followed at all | `not_implemented` |
+| Depth >= 2 — a call made by an already-followed callee | not walked; following is non-transitive |
 | A callee in another file, including `from .helpers import send` | `cross_file` |
 | A method call — `self.helper()`, `obj.method()` | `attribute_call` |
 | A name shadowed by a parameter, assignment, import or redefinition | `ambiguous_binding` |
 | A name defined as a method or nested function, not at module level | `not_module_level` |
+| A function calling itself | not followed; that is the first step of recursion |
 
-There is no transitive analysis and no cross-file analysis.
+Following is depth-1 and non-transitive: a function reached by following is
+never used as a source of further edges, so a sink two hops from an entry
+point is still missed. There is no cross-file analysis. Both remain visible
+in the unfollowed count — `tests/benchmark/recall/` carries `_depth2` and
+`_crossfile` fixtures recording exactly these misses.
 
 ### Dynamic dispatch
 

@@ -66,6 +66,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Added — same-module one-hop reachability
+
+- **A sink one hop from an entry point is now reported.** When an
+  agent-reachable function calls a module-level function defined in the same
+  file, reachability propagates into that callee. Reported with the signal
+  `one_hop_local` at MEDIUM reachability confidence — deliberately lower than
+  a sink in the tool body, because a helper may have other callers and
+  preconditions the analysis has not examined.
+- Depth 1, non-transitive, same-file only, and only when the callee name
+  resolves to exactly one unshadowed module-level definition. Self-calls are
+  not followed. Depth >= 2 and cross-file calls are not followed and remain
+  disclosed in the unfollowed count.
+- A guard dominating the call site **in the caller** dominates the callee's
+  sink, and every call site must be guarded for that to hold. Without this,
+  following calls would multiply the dispatch-layer false positives
+  `docs/COVERAGE.md` warns about instead of fixing them.
+- Edges that following now resolves move out of `unfollowed_local_calls` and
+  into the analysis-coverage numerator in the same run, so the disclosure and
+  the improvement cannot drift apart.
+- CHALLENGE-003 moved to **Fixed** (v1.5.0).
+
 ### Added — challenge cases
 
 - `CHALLENGE-003` (missed-sink/python): the one-hop miss, with

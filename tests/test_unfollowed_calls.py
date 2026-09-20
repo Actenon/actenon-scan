@@ -44,6 +44,23 @@ def publish(data):
     requests.post("https://example.com/upload", json=data)
 '''
 
+# A call the analysis still does NOT follow, after depth-1 same-module
+# following landed. The receiver's type is not resolved, so the target of
+# self.send() is not known and the call is disclosed rather than guessed at.
+# The sink inside send() is not reported, and the scan is otherwise clean —
+# which is exactly the shape that must never print as a bare all-clear.
+UNFOLLOWED = '''from agents import tool
+
+
+class Publisher:
+    @tool
+    def publish(self, data):
+        self.send(data)
+
+    def send(self, data):
+        requests.post("https://example.com/upload", json=data)
+'''
+
 
 @pytest.fixture
 def one_hop_tree(tmp_path: Path) -> Path:
@@ -51,25 +68,51 @@ def one_hop_tree(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_the_one_hop_call_is_counted_as_unfollowed(one_hop_tree):
-    result = scan_path(one_hop_tree)
+@pytest.fixture
+def unfollowed_tree(tmp_path: Path) -> Path:
+    (tmp_path / "unfollowed.py").write_text(UNFOLLOWED)
+    return tmp_path
+
+
+def test_a_call_that_cannot_be_resolved_is_counted_as_unfollowed(unfollowed_tree):
+    result = scan_path(unfollowed_tree)
     assert len(result.unfollowed_local_calls) == 1
     edge = result.unfollowed_local_calls[0]
     assert edge.caller == "publish"
-    assert edge.callee == "send_to_external_service"
-    assert edge.line == 6
+    assert edge.callee == "send"
+    assert edge.reason == "attribute_call"
     assert edge.followed is False
 
 
-def test_a_clean_scan_of_the_one_hop_case_does_not_claim_nothing_was_missed(one_hop_tree):
-    """The regression that motivated all of this.
+def test_the_one_hop_call_is_now_followed_and_no_longer_a_gap(one_hop_tree):
+    """B1's proof: the edge moved from the gap column to the followed column.
 
-    This exact tree used to print the clean statement and nothing else.
+    Depth-1 same-module following resolves this call, so it must stop being
+    reported as a gap in the same run that starts reporting its sink. A
+    version of this work that found the sink while still counting the call
+    as unfollowed — or that stopped counting it without finding the sink —
+    would be moving a number without moving the analysis.
     """
     result = scan_path(one_hop_tree)
+    assert result.unfollowed_local_calls == []
+    assert result.followed_local_calls == 1
+    assert result.analysis_coverage == (1, 0, 100.0)
+    reported = [(f.line, f.rule_id) for f in result.findings if not f.suppressed]
+    assert reported == [(10, "NET-EGRESS")]
+
+
+def test_a_clean_scan_with_an_unfollowed_call_does_not_claim_nothing_was_missed(
+    unfollowed_tree,
+):
+    """The regression that motivated all of this.
+
+    A tree of this shape used to print the clean statement and nothing else.
+    """
+    result = scan_path(unfollowed_tree)
     out = format_pretty(result)
+    assert "No supported unguarded consequential-action paths" in out
     assert "not followed" in out
-    assert "send_to_external_service" in out
+    assert "publish() -> send()" in out
 
 
 def test_inline_control_has_nothing_to_disclose(tmp_path: Path):
@@ -86,23 +129,24 @@ def test_inline_control_has_nothing_to_disclose(tmp_path: Path):
     [format_pretty, format_list, format_markdown, format_html],
     ids=["pretty", "list", "markdown", "html"],
 )
-def test_every_text_output_path_discloses_the_gap(one_hop_tree, formatter):
+def test_every_text_output_path_discloses_the_gap(unfollowed_tree, formatter):
     """A partial scan misleads as much as a clean one, in every format."""
-    out = formatter(scan_path(one_hop_tree))
+    out = formatter(scan_path(unfollowed_tree))
     assert "not followed" in out
-    assert "send_to_external_service" in out
+    assert "send" in out
 
 
-def test_json_carries_the_gap_machine_readably(one_hop_tree):
-    d = json.loads(format_json(scan_path(one_hop_tree)))
+def test_json_carries_the_gap_machine_readably(unfollowed_tree):
+    d = json.loads(format_json(scan_path(unfollowed_tree)))
     cov = d["analysis_coverage"]
     assert cov["unfollowed_edges"] == 1
-    assert cov["unfollowed_calls"][0]["callee"] == "send_to_external_service"
+    assert cov["unfollowed_calls"][0]["callee"] == "send"
+    assert cov["unfollowed_calls"][0]["reason"] == "attribute_call"
 
 
-def test_sarif_reports_the_gap_as_a_tool_execution_notification(one_hop_tree):
+def test_sarif_reports_the_gap_as_a_tool_execution_notification(unfollowed_tree):
     """An empty SARIF results array must not read as an all-clear."""
-    d = json.loads(format_sarif(scan_path(one_hop_tree)))
+    d = json.loads(format_sarif(scan_path(unfollowed_tree)))
     run = d["runs"][0]
     notes = run["invocations"][0]["toolExecutionNotifications"]
     assert len(notes) == 1
@@ -112,7 +156,8 @@ def test_sarif_reports_the_gap_as_a_tool_execution_notification(one_hop_tree):
 
 def test_headline_does_not_stand_alone_while_calls_are_unfollowed(tmp_path: Path):
     """The 'can reach N' sentence must carry the caveat, not defer to a footer."""
-    (tmp_path / "both.py").write_text(INLINE + "\n\n" + ONE_HOP.split("\n\n", 1)[1])
+    (tmp_path / "both.py").write_text(INLINE)
+    (tmp_path / "gap.py").write_text(UNFOLLOWED)
     result = scan_path(tmp_path)
     assert result.unfollowed_local_calls
     headline = next(
@@ -122,14 +167,14 @@ def test_headline_does_not_stand_alone_while_calls_are_unfollowed(tmp_path: Path
     assert "floor, not a total" in headline
 
 
-def test_clean_scan_limitations_states_the_real_count_not_a_literal_N(one_hop_tree):
-    out = format_pretty(scan_path(one_hop_tree))
+def test_clean_scan_limitations_states_the_real_count_not_a_literal_N(unfollowed_tree):
+    out = format_pretty(scan_path(unfollowed_tree))
     assert "N call(s)" not in out
     assert "1 call from agent-reachable code" in out
 
 
-def test_coverage_pair_is_counts_first_percentage_second(one_hop_tree):
-    out = format_list(scan_path(one_hop_tree))
+def test_coverage_pair_is_counts_first_percentage_second(unfollowed_tree):
+    out = format_list(scan_path(unfollowed_tree))
     assert "0 followed, 1 not followed (0.0%)" in out
     # The figure must never be labelled as a safety or protection measure.
     lowered = out.lower()
@@ -165,13 +210,13 @@ def test_a_call_to_a_library_function_is_not_an_edge(tmp_path: Path):
     assert result.followed_local_calls == 0
 
 
-def test_cache_hit_discloses_the_same_gap_as_a_fresh_scan(one_hop_tree, tmp_path: Path):
+def test_cache_hit_discloses_the_same_gap_as_a_fresh_scan(unfollowed_tree, tmp_path: Path):
     """A cached run must not under-report the gap the first run disclosed."""
     from actenon_scan.cache import FileCache
 
     cache = FileCache(tmp_path / "cachedir")
-    first = scan_path(one_hop_tree, cache=cache)
-    second = scan_path(one_hop_tree, cache=cache)
+    first = scan_path(unfollowed_tree, cache=cache)
+    second = scan_path(unfollowed_tree, cache=cache)
     assert second.analysis_coverage == first.analysis_coverage
     assert [
         (e.file, e.line, e.callee) for e in second.unfollowed_local_calls

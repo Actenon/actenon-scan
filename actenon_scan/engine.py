@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING, Callable
 
 from actenon_scan.detectors.guards import check_guard, GuardCheckResult
 from actenon_scan.detectors.reachability import (
+    LocalCallAnalysis,
     LocalCallEdge,
-    collect_local_call_edges,
+    analyse_local_calls,
     detect_reachability,
 )
 from actenon_scan.detectors.sinks import detect_sinks
@@ -1051,10 +1052,10 @@ def scan_path(
             file_edges = []
             if has_reach_marker:
                 try:
-                    file_edges = collect_local_call_edges(
+                    file_edges = analyse_local_calls(
                         tree, rules.reachability, rel_path=rel,
                         follow_one_hop=_follow_one_hop(rules.reachability),
-                    )
+                    ).edges
                 except RecursionError as exc:
                     analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
                 local_call_edges.extend(file_edges)
@@ -1076,10 +1077,11 @@ def scan_path(
             # before the no-sinks early return, because the gap this discloses
             # is largest in exactly the files that hold no sink of their own:
             # an entry point that does all its consequential work one hop away.
-            _per_file_edges = collect_local_call_edges(
+            _local_calls = analyse_local_calls(
                 tree, rules.reachability, rel_path=rel,
                 follow_one_hop=_follow_one_hop(rules.reachability),
             )
+            _per_file_edges = _local_calls.edges
             local_call_edges.extend(_per_file_edges)
 
             # One parent map per file, shared with detect_sinks. Profiling
@@ -1097,7 +1099,10 @@ def scan_path(
             declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
 
             for sf in sink_findings:
-                reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
+                reach = detect_reachability(
+                    tree, sf.line, rules.reachability,
+                    self_package=self_package, local_calls=_local_calls,
+                )
                 if reach.confidence == "none":
                     continue  # not agent-reachable — skip
 
@@ -1112,6 +1117,35 @@ def scan_path(
                 # Find the sink AST node for binding analysis
                 sink_node = _find_call_at_line(tree, sf.line)
                 guard_result = check_guard(tree, sf.line, rules.guard_patterns, sink_node=sink_node)
+
+                # A guard dominating the CALL SITE in the caller dominates the
+                # callee's sink too. Without this, following one hop would
+                # flood every codebase that centralises authorization at a
+                # dispatch layer — the exact false-positive pattern
+                # docs/COVERAGE.md already warns about, which following calls
+                # would otherwise multiply rather than fix.
+                #
+                # EVERY call site must be guarded, not merely one: an
+                # unguarded caller is an unguarded path to the sink, however
+                # careful the other callers are.
+                if not guard_result.guarded and "one_hop_local" in reach.signals:
+                    call_sites = _local_calls.one_hop_targets.get(
+                        _enclosing_function_name(tree, sf.line), []
+                    )
+                    if call_sites and all(
+                        check_guard(
+                            tree, site.line, rules.guard_patterns,
+                            sink_node=_find_call_at_line(tree, site.line),
+                        ).guarded
+                        for site in call_sites
+                    ):
+                        guard_result = GuardCheckResult(
+                            guarded=True,
+                            message=(
+                                "guard dominates the call site in the caller "
+                                f"({len(call_sites)} call site(s))"
+                            ),
+                        )
 
                 # Work Order 2, Phase 2: record a Capability for every
                 # agent-reachable sink, including guarded ones. Guarded
@@ -2127,3 +2161,11 @@ def partition_own_fixtures(
         [e for e in edges if not is_own_fixture_path(e.file, target)],
         excluded,
     )
+
+
+def _enclosing_function_name(tree: ast.Module, line: int) -> str:
+    """Name of the function containing ``line``, or "" if there is none."""
+    from actenon_scan.detectors.reachability import _find_enclosing_function
+
+    node = _find_enclosing_function(tree, line)
+    return node.name if node is not None else ""

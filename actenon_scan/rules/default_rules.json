@@ -969,7 +969,8 @@
         "permissions"
       ]
     },
-    "module_level_reachability": false
+    "module_level_reachability": false,
+    "follow_local_calls_depth_1": true
   },
   "guard_patterns": [
     "verify_pccb",

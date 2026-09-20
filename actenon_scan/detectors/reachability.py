@@ -23,6 +23,7 @@ def detect_reachability(
     reachability_cfg: dict[str, Any],
     *,
     self_package: str | None = None,
+    local_calls: "LocalCallAnalysis | None" = None,
 ) -> ReachabilityResult:
     """Determine if the sink at sink_line is agent-reachable.
 
@@ -56,6 +57,22 @@ def detect_reachability(
     if signal is not None:
         result.confidence = "high"
         result.signals.append(signal)
+        return result
+
+    # MEDIUM confidence: the enclosing function is not an entry point, but an
+    # entry point in this same module calls it directly. The call was resolved
+    # to exactly one unshadowed module-level definition; anything less certain
+    # was left unfollowed and disclosed instead.
+    #
+    # MEDIUM, not HIGH, and deliberately so. A sink in the tool body is an
+    # action the tool performs. A sink one hop away is an action the tool
+    # performs THROUGH a function that may have other callers, other
+    # preconditions, and guards the analysis has not examined. The evidence is
+    # weaker, so the confidence is lower, and the signal name says which kind
+    # of evidence it was.
+    if local_calls is not None and func_node.name in local_calls.one_hop_targets:
+        result.confidence = "medium"
+        result.signals.append("one_hop_local")
         return result
 
     # The sink is inside a NON-TOOL function. Even if the module imports an
@@ -932,6 +949,31 @@ def resolve_local_callee(
     return defs[0], ""
 
 
+@dataclass
+class LocalCallAnalysis:
+    """The result of one walk over a module's agent-reachable call sites.
+
+    ``edges`` is every call into a locally-defined function, each marked
+    followed or not. ``one_hop_targets`` maps the name of each module-level
+    function that following actually reached to the call sites that reached
+    it.
+
+    Both come from the same walk on purpose. If the disclosure and the
+    following were computed separately they could disagree, and the failure
+    would be silent in the worse direction: an edge counted as followed while
+    nothing was analysed behind it.
+    """
+
+    edges: list[LocalCallEdge] = None
+    one_hop_targets: dict[str, list[LocalCallEdge]] = None
+
+    def __post_init__(self):
+        if self.edges is None:
+            self.edges = []
+        if self.one_hop_targets is None:
+            self.one_hop_targets = {}
+
+
 def collect_local_call_edges(
     tree: ast.Module,
     reachability_cfg: dict[str, Any],
@@ -939,27 +981,47 @@ def collect_local_call_edges(
     rel_path: str,
     follow_one_hop: bool = False,
 ) -> list[LocalCallEdge]:
-    """Every call from agent-reachable code into a locally-defined function.
+    """Every call from agent-reachable code into a locally-defined function."""
+    return analyse_local_calls(
+        tree, reachability_cfg, rel_path=rel_path, follow_one_hop=follow_one_hop
+    ).edges
 
-    ``follow_one_hop`` reflects whether same-module depth-1 following is
-    active. When it is, edges that resolve cleanly are marked followed and
-    stop being disclosed as gaps; everything else stays unfollowed. The two
-    numbers are produced by this one walk so they cannot disagree.
+
+def analyse_local_calls(
+    tree: ast.Module,
+    reachability_cfg: dict[str, Any],
+    *,
+    rel_path: str,
+    follow_one_hop: bool = False,
+) -> LocalCallAnalysis:
+    """Walk agent-reachable functions, recording and optionally following calls.
+
+    ``follow_one_hop`` turns on same-module depth-1 following. When it is on,
+    an edge whose callee resolves to exactly one unshadowed module-level
+    definition is marked followed and its target recorded; every other edge
+    stays unfollowed and disclosed.
+
+    Following is DEPTH 1 AND NON-TRANSITIVE: targets are collected only from
+    functions that are entry points in their own right. A function reached by
+    following is never itself used as a source of further edges, so a sink two
+    hops away stays missed — and stays disclosed, because the callee's own
+    outgoing calls are not walked and so are never counted as followed.
     """
     index = build_entry_point_index(tree, reachability_cfg)
     if index.empty:
         # No entry-point evidence anywhere in this module, so no function in
         # it is agent-reachable and it has no edges by definition.
-        return []
+        return LocalCallAnalysis()
 
     module_funcs = _module_level_functions(tree)
     module_rebindings = _module_level_rebindings(tree)
     local_names = _all_local_function_names(tree)
     first_party = _first_party_imported_names(tree)
     if not local_names and not first_party:
-        return []
+        return LocalCallAnalysis()
 
     edges: list[LocalCallEdge] = []
+    one_hop_targets: dict[str, list[LocalCallEdge]] = {}
     seen_calls: set[int] = set()
 
     for func in ast.walk(tree):
@@ -1022,10 +1084,25 @@ def collect_local_call_edges(
                         "ambiguous_binding" if reason == "ambiguous_binding"
                         else "not_module_level"
                     )
-                elif follow_one_hop:
+                elif follow_one_hop and target is not func:
+                    # target is not func: a self-call adds no new code to
+                    # analyse and following it would be the first step of
+                    # recursion.
                     edge.followed = True
+                    one_hop_targets.setdefault(callee_name, []).append(edge)
                 else:
                     edge.reason = "not_implemented"
             edges.append(edge)
 
-    return edges
+    # A function that is an entry point in its own right is already analysed
+    # at full confidence. Recording it as a one-hop target as well would
+    # downgrade it, so it is dropped from the map (the EDGE stays followed —
+    # the call was resolved and the callee was analysed).
+    one_hop_targets = {
+        name: sites for name, sites in one_hop_targets.items()
+        if entry_point_signal(
+            tree, module_funcs[name][0], reachability_cfg, index=index
+        ) is None
+    }
+
+    return LocalCallAnalysis(edges=edges, one_hop_targets=one_hop_targets)

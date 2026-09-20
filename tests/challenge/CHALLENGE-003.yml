@@ -22,9 +22,23 @@ expected: finding
 rule_id: NET-EGRESS
 control_file: CHALLENGE-003.control.py
 control_rule_id: NET-EGRESS
-status: open
+status: fixed
+fixed_in: 1.5.0
 note: >
-  The silence is now disclosed: every scan reports how many calls from
+  Fixed in two steps, and the order matters.
+
+  First the silence was disclosed: every scan reports how many calls from
   agent-reachable code into locally-defined functions it did not follow, and
-  reports analysis coverage as a count pair. Disclosure is not detection —
-  this case stays OPEN until the sink itself is reported.
+  reports analysis coverage as a count pair. That alone did not find this
+  sink — disclosure is not detection — and the case stayed open.
+
+  Then depth-1 same-module following landed. The sink is now reported as
+  NET-EGRESS at MEDIUM reachability confidence with the signal
+  one_hop_local, downgrading the severity to LOW. The control is still
+  reported at HIGH confidence: a sink in the tool body remains stronger
+  evidence than a sink one hop away, and the two are not conflated.
+
+  The same change moved this file's call edge out of the unfollowed count
+  and into analysis coverage (0 followed / 1 not followed, to 1 followed /
+  0 not followed). Depth >= 2 and cross-file calls remain unfollowed and
+  disclosed.
