@@ -66,6 +66,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Fixed — headline numbers
+
+- **The three printed totals disagreed and one source line could count
+  twice.** A run printed "Consequential capabilities: 103 / Guard found: 24 /
+  Review required: 79" followed by "can reach 77 consequential actions" and
+  "77 findings". Capabilities were recorded mid-analysis, before a finding
+  could still be suppressed by a declarative guard, an inline suppression or
+  a baseline, so the summary counted sinks the list below it did not.
+- `detect_sinks` runs three independent match loops over the same call node,
+  so one call site can produce several Findings — `conn.exec("DELETE FROM t")`
+  matches both EXEC-CODE and DATA-DELETE-SQL. Each incremented the headline.
+  Counting is now deduplicated by sink identity `(file, line, col)`: one call
+  site is one consequential action however many rules matched it.
+- `ScanResult.consequential_action_count` (deduplicated) and
+  `ScanResult.rule_match_count` (not) are separate and separately labelled.
+  "Review required", "your agent can reach N" and the summary line all report
+  the first, and agree by construction. Every rule match is kept in the
+  detail list, `json` and `sarif` — deduplication is for counting only and
+  discards no evidence.
+- The consequence map is per consequence type, so an action matched in two
+  categories appears in two rows. When the rows sum above the headline the
+  output now says why instead of looking like an arithmetic error.
+
 ### Added — analysis coverage
 
 - An analysis-coverage figure with a fully observed denominator, reported as

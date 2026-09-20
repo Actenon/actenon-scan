@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import ast
 import re
-from dataclasses import dataclass, field
+from collections import OrderedDict
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -123,6 +124,41 @@ class ScanResult:
     def finding_count(self) -> int:
         return len([f for f in self.findings if not f.suppressed])
 
+    @property
+    def consequential_actions(self) -> list[list[Finding]]:
+        """Unsuppressed findings grouped by the call site they describe.
+
+        One group per consequential action. A call site matched by two rules
+        is one action with two reasons, and appears once here while keeping
+        both Findings in its group for the detail view, json and sarif.
+        """
+        return list(
+            group_by_sink(
+                [f for f in self.findings if not f.suppressed]
+            ).values()
+        )
+
+    @property
+    def consequential_action_count(self) -> int:
+        """The headline number. Distinct call sites, deduplicated by sink.
+
+        This is what "Review required", "your agent can reach N consequential
+        actions" and the summary line all report. They previously disagreed:
+        the capability count was taken before findings were suppressed or
+        rule-id-suffixed downstream, and neither number deduplicated a line
+        matched by two rules.
+        """
+        return len(self.consequential_actions)
+
+    @property
+    def rule_match_count(self) -> int:
+        """Unsuppressed Findings, NOT deduplicated — the detail-list length.
+
+        Reported separately and labelled as a different thing, never
+        substituted for the action count.
+        """
+        return len([f for f in self.findings if not f.suppressed])
+
     def has_findings_at_or_above(self, threshold: str) -> bool:
         threshold_level = SEVERITY_ORDER.get(threshold, 0)
         for f in self.findings:
@@ -134,11 +170,85 @@ class ScanResult:
 
     @property
     def capability_summary(self) -> CapabilitySummary:
-        """Aggregated capability counts by state."""
+        """Aggregated capability counts by state, per DISTINCT call site.
+
+        Two reconciliations happen here, both of which the raw capability
+        list gets wrong:
+
+        1. DEDUPLICATION. Capabilities are recorded per rule match, so a call
+           site matched by two rules contributed two capabilities. One call
+           site is one capability.
+        2. FINAL STATE. Capabilities are recorded mid-analysis, before a
+           finding can still be suppressed by a declarative guard, an inline
+           suppression or a baseline. A sink whose finding was suppressed is
+           not awaiting review, so counting it as REVIEW_REQUIRED made the
+           summary disagree with the findings list below it — the observed
+           "Review required: 80" over "78 findings".
+
+        The result is that review_required == consequential_action_count by
+        construction, which is what makes the three printed numbers agree.
+        """
         summary = CapabilitySummary()
-        for cap in self.capabilities:
-            summary.add(cap)
+        suppressed_sinks = {
+            sink_key(f) for f in self.findings if f.suppressed
+        }
+        live_sinks = {
+            sink_key(f) for f in self.findings if not f.suppressed
+        }
+        for key, caps in group_by_sink(self.capabilities).items():
+            state = _resolve_sink_state(caps, key, suppressed_sinks, live_sinks)
+            representative = replace(caps[0], state=state)
+            summary.add(representative)
         return summary
+
+
+def _resolve_sink_state(
+    caps: list,
+    key: tuple[str, int, int],
+    suppressed_sinks: set,
+    live_sinks: set,
+) -> str:
+    """The one state that describes a call site, after all filtering.
+
+    A sink with a live unsuppressed finding is REVIEW_REQUIRED whatever the
+    individual rule matches said. A sink whose findings were all suppressed
+    is ACCEPTED_DECISION: a human (via baseline, inline suppression or a
+    declarative guard) already adjudicated it. Otherwise the recorded state
+    stands, which is how guarded sinks stay GUARD_FOUND.
+    """
+    if key in live_sinks:
+        return "REVIEW_REQUIRED"
+    if key in suppressed_sinks:
+        return "ACCEPTED_DECISION"
+    states = {c.state for c in caps}
+    for preferred in ("REVIEW_REQUIRED", "ACCEPTED_DECISION", "GUARD_FOUND"):
+        if preferred in states:
+            return preferred
+    return caps[0].state
+
+
+def sink_key(obj) -> tuple[str, int, int]:
+    """The identity of a consequential action: one call site in one file.
+
+    (file, line, col) — NOT the rule id. Two rules can match the same call
+    node and produce two Findings for it: `conn.exec("DELETE FROM t")` matches
+    EXEC-CODE and DATA-DELETE-SQL. Those are two reasons to look at one
+    action, not two actions, and counting them twice inflated every headline
+    number the tool printed.
+    """
+    return (obj.file, obj.line, obj.col)
+
+
+def group_by_sink(items: list) -> "OrderedDict[tuple[str, int, int], list]":
+    """Group findings or capabilities by the call site they describe.
+
+    Insertion-ordered, so the first match for a sink stays the representative
+    and output order is unchanged.
+    """
+    groups: "OrderedDict[tuple[str, int, int], list]" = OrderedDict()
+    for item in items:
+        groups.setdefault(sink_key(item), []).append(item)
+    return groups
 
 
 def _assign_tier(filepath: str) -> str:

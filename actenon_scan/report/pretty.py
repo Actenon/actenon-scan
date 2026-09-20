@@ -72,7 +72,11 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
 
     # Header line — confidence-aware wording (Part 1.1 + RULE 7).
     has_weak = any(f.confidence in ("low", "medium") for f in unsuppressed)
-    n = len(unsuppressed)
+    # Deduplicated by call site: a line matched by two rules is one action
+    # with two reasons. This is the same number the capability summary above
+    # reports as "Review required" and the same one the summary line below
+    # reports, which they previously were not.
+    n = result.consequential_action_count
     action_word = "action" if n == 1 else "actions"
     if has_weak:
         header = (
@@ -99,9 +103,18 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     lines.append(header)
     lines.append("")
 
-    # Consequence map
+    # Consequence map. Counts are per consequence type, so one call site
+    # matched by rules in two categories appears in both rows. The column
+    # then sums to more than the headline, which reads as a discrepancy
+    # unless it is named.
     for label, group in groups.items():
         lines.append(f"  {label:14s} {group.count:3d}   {group.method_summary}")
+    map_total = sum(group.count for group in groups.values())
+    if map_total != n:
+        lines.append(
+            f"  (rows sum to {map_total}: {map_total - n} action(s) carry more "
+            f"than one consequence type)"
+        )
 
     # Most-exposed spotlight
     if most_exposed is not None:
@@ -125,12 +138,19 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
         lines.append("")
         lines.extend(disclosure)
 
-    # Summary line
+    # Summary line. The action count leads; the rule-match count is named
+    # separately when it differs, never silently substituted for it.
     lines.append("")
     timing = f" ({elapsed:.2f}s)" if elapsed is not None else ""
-    lines.append(
-        f"{len(unsuppressed)} findings in {result.files_scanned} files{timing}"
+    matches = result.rule_match_count
+    file_word = "file" if result.files_scanned == 1 else "files"
+    summary = (
+        f"{n} consequential {action_word} in {result.files_scanned} "
+        f"{file_word}{timing}"
     )
+    if matches != n:
+        summary += f" ({matches} rule matches)"
+    lines.append(summary)
 
     # Next steps
     if most_exposed is not None:
@@ -313,10 +333,24 @@ def format_list(result: ScanResult) -> str:
         by_file.setdefault(f.file, []).append(f)
 
     lines = []
-    lines.append(
-        f"actenon-scan: {len(unsuppressed)} finding(s) in {len(by_file)} file(s) "
-        f"(scanned {result.files_scanned} file(s))"
-    )
+    n_actions = result.consequential_action_count
+    matches = result.rule_match_count
+    # The list format enumerates findings, so its count is the finding count
+    # and stays labelled that way. When a call site is matched by more than
+    # one rule the two numbers diverge, and both are then named rather than
+    # one standing in for the other.
+    if matches == n_actions:
+        header = (
+            f"actenon-scan: {matches} finding(s) in {len(by_file)} file(s) "
+            f"(scanned {result.files_scanned} file(s))"
+        )
+    else:
+        header = (
+            f"actenon-scan: {n_actions} consequential action(s), "
+            f"{matches} finding(s) in {len(by_file)} file(s) "
+            f"(scanned {result.files_scanned} file(s))"
+        )
+    lines.append(header)
     lines.append("")
 
     for filepath in sorted(by_file):
