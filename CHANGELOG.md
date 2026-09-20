@@ -28,6 +28,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-09-20
+
+### Fixed — release integrity
+
+- **The published 1.4.0 and the source labelled 1.4.0 were not the same
+  build.** PyPI `actenon-scan==1.4.0` and `main` shared a version number but
+  differed in `engine.py`, `detectors/go.py`, `detectors/typescript.py` and
+  `test_gen.py` (the WO2.1 guarded-capability changes landed after the
+  release was cut, with no bump). The CLI surface was identical — `explain`,
+  `fix` and `--format html` all resolve in published 1.4.0 — but behaviour
+  differed. Version bumped to 1.5.0 so the published artifact and the tested
+  artifact can be told apart.
+
+### Added
+
+- `scripts/check_printed_commands.py` and a CI step in `ci.yml` and
+  `verify-claims.yml`: every `actenon-scan <subcommand>` invocation printed
+  anywhere in the package (the `Next:` hints in `report/pretty.py`,
+  `report/html_out.py`, `report/markdown_out.py` and `cli.py` included) must
+  resolve to a subparser registered by the same build. Checked against the
+  live registry via the new `actenon_scan.cli.build_parser()`, never a
+  hand-kept list, so it travels with whatever build is under test.
+
 _No changes yet._
 
 ## [1.4.0] — 2026-07-29

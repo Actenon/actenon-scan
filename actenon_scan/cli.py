@@ -15,7 +15,15 @@ from actenon_scan.report.sarif import format_sarif
 from actenon_scan.suppress import collect_suppressions_from_file
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser.
+
+    Extracted from ``main`` so the printed-command gate
+    (``scripts/check_printed_commands.py``) can read the subcommand registry
+    of whatever build is being tested, rather than trusting a hand-kept list.
+    A command string the tool prints must resolve in the same build that
+    printed it.
+    """
     from actenon_scan import __version__
 
     parser = argparse.ArgumentParser(
@@ -332,6 +340,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to an actenon-scan config file (JSON or YAML).",
     )
 
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command == "scan":

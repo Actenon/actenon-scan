@@ -266,13 +266,17 @@ def test_fail_on_default_is_medium() -> None:
     on findings by default. The Action defaults to "none" because it has
     a sticky PR comment + SARIF upload; the CLI has no such surface.
     """
-    import inspect
-    from actenon_scan.cli import main
-    src = inspect.getsource(main)
-    # The default for --fail-on must be "medium".
-    assert 'default="medium"' in src, (
-        "CLI --fail-on default is not 'medium' — check cli.py scan_parser. "
-        "A non-failing default means findings pass CI silently."
+    from actenon_scan.cli import build_parser
+
+    # Assert on the parsed value, not on the source text of the function
+    # that happens to build the parser. The source-text form broke when
+    # parser construction moved into build_parser() while the behaviour it
+    # was guarding was unchanged.
+    args = build_parser().parse_args(["scan", "."])
+    assert args.fail_on == "medium", (
+        f"CLI --fail-on default is {args.fail_on!r}, not 'medium' — check "
+        "cli.py scan_parser. A non-failing default means findings pass CI "
+        "silently."
     )
 
 

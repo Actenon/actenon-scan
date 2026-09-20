@@ -32,6 +32,11 @@ jobs:
 
       - name: Install
         run: pip install -e ".[dev]"
+      - name: Check every printed command resolves in this build
+        # Release integrity: output that advertises a subcommand this build
+        # does not register sends users to `invalid choice`. Asserted against
+        # the live subparser registry of the build under test, not a list.
+        run: python scripts/check_printed_commands.py
       - name: Test
         run: python -m pytest tests/ -v
 

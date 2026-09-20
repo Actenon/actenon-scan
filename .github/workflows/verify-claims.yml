@@ -48,6 +48,9 @@ jobs:
       - name: Check README registry installs
         run: python scripts/check_readme_installs.py
 
+      - name: Check every printed command resolves in this build
+        run: python scripts/check_printed_commands.py
+
       - name: Check README ecosystem table in sync with ecosystem.yaml
         run: |
           pip install "actenon-protocol[yaml]" --quiet
