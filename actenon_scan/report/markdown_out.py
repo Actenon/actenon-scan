@@ -18,6 +18,18 @@ from actenon_scan.report.blast_radius import (
 )
 
 
+def _markdown_excluded_fixtures(result) -> list[str]:
+    """State the fixture exclusion, with the count and the flag to undo it."""
+    n = len(result.excluded_fixture_findings)
+    if not n:
+        return []
+    return [
+        "",
+        f"**Note:** {n} finding(s) in actenon-scan's own test fixtures were "
+        f"excluded; `--include-fixtures` to show.",
+    ]
+
+
 def _markdown_unfollowed(result) -> list[str]:
     """The unfollowed-call disclosure as Markdown.
 
@@ -93,6 +105,7 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
             "See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits."
         )
         lines.extend(_markdown_unfollowed(result))
+        lines.extend(_markdown_excluded_fixtures(result))
         return "\n".join(lines) + "\n"
 
     groups = group_by_consequence(unsuppressed)
@@ -155,6 +168,7 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
     lines.append("See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits.")
 
     lines.extend(_markdown_unfollowed(result))
+    lines.extend(_markdown_excluded_fixtures(result))
 
     # Unsupported files
     if result.unsupported_files:

@@ -6,7 +6,7 @@ import ast
 import re
 from collections import OrderedDict
 from dataclasses import dataclass, field, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Callable
 
 from actenon_scan.detectors.guards import check_guard, GuardCheckResult
@@ -95,6 +95,13 @@ class ScanResult:
     # coverage ratio. Both come from the same walk, so they cannot disagree.
     unfollowed_local_calls: list[LocalCallEdge] = field(default_factory=list)
     followed_local_calls: int = 0
+    # Findings in actenon-scan's own deliberately-vulnerable test fixtures,
+    # held aside rather than reported. Anyone who clones this repo into a
+    # workspace and scans that workspace would otherwise be shown this
+    # project's test data as their own blast radius. Counted and announced,
+    # never silently dropped: --include-fixtures moves them back into
+    # `findings`.
+    excluded_fixture_findings: list[Finding] = field(default_factory=list)
 
     @property
     def analysis_coverage(self) -> tuple[int, int, float | None]:
@@ -656,11 +663,15 @@ def _scan_shard(args: tuple) -> "ScanResult":
     """
     # Unpack with cache_dir for backwards compatibility: older payloads
     # (e.g. cached pickled args) may not include it.
+    include_fixtures = False
     if len(args) == 7:
         target, shard, config, exclude_globs, self_package, suppressions, baseline = args
         cache_dir = None
-    else:
+    elif len(args) == 8:
         target, shard, config, exclude_globs, self_package, suppressions, baseline, cache_dir = args
+    else:
+        (target, shard, config, exclude_globs, self_package, suppressions,
+         baseline, cache_dir, include_fixtures) = args
     cache = None
     if cache_dir is not None:
         from actenon_scan.cache import FileCache
@@ -674,6 +685,7 @@ def _scan_shard(args: tuple) -> "ScanResult":
         baseline_findings=baseline,
         explicit_files=shard,
         cache=cache,
+        include_fixtures=include_fixtures,
     )
 
 
@@ -689,6 +701,7 @@ def scan_path_parallel(
     self_package: str | None = None,
     cache: "FileCache | None" = None,
     on_finding: "Callable[[Finding], None] | None" = None,
+    include_fixtures: bool = False,
 ) -> "ScanResult":
     """Scan by sharding the file list across `jobs` processes.
 
@@ -714,6 +727,7 @@ def scan_path_parallel(
             exclude_globs=exclude_globs, suppressions=suppressions,
             baseline_findings=baseline_findings, self_package=self_package,
             cache=cache, on_finding=on_finding,
+            include_fixtures=include_fixtures,
         )
 
     if jobs <= 1 or not target.is_dir():
@@ -733,7 +747,8 @@ def scan_path_parallel(
     shards = [sh for sh in shards if sh]
 
     payload = [
-        (target, sh, config, exclude_globs, self_package, suppressions, baseline_findings, cache_dir)
+        (target, sh, config, exclude_globs, self_package, suppressions,
+         baseline_findings, cache_dir, include_fixtures)
         for sh in shards
     ]
     try:
@@ -755,6 +770,7 @@ def scan_path_parallel(
         # scan of the same tree, purely because of a --jobs flag.
         merged.unfollowed_local_calls.extend(r.unfollowed_local_calls)
         merged.followed_local_calls += r.followed_local_calls
+        merged.excluded_fixture_findings.extend(r.excluded_fixture_findings)
         merged.files_scanned += r.files_scanned
         if merged.rules_used is None:
             merged.rules_used = r.rules_used
@@ -812,6 +828,25 @@ def scan_path_parallel(
         ts_file_set = {f for f, _ in unsupported if f.endswith(ts_exts)}
         unsupported = [(f, l) for f, l in unsupported if f not in ts_file_set]
     merged.unsupported_files = unsupported
+
+    # The TypeScript and Go passes above run in the PARENT, after the shards
+    # have already had their own fixtures held aside. Their results have not
+    # been through that filter, so a workspace containing a clone of this repo
+    # leaked this project's .ts fixtures into the parallel-mode output while
+    # the serial mode excluded them — the same scan, two different answers,
+    # decided by a --jobs flag. Partition once more over everything.
+    if not include_fixtures:
+        (
+            merged.findings,
+            merged.capabilities,
+            merged.unfollowed_local_calls,
+            extra_excluded,
+        ) = partition_own_fixtures(
+            merged.findings, merged.capabilities,
+            merged.unfollowed_local_calls, target,
+        )
+        merged.excluded_fixture_findings.extend(extra_excluded)
+
     merged.findings.sort(key=lambda f: (f.file, f.line))
     merged.unfollowed_local_calls.sort(key=lambda e: (e.file, e.line, e.col))
 
@@ -838,6 +873,7 @@ def scan_path(
     explicit_files: list[Path] | None = None,
     cache: "FileCache | None" = None,
     on_finding: "Callable[[Finding], None] | None" = None,
+    include_fixtures: bool = False,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -852,6 +888,8 @@ def scan_path(
             hash + scanner version. A cache hit returns identical findings
             (RULE 5: cache never changes findings). A cache miss falls
             through to a fresh scan.
+        include_fixtures: Report findings in actenon-scan's own vulnerable
+            test fixtures instead of holding them aside. Default False.
         on_finding: Optional callback invoked for each finding as it is
             discovered (Work Order 2, Part 4.1 — progressive output).
             The callback receives a Finding object. Findings may arrive
@@ -1332,6 +1370,18 @@ def scan_path(
 
     total_scanned = len(files) + ts_scanned + go_scanned
 
+    # Hold aside findings in this project's own vulnerable fixtures (A5).
+    # Done here rather than by skipping the files, so the count is real: the
+    # note states how many findings were excluded, which requires having
+    # found them.
+    excluded_fixtures: list[Finding] = []
+    if not include_fixtures:
+        findings, capabilities, local_call_edges, excluded_fixtures = (
+            partition_own_fixtures(
+                findings, capabilities, local_call_edges, target
+            )
+        )
+
     return ScanResult(
         findings=findings,
         files_scanned=total_scanned,
@@ -1344,6 +1394,7 @@ def scan_path(
             key=lambda e: (e.file, e.line, e.col),
         ),
         followed_local_calls=sum(1 for e in local_call_edges if e.followed),
+        excluded_fixture_findings=excluded_fixtures,
     )
 
 
@@ -1965,3 +2016,114 @@ def _remediation_hint(category: str) -> str:
         "(4) use brokered Actenon protection, "
         "(5) redesign the boundary."
     ))
+
+
+# ---------------------------------------------------------------------------
+# actenon-scan's own test fixtures (A5).
+# ---------------------------------------------------------------------------
+#
+# This repository contains deliberately unguarded code: benchmark recall and
+# soundness fixtures, corpus vulnerable/safe pairs, challenge cases. Scanning
+# the repo from its own root excludes them via .actenon-scan.json — but that
+# config is only read when the scan target IS the repo root.
+#
+# Clone actenon-scan into a workspace and scan the workspace, and the config
+# never applies. A scan of such a workspace produced 77 findings of which 74
+# were this project's own fixtures, and the most-exposed finding it
+# spotlighted was tests/benchmark/recall/r10_no_validation_guard.py. The
+# result is not merely noisy, it is wrong about what it found: it reports
+# this tool's test data as the user's blast radius.
+#
+# The fixtures are recognised by path SUFFIX, wherever they appear, and then
+# confirmed by checking that the tree they sit in really is actenon-scan. A
+# user's own tests/benchmark/recall/ directory is not excluded.
+#
+# Excluded findings are counted and the count is printed. They are never
+# silently dropped: --include-fixtures puts them back.
+
+#: Directory trees, relative to an actenon-scan checkout root, that hold
+#: test material rather than production code.
+#:
+#: This mirrors the repo's own .actenon-scan.json exclude list. The narrower
+#: set — tests/corpus/*/vulnerable, tests/benchmark/recall,
+#: tests/benchmark/soundness, tests/fixtures/vulnerable — leaves
+#: tests/benchmark/precision and tests/corpus/*/safe reporting, and those
+#: are still this project's test data appearing in a user's results. Two
+#: different answers to "is this actenon-scan's own fixture?" would be one
+#: answer too many, so there is a test asserting these two lists agree.
+_FIXTURE_DIR_PATTERNS = (
+    ("tests", "benchmark"),
+    ("tests", "corpus"),
+    ("tests", "fixtures"),
+    ("tests", "challenge"),
+)
+
+
+def _looks_like_actenon_checkout(root: Path) -> bool:
+    """Is ``root`` the top of an actenon-scan checkout?
+
+    Confirmed from the tree itself, so that a user's own directory that
+    happens to be called tests/benchmark/recall is not excluded. Requires the
+    package directory AND a pyproject naming this project.
+    """
+    if not (root / "actenon_scan" / "__init__.py").is_file():
+        return False
+    pyproject = root / "pyproject.toml"
+    if not pyproject.is_file():
+        return False
+    try:
+        text = pyproject.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return 'name = "actenon-scan"' in text or "name = 'actenon-scan'" in text
+
+
+def _fixture_relative_depth(parts: tuple[str, ...]) -> int | None:
+    """How many leading path segments precede a known fixture directory.
+
+    Returns the number of segments before the fixture pattern starts, or None
+    when the path is not inside one. The count lets the caller locate the
+    checkout root that the fixture belongs to.
+    """
+    for start in range(len(parts)):
+        rest = parts[start:]
+        for pattern in _FIXTURE_DIR_PATTERNS:
+            if rest[: len(pattern)] == pattern:
+                return start
+    return None
+
+
+def is_own_fixture_path(rel_path: str, target: Path) -> bool:
+    """Is this scanned file one of actenon-scan's own vulnerable fixtures?"""
+    parts = tuple(PurePosixPath(rel_path.replace("\\", "/")).parts)
+    depth = _fixture_relative_depth(parts)
+    if depth is None:
+        return False
+    base = target if target.is_dir() else target.parent
+    root = base.joinpath(*parts[:depth]) if depth else base
+    return _looks_like_actenon_checkout(root)
+
+
+def partition_own_fixtures(
+    findings: list,
+    capabilities: list,
+    edges: list,
+    target: Path,
+) -> tuple[list, list, list, list]:
+    """Split this project's own fixture results out of a scan.
+
+    Returns (findings, capabilities, edges, excluded_findings). All three
+    kept lists are filtered by the SAME path predicate. Filtering
+    capabilities by the keys of the excluded findings instead left guarded
+    fixture sinks behind — they produce a capability and no finding — and the
+    capability summary then disagreed with the list under it.
+    """
+    excluded = [f for f in findings if is_own_fixture_path(f.file, target)]
+    if not excluded:
+        return findings, capabilities, edges, []
+    return (
+        [f for f in findings if not is_own_fixture_path(f.file, target)],
+        [c for c in capabilities if not is_own_fixture_path(c.file, target)],
+        [e for e in edges if not is_own_fixture_path(e.file, target)],
+        excluded,
+    )

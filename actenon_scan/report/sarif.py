@@ -142,6 +142,18 @@ def format_sarif(result: ScanResult) -> str:
             ],
         })
 
+    if result.excluded_fixture_findings:
+        notifications.append({
+            "level": "note",
+            "message": {
+                "text": (
+                    f"{len(result.excluded_fixture_findings)} finding(s) in "
+                    f"actenon-scan's own test fixtures were excluded; "
+                    f"--include-fixtures to show."
+                )
+            },
+        })
+
     invocation = {"executionSuccessful": True}
     if notifications:
         invocation["toolExecutionNotifications"] = notifications

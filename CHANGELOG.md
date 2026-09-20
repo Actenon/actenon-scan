@@ -66,6 +66,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Fixed — self-scan flooding
+
+- **Scanning a directory that contains a clone of this repo reported this
+  project's test fixtures as the user's findings.** A workspace scan produced
+  77 findings of which 74 were actenon-scan's own deliberately-unguarded
+  fixtures, and the spotlighted "most exposed" action was
+  `tests/benchmark/recall/r10_no_validation_guard.py`. The repo's
+  `.actenon-scan.json` exclusions only apply when the scan target IS the repo
+  root, so they did nothing.
+- Fixture trees (`tests/benchmark/**`, `tests/corpus/**`, `tests/fixtures/**`,
+  `tests/challenge/**`) are now recognised wherever they appear in a scanned
+  path, confirmed by checking that the tree really is an actenon-scan
+  checkout — a user's own `tests/benchmark/` directory is not excluded.
+- Excluded, not dropped: the count is printed in every output path
+  ("N finding(s) in actenon-scan's own test fixtures were excluded;
+  --include-fixtures to show") and `--include-fixtures` restores them.
+
 ### Fixed — headline numbers
 
 - **The three printed totals disagreed and one source line could count

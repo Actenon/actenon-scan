@@ -124,6 +124,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # rules
+    scan_parser.add_argument(
+        "--include-fixtures",
+        action="store_true",
+        default=False,
+        help="Report findings in actenon-scan's own deliberately-vulnerable "
+             "test fixtures. They are held aside by default, with the count "
+             "stated, so scanning a workspace that contains a clone of this "
+             "repo does not present this project's test data as your blast "
+             "radius.",
+    )
+
     _rules_parser = subparsers.add_parser("rules", help="List active rules.")
 
     # init
@@ -590,6 +601,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 baseline_findings=baseline,
                 cache=cache,
                 on_finding=on_finding,
+                include_fixtures=getattr(args, "include_fixtures", False),
             )
         else:
             result = scan_path(
@@ -602,6 +614,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 baseline_findings=baseline,
                 cache=cache,
                 on_finding=on_finding,
+                include_fixtures=getattr(args, "include_fixtures", False),
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:

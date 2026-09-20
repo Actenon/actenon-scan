@@ -48,6 +48,10 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             if disclosure:
                 cap_lines.append("")
                 cap_lines.extend(disclosure)
+            excluded = format_excluded_fixtures(result, indent="  ")
+            if excluded:
+                cap_lines.append("")
+                cap_lines.extend(excluded)
             if result.unsupported_files:
                 cap_lines.append("")
                 cap_lines.extend(_format_unsupported(result))
@@ -138,6 +142,11 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
         lines.append("")
         lines.extend(disclosure)
 
+    excluded = format_excluded_fixtures(result, indent="  ")
+    if excluded:
+        lines.append("")
+        lines.extend(excluded)
+
     # Summary line. The action count leads; the rule-match count is named
     # separately when it differs, never silently substituted for it.
     lines.append("")
@@ -192,6 +201,23 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             lines.append(f"  ... and {len(result.analysis_errors) - 10} more")
 
     return "\n".join(lines) + "\n"
+
+
+def format_excluded_fixtures(result: ScanResult, *, indent: str = "") -> list[str]:
+    """One line stating how many findings were held aside, and how to see them.
+
+    Held aside, not dropped. A scan that quietly removed findings would be
+    making exactly the kind of undisclosed decision this tool exists to
+    surface — the count and the flag are both printed so the reader can
+    check the judgement rather than take it.
+    """
+    n = len(result.excluded_fixture_findings)
+    if not n:
+        return []
+    return [
+        f"{indent}{n} finding(s) in actenon-scan's own test fixtures were "
+        f"excluded; --include-fixtures to show"
+    ]
 
 
 def format_unfollowed_calls(
@@ -285,6 +311,11 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
         lines.extend(disclosure)
         lines.append("")
 
+    excluded = format_excluded_fixtures(result, indent="  ")
+    if excluded:
+        lines.extend(excluded)
+        lines.append("")
+
     if result.unsupported_files:
         lang_counts = Counter(lang for _, lang in result.unsupported_files)
         lines.append(
@@ -365,6 +396,11 @@ def format_list(result: ScanResult) -> str:
     disclosure = format_unfollowed_calls(result)
     if disclosure:
         lines.extend(disclosure)
+        lines.append("")
+
+    excluded = format_excluded_fixtures(result)
+    if excluded:
+        lines.extend(excluded)
         lines.append("")
 
     if result.analysis_errors:

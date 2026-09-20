@@ -19,6 +19,19 @@ from actenon_scan.report.blast_radius import (
 )
 
 
+def _html_excluded_fixtures(result) -> list[str]:
+    """State the fixture exclusion, with the count and the flag to undo it."""
+    n = len(result.excluded_fixture_findings)
+    if not n:
+        return []
+    return [
+        '<section class="coverage">',
+        f"<p><strong>Note:</strong> {n} finding(s) in actenon-scan's own test "
+        f"fixtures were excluded; <code>--include-fixtures</code> to show.</p>",
+        "</section>",
+    ]
+
+
 def _html_unfollowed(result) -> list[str]:
     """The unfollowed-call disclosure as HTML.
 
@@ -112,6 +125,7 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
         parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
         parts.append("</section>")
         parts.extend(_html_unfollowed(result))
+        parts.extend(_html_excluded_fixtures(result))
         parts.append("</main>")
         parts.append("</body>")
         parts.append("</html>")
@@ -187,6 +201,7 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
     parts.append("</section>")
 
     parts.extend(_html_unfollowed(result))
+    parts.extend(_html_excluded_fixtures(result))
 
     # Unsupported files
     if result.unsupported_files:

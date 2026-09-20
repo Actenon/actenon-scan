@@ -115,6 +115,16 @@ def format_json(result: ScanResult) -> str:
                 for e in result.unfollowed_local_calls
             ],
         },
+        # Findings in actenon-scan's own vulnerable test fixtures, held aside
+        # rather than reported. Counted here so a machine consumer sees the
+        # same decision the text output states rather than an unexplained
+        # difference between two runs.
+        "excluded_fixtures": {
+            "count": len(result.excluded_fixture_findings),
+            "reason": "actenon-scan's own test fixtures",
+            "show_with": "--include-fixtures",
+            "files": sorted({f.file for f in result.excluded_fixture_findings}),
+        },
         "errored": {
             "count": len(result.analysis_errors),
             "files": [
