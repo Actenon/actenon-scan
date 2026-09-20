@@ -18,7 +18,7 @@ Three honest limitations matter for an adversarial reviewer:
 - **No detection of custom agent loops or action/observation dispatchers.** Both are recorded as NOT COVERED in the coverage contract. The candidate strategy for custom agent loops was measured and rejected — 10/10 false positives on a 9-repo hand-triage.
 - **Unsupported languages are reported as unsupported, never as clean.** Rust, Java, C#, Ruby, PHP are out of scope. That is the contract.
 
-**The ask.** I have 2 open soundness challenges, both self-submitted, zero fixed. I'd like 10 external ones. The template is at https://github.com/Actenon/actenon-scan/blob/main/community-scans/CHALLENGE_TEMPLATE.md. Submissions get a public scoreboard entry and a permanent regression test when fixed. The scoreboard lives at https://github.com/Actenon/actenon-scan/blob/main/docs/SOUNDNESS_CHALLENGE.md.
+**The ask.** I have 2 open soundness challenges, both self-submitted, zero fixed. I'd like 10 external ones. The template is at <https://github.com/Actenon/actenon-scan/blob/main/community-scans/CHALLENGE_TEMPLATE.md>. Submissions get a public scoreboard entry and a permanent regression test when fixed. The scoreboard lives at <https://github.com/Actenon/actenon-scan/blob/main/docs/SOUNDNESS_CHALLENGE.md>.
 
 **The honest incentive.** External submissions are worth more than another sprint of my own tests because I wrote the detector — I can't see my own blind spots. The two open cases today (a constant-path delete flagged as a finding; a missing `os.Chmod` sink) are limitations I knew about and seeded myself. The cases I am missing are the ones I do not know about.
 

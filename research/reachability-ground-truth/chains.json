@@ -1,0 +1,6985 @@
+[
+ {
+  "id": "agno:cookbook/05_agent_os/22_studio/registry_and_components.py:150:NET-EGRESS",
+  "repo_name": "agno",
+  "file": "cookbook/05_agent_os/22_studio/registry_and_components.py",
+  "line": 150,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "run_demo",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:cookbook/12_context/24_multi_context_streaming.py:54:FILE-WRITE",
+  "repo_name": "agno",
+  "file": "cookbook/12_context/24_multi_context_streaming.py",
+  "line": 54,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": null,
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/db/postgres/utils.py:122:DATA-DELETE-SQL",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/db/postgres/utils.py",
+  "line": 122,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "ais_table_available",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "ais_table_available",
+      "caller": "table_exists",
+      "caller_class": "AsyncMySQLDb",
+      "file": "libs/agno/agno/db/mysql/async_mysql.py",
+      "line": 137,
+      "decorators": []
+     },
+     {
+      "callee": "table_exists",
+      "caller": "create",
+      "caller_class": "PgVector",
+      "file": "libs/agno/agno/vectordb/pgvector/pgvector.py",
+      "line": 226,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "search",
+      "caller_class": "Clickhouse",
+      "file": "libs/agno/agno/vectordb/clickhouse/clickhousedb.py",
+      "line": 453,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "ais_table_available",
+      "caller": "table_exists",
+      "caller_class": "AsyncMySQLDb",
+      "file": "libs/agno/agno/db/mysql/async_mysql.py",
+      "line": 137,
+      "decorators": []
+     },
+     {
+      "callee": "table_exists",
+      "caller": "create",
+      "caller_class": "PgVector",
+      "file": "libs/agno/agno/vectordb/pgvector/pgvector.py",
+      "line": 226,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "search",
+      "caller_class": "CouchbaseSearch",
+      "file": "libs/agno/agno/vectordb/couchbase/couchbase.py",
+      "line": 466,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "ais_table_available",
+      "caller": "table_exists",
+      "caller_class": "AsyncMySQLDb",
+      "file": "libs/agno/agno/db/mysql/async_mysql.py",
+      "line": 137,
+      "decorators": []
+     },
+     {
+      "callee": "table_exists",
+      "caller": "create",
+      "caller_class": "PgVector",
+      "file": "libs/agno/agno/vectordb/pgvector/pgvector.py",
+      "line": 226,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "async_search",
+      "caller_class": "CouchbaseSearch",
+      "file": "libs/agno/agno/vectordb/couchbase/couchbase.py",
+      "line": 1080,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "ais_table_available",
+      "caller": "table_exists",
+      "caller_class": "AsyncMySQLDb",
+      "file": "libs/agno/agno/db/mysql/async_mysql.py",
+      "line": 137,
+      "decorators": []
+     },
+     {
+      "callee": "table_exists",
+      "caller": "create",
+      "caller_class": "PgVector",
+      "file": "libs/agno/agno/vectordb/pgvector/pgvector.py",
+      "line": 226,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "send_sms",
+      "caller_class": "PlivoTools",
+      "file": "libs/agno/agno/tools/plivo.py",
+      "line": 84,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "ais_table_available",
+      "caller": "table_exists",
+      "caller_class": "AsyncMySQLDb",
+      "file": "libs/agno/agno/db/mysql/async_mysql.py",
+      "line": 137,
+      "decorators": []
+     },
+     {
+      "callee": "table_exists",
+      "caller": "create",
+      "caller_class": "PgVector",
+      "file": "libs/agno/agno/vectordb/pgvector/pgvector.py",
+      "line": 226,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "send_sms",
+      "caller_class": "TwilioTools",
+      "file": "libs/agno/agno/tools/twilio.py",
+      "line": 105,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "ais_table_available",
+      "caller": "table_exists",
+      "caller_class": "AsyncMySQLDb",
+      "file": "libs/agno/agno/db/mysql/async_mysql.py",
+      "line": 137,
+      "decorators": []
+     },
+     {
+      "callee": "table_exists",
+      "caller": "create",
+      "caller_class": "PgVector",
+      "file": "libs/agno/agno/vectordb/pgvector/pgvector.py",
+      "line": 226,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "create_task",
+      "caller_class": "ParallelTools",
+      "file": "libs/agno/agno/tools/parallel.py",
+      "line": 352,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 160
+ },
+ {
+  "id": "agno:libs/agno/agno/db/surrealdb/surrealdb.py:583:NET-EGRESS",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/db/surrealdb/surrealdb.py",
+  "line": 583,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "clear_memories",
+  "enclosing_class": "SurrealDb",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "clear_memories",
+      "caller": "clear",
+      "caller_class": "MemoryManager",
+      "file": "libs/agno/agno/memory/manager.py",
+      "line": 284,
+      "decorators": []
+     },
+     {
+      "callee": "clear",
+      "caller": "delete",
+      "caller_class": "RedisDB",
+      "file": "libs/agno/agno/vectordb/redis/redisdb.py",
+      "line": 543,
+      "decorators": []
+     },
+     {
+      "callee": "delete",
+      "caller": "delete_schedule",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/schedules/router.py",
+      "line": 193,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "clear_memories",
+      "caller": "clear",
+      "caller_class": "MemoryManager",
+      "file": "libs/agno/agno/memory/manager.py",
+      "line": 284,
+      "decorators": []
+     },
+     {
+      "callee": "clear",
+      "caller": "delete",
+      "caller_class": "RedisDB",
+      "file": "libs/agno/agno/vectordb/redis/redisdb.py",
+      "line": 543,
+      "decorators": []
+     },
+     {
+      "callee": "delete",
+      "caller": "delete_component",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/components/components.py",
+      "line": 371,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "clear_memories",
+      "caller": "clear",
+      "caller_class": "MemoryManager",
+      "file": "libs/agno/agno/memory/manager.py",
+      "line": 284,
+      "decorators": []
+     },
+     {
+      "callee": "clear",
+      "caller": "delete",
+      "caller_class": "RedisDB",
+      "file": "libs/agno/agno/vectordb/redis/redisdb.py",
+      "line": 543,
+      "decorators": []
+     },
+     {
+      "callee": "delete",
+      "caller": "delete_config_version",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/components/components.py",
+      "line": 529,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "clear_memories",
+      "caller": "clear",
+      "caller_class": "MemoryManager",
+      "file": "libs/agno/agno/memory/manager.py",
+      "line": 284,
+      "decorators": []
+     },
+     {
+      "callee": "clear",
+      "caller": "delete",
+      "caller_class": "RedisDB",
+      "file": "libs/agno/agno/vectordb/redis/redisdb.py",
+      "line": 543,
+      "decorators": []
+     },
+     {
+      "callee": "delete",
+      "caller": "revoke_service_account",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/service_accounts/router.py",
+      "line": 236,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "clear_memories",
+      "caller": "clear",
+      "caller_class": "MemoryManager",
+      "file": "libs/agno/agno/memory/manager.py",
+      "line": 284,
+      "decorators": []
+     },
+     {
+      "callee": "clear",
+      "caller": "delete",
+      "caller_class": "RedisDB",
+      "file": "libs/agno/agno/vectordb/redis/redisdb.py",
+      "line": 543,
+      "decorators": []
+     },
+     {
+      "callee": "delete",
+      "caller": "delete_approval",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/approvals/router.py",
+      "line": 215,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "clear_memories",
+      "caller": "clear",
+      "caller_class": "MemoryManager",
+      "file": "libs/agno/agno/memory/manager.py",
+      "line": 284,
+      "decorators": []
+     },
+     {
+      "callee": "clear",
+      "caller": "delete",
+      "caller_class": "RedisDB",
+      "file": "libs/agno/agno/vectordb/redis/redisdb.py",
+      "line": 543,
+      "decorators": []
+     },
+     {
+      "callee": "delete",
+      "caller": "delete_session",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/session/session.py",
+      "line": 769,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 139
+ },
+ {
+  "id": "agno:libs/agno/agno/fs/db.py:416:DATA-DELETE-SQL",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/fs/db.py",
+  "line": 416,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "move",
+  "enclosing_class": "DbFileSystem",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/os/interfaces/telegram/helpers.py:141:COMMUNICATION-SEND",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/os/interfaces/telegram/helpers.py",
+  "line": 141,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "send_message",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "ask_weather_agent",
+      "caller_class": null,
+      "file": "cookbook/05_agent_os/15_a2a/multi_agent/trip_planning_a2a_client.py",
+      "line": 51,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "ask_airbnb_agent",
+      "caller_class": null,
+      "file": "cookbook/05_agent_os/15_a2a/multi_agent/trip_planning_a2a_client.py",
+      "line": 57,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "create_team_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/teams/router.py",
+      "line": 569,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "create_agent_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/agents/router.py",
+      "line": 587,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "create_workflow_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/workflows/router.py",
+      "line": 1153,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "a2a_run_agent",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/interfaces/a2a/router.py",
+      "line": 151,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 14
+ },
+ {
+  "id": "agno:libs/agno/agno/tools/agentql.py:101:BROWSER-ACTION",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/tools/agentql.py",
+  "line": 101,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "custom_scrape_website",
+  "enclosing_class": "AgentQLTools",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/tools/agentql.py:62:BROWSER-ACTION",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/tools/agentql.py",
+  "line": 62,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "scrape_website",
+  "enclosing_class": "AgentQLTools",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/tools/daytona.py:344:EXEC-CODE",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/tools/daytona.py",
+  "line": 344,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "create_file",
+  "enclosing_class": "DaytonaTools",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/tools/docker.py:192:EXEC-CONTAINER",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/tools/docker.py",
+  "line": 192,
+  "rule_id": "EXEC-CONTAINER",
+  "enclosing_function": "start_container",
+  "enclosing_class": "DockerTools",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/tools/telegram.py:129:COMMUNICATION-SEND",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/tools/telegram.py",
+  "line": 129,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "send_message",
+  "enclosing_class": "TelegramTools",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "ask_weather_agent",
+      "caller_class": null,
+      "file": "cookbook/05_agent_os/15_a2a/multi_agent/trip_planning_a2a_client.py",
+      "line": 51,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "ask_airbnb_agent",
+      "caller_class": null,
+      "file": "cookbook/05_agent_os/15_a2a/multi_agent/trip_planning_a2a_client.py",
+      "line": 57,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "create_team_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/teams/router.py",
+      "line": 569,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "create_agent_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/agents/router.py",
+      "line": 587,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "create_workflow_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/workflows/router.py",
+      "line": 1153,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "send_message",
+      "caller": "_arun_a2a_send",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 408,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a_send",
+      "caller": "_arun_a2a",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 347,
+      "decorators": []
+     },
+     {
+      "callee": "_arun_a2a",
+      "caller": "arun",
+      "caller_class": "RemoteTeam",
+      "file": "libs/agno/agno/team/remote.py",
+      "line": 252,
+      "decorators": []
+     },
+     {
+      "callee": "arun",
+      "caller": "a2a_run_agent",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/interfaces/a2a/router.py",
+      "line": 151,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 14
+ },
+ {
+  "id": "agno:libs/agno/agno/tools/workspace.py:813:EXEC-SHELL",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/tools/workspace.py",
+  "line": 813,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "run_command",
+  "enclosing_class": "Workspace",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/utils/media.py:154:FILE-OPEN-WRITE",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/utils/media.py",
+  "line": 154,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "download_file",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno/agno/utils/shell.py:12:EXEC-SHELL",
+  "repo_name": "agno",
+  "file": "libs/agno/agno/utils/shell.py",
+  "line": 12,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "run_shell_command",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "agno:libs/agno_infra/agno/aws/resource/rds/db_cluster.py:310:SECRET-READ",
+  "repo_name": "agno",
+  "file": "libs/agno_infra/agno/aws/resource/rds/db_cluster.py",
+  "line": 310,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "get_master_user_password",
+  "enclosing_class": "DbCluster",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_master_user_password",
+      "caller": "_create",
+      "caller_class": "DbInstance",
+      "file": "libs/agno_infra/agno/aws/resource/rds/db_instance.py",
+      "line": 258,
+      "decorators": []
+     },
+     {
+      "callee": "_create",
+      "caller": "create",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "search",
+      "caller_class": "Clickhouse",
+      "file": "libs/agno/agno/vectordb/clickhouse/clickhousedb.py",
+      "line": 453,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_master_user_password",
+      "caller": "_create",
+      "caller_class": "DbInstance",
+      "file": "libs/agno_infra/agno/aws/resource/rds/db_instance.py",
+      "line": 258,
+      "decorators": []
+     },
+     {
+      "callee": "_create",
+      "caller": "create",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "search",
+      "caller_class": "CouchbaseSearch",
+      "file": "libs/agno/agno/vectordb/couchbase/couchbase.py",
+      "line": 466,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_master_user_password",
+      "caller": "_create",
+      "caller_class": "DbInstance",
+      "file": "libs/agno_infra/agno/aws/resource/rds/db_instance.py",
+      "line": 258,
+      "decorators": []
+     },
+     {
+      "callee": "_create",
+      "caller": "create",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "async_search",
+      "caller_class": "CouchbaseSearch",
+      "file": "libs/agno/agno/vectordb/couchbase/couchbase.py",
+      "line": 1080,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_master_user_password",
+      "caller": "_create",
+      "caller_class": "DbInstance",
+      "file": "libs/agno_infra/agno/aws/resource/rds/db_instance.py",
+      "line": 258,
+      "decorators": []
+     },
+     {
+      "callee": "_create",
+      "caller": "create",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "send_sms",
+      "caller_class": "PlivoTools",
+      "file": "libs/agno/agno/tools/plivo.py",
+      "line": 84,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_master_user_password",
+      "caller": "_create",
+      "caller_class": "DbInstance",
+      "file": "libs/agno_infra/agno/aws/resource/rds/db_instance.py",
+      "line": 258,
+      "decorators": []
+     },
+     {
+      "callee": "_create",
+      "caller": "create",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "send_sms",
+      "caller_class": "TwilioTools",
+      "file": "libs/agno/agno/tools/twilio.py",
+      "line": 105,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_master_user_password",
+      "caller": "_create",
+      "caller_class": "DbInstance",
+      "file": "libs/agno_infra/agno/aws/resource/rds/db_instance.py",
+      "line": 258,
+      "decorators": []
+     },
+     {
+      "callee": "_create",
+      "caller": "create",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "create_task",
+      "caller_class": "ParallelTools",
+      "file": "libs/agno/agno/tools/parallel.py",
+      "line": 352,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 78
+ },
+ {
+  "id": "agno:libs/agno_infra/agno/aws/resource/secret/manager.py:243:SECRET-READ",
+  "repo_name": "agno",
+  "file": "libs/agno_infra/agno/aws/resource/secret/manager.py",
+  "line": 243,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "get_secrets_as_dict",
+  "enclosing_class": "SecretsManager",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_secrets_as_dict",
+      "caller": "_update",
+      "caller_class": "SecretsManager",
+      "file": "libs/agno_infra/agno/aws/resource/secret/manager.py",
+      "line": 190,
+      "decorators": []
+     },
+     {
+      "callee": "_update",
+      "caller": "update",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 148,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "search",
+      "caller_class": "LangChainVectorDb",
+      "file": "libs/agno/agno/vectordb/langchaindb/langchaindb.py",
+      "line": 74,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_secrets_as_dict",
+      "caller": "_update",
+      "caller_class": "SecretsManager",
+      "file": "libs/agno_infra/agno/aws/resource/secret/manager.py",
+      "line": 190,
+      "decorators": []
+     },
+     {
+      "callee": "_update",
+      "caller": "update",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 148,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "search",
+      "caller_class": "MongoDb",
+      "file": "libs/agno/agno/vectordb/mongodb/mongodb.py",
+      "line": 581,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_secrets_as_dict",
+      "caller": "_update",
+      "caller_class": "SecretsManager",
+      "file": "libs/agno_infra/agno/aws/resource/secret/manager.py",
+      "line": 190,
+      "decorators": []
+     },
+     {
+      "callee": "_update",
+      "caller": "update",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 148,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "search_web",
+      "caller_class": "FirecrawlTools",
+      "file": "libs/agno/agno/tools/firecrawl.py",
+      "line": 126,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "get_secrets_as_dict",
+      "caller": "_update",
+      "caller_class": "SecretsManager",
+      "file": "libs/agno_infra/agno/aws/resource/secret/manager.py",
+      "line": 190,
+      "decorators": []
+     },
+     {
+      "callee": "_update",
+      "caller": "update",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 148,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "you_search",
+      "caller_class": "YouTools",
+      "file": "libs/agno/agno/tools/youcom.py",
+      "line": 122,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_secrets_as_dict",
+      "caller": "_update",
+      "caller_class": "SecretsManager",
+      "file": "libs/agno_infra/agno/aws/resource/secret/manager.py",
+      "line": 190,
+      "decorators": []
+     },
+     {
+      "callee": "_update",
+      "caller": "update",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 148,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "process_document",
+      "caller_class": "Milvus",
+      "file": "libs/agno/agno/vectordb/milvus/milvus.py",
+      "line": 499,
+      "decorators": []
+     },
+     {
+      "callee": "process_document",
+      "caller": "create_team_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/teams/router.py",
+      "line": 569,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_secrets_as_dict",
+      "caller": "_update",
+      "caller_class": "SecretsManager",
+      "file": "libs/agno_infra/agno/aws/resource/secret/manager.py",
+      "line": 190,
+      "decorators": []
+     },
+     {
+      "callee": "_update",
+      "caller": "update",
+      "caller_class": "AwsResource",
+      "file": "libs/agno_infra/agno/aws/resource/base.py",
+      "line": 148,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "process_document",
+      "caller_class": "Milvus",
+      "file": "libs/agno/agno/vectordb/milvus/milvus.py",
+      "line": 499,
+      "decorators": []
+     },
+     {
+      "callee": "process_document",
+      "caller": "create_agent_run",
+      "caller_class": null,
+      "file": "libs/agno/agno/os/routers/agents/router.py",
+      "line": 587,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 52
+ },
+ {
+  "id": "aider:aider/coders/base_coder.py:862:COMMUNICATION-SEND",
+  "repo_name": "aider",
+  "file": "aider/coders/base_coder.py",
+  "line": 862,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "run_stream",
+  "enclosing_class": "Coder",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:aider/coders/base_coder.py:934:COMMUNICATION-SEND",
+  "repo_name": "aider",
+  "file": "aider/coders/base_coder.py",
+  "line": 934,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "run_one",
+  "enclosing_class": "Coder",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:aider/coders/patch_coder.py:589:DATA-DELETE-OS",
+  "repo_name": "aider",
+  "file": "aider/coders/patch_coder.py",
+  "line": 589,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "apply_edits",
+  "enclosing_class": "PatchCoder",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:aider/coders/search_replace.py:464:GIT-MUTATE",
+  "repo_name": "aider",
+  "file": "aider/coders/search_replace.py",
+  "line": 464,
+  "rule_id": "GIT-MUTATE",
+  "enclosing_function": "git_cherry_pick_osr_onto_o",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:aider/coders/search_replace.py:510:GIT-MUTATE",
+  "repo_name": "aider",
+  "file": "aider/coders/search_replace.py",
+  "line": 510,
+  "rule_id": "GIT-MUTATE",
+  "enclosing_function": "git_cherry_pick_sr_onto_so",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:aider/onboarding.py:177:NET-EGRESS",
+  "repo_name": "aider",
+  "file": "aider/onboarding.py",
+  "line": 177,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "exchange_code_for_key",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:aider/scrape.py:170:BROWSER-ACTION",
+  "repo_name": "aider",
+  "file": "aider/scrape.py",
+  "line": 170,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "scrape_with_playwright",
+  "enclosing_class": "Scraper",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:benchmark/benchmark.py:913:FILE-WRITE",
+  "repo_name": "aider",
+  "file": "benchmark/benchmark.py",
+  "line": 913,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "run_test_real",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:benchmark/rungrid.py:56:EXEC-SHELL",
+  "repo_name": "aider",
+  "file": "benchmark/rungrid.py",
+  "line": 56,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "run",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:scripts/recording_audio.py:109:NET-EGRESS",
+  "repo_name": "aider",
+  "file": "scripts/recording_audio.py",
+  "line": 109,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "generate_audio_openai",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:scripts/recording_audio.py:245:FILE-WRITE",
+  "repo_name": "aider",
+  "file": "scripts/recording_audio.py",
+  "line": 245,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:scripts/update-history.py:154:DATA-DELETE-OS",
+  "repo_name": "aider",
+  "file": "scripts/update-history.py",
+  "line": 154,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "aider:scripts/versionbump.py:15:EXEC-SHELL",
+  "repo_name": "aider",
+  "file": "scripts/versionbump.py",
+  "line": 15,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "check_branch",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "autogen:python/fixup_generated_files.py:34:FILE-OPEN-WRITE",
+  "repo_name": "autogen",
+  "file": "python/fixup_generated_files.py",
+  "line": 34,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "autogen:python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_base_group_chat.py:534:COMMUNICATION-SEND",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_base_group_chat.py",
+  "line": 534,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "run_stream",
+  "enclosing_class": "BaseGroupChat",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "run_stream",
+      "caller": "run",
+      "caller_class": "BaseGroupChat",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_base_group_chat.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "predict",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/serve.py",
+      "line": 13,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:kernel_function",
+    "hops": [
+     {
+      "callee": "run_stream",
+      "caller": "run",
+      "caller_class": "BaseGroupChat",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_base_group_chat.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run_json",
+      "caller_class": "BaseTool",
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_base.py",
+      "line": 179,
+      "decorators": []
+     },
+     {
+      "callee": "run_json",
+      "caller": "tool_method",
+      "caller_class": "KernelFunctionFromTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/semantic_kernel/_kernel_function_from_tool.py",
+      "line": 24,
+      "decorators": [
+       "kernel_function"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "run_stream",
+      "caller": "on_messages_stream",
+      "caller_class": "SocietyOfMindAgent",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_society_of_mind_agent.py",
+      "line": 168,
+      "decorators": []
+     },
+     {
+      "callee": "on_messages_stream",
+      "caller": "on_messages",
+      "caller_class": "SocietyOfMindAgent",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_society_of_mind_agent.py",
+      "line": 159,
+      "decorators": []
+     },
+     {
+      "callee": "on_messages",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 78,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:self.server.call_tool",
+    "hops": [
+     {
+      "callee": "run_stream",
+      "caller": "run",
+      "caller_class": "BaseGroupChat",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_base_group_chat.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "start",
+      "caller_class": "LiteStudio",
+      "file": "python/packages/autogen-studio/autogenstudio/lite/studio.py",
+      "line": 171,
+      "decorators": []
+     },
+     {
+      "callee": "start",
+      "caller": "call_tool",
+      "caller_class": "McpWorkbench",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/mcp/_workbench.py",
+      "line": 314,
+      "decorators": []
+     },
+     {
+      "callee": "call_tool",
+      "caller": "call_tool",
+      "caller_class": "SimpleMcpServer",
+      "file": "python/packages/autogen-ext/tests/mcp_server_comprehensive.py",
+      "line": 353,
+      "decorators": [
+       "self.server.call_tool"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "run_stream",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_team.py",
+      "line": 96,
+      "decorators": [
+       "app.websocket"
+      ]
+     },
+     {
+      "callee": "chat",
+      "caller": "create",
+      "caller_class": "BaseOllamaChatCompletionClient",
+      "file": "python/packages/autogen-ext/src/autogen_ext/models/ollama/_ollama_client.py",
+      "line": 612,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "load_state",
+      "caller_class": "SwarmGroupChatManager",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/teams/_group_chat/_swarm_group_chat.py",
+      "line": 108,
+      "decorators": []
+     },
+     {
+      "callee": "load_state",
+      "caller": "chat_completions_stream",
+      "caller_class": null,
+      "file": "python/samples/core_streaming_handoffs_fastapi/app.py",
+      "line": 194,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 5
+ },
+ {
+  "id": "autogen:python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/playwright_controller.py:210:BROWSER-ACTION",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/playwright_controller.py",
+  "line": 210,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "visit_page",
+  "enclosing_class": "PlaywrightController",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "visit_page",
+      "caller": "_execute_tool",
+      "caller_class": "MultimodalWebSurfer",
+      "file": "python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/_multimodal_web_surfer.py",
+      "line": 628,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_tool",
+      "caller": "_generate_reply",
+      "caller_class": "MultimodalWebSurfer",
+      "file": "python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/_multimodal_web_surfer.py",
+      "line": 462,
+      "decorators": []
+     },
+     {
+      "callee": "_generate_reply",
+      "caller": "on_messages",
+      "caller_class": "FileSurfer",
+      "file": "python/packages/autogen-ext/src/autogen_ext/agents/file_surfer/_file_surfer.py",
+      "line": 90,
+      "decorators": []
+     },
+     {
+      "callee": "on_messages",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 78,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "autogen:python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/playwright_controller.py:482:BROWSER-ACTION",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/playwright_controller.py",
+  "line": 482,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "fill_id",
+  "enclosing_class": "PlaywrightController",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "fill_id",
+      "caller": "_execute_tool",
+      "caller_class": "MultimodalWebSurfer",
+      "file": "python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/_multimodal_web_surfer.py",
+      "line": 628,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_tool",
+      "caller": "_generate_reply",
+      "caller_class": "MultimodalWebSurfer",
+      "file": "python/packages/autogen-ext/src/autogen_ext/agents/web_surfer/_multimodal_web_surfer.py",
+      "line": 462,
+      "decorators": []
+     },
+     {
+      "callee": "_generate_reply",
+      "caller": "on_messages",
+      "caller_class": "FileSurfer",
+      "file": "python/packages/autogen-ext/src/autogen_ext/agents/file_surfer/_file_surfer.py",
+      "line": 90,
+      "decorators": []
+     },
+     {
+      "callee": "on_messages",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 78,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "autogen:python/packages/autogen-ext/src/autogen_ext/code_executors/azure/_azure_container_code_executor.py:462:NET-EGRESS",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-ext/src/autogen_ext/code_executors/azure/_azure_container_code_executor.py",
+  "line": 462,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "_execute_code_dont_check_setup",
+  "enclosing_class": "ACADynamicSessionsCodeExecutor",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "_execute_code_dont_check_setup",
+      "caller": "execute_code_blocks",
+      "caller_class": "DockerCommandLineCodeExecutor",
+      "file": "python/packages/autogen-ext/src/autogen_ext/code_executors/docker/_docker_code_executor.py",
+      "line": 405,
+      "decorators": []
+     },
+     {
+      "callee": "execute_code_blocks",
+      "caller": "run",
+      "caller_class": "PythonCodeExecutionTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/code_execution/_code_execution.py",
+      "line": 81,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "predict",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/serve.py",
+      "line": 13,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:kernel_function",
+    "hops": [
+     {
+      "callee": "_execute_code_dont_check_setup",
+      "caller": "execute_code_blocks",
+      "caller_class": "DockerCommandLineCodeExecutor",
+      "file": "python/packages/autogen-ext/src/autogen_ext/code_executors/docker/_docker_code_executor.py",
+      "line": 405,
+      "decorators": []
+     },
+     {
+      "callee": "execute_code_blocks",
+      "caller": "run",
+      "caller_class": "PythonCodeExecutionTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/code_execution/_code_execution.py",
+      "line": 81,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run_json",
+      "caller_class": "BaseTool",
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_base.py",
+      "line": 179,
+      "decorators": []
+     },
+     {
+      "callee": "run_json",
+      "caller": "tool_method",
+      "caller_class": "KernelFunctionFromTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/semantic_kernel/_kernel_function_from_tool.py",
+      "line": 24,
+      "decorators": [
+       "kernel_function"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 2
+ },
+ {
+  "id": "autogen:python/packages/autogen-ext/src/autogen_ext/models/anthropic/_anthropic_client.py:1410:SECRET-READ",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-ext/src/autogen_ext/models/anthropic/_anthropic_client.py",
+  "line": 1410,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "_from_config",
+  "enclosing_class": "AnthropicBedrockChatCompletionClient",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "get_agent",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 40,
+      "decorators": []
+     },
+     {
+      "callee": "get_agent",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 78,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "validate_instantiation",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 114,
+      "decorators": [
+       "staticmethod"
+      ]
+     },
+     {
+      "callee": "validate_instantiation",
+      "caller": "validate",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 180,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "validate",
+      "caller": "validate_component",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/validation.py",
+      "line": 12,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "validate_instantiation",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 114,
+      "decorators": [
+       "staticmethod"
+      ]
+     },
+     {
+      "callee": "validate_instantiation",
+      "caller": "validate",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 180,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "validate",
+      "caller": "test_component",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/validation.py",
+      "line": 23,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "_create_team",
+      "caller_class": "TeamManager",
+      "file": "python/packages/autogen-studio/autogenstudio/teammanager/teammanager.py",
+      "line": 79,
+      "decorators": []
+     },
+     {
+      "callee": "_create_team",
+      "caller": "run",
+      "caller_class": "TeamManager",
+      "file": "python/packages/autogen-studio/autogenstudio/teammanager/teammanager.py",
+      "line": 154,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "predict",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/serve.py",
+      "line": 13,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 4
+ },
+ {
+  "id": "autogen:python/packages/autogen-ext/src/autogen_ext/models/openai/_openai_client.py:1515:SECRET-READ",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-ext/src/autogen_ext/models/openai/_openai_client.py",
+  "line": 1515,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "_from_config",
+  "enclosing_class": "OpenAIChatCompletionClient",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "get_agent",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 40,
+      "decorators": []
+     },
+     {
+      "callee": "get_agent",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 78,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "validate_instantiation",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 114,
+      "decorators": [
+       "staticmethod"
+      ]
+     },
+     {
+      "callee": "validate_instantiation",
+      "caller": "validate",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 180,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "validate",
+      "caller": "validate_component",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/validation.py",
+      "line": 12,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "validate_instantiation",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 114,
+      "decorators": [
+       "staticmethod"
+      ]
+     },
+     {
+      "callee": "validate_instantiation",
+      "caller": "validate",
+      "caller_class": "ValidationService",
+      "file": "python/packages/autogen-studio/autogenstudio/validation/validation_service.py",
+      "line": 180,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "validate",
+      "caller": "test_component",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/validation.py",
+      "line": 23,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "_from_config",
+      "caller": "load_component",
+      "caller_class": "ComponentLoader",
+      "file": "python/packages/autogen-core/src/autogen_core/_component_config.py",
+      "line": 205,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "load_component",
+      "caller": "_create_team",
+      "caller_class": "TeamManager",
+      "file": "python/packages/autogen-studio/autogenstudio/teammanager/teammanager.py",
+      "line": 79,
+      "decorators": []
+     },
+     {
+      "callee": "_create_team",
+      "caller": "run",
+      "caller_class": "TeamManager",
+      "file": "python/packages/autogen-studio/autogenstudio/teammanager/teammanager.py",
+      "line": 154,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "predict",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/serve.py",
+      "line": 13,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 4
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/cli.py:72:FILE-OPEN-WRITE",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/cli.py",
+  "line": 72,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "ui",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/database/db_manager.py:127:EXEC-CODE",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/database/db_manager.py",
+  "line": 127,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "reset_db",
+  "enclosing_class": "DatabaseManager",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "reset_db",
+      "caller": "reset",
+      "caller_class": "MemoryBank",
+      "file": "python/packages/autogen-ext/src/autogen_ext/experimental/task_centric_memory/_memory_bank.py",
+      "line": 92,
+      "decorators": []
+     },
+     {
+      "callee": "reset",
+      "caller": "on_messages_stream",
+      "caller_class": "SocietyOfMindAgent",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_society_of_mind_agent.py",
+      "line": 168,
+      "decorators": []
+     },
+     {
+      "callee": "on_messages_stream",
+      "caller": "on_messages",
+      "caller_class": "SocietyOfMindAgent",
+      "file": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_society_of_mind_agent.py",
+      "line": 159,
+      "decorators": []
+     },
+     {
+      "callee": "on_messages",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/agentchat_fastapi/app_agent.py",
+      "line": 78,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/database/db_manager.py:182:EXEC-CODE",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/database/db_manager.py",
+  "line": 182,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "upsert",
+  "enclosing_class": "DatabaseManager",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "upsert",
+      "caller": "create_session",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/sessions.py",
+      "line": 30,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.put",
+    "hops": [
+     {
+      "callee": "upsert",
+      "caller": "update_session",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/sessions.py",
+      "line": 43,
+      "decorators": [
+       "router.put"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.get",
+    "hops": [
+     {
+      "callee": "upsert",
+      "caller": "list_teams",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/teams.py",
+      "line": 14,
+      "decorators": [
+       "router.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "upsert",
+      "caller": "create_team",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/teams.py",
+      "line": 38,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.put",
+    "hops": [
+     {
+      "callee": "upsert",
+      "caller": "update_gallery_entry",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/gallery.py",
+      "line": 13,
+      "decorators": [
+       "router.put"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "upsert",
+      "caller": "create_gallery_entry",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/gallery.py",
+      "line": 31,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 20
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/database/db_manager.py:234:DATA-DELETE-SQL",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/database/db_manager.py",
+  "line": 234,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "get",
+  "enclosing_class": "DatabaseManager",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:api.get",
+    "hops": [
+     {
+      "callee": "get",
+      "caller": "get_version",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/app.py",
+      "line": 162,
+      "decorators": [
+       "api.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:api.get",
+    "hops": [
+     {
+      "callee": "get",
+      "caller": "health_check",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/app.py",
+      "line": 175,
+      "decorators": [
+       "api.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "get",
+      "caller": "predict",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/serve.py",
+      "line": 13,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.get",
+    "hops": [
+     {
+      "callee": "get",
+      "caller": "get_login_url",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/auth/authroutes.py",
+      "line": 33,
+      "decorators": [
+       "router.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.get",
+    "hops": [
+     {
+      "callee": "get",
+      "caller": "oauth_callback",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/auth/authroutes.py",
+      "line": 44,
+      "decorators": [
+       "router.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get",
+      "caller": "handle_callback",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/auth/authroutes.py",
+      "line": 146,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 64
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/database/db_manager.py:263:NET-EGRESS",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/database/db_manager.py",
+  "line": 263,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "delete",
+  "enclosing_class": "DatabaseManager",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "delete",
+      "caller": "delete_session",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/sessions.py",
+      "line": 59,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "delete",
+      "caller": "delete_team",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/teams.py",
+      "line": 47,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "delete",
+      "caller": "delete_gallery_entry",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/routes/gallery.py",
+      "line": 63,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "delete",
+      "caller": "run",
+      "caller_class": "HttpTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/http/_http_tool.py",
+      "line": 196,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "predict",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/serve.py",
+      "line": 13,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:kernel_function",
+    "hops": [
+     {
+      "callee": "delete",
+      "caller": "run",
+      "caller_class": "HttpTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/http/_http_tool.py",
+      "line": 196,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run_json",
+      "caller_class": "BaseTool",
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_base.py",
+      "line": 179,
+      "decorators": []
+     },
+     {
+      "callee": "run_json",
+      "caller": "tool_method",
+      "caller_class": "KernelFunctionFromTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/semantic_kernel/_kernel_function_from_tool.py",
+      "line": 24,
+      "decorators": [
+       "kernel_function"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:self.server.call_tool",
+    "hops": [
+     {
+      "callee": "delete",
+      "caller": "run",
+      "caller_class": "HttpTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/http/_http_tool.py",
+      "line": 196,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "start",
+      "caller_class": "LiteStudio",
+      "file": "python/packages/autogen-studio/autogenstudio/lite/studio.py",
+      "line": 171,
+      "decorators": []
+     },
+     {
+      "callee": "start",
+      "caller": "call_tool",
+      "caller_class": "McpWorkbench",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/mcp/_workbench.py",
+      "line": 314,
+      "decorators": []
+     },
+     {
+      "callee": "call_tool",
+      "caller": "call_tool",
+      "caller_class": "SimpleMcpServer",
+      "file": "python/packages/autogen-ext/tests/mcp_server_comprehensive.py",
+      "line": 353,
+      "decorators": [
+       "self.server.call_tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 10
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/database/schema_manager.py:531:DATA-DELETE-SQL",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/database/schema_manager.py",
+  "line": 531,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "ensure_schema_up_to_date",
+  "enclosing_class": "SchemaManager",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/lite/studio.py:236:EXEC-SHELL",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/lite/studio.py",
+  "line": 236,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "shutdown_port",
+  "enclosing_class": "LiteStudio",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "autogen:python/packages/autogen-studio/autogenstudio/mcp/wsbridge.py:142:COMMUNICATION-SEND",
+  "repo_name": "autogen",
+  "file": "python/packages/autogen-studio/autogenstudio/mcp/wsbridge.py",
+  "line": 142,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "_handle_elicitation_response",
+  "enclosing_class": "MCPWebSocketBridge",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "_handle_elicitation_response",
+      "caller": "handle_websocket_message",
+      "caller_class": "MCPWebSocketBridge",
+      "file": "python/packages/autogen-studio/autogenstudio/mcp/wsbridge.py",
+      "line": 96,
+      "decorators": []
+     },
+     {
+      "callee": "handle_websocket_message",
+      "caller": "run",
+      "caller_class": "MCPWebSocketBridge",
+      "file": "python/packages/autogen-studio/autogenstudio/mcp/wsbridge.py",
+      "line": 188,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "predict",
+      "caller_class": null,
+      "file": "python/packages/autogen-studio/autogenstudio/web/serve.py",
+      "line": 13,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:kernel_function",
+    "hops": [
+     {
+      "callee": "_handle_elicitation_response",
+      "caller": "handle_websocket_message",
+      "caller_class": "MCPWebSocketBridge",
+      "file": "python/packages/autogen-studio/autogenstudio/mcp/wsbridge.py",
+      "line": 96,
+      "decorators": []
+     },
+     {
+      "callee": "handle_websocket_message",
+      "caller": "run",
+      "caller_class": "MCPWebSocketBridge",
+      "file": "python/packages/autogen-studio/autogenstudio/mcp/wsbridge.py",
+      "line": 188,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run_json",
+      "caller_class": "BaseTool",
+      "file": "python/packages/autogen-core/src/autogen_core/tools/_base.py",
+      "line": 179,
+      "decorators": []
+     },
+     {
+      "callee": "run_json",
+      "caller": "tool_method",
+      "caller_class": "KernelFunctionFromTool",
+      "file": "python/packages/autogen-ext/src/autogen_ext/tools/semantic_kernel/_kernel_function_from_tool.py",
+      "line": 24,
+      "decorators": [
+       "kernel_function"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 2
+ },
+ {
+  "id": "autogen:python/samples/gitty/src/gitty/_db.py:121:DATABASE-MUTATE",
+  "repo_name": "autogen",
+  "file": "python/samples/gitty/src/gitty/_db.py",
+  "line": 121,
+  "rule_id": "DATABASE-MUTATE",
+  "enclosing_function": "fetch_and_update_issues",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "autogen:python/samples/gitty/src/gitty/_db.py:131:DATABASE-MUTATE",
+  "repo_name": "autogen",
+  "file": "python/samples/gitty/src/gitty/_db.py",
+  "line": 131,
+  "rule_id": "DATABASE-MUTATE",
+  "enclosing_function": "fetch_and_update_issues",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "autogen:python/samples/gitty/src/gitty/_github.py:65:EXEC-SHELL",
+  "repo_name": "autogen",
+  "file": "python/samples/gitty/src/gitty/_github.py",
+  "line": 65,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "fetch_issue_summaries",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/actor/playground/flights.py:20:BROWSER-ACTION",
+  "repo_name": "browser-use",
+  "file": "browser_use/actor/playground/flights.py",
+  "line": 20,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/actor/playground/mixed_automation.py:37:BROWSER-ACTION",
+  "repo_name": "browser-use",
+  "file": "browser_use/actor/playground/mixed_automation.py",
+  "line": 37,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/browser/cloud/cloud.py:153:NET-EGRESS",
+  "repo_name": "browser-use",
+  "file": "browser_use/browser/cloud/cloud.py",
+  "line": 153,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "stop_browser",
+  "enclosing_class": "CloudBrowserClient",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:self.server.call_tool",
+    "hops": [
+     {
+      "callee": "stop_browser",
+      "caller": "close",
+      "caller_class": "CloudBrowserClient",
+      "file": "browser_use/browser/cloud/cloud.py",
+      "line": 197,
+      "decorators": []
+     },
+     {
+      "callee": "close",
+      "caller": "_retry_with_browser_use_agent",
+      "caller_class": "BrowserUseServer",
+      "file": "browser_use/mcp/server.py",
+      "line": 637,
+      "decorators": []
+     },
+     {
+      "callee": "_retry_with_browser_use_agent",
+      "caller": "_execute_tool",
+      "caller_class": "BrowserUseServer",
+      "file": "browser_use/mcp/server.py",
+      "line": 486,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_tool",
+      "caller": "handle_call_tool",
+      "caller_class": "BrowserUseServer",
+      "file": "browser_use/mcp/server.py",
+      "line": 460,
+      "decorators": [
+       "self.server.call_tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "browser-use:browser_use/browser/profile.py:1176:FILE-OPEN-WRITE",
+  "repo_name": "browser-use",
+  "file": "browser_use/browser/profile.py",
+  "line": 1176,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "_download_extension",
+  "enclosing_class": "BrowserProfile",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/llm/aws/chat_anthropic.py:219:EMAIL-PROVIDER-SEND",
+  "repo_name": "browser-use",
+  "file": "browser_use/llm/aws/chat_anthropic.py",
+  "line": 219,
+  "rule_id": "EMAIL-PROVIDER-SEND",
+  "enclosing_function": "ainvoke",
+  "enclosing_class": "ChatAnthropicBedrock",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/llm/mistral/chat.py:148:NET-EGRESS",
+  "repo_name": "browser-use",
+  "file": "browser_use/llm/mistral/chat.py",
+  "line": 148,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "_post",
+  "enclosing_class": "ChatMistral",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/mcp/cli_mcp.py:105:EXEC-CODE",
+  "repo_name": "browser-use",
+  "file": "browser_use/mcp/cli_mcp.py",
+  "line": 105,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "_ensure_namespace",
+  "enclosing_class": "CLIMCPServer",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:self.server.call_tool",
+    "hops": [
+     {
+      "callee": "_ensure_namespace",
+      "caller": "_screenshot",
+      "caller_class": "CLIMCPServer",
+      "file": "browser_use/mcp/cli_mcp.py",
+      "line": 133,
+      "decorators": []
+     },
+     {
+      "callee": "_screenshot",
+      "caller": "_execute_tool",
+      "caller_class": "BrowserUseServer",
+      "file": "browser_use/mcp/server.py",
+      "line": 486,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_tool",
+      "caller": "handle_call_tool",
+      "caller_class": "BrowserUseServer",
+      "file": "browser_use/mcp/server.py",
+      "line": 460,
+      "decorators": [
+       "self.server.call_tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "browser-use:browser_use/mcp/cli_mcp.py:128:EXEC-CODE",
+  "repo_name": "browser-use",
+  "file": "browser_use/mcp/cli_mcp.py",
+  "line": 128,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "_execute",
+  "enclosing_class": "CLIMCPServer",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/tokens/service.py:107:DATA-DELETE-OS",
+  "repo_name": "browser-use",
+  "file": "browser_use/tokens/service.py",
+  "line": 107,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "_find_valid_cache",
+  "enclosing_class": "TokenCost",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:browser_use/utils.py:743:EXEC-SHELL",
+  "repo_name": "browser-use",
+  "file": "browser_use/utils.py",
+  "line": 743,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "get_git_info",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:examples/apps/msg-use/scheduler.py:246:COMMUNICATION-SEND",
+  "repo_name": "browser-use",
+  "file": "examples/apps/msg-use/scheduler.py",
+  "line": 246,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:examples/apps/news-use/news_monitor.py:208:FILE-OPEN-WRITE",
+  "repo_name": "browser-use",
+  "file": "examples/apps/news-use/news_monitor.py",
+  "line": 208,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "save_article",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "browser-use:examples/custom-functions/file_upload.py:109:DATA-DELETE-OS",
+  "repo_name": "browser-use",
+  "file": "examples/custom-functions/file_upload.py",
+  "line": 109,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "click:src/click/_compat.py:448:FILE-WRITE",
+  "repo_name": "click",
+  "file": "src/click/_compat.py",
+  "line": 448,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "open_stream",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "click:src/click/_termui_impl.py:531:EXEC-SHELL",
+  "repo_name": "click",
+  "file": "src/click/_termui_impl.py",
+  "line": 531,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "_pipepager",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "click:src/click/_termui_impl.py:633:DATA-DELETE-OS",
+  "repo_name": "click",
+  "file": "src/click/_termui_impl.py",
+  "line": 633,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "_tempfilepager",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "crewai:lib/cli/src/crewai_cli/checkpoint_cli.py:313:DATA-DELETE-SQL",
+  "repo_name": "crewai",
+  "file": "lib/cli/src/crewai_cli/checkpoint_cli.py",
+  "line": 313,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "_info_sqlite_id",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "crewai:lib/cli/src/crewai_cli/kickoff_flow.py:99:EXEC-SHELL",
+  "repo_name": "crewai",
+  "file": "lib/cli/src/crewai_cli/kickoff_flow.py",
+  "line": 99,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "kickoff_flow",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "crewai:lib/cli/src/crewai_cli/utils.py:150:FILE-WRITE",
+  "repo_name": "crewai",
+  "file": "lib/cli/src/crewai_cli/utils.py",
+  "line": 150,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "tree_find_and_replace",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "tree_find_and_replace",
+      "caller": "create",
+      "caller_class": "ToolCommand",
+      "file": "lib/cli/src/crewai_cli/tools/main.py",
+      "line": 67,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "_run",
+      "caller_class": "ContextualAICreateAgentTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/contextualai_create_agent_tool/contextual_create_agent_tool.py",
+      "line": 44,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "tree_find_and_replace",
+      "caller": "create",
+      "caller_class": "ToolCommand",
+      "file": "lib/cli/src/crewai_cli/tools/main.py",
+      "line": 67,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "_run",
+      "caller_class": "AIMindTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/ai_mind_tool/ai_mind_tool.py",
+      "line": 84,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "tree_find_and_replace",
+      "caller": "create",
+      "caller_class": "ToolCommand",
+      "file": "lib/cli/src/crewai_cli/tools/main.py",
+      "line": 67,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "_run",
+      "caller_class": "ContextualAIQueryTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/contextualai_query_tool/contextual_query_tool.py",
+      "line": 69,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "tree_find_and_replace",
+      "caller": "create",
+      "caller_class": "ToolCommand",
+      "file": "lib/cli/src/crewai_cli/tools/main.py",
+      "line": 67,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "_run",
+      "caller_class": "QdrantVectorSearchTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/qdrant_vector_search_tool/qdrant_search_tool.py",
+      "line": 80,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "tree_find_and_replace",
+      "caller": "create",
+      "caller_class": "ToolCommand",
+      "file": "lib/cli/src/crewai_cli/tools/main.py",
+      "line": 67,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "_run",
+      "caller_class": "WeaviateVectorSearchTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/weaviate_tool/vector_search.py",
+      "line": 106,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "tree_find_and_replace",
+      "caller": "create",
+      "caller_class": "ToolCommand",
+      "file": "lib/cli/src/crewai_cli/tools/main.py",
+      "line": 67,
+      "decorators": []
+     },
+     {
+      "callee": "create",
+      "caller": "_run",
+      "caller_class": "CouchbaseFTSVectorSearchTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/couchbase_tool/couchbase_tool.py",
+      "line": 185,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 22
+ },
+ {
+  "id": "crewai:lib/crewai-tools/src/crewai_tools/tools/stagehand_tool/stagehand_tool.py:506:BROWSER-ACTION",
+  "repo_name": "crewai",
+  "file": "lib/crewai-tools/src/crewai_tools/tools/stagehand_tool/stagehand_tool.py",
+  "line": 506,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "_async_run",
+  "enclosing_class": "StagehandTool",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "_async_run",
+      "caller": "_run",
+      "caller_class": "StagehandTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/stagehand_tool/stagehand_tool.py",
+      "line": 577,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "crewai:lib/crewai/src/crewai/a2a/auth/client_schemes.py:393:NET-EGRESS",
+  "repo_name": "crewai",
+  "file": "lib/crewai/src/crewai/a2a/auth/client_schemes.py",
+  "line": 393,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "_fetch_token",
+  "enclosing_class": "OAuth2ClientCredentials",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "crewai:lib/crewai/src/crewai/a2a/config.py:128:SECRET-READ",
+  "repo_name": "crewai",
+  "file": "lib/crewai/src/crewai/a2a/config.py",
+  "line": 128,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "get_private_key",
+  "enclosing_class": "AgentCardSigningConfig",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "crewai:lib/crewai/src/crewai/a2a/updates/polling/handler.py:163:COMMUNICATION-SEND",
+  "repo_name": "crewai",
+  "file": "lib/crewai/src/crewai/a2a/updates/polling/handler.py",
+  "line": 163,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "execute",
+  "enclosing_class": "PollingHandler",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "execute",
+      "caller": "_run",
+      "caller_class": "SingleStoreSearchTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/singlestore_search_tool/singlestore_search_tool.py",
+      "line": 381,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "execute",
+      "caller": "add",
+      "caller_class": "KickoffTaskOutputsSQLiteStorage",
+      "file": "lib/crewai/src/crewai/memory/storage/kickoff_task_outputs_storage.py",
+      "line": 66,
+      "decorators": []
+     },
+     {
+      "callee": "add",
+      "caller": "_run",
+      "caller_class": "RecallMemoryTool",
+      "file": "lib/crewai/src/crewai/tools/memory_tools.py",
+      "line": 33,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "execute",
+      "caller": "add",
+      "caller_class": "KickoffTaskOutputsSQLiteStorage",
+      "file": "lib/crewai/src/crewai/memory/storage/kickoff_task_outputs_storage.py",
+      "line": 66,
+      "decorators": []
+     },
+     {
+      "callee": "add",
+      "caller": "_run",
+      "caller_class": "DatabricksQueryTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/databricks_query_tool/databricks_query_tool.py",
+      "line": 209,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "execute",
+      "caller": "update",
+      "caller_class": "KickoffTaskOutputsSQLiteStorage",
+      "file": "lib/crewai/src/crewai/memory/storage/kickoff_task_outputs_storage.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "_run",
+      "caller_class": "SpiderTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/spider_tool/spider_tool.py",
+      "line": 139,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "execute",
+      "caller": "update",
+      "caller_class": "KickoffTaskOutputsSQLiteStorage",
+      "file": "lib/crewai/src/crewai/memory/storage/kickoff_task_outputs_storage.py",
+      "line": 113,
+      "decorators": []
+     },
+     {
+      "callee": "update",
+      "caller": "_run",
+      "caller_class": "SerperDevTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 317,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "execute",
+      "caller": "_execute_query",
+      "caller_class": "SnowflakeSearchTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/snowflake_search_tool/snowflake_search_tool.py",
+      "line": 200,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_query",
+      "caller": "_run",
+      "caller_class": "SnowflakeSearchTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/snowflake_search_tool/snowflake_search_tool.py",
+      "line": 248,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 113
+ },
+ {
+  "id": "crewai:lib/crewai/src/crewai/flow/persistence/sqlite.py:129:DATABASE-MUTATE",
+  "repo_name": "crewai",
+  "file": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+  "line": 129,
+  "rule_id": "DATABASE-MUTATE",
+  "enclosing_function": "_save_state_sql",
+  "enclosing_class": "SQLiteFlowPersistence",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "_save_state_sql",
+      "caller": "save_pending_feedback",
+      "caller_class": "SQLiteFlowPersistence",
+      "file": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+      "line": 205,
+      "decorators": []
+     },
+     {
+      "callee": "save_pending_feedback",
+      "caller": "kickoff_async",
+      "caller_class": "Flow",
+      "file": "lib/crewai/src/crewai/flow/runtime/__init__.py",
+      "line": 2012,
+      "decorators": []
+     },
+     {
+      "callee": "kickoff_async",
+      "caller": "run",
+      "caller_class": "CrewAction",
+      "file": "lib/crewai/src/crewai/flow/runtime/_actions.py",
+      "line": 136,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "_run",
+      "caller_class": "MCPNativeTool",
+      "file": "lib/crewai/src/crewai/tools/mcp_native_tool.py",
+      "line": 73,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool.run",
+    "hops": [
+     {
+      "callee": "_save_state_sql",
+      "caller": "save_pending_feedback",
+      "caller_class": "SQLiteFlowPersistence",
+      "file": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+      "line": 205,
+      "decorators": []
+     },
+     {
+      "callee": "save_pending_feedback",
+      "caller": "kickoff_async",
+      "caller_class": "Flow",
+      "file": "lib/crewai/src/crewai/flow/runtime/__init__.py",
+      "line": 2012,
+      "decorators": []
+     },
+     {
+      "callee": "kickoff_async",
+      "caller": "run",
+      "caller_class": "CrewAction",
+      "file": "lib/crewai/src/crewai/flow/runtime/_actions.py",
+      "line": 136,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run",
+      "caller_class": "Tool",
+      "file": "lib/crewai/src/crewai/tools/base_tool.py",
+      "line": 518,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "_save_state_sql",
+      "caller": "save_pending_feedback",
+      "caller_class": "SQLiteFlowPersistence",
+      "file": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+      "line": 205,
+      "decorators": []
+     },
+     {
+      "callee": "save_pending_feedback",
+      "caller": "kickoff_async",
+      "caller_class": "Flow",
+      "file": "lib/crewai/src/crewai/flow/runtime/__init__.py",
+      "line": 2012,
+      "decorators": []
+     },
+     {
+      "callee": "kickoff_async",
+      "caller": "run",
+      "caller_class": "CrewAction",
+      "file": "lib/crewai/src/crewai/flow/runtime/_actions.py",
+      "line": 136,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "_run",
+      "caller_class": "MCPToolWrapper",
+      "file": "lib/crewai/src/crewai/tools/mcp_tool_wrapper.py",
+      "line": 69,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "_save_state_sql",
+      "caller": "save_pending_feedback",
+      "caller_class": "SQLiteFlowPersistence",
+      "file": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+      "line": 205,
+      "decorators": []
+     },
+     {
+      "callee": "save_pending_feedback",
+      "caller": "kickoff_async",
+      "caller_class": "Flow",
+      "file": "lib/crewai/src/crewai/flow/runtime/__init__.py",
+      "line": 2012,
+      "decorators": []
+     },
+     {
+      "callee": "kickoff_async",
+      "caller": "run",
+      "caller_class": "CrewAction",
+      "file": "lib/crewai/src/crewai/flow/runtime/_actions.py",
+      "line": 136,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "_run",
+      "caller_class": "ContextualAIQueryTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/contextualai_query_tool/contextual_query_tool.py",
+      "line": 69,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "_save_state_sql",
+      "caller": "save_pending_feedback",
+      "caller_class": "SQLiteFlowPersistence",
+      "file": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+      "line": 205,
+      "decorators": []
+     },
+     {
+      "callee": "save_pending_feedback",
+      "caller": "kickoff_async",
+      "caller_class": "Flow",
+      "file": "lib/crewai/src/crewai/flow/runtime/__init__.py",
+      "line": 2012,
+      "decorators": []
+     },
+     {
+      "callee": "kickoff_async",
+      "caller": "run",
+      "caller_class": "CrewAction",
+      "file": "lib/crewai/src/crewai/flow/runtime/_actions.py",
+      "line": 136,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "_run",
+      "caller_class": "BrightDataDatasetTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/brightdata_tool/brightdata_dataset.py",
+      "line": 550,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._run",
+    "hops": [
+     {
+      "callee": "_save_state_sql",
+      "caller": "save_pending_feedback",
+      "caller_class": "SQLiteFlowPersistence",
+      "file": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+      "line": 205,
+      "decorators": []
+     },
+     {
+      "callee": "save_pending_feedback",
+      "caller": "kickoff_async",
+      "caller_class": "Flow",
+      "file": "lib/crewai/src/crewai/flow/runtime/__init__.py",
+      "line": 2012,
+      "decorators": []
+     },
+     {
+      "callee": "kickoff_async",
+      "caller": "run",
+      "caller_class": "CrewAction",
+      "file": "lib/crewai/src/crewai/flow/runtime/_actions.py",
+      "line": 136,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "_run",
+      "caller_class": "StagehandTool",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/stagehand_tool/stagehand_tool.py",
+      "line": 577,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 6
+ },
+ {
+  "id": "crewai:lib/crewai/src/crewai/flow/runtime/_actions.py:274:EXEC-CODE",
+  "repo_name": "crewai",
+  "file": "lib/crewai/src/crewai/flow/runtime/_actions.py",
+  "line": 274,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "_compile_handler",
+  "enclosing_class": "ScriptAction",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "fastapi:scripts/docs.py:401:FILE-WRITE",
+  "repo_name": "fastapi",
+  "file": "scripts/docs.py",
+  "line": 401,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "build_all",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "fastapi:scripts/label_approved.py:31:SECRET-READ",
+  "repo_name": "fastapi",
+  "file": "scripts/label_approved.py",
+  "line": 31,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": null,
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "fastapi:scripts/notify_translations.py:218:NET-EGRESS",
+  "repo_name": "fastapi",
+  "file": "scripts/notify_translations.py",
+  "line": 218,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "get_graphql_response",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "fastapi:scripts/playwright/separate_openapi_schemas/image03.py:12:BROWSER-ACTION",
+  "repo_name": "fastapi",
+  "file": "scripts/playwright/separate_openapi_schemas/image03.py",
+  "line": 12,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "run",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "fastapi:scripts/sponsors.py:216:REPOSITORY-MUTATION",
+  "repo_name": "fastapi",
+  "file": "scripts/sponsors.py",
+  "line": 216,
+  "rule_id": "REPOSITORY-MUTATION",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "fastapi:scripts/topic_repos.py:60:EXEC-SHELL",
+  "repo_name": "fastapi",
+  "file": "scripts/topic_repos.py",
+  "line": 60,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "flask:examples/tutorial/flaskr/db.py:38:DATA-DELETE-SQL",
+  "repo_name": "flask",
+  "file": "examples/tutorial/flaskr/db.py",
+  "line": 38,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "init_db",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "flask:src/flask/cli.py:1023:EXEC-CODE",
+  "repo_name": "flask",
+  "file": "src/flask/cli.py",
+  "line": 1023,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "shell_command",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "gpt-engineer:gpt_engineer/core/project_config.py:148:FILE-OPEN-WRITE",
+  "repo_name": "gpt-engineer",
+  "file": "gpt_engineer/core/project_config.py",
+  "line": 148,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "to_toml",
+  "enclosing_class": "Config",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "gpt-engineer:scripts/clean_benchmarks.py:39:DATA-DELETE-OS",
+  "repo_name": "gpt-engineer",
+  "file": "scripts/clean_benchmarks.py",
+  "line": 39,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "gpt-engineer:scripts/legacy_benchmark.py:83:EXEC-SHELL",
+  "repo_name": "gpt-engineer",
+  "file": "scripts/legacy_benchmark.py",
+  "line": 83,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "haystack:.github/utils/docs_search_sync.py:67:NET-EGRESS",
+  "repo_name": "haystack",
+  "file": ".github/utils/docs_search_sync.py",
+  "line": 67,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "delete_files",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "haystack:.github/utils/promote_unstable_docs_docusaurus.py:74:FILE-OPEN-WRITE",
+  "repo_name": "haystack",
+  "file": ".github/utils/promote_unstable_docs_docusaurus.py",
+  "line": 74,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": null,
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "haystack:scripts/ruff_format_docs.py:73:EXEC-SHELL",
+  "repo_name": "haystack",
+  "file": "scripts/ruff_format_docs.py",
+  "line": 73,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "_add_trailing_commas",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "haystack:scripts/ruff_format_docs.py:77:DATA-DELETE-OS",
+  "repo_name": "haystack",
+  "file": "scripts/ruff_format_docs.py",
+  "line": 77,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "_add_trailing_commas",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "langchain:libs/langchain/langchain_classic/chains/natbot/crawler.py:89:BROWSER-ACTION",
+  "repo_name": "langchain",
+  "file": "libs/langchain/langchain_classic/chains/natbot/crawler.py",
+  "line": 89,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "go_to_page",
+  "enclosing_class": "Crawler",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "langchain:libs/langchain/langchain_classic/indexes/_sql_record_manager.py:523:DATA-DELETE-SQL",
+  "repo_name": "langchain",
+  "file": "libs/langchain/langchain_classic/indexes/_sql_record_manager.py",
+  "line": 523,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "adelete_keys",
+  "enclosing_class": "SQLRecordManager",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "langchain:libs/langchain_v1/langchain/agents/middleware/file_search.py:314:EXEC-SHELL",
+  "repo_name": "langchain",
+  "file": "libs/langchain_v1/langchain/agents/middleware/file_search.py",
+  "line": 314,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "_ripgrep_search",
+  "enclosing_class": "FilesystemFileSearchMiddleware",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:tool",
+    "hops": [
+     {
+      "callee": "_ripgrep_search",
+      "caller": "grep_search",
+      "caller_class": "FilesystemFileSearchMiddleware",
+      "file": "libs/langchain_v1/langchain/agents/middleware/file_search.py",
+      "line": 210,
+      "decorators": [
+       "tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "langchain:libs/partners/anthropic/langchain_anthropic/chat_models.py:1250:SECRET-READ",
+  "repo_name": "langchain",
+  "file": "libs/partners/anthropic/langchain_anthropic/chat_models.py",
+  "line": 1250,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "_client_params",
+  "enclosing_class": "ChatAnthropic",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "langchain:libs/partners/anthropic/langchain_anthropic/middleware/anthropic_tools.py:1040:FILE-WRITE",
+  "repo_name": "langchain",
+  "file": "libs/partners/anthropic/langchain_anthropic/middleware/anthropic_tools.py",
+  "line": 1040,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "_handle_delete",
+  "enclosing_class": "_FilesystemClaudeFileToolMiddleware",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:tool",
+    "hops": [
+     {
+      "callee": "_handle_delete",
+      "caller": "file_tool",
+      "caller_class": "_StateClaudeFileToolMiddleware",
+      "file": "libs/partners/anthropic/langchain_anthropic/middleware/anthropic_tools.py",
+      "line": 215,
+      "decorators": [
+       "tool"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:tool",
+    "hops": [
+     {
+      "callee": "_handle_delete",
+      "caller": "file_tool",
+      "caller_class": "_FilesystemClaudeFileToolMiddleware",
+      "file": "libs/partners/anthropic/langchain_anthropic/middleware/anthropic_tools.py",
+      "line": 717,
+      "decorators": [
+       "tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 2
+ },
+ {
+  "id": "langchain:libs/partners/openai/langchain_openai/chatgpt_oauth.py:447:NET-EGRESS",
+  "repo_name": "langchain",
+  "file": "libs/partners/openai/langchain_openai/chatgpt_oauth.py",
+  "line": 447,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "_apost_form",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "llamaindex:llama-dev/llama_dev/test/__init__.py:377:EXEC-SHELL",
+  "repo_name": "llamaindex",
+  "file": "llama-dev/llama_dev/test/__init__.py",
+  "line": 377,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "_uv_sync",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/embeddings/llama-index-embeddings-ibm/llama_index/embeddings/ibm/base.py:155:SECRET-READ",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/embeddings/llama-index-embeddings-ibm/llama_index/embeddings/ibm/base.py",
+  "line": 155,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "__init__",
+  "enclosing_class": "WatsonxEmbeddings",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/graph_stores/llama-index-graph-stores-tidb/llama_index/graph_stores/tidb/property_graph.py:336:DATABASE-ORM-MUTATE",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/graph_stores/llama-index-graph-stores-tidb/llama_index/graph_stores/tidb/property_graph.py",
+  "line": 336,
+  "rule_id": "DATABASE-ORM-MUTATE",
+  "enclosing_function": "upsert_nodes",
+  "enclosing_class": "TiDBPropertyGraphStore",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/llms/llama-index-llms-gaudi/llama_index/llms/gaudi/utils.py:313:EXEC-CODE",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/llms/llama-index-llms-gaudi/llama_index/llms/gaudi/utils.py",
+  "line": 313,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "setup_distributed_model",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/llms/llama-index-llms-vertex/llama_index/llms/vertex/utils.py:95:COMMUNICATION-SEND",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/llms/llama-index-llms-vertex/llama_index/llms/vertex/utils.py",
+  "line": 95,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "_completion_with_retry",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py:145:FILE-OPEN-WRITE",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py",
+  "line": 145,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "_download_files_and_extract_metadata",
+  "enclosing_class": "AzStorageBlobReader",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_download_files_and_extract_metadata",
+      "caller": "load_data",
+      "caller_class": "AzStorageBlobReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py",
+      "line": 263,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_download_files_and_extract_metadata",
+      "caller": "load_data",
+      "caller_class": "AzStorageBlobReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py",
+      "line": 263,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "ungz_file",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 297,
+      "decorators": []
+     },
+     {
+      "callee": "ungz_file",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_download_files_and_extract_metadata",
+      "caller": "load_data",
+      "caller_class": "AzStorageBlobReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py",
+      "line": 263,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "response_generator",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 358,
+      "decorators": []
+     },
+     {
+      "callee": "response_generator",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "_download_files_and_extract_metadata",
+      "caller": "load_data",
+      "caller_class": "AzStorageBlobReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py",
+      "line": 263,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "_download_files_and_extract_metadata",
+      "caller": "load_data",
+      "caller_class": "AzStorageBlobReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py",
+      "line": 263,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "healthcheck",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/app.py",
+      "line": 46,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:mcp.tool",
+    "hops": [
+     {
+      "callee": "_download_files_and_extract_metadata",
+      "caller": "load_data",
+      "caller_class": "AzStorageBlobReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-azstorage-blob/llama_index/readers/azstorage_blob/base.py",
+      "line": 263,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "fetch_ipinfo",
+      "caller_class": null,
+      "file": "llama-index-integrations/tools/llama-index-tools-mcp/examples/mcp_server.py",
+      "line": 28,
+      "decorators": [
+       "mcp.tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 6
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py:65:NET-EGRESS",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py",
+  "line": 65,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "get_meeting_list",
+  "enclosing_class": "BoardDocsReader",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_meeting_list",
+      "caller": "load_data",
+      "caller_class": "BoardDocsReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py",
+      "line": 114,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_meeting_list",
+      "caller": "load_data",
+      "caller_class": "BoardDocsReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py",
+      "line": 114,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "ungz_file",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 297,
+      "decorators": []
+     },
+     {
+      "callee": "ungz_file",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_meeting_list",
+      "caller": "load_data",
+      "caller_class": "BoardDocsReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py",
+      "line": 114,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "response_generator",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 358,
+      "decorators": []
+     },
+     {
+      "callee": "response_generator",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_meeting_list",
+      "caller": "load_data",
+      "caller_class": "BoardDocsReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py",
+      "line": 114,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "get_meeting_list",
+      "caller": "load_data",
+      "caller_class": "BoardDocsReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py",
+      "line": 114,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "healthcheck",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/app.py",
+      "line": 46,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:mcp.tool",
+    "hops": [
+     {
+      "callee": "get_meeting_list",
+      "caller": "load_data",
+      "caller_class": "BoardDocsReader",
+      "file": "llama-index-integrations/readers/llama-index-readers-boarddocs/llama_index/readers/boarddocs/base.py",
+      "line": 114,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "fetch_ipinfo",
+      "caller_class": null,
+      "file": "llama-index-integrations/tools/llama-index-tools-mcp/examples/mcp_server.py",
+      "line": 28,
+      "decorators": [
+       "mcp.tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 6
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/scraper.py:174:BROWSER-ACTION",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/scraper.py",
+  "line": 174,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "main_scraper",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "main_scraper",
+      "caller": "load_data",
+      "caller_class": "IMDBReviews",
+      "file": "llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/base.py",
+      "line": 44,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "main_scraper",
+      "caller": "load_data",
+      "caller_class": "IMDBReviews",
+      "file": "llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/base.py",
+      "line": 44,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "ungz_file",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 297,
+      "decorators": []
+     },
+     {
+      "callee": "ungz_file",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "main_scraper",
+      "caller": "load_data",
+      "caller_class": "IMDBReviews",
+      "file": "llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/base.py",
+      "line": 44,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "response_generator",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 358,
+      "decorators": []
+     },
+     {
+      "callee": "response_generator",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "main_scraper",
+      "caller": "load_data",
+      "caller_class": "IMDBReviews",
+      "file": "llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/base.py",
+      "line": 44,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "pipeline_1",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/section.py",
+      "line": 319,
+      "decorators": [
+       "router.post",
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.get",
+    "hops": [
+     {
+      "callee": "main_scraper",
+      "caller": "load_data",
+      "caller_class": "IMDBReviews",
+      "file": "llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/base.py",
+      "line": 44,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "healthcheck",
+      "caller_class": null,
+      "file": "llama-index-integrations/readers/llama-index-readers-sec-filings/llama_index/readers/sec_filings/prepline_sec_filings/api/app.py",
+      "line": 46,
+      "decorators": [
+       "app.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:mcp.tool",
+    "hops": [
+     {
+      "callee": "main_scraper",
+      "caller": "load_data",
+      "caller_class": "IMDBReviews",
+      "file": "llama-index-integrations/readers/llama-index-readers-imdb-review/llama_index/readers/imdb_review/base.py",
+      "line": 44,
+      "decorators": []
+     },
+     {
+      "callee": "load_data",
+      "caller": "read",
+      "caller_class": "ReaderConfig",
+      "file": "llama-index-core/llama_index/core/readers/base.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "get",
+      "caller_class": "S3DBKVStore",
+      "file": "llama-index-integrations/storage/kvstore/llama-index-storage-kvstore-s3/llama_index/storage/kvstore/s3/base.py",
+      "line": 95,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "fetch_ipinfo",
+      "caller_class": null,
+      "file": "llama-index-integrations/tools/llama-index-tools-mcp/examples/mcp_server.py",
+      "line": 28,
+      "decorators": [
+       "mcp.tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 6
+ },
+ {
+  "id": "llamaindex:llama-index-integrations/vector_stores/llama-index-vector-stores-oracledb/llama_index/vector_stores/oracledb/base.py:388:DATA-DELETE-SQL",
+  "repo_name": "llamaindex",
+  "file": "llama-index-integrations/vector_stores/llama-index-vector-stores-oracledb/llama_index/vector_stores/oracledb/base.py",
+  "line": 388,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "drop_table_purge",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:app.tool",
+    "hops": [
+     {
+      "callee": "drop_table_purge",
+      "caller": "from_documents",
+      "caller_class": "OraLlamaVS",
+      "file": "llama-index-integrations/vector_stores/llama-index-vector-stores-oracledb/llama_index/vector_stores/oracledb/base.py",
+      "line": 770,
+      "decorators": [
+       "classmethod",
+       "_handle_exceptions"
+      ]
+     },
+     {
+      "callee": "from_documents",
+      "caller": "load",
+      "caller_class": "LoadAndSearchToolSpec",
+      "file": "llama-index-core/llama_index/core/tools/tool_spec/load_and_search/base.py",
+      "line": 125,
+      "decorators": []
+     },
+     {
+      "callee": "load",
+      "caller": "run",
+      "caller_class": "HotpotQAEvaluator",
+      "file": "llama-index-core/llama_index/core/evaluation/benchmarks/hotpotqa.py",
+      "line": 63,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "_workflow_tool",
+      "caller_class": null,
+      "file": "llama-index-integrations/tools/llama-index-tools-mcp/llama_index/tools/mcp/utils.py",
+      "line": 121,
+      "decorators": [
+       "app.tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "mcp-atlassian:src/mcp_atlassian/confluence/v2_adapter.py:1383:NET-EGRESS",
+  "repo_name": "mcp-atlassian",
+  "file": "src/mcp_atlassian/confluence/v2_adapter.py",
+  "line": 1383,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "delete_attachment",
+  "enclosing_class": "ConfluenceV2Adapter",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:confluence_mcp.tool",
+    "hops": [
+     {
+      "callee": "delete_attachment",
+      "caller": "delete_attachment",
+      "caller_class": null,
+      "file": "src/mcp_atlassian/servers/confluence.py",
+      "line": 2473,
+      "decorators": [
+       "confluence_mcp.tool",
+       "check_write_access"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "mcp-atlassian:src/mcp_atlassian/jira/attachments.py:66:FILE-OPEN-WRITE",
+  "repo_name": "mcp-atlassian",
+  "file": "src/mcp_atlassian/jira/attachments.py",
+  "line": 66,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "download_attachment",
+  "enclosing_class": "AttachmentsMixin",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "mcp-python-sdk:examples/clients/simple-chatbot/mcp_simple_chatbot/main.py:250:NET-EGRESS",
+  "repo_name": "mcp-python-sdk",
+  "file": "examples/clients/simple-chatbot/mcp_simple_chatbot/main.py",
+  "line": 250,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "get_response",
+  "enclosing_class": "LLMClient",
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "mcp-python-sdk:examples/mcpserver/memory.py:116:DATABASE-MUTATE",
+  "repo_name": "mcp-python-sdk",
+  "file": "examples/mcpserver/memory.py",
+  "line": 116,
+  "rule_id": "DATABASE-MUTATE",
+  "enclosing_function": "save",
+  "enclosing_class": "MemoryNode",
+  "tier": "example",
+  "chains": [
+   {
+    "boundary": "tool_decorator:mcp.tool",
+    "hops": [
+     {
+      "callee": "save",
+      "caller": "take_screenshot",
+      "caller_class": null,
+      "file": "examples/mcpserver/screenshot.py",
+      "line": 16,
+      "decorators": [
+       "mcp.tool"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:mcp.tool",
+    "hops": [
+     {
+      "callee": "save",
+      "caller": "add_memory",
+      "caller_class": null,
+      "file": "examples/mcpserver/memory.py",
+      "line": 165,
+      "decorators": []
+     },
+     {
+      "callee": "add_memory",
+      "caller": "remember",
+      "caller_class": null,
+      "file": "examples/mcpserver/memory.py",
+      "line": 266,
+      "decorators": [
+       "mcp.tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 2
+ },
+ {
+  "id": "mcp-python-sdk:examples/mcpserver/memory.py:162:DATA-DELETE-SQL",
+  "repo_name": "mcp-python-sdk",
+  "file": "examples/mcpserver/memory.py",
+  "line": 162,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "delete_memory",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [
+   {
+    "boundary": "tool_decorator:mcp.tool",
+    "hops": [
+     {
+      "callee": "delete_memory",
+      "caller": "merge_with",
+      "caller_class": "MemoryNode",
+      "file": "examples/mcpserver/memory.py",
+      "line": 132,
+      "decorators": []
+     },
+     {
+      "callee": "merge_with",
+      "caller": "add_memory",
+      "caller_class": null,
+      "file": "examples/mcpserver/memory.py",
+      "line": 165,
+      "decorators": []
+     },
+     {
+      "callee": "add_memory",
+      "caller": "remember",
+      "caller_class": null,
+      "file": "examples/mcpserver/memory.py",
+      "line": 266,
+      "decorators": [
+       "mcp.tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "mcp-python-sdk:scripts/update_readme_snippets.py:136:FILE-WRITE",
+  "repo_name": "mcp-python-sdk",
+  "file": "scripts/update_readme_snippets.py",
+  "line": 136,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "update_readme_snippets",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "mcp-python-sdk:src/mcp/os/win32/utilities.py:184:EXEC-SHELL",
+  "repo_name": "mcp-python-sdk",
+  "file": "src/mcp/os/win32/utilities.py",
+  "line": 184,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "_create_windows_fallback_process",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "mcp-servers:scripts/release.py:101:EXEC-SHELL",
+  "repo_name": "mcp-servers",
+  "file": "scripts/release.py",
+  "line": 101,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "update_version",
+  "enclosing_class": "PyPiPackage",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "mcp-servers:scripts/release.py:71:FILE-OPEN-WRITE",
+  "repo_name": "mcp-servers",
+  "file": "scripts/release.py",
+  "line": 71,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "update_version",
+  "enclosing_class": "NpmPackage",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "mcp-servers:src/git/src/mcp_server_git/server.py:230:GIT-MUTATE",
+  "repo_name": "mcp-servers",
+  "file": "src/git/src/mcp_server_git/server.py",
+  "line": 230,
+  "rule_id": "GIT-MUTATE",
+  "enclosing_function": "git_show",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:server.call_tool",
+    "hops": [
+     {
+      "callee": "git_show",
+      "caller": "call_tool",
+      "caller_class": null,
+      "file": "src/git/src/mcp_server_git/server.py",
+      "line": 488,
+      "decorators": [
+       "server.call_tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "metagpt:examples/di/InfiAgent-DABench/run_InfiAgent-DABench_single.py:17:EXEC-CODE",
+  "repo_name": "metagpt",
+  "file": "examples/di/InfiAgent-DABench/run_InfiAgent-DABench_single.py",
+  "line": 17,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.route",
+    "hops": [
+     {
+      "callee": "main",
+      "caller": "write_tutorial",
+      "caller_class": null,
+      "file": "examples/stream_output_via_api.py",
+      "line": 32,
+      "decorators": []
+     },
+     {
+      "callee": "write_tutorial",
+      "caller": "completions",
+      "caller_class": null,
+      "file": "examples/stream_output_via_api.py",
+      "line": 60,
+      "decorators": [
+       "app.route"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "metagpt:metagpt/environment/minecraft/minecraft_ext_env.py:182:NET-EGRESS",
+  "repo_name": "metagpt",
+  "file": "metagpt/environment/minecraft/minecraft_ext_env.py",
+  "line": 182,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "pause",
+  "enclosing_class": "MinecraftExtEnv",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "metagpt:metagpt/ext/sela/runner/runner.py:106:DATA-DELETE-OS",
+  "repo_name": "metagpt",
+  "file": "metagpt/ext/sela/runner/runner.py",
+  "line": 106,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "evaluate_prediction",
+  "enclosing_class": "Runner",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "evaluate_prediction",
+      "caller": "evaluate",
+      "caller_class": "Runner",
+      "file": "metagpt/ext/sela/runner/runner.py",
+      "line": 109,
+      "decorators": []
+     },
+     {
+      "callee": "evaluate",
+      "caller": "_scrape",
+      "caller_class": "PlaywrightWrapper",
+      "file": "metagpt/tools/web_browser_engine_playwright.py",
+      "line": 59,
+      "decorators": []
+     },
+     {
+      "callee": "_scrape",
+      "caller": "run",
+      "caller_class": "PlaywrightWrapper",
+      "file": "metagpt/tools/web_browser_engine_playwright.py",
+      "line": 46,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run",
+      "caller_class": "SimpleRunCode",
+      "file": "examples/build_customized_agent.py",
+      "line": 47,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "evaluate_prediction",
+      "caller": "evaluate",
+      "caller_class": "Runner",
+      "file": "metagpt/ext/sela/runner/runner.py",
+      "line": 109,
+      "decorators": []
+     },
+     {
+      "callee": "evaluate",
+      "caller": "_scrape",
+      "caller_class": "PlaywrightWrapper",
+      "file": "metagpt/tools/web_browser_engine_playwright.py",
+      "line": 59,
+      "decorators": []
+     },
+     {
+      "callee": "_scrape",
+      "caller": "run",
+      "caller_class": "PlaywrightWrapper",
+      "file": "metagpt/tools/web_browser_engine_playwright.py",
+      "line": 46,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run",
+      "caller_class": "CollectLinks",
+      "file": "metagpt/actions/research.py",
+      "line": 96,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "evaluate_prediction",
+      "caller": "evaluate",
+      "caller_class": "Runner",
+      "file": "metagpt/ext/sela/runner/runner.py",
+      "line": 109,
+      "decorators": []
+     },
+     {
+      "callee": "evaluate",
+      "caller": "_scrape",
+      "caller_class": "PlaywrightWrapper",
+      "file": "metagpt/tools/web_browser_engine_playwright.py",
+      "line": 59,
+      "decorators": []
+     },
+     {
+      "callee": "_scrape",
+      "caller": "run",
+      "caller_class": "PlaywrightWrapper",
+      "file": "metagpt/tools/web_browser_engine_playwright.py",
+      "line": 46,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run",
+      "caller_class": "SearchAndSummarize",
+      "file": "metagpt/actions/search_and_summarize.py",
+      "line": 122,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 3
+ },
+ {
+  "id": "metagpt:metagpt/ext/spo/app.py:34:FILE-OPEN-WRITE",
+  "repo_name": "metagpt",
+  "file": "metagpt/ext/spo/app.py",
+  "line": 34,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "save_yaml_template",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.route",
+    "hops": [
+     {
+      "callee": "save_yaml_template",
+      "caller": "main",
+      "caller_class": null,
+      "file": "metagpt/ext/spo/app.py",
+      "line": 75,
+      "decorators": []
+     },
+     {
+      "callee": "main",
+      "caller": "write_tutorial",
+      "caller_class": null,
+      "file": "examples/stream_output_via_api.py",
+      "line": 32,
+      "decorators": []
+     },
+     {
+      "callee": "write_tutorial",
+      "caller": "completions",
+      "caller_class": null,
+      "file": "examples/stream_output_via_api.py",
+      "line": 60,
+      "decorators": [
+       "app.route"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "metagpt:metagpt/utils/git_repository.py:501:REPOSITORY-MUTATION",
+  "repo_name": "metagpt",
+  "file": "metagpt/utils/git_repository.py",
+  "line": 501,
+  "rule_id": "REPOSITORY-MUTATION",
+  "enclosing_function": "create_pull",
+  "enclosing_class": "GitRepository",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "metagpt:metagpt/utils/mmdc_playwright.py:55:BROWSER-ACTION",
+  "repo_name": "metagpt",
+  "file": "metagpt/utils/mmdc_playwright.py",
+  "line": 55,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "mermaid_to_file",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "mermaid_to_file",
+      "caller": "_save_competitive_analysis",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 273,
+      "decorators": []
+     },
+     {
+      "callee": "_save_competitive_analysis",
+      "caller": "_handle_new_requirement",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 218,
+      "decorators": []
+     },
+     {
+      "callee": "_handle_new_requirement",
+      "caller": "run",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 86,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "mermaid_to_file",
+      "caller": "_save_competitive_analysis",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 273,
+      "decorators": []
+     },
+     {
+      "callee": "_save_competitive_analysis",
+      "caller": "_execute_api",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 296,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_api",
+      "caller": "run",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 86,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "mermaid_to_file",
+      "caller": "_save_competitive_analysis",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 273,
+      "decorators": []
+     },
+     {
+      "callee": "_save_competitive_analysis",
+      "caller": "_execute_api",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 296,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_api",
+      "caller": "run",
+      "caller_class": "WriteDesign",
+      "file": "metagpt/actions/design_api.py",
+      "line": 64,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "mermaid_to_file",
+      "caller": "_save_competitive_analysis",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 273,
+      "decorators": []
+     },
+     {
+      "callee": "_save_competitive_analysis",
+      "caller": "_execute_api",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 296,
+      "decorators": []
+     },
+     {
+      "callee": "_execute_api",
+      "caller": "run",
+      "caller_class": "WriteTasks",
+      "file": "metagpt/actions/project_management.py",
+      "line": 52,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "mermaid_to_file",
+      "caller": "_save_competitive_analysis",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 273,
+      "decorators": []
+     },
+     {
+      "callee": "_save_competitive_analysis",
+      "caller": "_update_prd",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 263,
+      "decorators": []
+     },
+     {
+      "callee": "_update_prd",
+      "caller": "_handle_requirement_update",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 232,
+      "decorators": []
+     },
+     {
+      "callee": "_handle_requirement_update",
+      "caller": "run",
+      "caller_class": "WritePRD",
+      "file": "metagpt/actions/write_prd.py",
+      "line": 86,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "mermaid_to_file",
+      "caller": "_save_mermaid_file",
+      "caller_class": "WriteDesign",
+      "file": "metagpt/actions/design_api.py",
+      "line": 231,
+      "decorators": []
+     },
+     {
+      "callee": "_save_mermaid_file",
+      "caller": "_save_data_api_design",
+      "caller_class": "WriteDesign",
+      "file": "metagpt/actions/design_api.py",
+      "line": 209,
+      "decorators": []
+     },
+     {
+      "callee": "_save_data_api_design",
+      "caller": "_update_system_design",
+      "caller_class": "WriteDesign",
+      "file": "metagpt/actions/design_api.py",
+      "line": 187,
+      "decorators": []
+     },
+     {
+      "callee": "_update_system_design",
+      "caller": "run",
+      "caller_class": "WriteDesign",
+      "file": "metagpt/actions/design_api.py",
+      "line": 64,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 6
+ },
+ {
+  "id": "metagpt:setup.py:16:EXEC-SHELL",
+  "repo_name": "metagpt",
+  "file": "setup.py",
+  "line": 16,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "run",
+  "enclosing_class": "InstallMermaidCLI",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "run",
+      "caller": "run",
+      "caller_class": "SimpleRunCode",
+      "file": "examples/build_customized_agent.py",
+      "line": 47,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "run",
+      "caller": "run",
+      "caller_class": "CollectLinks",
+      "file": "metagpt/actions/research.py",
+      "line": 96,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "run",
+      "caller": "run",
+      "caller_class": "SearchAndSummarize",
+      "file": "metagpt/actions/search_and_summarize.py",
+      "line": 122,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:app.route",
+    "hops": [
+     {
+      "callee": "run",
+      "caller": "write_tutorial",
+      "caller_class": null,
+      "file": "examples/stream_output_via_api.py",
+      "line": 32,
+      "decorators": []
+     },
+     {
+      "callee": "write_tutorial",
+      "caller": "completions",
+      "caller_class": null,
+      "file": "examples/stream_output_via_api.py",
+      "line": 60,
+      "decorators": [
+       "app.route"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "run",
+      "caller": "search",
+      "caller_class": null,
+      "file": "examples/rag/rag_search.py",
+      "line": 11,
+      "decorators": []
+     },
+     {
+      "callee": "search",
+      "caller": "run",
+      "caller_class": "DebugError",
+      "file": "metagpt/actions/debug_error.py",
+      "line": 55,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:Action.run",
+    "hops": [
+     {
+      "callee": "run",
+      "caller": "rebuild_class_views",
+      "caller_class": "RepoParser",
+      "file": "metagpt/repo_parser.py",
+      "line": 713,
+      "decorators": []
+     },
+     {
+      "callee": "rebuild_class_views",
+      "caller": "run",
+      "caller_class": "RebuildClassView",
+      "file": "metagpt/actions/rebuild_class_view.py",
+      "line": 42,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 40
+ },
+ {
+  "id": "open-interpreter:.codex/skills/babysit-pr/scripts/gh_pr_watch.py:253:DATA-DELETE-OS",
+  "repo_name": "open-interpreter",
+  "file": ".codex/skills/babysit-pr/scripts/gh_pr_watch.py",
+  "line": 253,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "save_state",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "open-interpreter:.codex/skills/codex-issue-digest/scripts/collect_issue_digest.py:230:EXEC-SHELL",
+  "repo_name": "open-interpreter",
+  "file": ".codex/skills/codex-issue-digest/scripts/collect_issue_digest.py",
+  "line": 230,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "gh_json",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "open-interpreter:codex-cli/scripts/build_npm_package.py:346:FILE-WRITE",
+  "repo_name": "open-interpreter",
+  "file": "codex-cli/scripts/build_npm_package.py",
+  "line": 346,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "stage_codex_sdk_sources",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "open-interpreter:codex-rs/scripts/write_provider_catalog.py:35:NET-EGRESS",
+  "repo_name": "open-interpreter",
+  "file": "codex-rs/scripts/write_provider_catalog.py",
+  "line": 35,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "load_models_dev_catalog",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openai-agents:docs/scripts/translate_docs.py:370:FILE-OPEN-WRITE",
+  "repo_name": "openai-agents",
+  "file": "docs/scripts/translate_docs.py",
+  "line": 370,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "translate_file",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openai-agents:examples/mcp/sse_remote_example/main.py:49:EXEC-SHELL",
+  "repo_name": "openai-agents",
+  "file": "examples/mcp/sse_remote_example/main.py",
+  "line": 49,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "local_sse_server",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openai-agents:examples/realtime/app/server.py:115:COMMUNICATION-SEND",
+  "repo_name": "openai-agents",
+  "file": "examples/realtime/app/server.py",
+  "line": 115,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "send_user_message",
+  "enclosing_class": "RealtimeWebSocketManager",
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openai-agents:examples/sandbox/memory_multi_agent_multiturn.py:226:NET-EGRESS",
+  "repo_name": "openai-agents",
+  "file": "examples/sandbox/memory_multi_agent_multiturn.py",
+  "line": 226,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "main",
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openai-agents:examples/tools/computer_use.py:138:BROWSER-ACTION",
+  "repo_name": "openai-agents",
+  "file": "examples/tools/computer_use.py",
+  "line": 138,
+  "rule_id": "BROWSER-ACTION",
+  "enclosing_function": "_get_browser_and_page",
+  "enclosing_class": "LocalPlaywrightComputer",
+  "tier": "example",
+  "chains": [
+   {
+    "boundary": "tool_base_class:FunctionTool.run",
+    "hops": [
+     {
+      "callee": "_get_browser_and_page",
+      "caller": "__aenter__",
+      "caller_class": "LocalPlaywrightComputer",
+      "file": "examples/tools/computer_use.py",
+      "line": 143,
+      "decorators": []
+     },
+     {
+      "callee": "__aenter__",
+      "caller": "open",
+      "caller_class": "LocalPlaywrightComputer",
+      "file": "examples/tools/computer_use.py",
+      "line": 156,
+      "decorators": []
+     },
+     {
+      "callee": "open",
+      "caller": "read",
+      "caller_class": "UnixLocalSandboxSession",
+      "file": "src/agents/sandbox/sandboxes/unix_local.py",
+      "line": 937,
+      "decorators": []
+     },
+     {
+      "callee": "read",
+      "caller": "run",
+      "caller_class": "ViewImageTool",
+      "file": "src/agents/sandbox/capabilities/tools/view_image.py",
+      "line": 104,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:function_tool",
+    "hops": [
+     {
+      "callee": "_get_browser_and_page",
+      "caller": "__aenter__",
+      "caller_class": "LocalPlaywrightComputer",
+      "file": "examples/tools/computer_use.py",
+      "line": 143,
+      "decorators": []
+     },
+     {
+      "callee": "__aenter__",
+      "caller": "open",
+      "caller_class": "LocalPlaywrightComputer",
+      "file": "examples/tools/computer_use.py",
+      "line": 156,
+      "decorators": []
+     },
+     {
+      "callee": "open",
+      "caller": "_tar_bytes",
+      "caller_class": null,
+      "file": "tests/sandbox/integration_tests/_helpers.py",
+      "line": 488,
+      "decorators": []
+     },
+     {
+      "callee": "_tar_bytes",
+      "caller": "extract_lifecycle_archive",
+      "caller_class": "SandboxLifecycleProbeCapability",
+      "file": "tests/sandbox/integration_tests/_helpers.py",
+      "line": 390,
+      "decorators": [
+       "function_tool"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 2
+ },
+ {
+  "id": "openai-agents:src/agents/extensions/memory/advanced_sqlite_session.py:1176:DATABASE-MUTATE",
+  "repo_name": "openai-agents",
+  "file": "src/agents/extensions/memory/advanced_sqlite_session.py",
+  "line": 1176,
+  "rule_id": "DATABASE-MUTATE",
+  "enclosing_function": "_copy_sync",
+  "enclosing_class": "AdvancedSQLiteSession",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openai-agents:src/agents/sandbox/entries/mounts/patterns.py:393:DATA-DELETE-SQL",
+  "repo_name": "openai-agents",
+  "file": "src/agents/sandbox/entries/mounts/patterns.py",
+  "line": 393,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "apply",
+  "enclosing_class": "FuseMountPattern",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:FunctionTool.run",
+    "hops": [
+     {
+      "callee": "apply",
+      "caller": "load_skill",
+      "caller_class": "LocalDirLazySkillSource",
+      "file": "src/agents/sandbox/capabilities/skills.py",
+      "line": 197,
+      "decorators": []
+     },
+     {
+      "callee": "load_skill",
+      "caller": "run",
+      "caller_class": "_LoadSkillTool",
+      "file": "src/agents/sandbox/capabilities/skills.py",
+      "line": 296,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "openai-agents:src/agents/sandbox/session/base_sandbox_session.py:1100:EXEC-CODE",
+  "repo_name": "openai-agents",
+  "file": "src/agents/sandbox/session/base_sandbox_session.py",
+  "line": 1100,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "mkdir",
+  "enclosing_class": "BaseSandboxSession",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:app.post",
+    "hops": [
+     {
+      "callee": "mkdir",
+      "caller": "write",
+      "caller_class": "RunloopSandboxSession",
+      "file": "src/agents/extensions/sandbox/runloop/sandbox.py",
+      "line": 974,
+      "decorators": []
+     },
+     {
+      "callee": "write",
+      "caller": "run",
+      "caller_class": "CodexExec",
+      "file": "src/agents/extensions/experimental/codex/exec.py",
+      "line": 61,
+      "decorators": []
+     },
+     {
+      "callee": "run",
+      "caller": "run_agent",
+      "caller_class": null,
+      "file": "examples/mcp/manager_example/app.py",
+      "line": 93,
+      "decorators": [
+       "app.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:FunctionTool.run",
+    "hops": [
+     {
+      "callee": "mkdir",
+      "caller": "write",
+      "caller_class": "RunloopSandboxSession",
+      "file": "src/agents/extensions/sandbox/runloop/sandbox.py",
+      "line": 974,
+      "decorators": []
+     },
+     {
+      "callee": "write",
+      "caller": "pty_write_stdin",
+      "caller_class": "UnixLocalSandboxSession",
+      "file": "src/agents/sandbox/sandboxes/unix_local.py",
+      "line": 377,
+      "decorators": []
+     },
+     {
+      "callee": "pty_write_stdin",
+      "caller": "run",
+      "caller_class": "WriteStdinTool",
+      "file": "src/agents/sandbox/capabilities/tools/shell_tool.py",
+      "line": 282,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:function_tool",
+    "hops": [
+     {
+      "callee": "mkdir",
+      "caller": "write",
+      "caller_class": "RunloopSandboxSession",
+      "file": "src/agents/extensions/sandbox/runloop/sandbox.py",
+      "line": 974,
+      "decorators": []
+     },
+     {
+      "callee": "write",
+      "caller": "pty_write_stdin",
+      "caller_class": "UnixLocalSandboxSession",
+      "file": "src/agents/sandbox/sandboxes/unix_local.py",
+      "line": 377,
+      "decorators": []
+     },
+     {
+      "callee": "pty_write_stdin",
+      "caller": "start_lifecycle_pty",
+      "caller_class": "SandboxLifecycleProbeCapability",
+      "file": "tests/sandbox/integration_tests/_helpers.py",
+      "line": 397,
+      "decorators": [
+       "function_tool"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:function_tool",
+    "hops": [
+     {
+      "callee": "mkdir",
+      "caller": "write",
+      "caller_class": "RunloopSandboxSession",
+      "file": "src/agents/extensions/sandbox/runloop/sandbox.py",
+      "line": 974,
+      "decorators": []
+     },
+     {
+      "callee": "write",
+      "caller": "write_workspace_text",
+      "caller_class": null,
+      "file": "tests/sandbox/integration_tests/_helpers.py",
+      "line": 247,
+      "decorators": []
+     },
+     {
+      "callee": "write_workspace_text",
+      "caller": "write_file",
+      "caller_class": "SandboxFileCapability",
+      "file": "tests/sandbox/integration_tests/_helpers.py",
+      "line": 346,
+      "decorators": [
+       "function_tool"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:FunctionTool.run",
+    "hops": [
+     {
+      "callee": "mkdir",
+      "caller": "apply",
+      "caller_class": "Dir",
+      "file": "src/agents/sandbox/entries/artifacts.py",
+      "line": 78,
+      "decorators": []
+     },
+     {
+      "callee": "apply",
+      "caller": "load_skill",
+      "caller_class": "LocalDirLazySkillSource",
+      "file": "src/agents/sandbox/capabilities/skills.py",
+      "line": 197,
+      "decorators": []
+     },
+     {
+      "callee": "load_skill",
+      "caller": "run",
+      "caller_class": "_LoadSkillTool",
+      "file": "src/agents/sandbox/capabilities/skills.py",
+      "line": 296,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_list_param",
+    "hops": [
+     {
+      "callee": "mkdir",
+      "caller": "_resolve",
+      "caller_class": "WorkspaceEditor",
+      "file": "examples/tools/apply_patch.py",
+      "line": 69,
+      "decorators": []
+     },
+     {
+      "callee": "_resolve",
+      "caller": "get",
+      "caller_class": "Dependencies",
+      "file": "src/agents/sandbox/session/dependencies.py",
+      "line": 148,
+      "decorators": []
+     },
+     {
+      "callee": "get",
+      "caller": "lookup_patient",
+      "caller_class": "HealthcareSupportDataStore",
+      "file": "examples/sandbox/healthcare_support/data.py",
+      "line": 138,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 34
+ },
+ {
+  "id": "openhands:.github/scripts/find_prs_between_commits.py:107:EXEC-SHELL",
+  "repo_name": "openhands",
+  "file": ".github/scripts/find_prs_between_commits.py",
+  "line": 107,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "get_pr_info_from_github",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openhands:enterprise/integrations/slack/slack_manager.py:859:COMMUNICATION-SEND",
+  "repo_name": "openhands",
+  "file": "enterprise/integrations/slack/slack_manager.py",
+  "line": 859,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "start_job",
+  "enclosing_class": "SlackManager",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:gitlab_integration_router.post",
+    "hops": [
+     {
+      "callee": "start_job",
+      "caller": "receive_message",
+      "caller_class": "AzureDevOpsManager",
+      "file": "enterprise/integrations/azure_devops/azure_devops_manager.py",
+      "line": 85,
+      "decorators": []
+     },
+     {
+      "callee": "receive_message",
+      "caller": "gitlab_events",
+      "caller_class": null,
+      "file": "enterprise/server/routes/integration/gitlab.py",
+      "line": 83,
+      "decorators": [
+       "gitlab_integration_router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:github_integration_router.post",
+    "hops": [
+     {
+      "callee": "start_job",
+      "caller": "receive_message",
+      "caller_class": "AzureDevOpsManager",
+      "file": "enterprise/integrations/azure_devops/azure_devops_manager.py",
+      "line": 85,
+      "decorators": []
+     },
+     {
+      "callee": "receive_message",
+      "caller": "github_events",
+      "caller_class": null,
+      "file": "enterprise/server/routes/integration/github.py",
+      "line": 53,
+      "decorators": [
+       "github_integration_router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:bitbucket_integration_router.post",
+    "hops": [
+     {
+      "callee": "start_job",
+      "caller": "receive_message",
+      "caller_class": "AzureDevOpsManager",
+      "file": "enterprise/integrations/azure_devops/azure_devops_manager.py",
+      "line": 85,
+      "decorators": []
+     },
+     {
+      "callee": "receive_message",
+      "caller": "bitbucket_events",
+      "caller_class": null,
+      "file": "enterprise/server/routes/integration/bitbucket.py",
+      "line": 71,
+      "decorators": [
+       "bitbucket_integration_router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 3
+ },
+ {
+  "id": "openhands:enterprise/server/auth/token_manager.py:490:NET-EGRESS",
+  "repo_name": "openhands",
+  "file": "enterprise/server/auth/token_manager.py",
+  "line": 490,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "_refresh_bitbucket_data_center_token",
+  "enclosing_class": "TokenManager",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "openhands:enterprise/storage/api_key_store.py:140:DATABASE-ORM-MUTATE",
+  "repo_name": "openhands",
+  "file": "enterprise/storage/api_key_store.py",
+  "line": 140,
+  "rule_id": "DATABASE-ORM-MUTATE",
+  "enclosing_function": "create_api_key",
+  "enclosing_class": "ApiKeyStore",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:user_provisioning_router.post",
+    "hops": [
+     {
+      "callee": "create_api_key",
+      "caller": "provision_user",
+      "caller_class": null,
+      "file": "enterprise/server/routes/user_provisioning.py",
+      "line": 256,
+      "decorators": [
+       "user_provisioning_router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:api_router.post",
+    "hops": [
+     {
+      "callee": "create_api_key",
+      "caller": "create_api_key",
+      "caller_class": null,
+      "file": "enterprise/server/routes/api_keys.py",
+      "line": 241,
+      "decorators": [
+       "api_router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:oauth_device_router.post",
+    "hops": [
+     {
+      "callee": "create_api_key",
+      "caller": "device_verification_authenticated",
+      "caller_class": null,
+      "file": "enterprise/server/routes/oauth_device.py",
+      "line": 243,
+      "decorators": [
+       "oauth_device_router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 3
+ },
+ {
+  "id": "openhands:enterprise/storage/saas_settings_store.py:386:SECRET-READ",
+  "repo_name": "openhands",
+  "file": "enterprise/storage/saas_settings_store.py",
+  "line": 386,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "load",
+  "enclosing_class": "SaasSettingsStore",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.get",
+    "hops": [
+     {
+      "callee": "load",
+      "caller": "get_agent_profile",
+      "caller_class": null,
+      "file": "enterprise/server/routes/agent_profiles.py",
+      "line": 227,
+      "decorators": [
+       "router.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "load",
+      "caller": "delete_agent_profile",
+      "caller_class": null,
+      "file": "enterprise/server/routes/agent_profiles.py",
+      "line": 309,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "load",
+      "caller": "materialize_agent_profile",
+      "caller_class": null,
+      "file": "enterprise/server/routes/agent_profiles.py",
+      "line": 431,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "load",
+      "caller": "get_marketplace_skills",
+      "caller_class": null,
+      "file": "openhands/app_server/user/skills_router.py",
+      "line": 338,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "load",
+      "caller": "store_settings",
+      "caller_class": null,
+      "file": "openhands/app_server/settings/settings_router.py",
+      "line": 236,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "load",
+      "caller": "save_profile",
+      "caller_class": null,
+      "file": "openhands/app_server/settings/settings_router.py",
+      "line": 542,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 40
+ },
+ {
+  "id": "openhands:enterprise/storage/user_store.py:427:DATA-DELETE-SQL",
+  "repo_name": "openhands",
+  "file": "enterprise/storage/user_store.py",
+  "line": 427,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "migrate_user",
+  "enclosing_class": "UserStore",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "migrate_user",
+      "caller": "store",
+      "caller_class": "SaasSettingsStore",
+      "file": "enterprise/storage/saas_settings_store.py",
+      "line": 553,
+      "decorators": []
+     },
+     {
+      "callee": "store",
+      "caller": "store_settings",
+      "caller_class": null,
+      "file": "openhands/app_server/settings/settings_router.py",
+      "line": 236,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "migrate_user",
+      "caller": "store",
+      "caller_class": "SaasSettingsStore",
+      "file": "enterprise/storage/saas_settings_store.py",
+      "line": 553,
+      "decorators": []
+     },
+     {
+      "callee": "store",
+      "caller": "save_profile",
+      "caller_class": null,
+      "file": "openhands/app_server/settings/settings_router.py",
+      "line": 542,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.delete",
+    "hops": [
+     {
+      "callee": "migrate_user",
+      "caller": "store",
+      "caller_class": "SaasSettingsStore",
+      "file": "enterprise/storage/saas_settings_store.py",
+      "line": 553,
+      "decorators": []
+     },
+     {
+      "callee": "store",
+      "caller": "delete_profile",
+      "caller_class": null,
+      "file": "openhands/app_server/settings/settings_router.py",
+      "line": 604,
+      "decorators": [
+       "router.delete"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "migrate_user",
+      "caller": "store",
+      "caller_class": "SaasSettingsStore",
+      "file": "enterprise/storage/saas_settings_store.py",
+      "line": 553,
+      "decorators": []
+     },
+     {
+      "callee": "store",
+      "caller": "activate_profile",
+      "caller_class": null,
+      "file": "openhands/app_server/settings/settings_router.py",
+      "line": 622,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "migrate_user",
+      "caller": "store",
+      "caller_class": "SaasSettingsStore",
+      "file": "enterprise/storage/saas_settings_store.py",
+      "line": 553,
+      "decorators": []
+     },
+     {
+      "callee": "store",
+      "caller": "rename_profile",
+      "caller_class": null,
+      "file": "openhands/app_server/settings/settings_router.py",
+      "line": 660,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "migrate_user",
+      "caller": "store",
+      "caller_class": "SaasSettingsStore",
+      "file": "enterprise/storage/saas_settings_store.py",
+      "line": 553,
+      "decorators": []
+     },
+     {
+      "callee": "store",
+      "caller": "store_provider_tokens",
+      "caller_class": null,
+      "file": "openhands/app_server/secrets/secrets_router.py",
+      "line": 96,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 136
+ },
+ {
+  "id": "openhands:openhands/app_server/sandbox/docker_sandbox_service.py:337:EXEC-CONTAINER",
+  "repo_name": "openhands",
+  "file": "openhands/app_server/sandbox/docker_sandbox_service.py",
+  "line": 337,
+  "rule_id": "EXEC-CONTAINER",
+  "enclosing_function": "get_sandbox",
+  "enclosing_class": "DockerSandboxService",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_sandbox",
+      "caller": "send_message_to_conversation",
+      "caller_class": null,
+      "file": "openhands/app_server/app_conversation/app_conversation_router.py",
+      "line": 441,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.get",
+    "hops": [
+     {
+      "callee": "get_sandbox",
+      "caller": "read_conversation_file",
+      "caller_class": null,
+      "file": "openhands/app_server/app_conversation/app_conversation_router.py",
+      "line": 1130,
+      "decorators": [
+       "router.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:org_router.get",
+    "hops": [
+     {
+      "callee": "get_sandbox",
+      "caller": "get_org_conversation",
+      "caller_class": "OrgConversationService",
+      "file": "enterprise/server/services/org_conversation_service.py",
+      "line": 1352,
+      "decorators": []
+     },
+     {
+      "callee": "get_org_conversation",
+      "caller": "get_org_conversation",
+      "caller_class": null,
+      "file": "enterprise/server/routes/orgs.py",
+      "line": 2276,
+      "decorators": [
+       "org_router.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:org_router.post",
+    "hops": [
+     {
+      "callee": "get_sandbox",
+      "caller": "stop_conversation",
+      "caller_class": "OrgConversationService",
+      "file": "enterprise/server/services/org_conversation_service.py",
+      "line": 1420,
+      "decorators": []
+     },
+     {
+      "callee": "stop_conversation",
+      "caller": "stop_org_conversation",
+      "caller_class": null,
+      "file": "enterprise/server/routes/orgs.py",
+      "line": 2335,
+      "decorators": [
+       "org_router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:api_router.get",
+    "hops": [
+     {
+      "callee": "get_sandbox",
+      "caller": "get_session_api_key",
+      "caller_class": null,
+      "file": "enterprise/server/utils/conversation_utils.py",
+      "line": 29,
+      "decorators": []
+     },
+     {
+      "callee": "get_session_api_key",
+      "caller": "refresh_tokens",
+      "caller_class": null,
+      "file": "enterprise/server/routes/auth.py",
+      "line": 1230,
+      "decorators": [
+       "api_router.get"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "get_sandbox",
+      "caller": "_get_agent_server_context",
+      "caller_class": null,
+      "file": "openhands/app_server/app_conversation/app_conversation_router.py",
+      "line": 134,
+      "decorators": []
+     },
+     {
+      "callee": "_get_agent_server_context",
+      "caller": "switch_conversation_profile",
+      "caller_class": null,
+      "file": "openhands/app_server/app_conversation/app_conversation_router.py",
+      "line": 630,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 23
+ },
+ {
+  "id": "openhands:scripts/update_openapi.py:187:FILE-OPEN-WRITE",
+  "repo_name": "openhands",
+  "file": "scripts/update_openapi.py",
+  "line": 187,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "update_openapi_spec",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "pydantic-ai:.github/set_docs_pr_preview_url.py:69:NET-EGRESS",
+  "repo_name": "pydantic-ai",
+  "file": ".github/set_docs_pr_preview_url.py",
+  "line": 69,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": null,
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "pydantic-ai:examples/pydantic_ai_examples/bank_support.py:84:DATABASE-MUTATE",
+  "repo_name": "pydantic-ai",
+  "file": "examples/pydantic_ai_examples/bank_support.py",
+  "line": 84,
+  "rule_id": "DATABASE-MUTATE",
+  "enclosing_function": null,
+  "enclosing_class": null,
+  "tier": "example",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "pydantic-ai:scripts/scrub_cassette.py:20:FILE-OPEN-WRITE",
+  "repo_name": "pydantic-ai",
+  "file": "scripts/scrub_cassette.py",
+  "line": 20,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": null,
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "pydantic-ai:tests/example_modules/bank_database.py:50:DATA-DELETE-SQL",
+  "repo_name": "pydantic-ai",
+  "file": "tests/example_modules/bank_database.py",
+  "line": 50,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "connect",
+  "enclosing_class": "DatabaseConnPostgres",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "requests:src/requests/utils.py:335:FILE-WRITE",
+  "repo_name": "requests",
+  "file": "src/requests/utils.py",
+  "line": 335,
+  "rule_id": "FILE-WRITE",
+  "enclosing_function": "atomic_open",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "requests:src/requests/utils.py:337:DATA-DELETE-OS",
+  "repo_name": "requests",
+  "file": "src/requests/utils.py",
+  "line": 337,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "atomic_open",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "rich:rich/ansi.py:229:EXEC-SHELL",
+  "repo_name": "rich",
+  "file": "rich/ansi.py",
+  "line": 229,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": null,
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "rich:rich/console.py:2641:FILE-OPEN-WRITE",
+  "repo_name": "rich",
+  "file": "rich/console.py",
+  "line": 2641,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "save_svg",
+  "enclosing_class": "Console",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "semantic-kernel:python/semantic_kernel/agents/open_ai/openai_responses_agent.py:449:SECRET-READ",
+  "repo_name": "semantic-kernel",
+  "file": "python/semantic_kernel/agents/open_ai/openai_responses_agent.py",
+  "line": 449,
+  "rule_id": "SECRET-READ",
+  "enclosing_function": "setup_resources",
+  "enclosing_class": "OpenAIResponsesAgent",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "semantic-kernel:python/semantic_kernel/agents/orchestration/sequential.py:76:COMMUNICATION-SEND",
+  "repo_name": "semantic-kernel",
+  "file": "python/semantic_kernel/agents/orchestration/sequential.py",
+  "line": 76,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "_handle_message",
+  "enclosing_class": "SequentialAgentActor",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "semantic-kernel:python/semantic_kernel/connectors/ai/open_ai/services/_open_ai_realtime.py:805:NET-EGRESS",
+  "repo_name": "semantic-kernel",
+  "file": "python/semantic_kernel/connectors/ai/open_ai/services/_open_ai_realtime.py",
+  "line": 805,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "create_session",
+  "enclosing_class": "OpenAIRealtimeWebRTCBase",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "semantic-kernel:python/semantic_kernel/connectors/sql_server.py:505:DATA-DELETE-SQL",
+  "repo_name": "semantic-kernel",
+  "file": "python/semantic_kernel/connectors/sql_server.py",
+  "line": 505,
+  "rule_id": "DATA-DELETE-SQL",
+  "enclosing_function": "ensure_collection_exists",
+  "enclosing_class": "SqlServerCollection",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_decorator:kernel_function",
+    "hops": [
+     {
+      "callee": "ensure_collection_exists",
+      "caller": "create_collection",
+      "caller_class": "ChatHistoryInCosmosDB",
+      "file": "python/samples/concepts/chat_history/store_chat_history_in_cosmosdb.py",
+      "line": 54,
+      "decorators": []
+     },
+     {
+      "callee": "create_collection",
+      "caller": "save_information",
+      "caller_class": "SemanticTextMemory",
+      "file": "python/semantic_kernel/memory/semantic_text_memory.py",
+      "line": 39,
+      "decorators": []
+     },
+     {
+      "callee": "save_information",
+      "caller": "save",
+      "caller_class": "TextMemoryPlugin",
+      "file": "python/semantic_kernel/core_plugins/text_memory_plugin.py",
+      "line": 88,
+      "decorators": [
+       "kernel_function"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:kernel_function",
+    "hops": [
+     {
+      "callee": "ensure_collection_exists",
+      "caller": "create_collection",
+      "caller_class": "ChatHistoryInCosmosDB",
+      "file": "python/samples/concepts/chat_history/store_chat_history_in_cosmosdb.py",
+      "line": 54,
+      "decorators": []
+     },
+     {
+      "callee": "create_collection",
+      "caller": "create",
+      "caller_class": "AzureCosmosDBMemoryStore",
+      "file": "python/semantic_kernel/connectors/memory_stores/azure_cosmosdb/azure_cosmos_db_memory_store.py",
+      "line": 82,
+      "decorators": [
+       "staticmethod"
+      ]
+     },
+     {
+      "callee": "create",
+      "caller": "create_message",
+      "caller_class": "AssistantThreadActions",
+      "file": "python/semantic_kernel/agents/open_ai/assistant_thread_actions.py",
+      "line": 85,
+      "decorators": [
+       "classmethod"
+      ]
+     },
+     {
+      "callee": "create_message",
+      "caller": "sampling_function",
+      "caller_class": null,
+      "file": "python/samples/demos/mcp_server/mcp_server_with_sampling.py",
+      "line": 62,
+      "decorators": [
+       "kernel_function"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "tool_decorator:kernel_function",
+    "hops": [
+     {
+      "callee": "ensure_collection_exists",
+      "caller": "chat",
+      "caller_class": null,
+      "file": "python/samples/concepts/memory/azure_ai_search_hotel_samples/2_use_as_a_plugin.py",
+      "line": 180,
+      "decorators": []
+     },
+     {
+      "callee": "chat",
+      "caller": "_inner_get_chat_message_contents",
+      "caller_class": "OllamaChatCompletion",
+      "file": "python/semantic_kernel/connectors/ai/ollama/services/ollama_chat_completion.py",
+      "line": 150,
+      "decorators": [
+       "override",
+       "trace_chat_completion"
+      ]
+     },
+     {
+      "callee": "_inner_get_chat_message_contents",
+      "caller": "get_chat_message_contents",
+      "caller_class": "ChatCompletionClientBase",
+      "file": "python/semantic_kernel/connectors/ai/chat_completion_client_base.py",
+      "line": 85,
+      "decorators": []
+     },
+     {
+      "callee": "get_chat_message_contents",
+      "caller": "get_chat_response",
+      "caller_class": "ChatBotResponseStep",
+      "file": "python/samples/getting_started_with_processes/step01/step01_processes.py",
+      "line": 133,
+      "decorators": [
+       "kernel_function"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 3
+ },
+ {
+  "id": "semantic-kernel:python/semantic_kernel/core_plugins/sessions_python_tool/sessions_python_plugin.py:457:FILE-OPEN-WRITE",
+  "repo_name": "semantic-kernel",
+  "file": "python/semantic_kernel/core_plugins/sessions_python_tool/sessions_python_plugin.py",
+  "line": 457,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "download_file",
+  "enclosing_class": "SessionsPythonTool",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "superagi:run_gui.py:16:EXEC-SHELL",
+  "repo_name": "superagi",
+  "file": "run_gui.py",
+  "line": 16,
+  "rule_id": "EXEC-SHELL",
+  "enclosing_function": "run_npm_commands",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "superagi:superagi/agent/output_handler.py:180:EXEC-CODE",
+  "repo_name": "superagi",
+  "file": "superagi/agent/output_handler.py",
+  "line": 180,
+  "rule_id": "EXEC-CODE",
+  "enclosing_function": "handle",
+  "enclosing_class": "ReplaceTaskOutputHandler",
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "superagi:superagi/helper/s3_helper.py:107:PROVIDER-SDK-CALL",
+  "repo_name": "superagi",
+  "file": "superagi/helper/s3_helper.py",
+  "line": 107,
+  "rule_id": "PROVIDER-SDK-CALL",
+  "enclosing_function": "delete_file",
+  "enclosing_class": "S3Helper",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:BaseTool._execute",
+    "hops": [
+     {
+      "callee": "delete_file",
+      "caller": "_execute",
+      "caller_class": "AppendFileTool",
+      "file": "superagi/tools/file/append_file.py",
+      "line": 38,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._execute",
+    "hops": [
+     {
+      "callee": "delete_file",
+      "caller": "_execute",
+      "caller_class": "DeleteFileTool",
+      "file": "superagi/tools/file/delete_file.py",
+      "line": 36,
+      "decorators": []
+     }
+    ]
+   },
+   {
+    "boundary": "tool_base_class:BaseTool._execute",
+    "hops": [
+     {
+      "callee": "delete_file",
+      "caller": "_execute",
+      "caller_class": "GithubDeleteFileTool",
+      "file": "superagi/tools/github/delete_file.py",
+      "line": 50,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 3
+ },
+ {
+  "id": "superagi:superagi/helper/tool_helper.py:37:FILE-OPEN-WRITE",
+  "repo_name": "superagi",
+  "file": "superagi/helper/tool_helper.py",
+  "line": 37,
+  "rule_id": "FILE-OPEN-WRITE",
+  "enclosing_function": "download_tool",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "superagi:superagi/models/agent.py:135:DATABASE-ORM-MUTATE",
+  "repo_name": "superagi",
+  "file": "superagi/models/agent.py",
+  "line": 135,
+  "rule_id": "DATABASE-ORM-MUTATE",
+  "enclosing_function": "create_agent_with_config",
+  "enclosing_class": "Agent",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "create_agent_with_config",
+      "caller": "create_agent_with_config",
+      "caller_class": null,
+      "file": "superagi/controllers/agent.py",
+      "line": 61,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "create_agent_with_config",
+      "caller": "create_and_schedule_agent",
+      "caller_class": null,
+      "file": "superagi/controllers/agent.py",
+      "line": 168,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   },
+   {
+    "boundary": "resource_boundary:router.post",
+    "hops": [
+     {
+      "callee": "create_agent_with_config",
+      "caller": "create_agent_with_config",
+      "caller_class": null,
+      "file": "superagi/controllers/api/agent.py",
+      "line": 57,
+      "decorators": [
+       "router.post"
+      ]
+     }
+    ]
+   }
+  ],
+  "n_chains": 3
+ },
+ {
+  "id": "superagi:superagi/tool_manager.py:50:DATA-DELETE-OS",
+  "repo_name": "superagi",
+  "file": "superagi/tool_manager.py",
+  "line": 50,
+  "rule_id": "DATA-DELETE-OS",
+  "enclosing_function": "download_tool",
+  "enclosing_class": null,
+  "tier": "production",
+  "chains": [],
+  "n_chains": 0
+ },
+ {
+  "id": "superagi:superagi/tools/apollo/apollo_search.py:127:NET-EGRESS",
+  "repo_name": "superagi",
+  "file": "superagi/tools/apollo/apollo_search.py",
+  "line": 127,
+  "rule_id": "NET-EGRESS",
+  "enclosing_function": "apollo_search_results",
+  "enclosing_class": "ApolloSearchTool",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:BaseTool._execute",
+    "hops": [
+     {
+      "callee": "apollo_search_results",
+      "caller": "_execute",
+      "caller_class": "ApolloSearchTool",
+      "file": "superagi/tools/apollo/apollo_search.py",
+      "line": 57,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ },
+ {
+  "id": "superagi:superagi/tools/email/send_email_attachment.py:141:COMMUNICATION-SEND",
+  "repo_name": "superagi",
+  "file": "superagi/tools/email/send_email_attachment.py",
+  "line": 141,
+  "rule_id": "COMMUNICATION-SEND",
+  "enclosing_function": "send_email_with_attachment",
+  "enclosing_class": "SendEmailAttachmentTool",
+  "tier": "production",
+  "chains": [
+   {
+    "boundary": "tool_base_class:BaseTool._execute",
+    "hops": [
+     {
+      "callee": "send_email_with_attachment",
+      "caller": "_execute",
+      "caller_class": "SendEmailAttachmentTool",
+      "file": "superagi/tools/email/send_email_attachment.py",
+      "line": 47,
+      "decorators": []
+     }
+    ]
+   }
+  ],
+  "n_chains": 1
+ }
+]
