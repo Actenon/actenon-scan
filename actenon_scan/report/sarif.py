@@ -126,9 +126,54 @@ def format_sarif(result: ScanResult) -> str:
                         "version": __version__,
                         "informationUri": "https://github.com/Actenon/actenon-scan",
                         "rules": list(rules_seen.values()),
+                        # Task 1b: surface the repository-layer unfollowed
+                        # count in SARIF as a driver property. SARIF
+                        # consumers (GitHub Code Scanning, Azure DevOps)
+                        # can surface these as informational findings or
+                        # in the run summary. The counts are observational
+                        # — they describe what the analyser did and did
+                        # not examine, not a safety claim.
+                        "properties": {
+                            "repository_analysis_enabled": getattr(
+                                result, "repository_analysis_enabled", False
+                            ),
+                            "transitive_followed_count": getattr(
+                                result, "transitive_followed_count", 0
+                            ),
+                            "transitive_unfollowed_count": getattr(
+                                result, "transitive_unfollowed_count", 0
+                            ),
+                        },
                     }
                 },
                 "results": results,
+                # Task 1b: also surface as a run-level notification so
+                # SARIF consumers that don't read driver.properties still
+                # see the unfollowed count. The notification level is
+                # "note" (not "error" or "warning") because this is
+                # observational, not a defect.
+                "invocations": [
+                    {
+                        "executionSuccessful": True,
+                        "toolExecutionNotifications": [
+                            {
+                                "level": "note",
+                                "message": {
+                                    "text": (
+                                        f"Repository analysis: "
+                                        f"{getattr(result, 'transitive_followed_count', 0)} "
+                                        f"transitively-reachable sinks caught; "
+                                        f"{getattr(result, 'transitive_unfollowed_count', 0)} "
+                                        f"unresolved agent-entrypoint calls not followed "
+                                        f"(dynamic dispatch / external modules)."
+                                    )
+                                    if getattr(result, "repository_analysis_enabled", False)
+                                    else "Repository analysis disabled (--no-repository-analysis)."
+                                },
+                            }
+                        ],
+                    }
+                ],
             }
         ],
     }

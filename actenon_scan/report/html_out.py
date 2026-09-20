@@ -155,6 +155,14 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
         )
         parts.append("</section>")
 
+    # Task 1b: transitive disclosure in findings case too.
+    disclosure = transitive_disclosure_line(result)
+    if disclosure is not None:
+        parts.append('<section class="repo-analysis">')
+        parts.append("<h2>Repository analysis</h2>")
+        parts.append(f"<p>{html.escape(disclosure)}</p>")
+        parts.append("</section>")
+
     parts.append("</main>")
     parts.append("</body>")
     parts.append("</html>")

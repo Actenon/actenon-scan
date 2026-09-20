@@ -124,4 +124,12 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
         lang_counts = Counter(lang for _, lang in result.unsupported_files)
         lines.append(f"**Note:** {len(result.unsupported_files)} file(s) NOT scanned — unsupported: {dict(lang_counts)}")
 
+    # Task 1b: transitive disclosure in findings case too.
+    disclosure = transitive_disclosure_line(result)
+    if disclosure is not None:
+        lines.append("")
+        lines.append("## Repository analysis")
+        lines.append("")
+        lines.append(disclosure)
+
     return "\n".join(lines) + "\n"

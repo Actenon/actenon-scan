@@ -161,6 +161,16 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
         if len(result.analysis_errors) > 10:
             lines.append(f"  ... and {len(result.analysis_errors) - 10} more")
 
+    # Task 1b: transitive-reachability disclosure. MUST appear in the
+    # findings case too — a directory scan with findings still has
+    # unfollowed transitive edges that are NOT in the findings list.
+    # The user needs to know how many agent-reachable calls the repo
+    # layer could not resolve, so they can audit them manually.
+    disclosure = transitive_disclosure_line(result)
+    if disclosure is not None:
+        lines.append("")
+        lines.append(disclosure)
+
     return "\n".join(lines) + "\n"
 
 
@@ -297,6 +307,12 @@ def format_list(result: ScanResult) -> str:
             lines.append(f"  Install with:  pip install {install_hint}")
         if has_unsupported:
             lines.append("  actenon-scan parses Python, TypeScript, and Go. Other languages are not supported.")
+        lines.append("")
+
+    # Task 1b: transitive disclosure in list format too.
+    disclosure = transitive_disclosure_line(result)
+    if disclosure is not None:
+        lines.append(disclosure)
         lines.append("")
 
     return "\n".join(lines) + "\n"
