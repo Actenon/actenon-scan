@@ -267,9 +267,39 @@ CLEAN_SCAN_LIMITATIONS = (
     "What this scan did not verify: unsupported languages, files outside the "
     "scan target, guards outside the analysed path, external reachability, or "
     "practical exploitability.\n"
+    "N call(s) from agent-reachable code into locally-defined functions were "
+    "not followed; sinks reached only through them are not reported.\n"
     "See https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md "
     "for supported architectures and analysis limits."
 )
+
+#: The sentence above is a template: "N" is substituted with the real count
+#: by ``render_clean_scan_limitations``. A clean scan that printed a literal
+#: "N" would be telling the user nothing while appearing to tell them
+#: something, so no output path prints the constant directly.
+_UNFOLLOWED_TEMPLATE_LINE = (
+    "N call(s) from agent-reachable code into locally-defined functions were "
+    "not followed; sinks reached only through them are not reported."
+)
+
+
+def render_clean_scan_limitations(unfollowed_count: int) -> str:
+    """CLEAN_SCAN_LIMITATIONS with the unfollowed-call count filled in.
+
+    A clean scan is the output most likely to be read as "nothing here".
+    The count is therefore stated in the limitations block itself, on the
+    same screen as the words "no unguarded paths were identified", rather
+    than left to a separate section the reader may not reach.
+    """
+    n = unfollowed_count
+    call_word = "call" if n == 1 else "calls"
+    was_were = "was" if n == 1 else "were"
+    filled = (
+        f"{n} {call_word} from agent-reachable code into locally-defined "
+        f"functions {was_were} not followed; sinks reached only through them "
+        f"are not reported."
+    )
+    return CLEAN_SCAN_LIMITATIONS.replace(_UNFOLLOWED_TEMPLATE_LINE, filled)
 
 
 def _extract_method_name(call_text: str) -> str:

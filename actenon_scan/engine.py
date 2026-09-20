@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from actenon_scan.detectors.guards import check_guard, GuardCheckResult
-from actenon_scan.detectors.reachability import detect_reachability
+from actenon_scan.detectors.reachability import (
+    LocalCallEdge,
+    collect_local_call_edges,
+    detect_reachability,
+)
 from actenon_scan.detectors.sinks import detect_sinks
 from actenon_scan.capability import Capability, CapabilitySummary, guard_status_to_capability_state
 from actenon_scan.rules.loader import Ruleset, load_rules
@@ -81,6 +85,12 @@ class ScanResult:
     # was never examined — reporting "No findings" in that case is a safety
     # defect because the user reads it as clean.
     unsupported_files: list[tuple[str, str]] = field(default_factory=list)
+    # Call edges from agent-reachable code into functions defined in the same
+    # file. The analysis is per-function: a sink one hop from an entry point
+    # is not reported. Before this field existed, that gap was silent and a
+    # scan of such code printed CLEAN with nothing to say a call had been
+    # stepped over. Every output path prints it.
+    unfollowed_local_calls: list[LocalCallEdge] = field(default_factory=list)
 
     @property
     def finding_count(self) -> int:
@@ -136,6 +146,16 @@ def _assign_tier(filepath: str) -> str:
         if normalized.lstrip("/").startswith(pattern):
             return "example"
     return "production"
+
+
+def _follow_one_hop(reachability_cfg: dict) -> bool:
+    """Is same-module depth-1 call following active for this ruleset?
+
+    Read from config rather than hardcoded so the disclosure and the
+    following are driven by the same switch: an edge that becomes followed
+    must stop being counted as a gap in the same run.
+    """
+    return bool(reachability_cfg.get("follow_local_calls_depth_1", False))
 
 
 def _reachability_markers(reachability_cfg: dict) -> frozenset[str]:
@@ -593,6 +613,10 @@ def scan_path_parallel(
         merged.findings.extend(r.findings)
         merged.capabilities.extend(r.capabilities)
         merged.analysis_errors.extend(r.analysis_errors)
+        # The unfollowed-call disclosure must survive sharding: a parallel
+        # scan that dropped it would report a smaller gap than the serial
+        # scan of the same tree, purely because of a --jobs flag.
+        merged.unfollowed_local_calls.extend(r.unfollowed_local_calls)
         merged.files_scanned += r.files_scanned
         if merged.rules_used is None:
             merged.rules_used = r.rules_used
@@ -651,6 +675,7 @@ def scan_path_parallel(
         unsupported = [(f, l) for f, l in unsupported if f not in ts_file_set]
     merged.unsupported_files = unsupported
     merged.findings.sort(key=lambda f: (f.file, f.line))
+    merged.unfollowed_local_calls.sort(key=lambda e: (e.file, e.line, e.col))
 
     # Progressive output: fire on_finding for each merged finding, in
     # the parent process. This preserves the serial-mode contract that
@@ -715,6 +740,7 @@ def scan_path(
     findings: list[Finding] = []
     capabilities: list[Capability] = []
     analysis_errors: list[tuple[str, str]] = []
+    local_call_edges: list[LocalCallEdge] = []
 
     # Auto-detect self_package from pyproject.toml if not provided
     if self_package is None:
@@ -778,7 +804,8 @@ def scan_path(
         if cache is not None:
             cached = cache.findings_for(source, rel, rules)
             if cached is not None:
-                cached_findings, _cached_file_error = cached
+                cached_findings, _cached_file_error, _cached_edges = cached
+                local_call_edges.extend(_cached_edges)
                 for cf in cached_findings:
                     # Reset suppression state and re-apply from the CURRENT
                     # baseline + suppressions sets. The cache stores findings
@@ -837,18 +864,48 @@ def scan_path(
             # A file skipped here cannot produce a finding, so the only thing
             # lost is crash reporting on files that yield nothing. Recorded in
             # FINDINGS.md.
+            #
+            # A file with a reach marker but no sink substring still has call
+            # edges worth disclosing: an entry point whose only consequential
+            # work happens one hop away contains no sink substring itself.
+            # That file is precisely the DEFECT-1 shape, so skipping its edges
+            # would omit the gap from the very case the disclosure exists for.
+            # A file with no reach marker has no agent-reachable function and
+            # therefore no edges by definition.
+            file_edges = []
+            if has_reach_marker:
+                try:
+                    file_edges = collect_local_call_edges(
+                        tree, rules.reachability, rel_path=rel,
+                        follow_one_hop=_follow_one_hop(rules.reachability),
+                    )
+                except RecursionError as exc:
+                    analysis_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+                local_call_edges.extend(file_edges)
             # Cache the empty result so subsequent runs skip this file too.
             if cache is not None:
-                cache.store(source, rel, rules, [], None)
+                cache.store(source, rel, rules, [], None,
+                            local_call_edges=file_edges)
             continue
 
         # Track per-file findings for caching. Findings for this file
         # start at this index in the findings list.
         _per_file_start = len(findings)
         _per_file_error: str | None = None
+        _per_file_edges: list[LocalCallEdge] = []
 
         # tree is already parsed above; no need to re-parse
         try:
+            # Local call edges (A2/A3). Collected before the sink pass and
+            # before the no-sinks early return, because the gap this discloses
+            # is largest in exactly the files that hold no sink of their own:
+            # an entry point that does all its consequential work one hop away.
+            _per_file_edges = collect_local_call_edges(
+                tree, rules.reachability, rel_path=rel,
+                follow_one_hop=_follow_one_hop(rules.reachability),
+            )
+            local_call_edges.extend(_per_file_edges)
+
             # One parent map per file, shared with detect_sinks. Profiling
             # showed the identical map being built twice (~12% of a scan).
             parent_map = _build_parent_map_for_engine(tree)
@@ -856,6 +913,9 @@ def scan_path(
                 tree, str(filepath), rules.sinks, parent_map=parent_map
             )
             if not sink_findings:
+                if cache is not None:
+                    cache.store(source, rel, rules, [], None,
+                                local_call_edges=_per_file_edges)
                 continue
             # Detect declarative guards (class attributes, decorators, constructor params)
             declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
@@ -985,7 +1045,8 @@ def scan_path(
         # hash + scanner version, so any change invalidates correctly.
         if cache is not None:
             _per_file_findings = findings[_per_file_start:]
-            cache.store(source, rel, rules, _per_file_findings, _per_file_error)
+            cache.store(source, rel, rules, _per_file_findings, _per_file_error,
+                        local_call_edges=_per_file_edges)
 
     # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
     if explicit_files is not None:
@@ -1140,6 +1201,10 @@ def scan_path(
         capabilities=capabilities,
         analysis_errors=analysis_errors,
         unsupported_files=unsupported_files,
+        unfollowed_local_calls=sorted(
+            (e for e in local_call_edges if not e.followed),
+            key=lambda e: (e.file, e.line, e.col),
+        ),
     )
 
 

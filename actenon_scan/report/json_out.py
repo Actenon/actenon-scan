@@ -87,6 +87,20 @@ def format_json(result: ScanResult) -> str:
                 for rel, lang in result.unsupported_files
             ],
         },
+        # Calls the analysis did not follow. Machine-readable counterpart to
+        # the disclosure printed in the text formats. A consumer that reads
+        # finding_count without reading this is reading a floor as a total.
+        "unfollowed_local_calls": [
+            {
+                "file": e.file,
+                "line": e.line,
+                "col": e.col,
+                "caller": e.caller,
+                "callee": e.callee,
+                "reason": e.reason,
+            }
+            for e in result.unfollowed_local_calls
+        ],
         "errored": {
             "count": len(result.analysis_errors),
             "files": [

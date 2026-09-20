@@ -41,6 +41,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   differed. Version bumped to 1.5.0 so the published artifact and the tested
   artifact can be told apart.
 
+### Fixed — silent analysis gap
+
+- **The scanner reported CLEAN on code containing an unguarded sink one hop
+  from an entry point, and said nothing about having skipped the call.**
+  Analysis is per-function: a sink is reported when the function enclosing it
+  is an agent entry point. A `@tool` that calls a local helper which performs
+  the sink produced no finding and no warning — silence that reads as safety.
+  The false-POSITIVE direction of this limit was documented; the
+  false-NEGATIVE direction was not.
+- Every call from agent-reachable code into a locally-defined function is now
+  counted and, when not followed, disclosed with file, line, caller, callee
+  and reason. Surfaced on `ScanResult.unfollowed_local_calls` and printed in
+  every output path: the clean-scan block, `--format list`, the blast-radius
+  summary, `json`, `sarif` (as `toolExecutionNotifications`, so an empty
+  results array does not read as an all-clear), `markdown` and `html`.
+- The blast-radius headline no longer stands alone while calls are
+  unfollowed: "Your agent can reach N consequential actions..." now carries
+  "That is a floor, not a total: M calls into locally-defined functions were
+  not followed."
+- `CLEAN_SCAN_LIMITATIONS` gained the unfollowed-call sentence, rendered with
+  the real count rather than a literal placeholder.
+- Resolution is one-directional by design: a callee that does not resolve to
+  exactly one unshadowed module-level definition is left unfollowed and
+  disclosed, never guessed at.
+
 ### Added
 
 - `scripts/check_printed_commands.py` and a CI step in `ci.yml` and

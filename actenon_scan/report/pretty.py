@@ -13,7 +13,7 @@ from collections import Counter
 
 from actenon_scan.engine import ScanResult, Finding
 from actenon_scan.report.blast_radius import (
-    CLEAN_SCAN_LIMITATIONS,
+    render_clean_scan_limitations,
     CLEAN_SCAN_STATEMENT,
     consequence_label,
     group_by_consequence,
@@ -44,6 +44,10 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             cap_lines.append("")
             timing = f" ({elapsed:.2f}s)" if elapsed is not None else ""
             cap_lines.append(f"{result.files_scanned} files scanned{timing}")
+            disclosure = format_unfollowed_calls(result, indent="  ")
+            if disclosure:
+                cap_lines.append("")
+                cap_lines.extend(disclosure)
             if result.unsupported_files:
                 cap_lines.append("")
                 cap_lines.extend(_format_unsupported(result))
@@ -81,6 +85,17 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             f"Your agent can reach {n} consequential {action_word} "
             f"without a dominating authorization check."
         )
+    # The headline is a floor, not a total, whenever a call was stepped over.
+    # It must not stand alone while that is true, so the count is attached to
+    # the sentence itself rather than left to a footnote further down.
+    n_unfollowed = len(result.unfollowed_local_calls)
+    if n_unfollowed:
+        call_word = "call" if n_unfollowed == 1 else "calls"
+        was_were = "was" if n_unfollowed == 1 else "were"
+        header += (
+            f" That is a floor, not a total: {n_unfollowed} {call_word} into "
+            f"locally-defined functions {was_were} not followed."
+        )
     lines.append(header)
     lines.append("")
 
@@ -103,6 +118,12 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             lines.append(f"  Model-controlled inputs:   {', '.join(params)}")
         lines.append(f"  Rule:                      {most_exposed.rule_id}")
         lines.append(f"  Severity:                  {most_exposed.severity} (sink match: {most_exposed.confidence})")
+
+    # Unfollowed-call disclosure (A2/A3)
+    disclosure = format_unfollowed_calls(result, indent="  ")
+    if disclosure:
+        lines.append("")
+        lines.extend(disclosure)
 
     # Summary line
     lines.append("")
@@ -153,6 +174,45 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def format_unfollowed_calls(
+    result: ScanResult, *, indent: str = "", include_summary: bool = True
+) -> list[str]:
+    """The unfollowed-call disclosure, rendered for every text output path.
+
+    The analysis is per-function. A sink in a helper that an entry point
+    calls is not reported, and before this block existed nothing in the
+    output said so — a scan of such code printed CLEAN. This is the
+    correction: a partial scan has to say it was partial, in every format,
+    on clean runs as much as on runs with findings.
+
+    Returns [] when there is nothing to disclose, so a scan that followed
+    every edge it found prints no apology it does not owe.
+    """
+    edges = result.unfollowed_local_calls
+    if not edges:
+        return []
+
+    lines: list[str] = []
+    if edges:
+        n = len(edges)
+        if include_summary:
+            call_word = "call" if n == 1 else "calls"
+            was_were = "was" if n == 1 else "were"
+            lines.append(
+                f"{indent}{n} {call_word} from agent-reachable code into "
+                f"locally-defined functions {was_were} not followed; sinks "
+                f"reached only through them are not reported."
+            )
+        for e in edges[:10]:
+            lines.append(
+                f"{indent}  {e.file}:{e.line}  {e.caller}() -> {e.callee}()  "
+                f"[{e.reason}]"
+            )
+        if n > 10:
+            lines.append(f"{indent}  ... and {n - 10} more")
+    return lines
+
+
 def _format_capability_summary(result: ScanResult) -> list[str]:
     """Format the capability summary for the blast-radius output.
 
@@ -184,8 +244,15 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
     lines.append("")
     lines.append(CLEAN_SCAN_STATEMENT)
     lines.append("")
-    lines.append(CLEAN_SCAN_LIMITATIONS)
+    lines.append(render_clean_scan_limitations(len(result.unfollowed_local_calls)))
     lines.append("")
+
+    # The count is already in the limitations block above; this adds the
+    # per-call detail and the coverage pair without repeating it.
+    disclosure = format_unfollowed_calls(result, indent="  ", include_summary=False)
+    if disclosure:
+        lines.extend(disclosure)
+        lines.append("")
 
     if result.unsupported_files:
         lang_counts = Counter(lang for _, lang in result.unsupported_files)
@@ -249,6 +316,11 @@ def format_list(result: ScanResult) -> str:
             lines.append(f"            sink match: {f.confidence}")
             lines.append(f"            {f.remediation}")
             lines.append("")
+
+    disclosure = format_unfollowed_calls(result)
+    if disclosure:
+        lines.extend(disclosure)
+        lines.append("")
 
     if result.analysis_errors:
         lines.append(f"analysis errors: {len(result.analysis_errors)} file(s) skipped")

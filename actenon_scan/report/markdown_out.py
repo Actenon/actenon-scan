@@ -18,6 +18,40 @@ from actenon_scan.report.blast_radius import (
 )
 
 
+def _markdown_unfollowed(result) -> list[str]:
+    """The unfollowed-call disclosure as Markdown.
+
+    Present in both the clean and the with-findings branch: a partial scan
+    misleads as much as a clean one, and the Markdown report is what lands
+    in a PR comment where nobody re-runs the tool to check.
+    """
+    edges = result.unfollowed_local_calls
+    if not edges:
+        return []
+    lines: list[str] = ["", "## Calls not followed", ""]
+    if edges:
+        n = len(edges)
+        call_word = "call" if n == 1 else "calls"
+        was_were = "was" if n == 1 else "were"
+        lines.append(
+            f"**{n} {call_word}** from agent-reachable code into "
+            f"locally-defined functions {was_were} not followed; sinks reached "
+            f"only through them are not reported."
+        )
+        lines.append("")
+        lines.append("| Location | Call | Not followed because |")
+        lines.append("| --- | --- | --- |")
+        for e in edges[:20]:
+            lines.append(
+                f"| `{e.file}:{e.line}` | `{e.caller}()` -> `{e.callee}()` | "
+                f"`{e.reason}` |"
+            )
+        if n > 20:
+            lines.append(f"| ... and {n - 20} more | | |")
+        lines.append("")
+    return lines
+
+
 def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
     """Format scan results as a compact Markdown report."""
     unsuppressed = [f for f in result.findings if not f.suppressed]
@@ -47,6 +81,7 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
             "the analysed path, external reachability, or practical exploitability. "
             "See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits."
         )
+        lines.extend(_markdown_unfollowed(result))
         return "\n".join(lines) + "\n"
 
     groups = group_by_consequence(unsuppressed)
@@ -107,6 +142,8 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
     lines.append("**Not verified:** unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.")
     lines.append("")
     lines.append("See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits.")
+
+    lines.extend(_markdown_unfollowed(result))
 
     # Unsupported files
     if result.unsupported_files:

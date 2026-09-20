@@ -115,21 +115,52 @@ def format_sarif(result: ScanResult) -> str:
             "partialFingerprints": {"primaryLocationLineHash": f.snippet_hash},
         })
 
+    # SARIF has a designated place for "the analysis was partial":
+    # toolExecutionNotifications on the invocation.
+    # Putting the unfollowed calls there means a SARIF consumer — including
+    # GitHub code scanning — surfaces the gap next to the results rather than
+    # presenting an empty results array as an all-clear.
+    notifications = []
+    for e in result.unfollowed_local_calls:
+        notifications.append({
+            "level": "note",
+            "message": {
+                "text": (
+                    f"Call {e.caller}() -> {e.callee}() into a locally-defined "
+                    f"function was not followed ({e.reason}); sinks reached "
+                    f"only through it are not reported."
+                )
+            },
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": e.file},
+                        "region": {"startLine": e.line, "startColumn": e.col + 1},
+                    }
+                }
+            ],
+        })
+
+    invocation = {"executionSuccessful": True}
+    if notifications:
+        invocation["toolExecutionNotifications"] = notifications
+
+    run = {
+        "tool": {
+            "driver": {
+                "name": "actenon-scan",
+                "version": __version__,
+                "informationUri": "https://github.com/Actenon/actenon-scan",
+                "rules": list(rules_seen.values()),
+            }
+        },
+        "invocations": [invocation],
+        "results": results,
+    }
+
     sarif = {
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "actenon-scan",
-                        "version": __version__,
-                        "informationUri": "https://github.com/Actenon/actenon-scan",
-                        "rules": list(rules_seen.values()),
-                    }
-                },
-                "results": results,
-            }
-        ],
+        "runs": [run],
     }
     return json.dumps(sarif, indent=2) + "\n"

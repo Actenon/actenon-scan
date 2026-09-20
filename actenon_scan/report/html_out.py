@@ -19,6 +19,43 @@ from actenon_scan.report.blast_radius import (
 )
 
 
+def _html_unfollowed(result) -> list[str]:
+    """The unfollowed-call disclosure as HTML.
+
+    Rendered in the clean branch as well as the with-findings branch. The
+    HTML report is the one most likely to be filed as evidence that a repo
+    was checked, so the limits of what was checked travel with it.
+    """
+    edges = result.unfollowed_local_calls
+    if not edges:
+        return []
+    parts: list[str] = ['<section class="coverage">']
+    parts.append("<h2>Calls not followed</h2>")
+    if edges:
+        n = len(edges)
+        call_word = "call" if n == 1 else "calls"
+        was_were = "was" if n == 1 else "were"
+        parts.append(
+            f"<p><strong>{n} {call_word}</strong> from agent-reachable code "
+            f"into locally-defined functions {was_were} not followed; sinks "
+            f"reached only through them are not reported.</p>"
+        )
+        parts.append("<ul>")
+        for e in edges[:20]:
+            parts.append(
+                "<li><code>{}:{}</code> &mdash; <code>{}()</code> &rarr; "
+                "<code>{}()</code> <em>({})</em></li>".format(
+                    html.escape(e.file), e.line, html.escape(e.caller),
+                    html.escape(e.callee), html.escape(e.reason),
+                )
+            )
+        if n > 20:
+            parts.append(f"<li>... and {n - 20} more</li>")
+        parts.append("</ul>")
+    parts.append("</section>")
+    return parts
+
+
 def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
     """Format scan results as a self-contained HTML report."""
     unsuppressed = [f for f in result.findings if not f.suppressed]
@@ -63,6 +100,7 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
         parts.append("<p>Unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.</p>")
         parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
         parts.append("</section>")
+        parts.extend(_html_unfollowed(result))
         parts.append("</main>")
         parts.append("</body>")
         parts.append("</html>")
@@ -137,6 +175,8 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
     parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
     parts.append("</section>")
 
+    parts.extend(_html_unfollowed(result))
+
     # Unsupported files
     if result.unsupported_files:
         lang_counts = Counter(lang for _, lang in result.unsupported_files)
@@ -174,4 +214,5 @@ th { background: #f6f8fa; font-size: 0.85rem; text-transform: uppercase; letter-
 .honesty h2 { margin-top: 0; }
 .clean p { font-size: 1.1rem; font-weight: 600; }
 .unsupported { background: #ffebe9; border-color: #ffcecb; }
+.coverage { background: #fff8e5; border-color: #f0d9a0; }
 """

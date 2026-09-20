@@ -52,61 +52,10 @@ def detect_reachability(
         # Not in a function — check module-level signals
         return _check_module_signals(tree, reachability_cfg, self_package, sink_line=sink_line)
 
-    # Check for HIGH confidence: tool decorators on the function
-    tool_decorators = reachability_cfg.get("tool_decorators", [])
-    if _has_tool_decorator(func_node, tool_decorators):
+    signal = entry_point_signal(tree, func_node, reachability_cfg, sink_line=sink_line)
+    if signal is not None:
         result.confidence = "high"
-        result.signals.append("tool_decorator")
-        return result
-
-    # Work Order 2, Phase 3: resource-boundary entry points.
-    # FastAPI/Flask/Django route handlers, CLI commands. These are web
-    # endpoints that receive external input — a different entry-point
-    # class than agent tool handlers, but equally consequential.
-    resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
-    if resource_decorators and _has_resource_boundary_decorator(func_node, resource_decorators):
-        result.confidence = "high"
-        result.signals.append("resource_boundary")
-        return result
-
-    # Check for HIGH confidence: tool wrapper calls (Tool.from_function, etc.)
-    tool_wrappers = reachability_cfg.get("tool_wrappers", [])
-    if _is_wrapped_as_tool(tree, func_node.name, tool_wrappers):
-        result.confidence = "high"
-        result.signals.append("tool_wrapper")
-        return result
-
-    # Check for HIGH confidence: method of a class subclassing a tool base
-    tool_base_classes = reachability_cfg.get("tool_base_classes", [])
-    tool_methods = reachability_cfg.get("tool_methods", [])
-    if _is_tool_method(tree, func_node, tool_base_classes, tool_methods):
-        result.confidence = "high"
-        result.signals.append("tool_base_class_method")
-        return result
-
-    # Check for HIGH confidence: function passed in a tools=[...] / plugins=[...]
-    # argument to any constructor call. This is how Agno, smolagents, CrewAI,
-    # and OpenAI Agents SDK register tools.
-    tool_list_params = reachability_cfg.get("tool_list_params", [])
-    if tool_list_params and _is_in_tool_list(tree, func_node.name, tool_list_params):
-        result.confidence = "high"
-        result.signals.append("tool_list_param")
-        return result
-
-    # HIGH confidence: the sink sits in a branch selected by a tool name that
-    # this module declares in an LLM tool-schema literal. Raw schema dispatch
-    # is a tool boundary with no decorator to announce it.
-    if _is_tool_schema_dispatch(tree, func_node, sink_line):
-        result.confidence = "high"
-        result.signals.append("tool_schema_dispatch")
-        return result
-
-    # HIGH confidence: the sink consumes an executable payload off a parameter
-    # annotated as an agent action type (CmdRunAction.command, etc.). The
-    # action/observation architecture dispatches through plain methods.
-    if _is_action_dispatch(func_node, sink_line):
-        result.confidence = "high"
-        result.signals.append("action_dispatch")
+        result.signals.append(signal)
         return result
 
     # The sink is inside a NON-TOOL function. Even if the module imports an
@@ -114,6 +63,199 @@ def detect_reachability(
     # Without this gate, every file in a framework's own repo (where every
     # file imports the framework) would have all its sinks flagged.
     return result
+
+
+@dataclass
+class ModuleEntryPointIndex:
+    """Module-wide entry-point evidence, computed in one pass.
+
+    ``_is_wrapped_as_tool`` and ``_is_in_tool_list`` each walk the whole
+    module to answer a question about one function name. Asking them once per
+    function makes entry-point detection quadratic in module size, which cost
+    an 8x slowdown on the pinned langchain fixture (2.5s -> 19.9s) when the
+    call-edge walk started asking about every function rather than only the
+    ones enclosing a sink. The answers are collected here in a single walk
+    instead.
+    """
+
+    wrapped_as_tool: frozenset[str] = frozenset()
+    in_tool_list: frozenset[str] = frozenset()
+    #: True when the module contains no entry-point evidence of any kind, so
+    #: no function in it can be an entry point and the whole file can be
+    #: skipped without running a single per-function check.
+    empty: bool = False
+    #: Tool names declared in an LLM tool-schema literal in this module,
+    #: collected in the index walk. _is_tool_schema_dispatch called
+    #: _declared_tool_names once per function, each time walking the whole
+    #: module: 93% of the cost of the call-edge walk on the langchain fixture.
+    _declared: frozenset[str] = frozenset()
+
+    @property
+    def declared_tool_names(self) -> frozenset[str]:
+        return self._declared
+
+
+def build_entry_point_index(
+    tree: ast.Module, reachability_cfg: dict[str, Any]
+) -> ModuleEntryPointIndex:
+    """Collect every module-wide entry-point signal in one AST walk."""
+    tool_wrappers = reachability_cfg.get("tool_wrappers", [])
+    tool_list_params = reachability_cfg.get("tool_list_params", [])
+    tool_decorators = reachability_cfg.get("tool_decorators", [])
+    resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
+    tool_base_classes = reachability_cfg.get("tool_base_classes", [])
+
+    wrapped: set[str] = set()
+    in_list: set[str] = set()
+    declared: set[str] = set()
+    saw_decorator = False
+    saw_base_class = False
+    saw_schema_or_action = False
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            # Tool-schema literals, collected in this same walk rather than in
+            # a second pass. _declared_tool_names over the whole module was
+            # 360ms of an 850ms index build on the langchain fixture, and the
+            # walk it did was identical to this one.
+            declared |= _tool_names_in_dict(node)
+        elif isinstance(node, ast.Call):
+            if tool_wrappers:
+                call_name = _get_call_name(node.func)
+                for arg in node.args:
+                    if isinstance(arg, ast.Name):
+                        # Matching rule copied verbatim from
+                        # _is_wrapped_as_tool, including the case where
+                        # _get_call_name returns "" for a call target that is
+                        # neither a Name nor an Attribute: "" is a substring
+                        # of every wrapper, so that call matches. That is
+                        # over-inclusive, and it is REPRODUCED here on
+                        # purpose. The index decides which functions the
+                        # call-edge walk treats as entry points; the sink path
+                        # still uses _is_wrapped_as_tool. If the two disagreed,
+                        # the walk would report fewer unfollowed calls than the
+                        # findings path implies — under-reporting the gap,
+                        # which is the one direction this must never fail in.
+                        # (The over-inclusiveness itself is a separate
+                        # precision defect; fixing it changes findings and
+                        # needs corpus re-triage, so it is not done here.)
+                        for wrapper in tool_wrappers:
+                            if wrapper in call_name or call_name in wrapper:
+                                wrapped.add(arg.id)
+                                break
+            if tool_list_params:
+                for kw in node.keywords:
+                    if kw.arg in tool_list_params and isinstance(
+                        kw.value, (ast.List, ast.Tuple)
+                    ):
+                        for elt in kw.value.elts:
+                            if isinstance(elt, ast.Name):
+                                in_list.add(elt.id)
+                            elif isinstance(elt, ast.Call):
+                                for sub in elt.args:
+                                    if isinstance(sub, ast.Name):
+                                        in_list.add(sub.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not saw_decorator:
+                for dec in node.decorator_list:
+                    name = _get_decorator_name(dec)
+                    if name in tool_decorators or (
+                        resource_decorators and name in resource_decorators
+                    ):
+                        saw_decorator = True
+                        break
+            if not saw_schema_or_action and _action_typed_params(node):
+                saw_schema_or_action = True
+        elif isinstance(node, ast.ClassDef):
+            saw_base_class = saw_base_class or bool(tool_base_classes)
+
+    return ModuleEntryPointIndex(
+        wrapped_as_tool=frozenset(wrapped),
+        in_tool_list=frozenset(in_list),
+        empty=not (
+            wrapped or in_list or declared or saw_decorator or saw_base_class
+            or saw_schema_or_action
+        ),
+        _declared=frozenset(declared),
+    )
+
+
+def entry_point_signal(
+    tree: ast.Module,
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    reachability_cfg: dict[str, Any],
+    *,
+    sink_line: int | None = None,
+    index: ModuleEntryPointIndex | None = None,
+) -> str | None:
+    """Return the entry-point signal for ``func_node``, or None.
+
+    Extracted from ``detect_reachability`` so the same question — "is this
+    function an agent entry point?" — can be asked about a function directly,
+    not only about the function enclosing a sink. The local-call-edge walk
+    (``collect_local_call_edges``) needs exactly that, and a second copy of
+    these checks would drift from this one.
+
+    ``sink_line`` narrows the two checks that are position-sensitive
+    (tool-schema dispatch and action dispatch select on the branch the sink
+    sits in). When it is None the function's own line is used, which asks
+    whether the function is an entry point anywhere in its body.
+    """
+    line = sink_line if sink_line is not None else func_node.lineno
+
+    # HIGH: tool decorators on the function
+    tool_decorators = reachability_cfg.get("tool_decorators", [])
+    if _has_tool_decorator(func_node, tool_decorators):
+        return "tool_decorator"
+
+    # Work Order 2, Phase 3: resource-boundary entry points.
+    # FastAPI/Flask/Django route handlers, CLI commands. These are web
+    # endpoints that receive external input — a different entry-point
+    # class than agent tool handlers, but equally consequential.
+    resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
+    if resource_decorators and _has_resource_boundary_decorator(func_node, resource_decorators):
+        return "resource_boundary"
+
+    # HIGH: tool wrapper calls (Tool.from_function, etc.)
+    if index is not None:
+        if func_node.name in index.wrapped_as_tool:
+            return "tool_wrapper"
+    else:
+        tool_wrappers = reachability_cfg.get("tool_wrappers", [])
+        if _is_wrapped_as_tool(tree, func_node.name, tool_wrappers):
+            return "tool_wrapper"
+
+    # HIGH: method of a class subclassing a tool base
+    tool_base_classes = reachability_cfg.get("tool_base_classes", [])
+    tool_methods = reachability_cfg.get("tool_methods", [])
+    if _is_tool_method(tree, func_node, tool_base_classes, tool_methods):
+        return "tool_base_class_method"
+
+    # HIGH: function passed in a tools=[...] / plugins=[...] argument to any
+    # constructor call. This is how Agno, smolagents, CrewAI, and the OpenAI
+    # Agents SDK register tools.
+    if index is not None:
+        if func_node.name in index.in_tool_list:
+            return "tool_list_param"
+    else:
+        tool_list_params = reachability_cfg.get("tool_list_params", [])
+        if tool_list_params and _is_in_tool_list(tree, func_node.name, tool_list_params):
+            return "tool_list_param"
+
+    # HIGH: the sink sits in a branch selected by a tool name that this module
+    # declares in an LLM tool-schema literal. Raw schema dispatch is a tool
+    # boundary with no decorator to announce it.
+    declared = index.declared_tool_names if index is not None else None
+    if _is_tool_schema_dispatch(tree, func_node, line, declared=declared):
+        return "tool_schema_dispatch"
+
+    # HIGH: the sink consumes an executable payload off a parameter annotated
+    # as an agent action type (CmdRunAction.command, etc.). The
+    # action/observation architecture dispatches through plain methods.
+    if _is_action_dispatch(func_node, line):
+        return "action_dispatch"
+
+    return None
 
 
 def _find_enclosing_function(tree: ast.Module, line: int) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
@@ -370,24 +512,35 @@ def _declared_tool_names(tree: ast.Module) -> set[str]:
     """
     names: set[str] = set()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Dict):
-            continue
-        keys = {
-            k.value for k in node.keys
-            if isinstance(k, ast.Constant) and isinstance(k.value, str)
-        }
+        if isinstance(node, ast.Dict):
+            names |= _tool_names_in_dict(node)
+    return names
 
-        if "type" in keys and "function" in keys:
-            for key, value in zip(node.keys, node.values):
-                if (
-                    isinstance(key, ast.Constant)
-                    and key.value == "function"
-                    and isinstance(value, ast.Dict)
-                ):
-                    names |= _dict_string_value(value, "name")
 
-        if "name" in keys and (keys & _SCHEMA_PARAM_KEYS):
-            names |= _dict_string_value(node, "name")
+def _tool_names_in_dict(node: ast.Dict) -> set[str]:
+    """Tool names declared by one dict literal, if it is a tool schema.
+
+    Split out of _declared_tool_names so build_entry_point_index can apply
+    the identical rule inside its own walk. One definition, two callers —
+    a second copy would be free to drift, and the two are required to agree.
+    """
+    names: set[str] = set()
+    keys = {
+        k.value for k in node.keys
+        if isinstance(k, ast.Constant) and isinstance(k.value, str)
+    }
+
+    if "type" in keys and "function" in keys:
+        for key, value in zip(node.keys, node.values):
+            if (
+                isinstance(key, ast.Constant)
+                and key.value == "function"
+                and isinstance(value, ast.Dict)
+            ):
+                names |= _dict_string_value(value, "name")
+
+    if "name" in keys and (keys & _SCHEMA_PARAM_KEYS):
+        names |= _dict_string_value(node, "name")
 
     return names
 
@@ -410,9 +563,16 @@ def _is_tool_schema_dispatch(
     tree: ast.Module,
     func_node: ast.FunctionDef | ast.AsyncFunctionDef,
     sink_line: int,
+    *,
+    declared: "frozenset[str] | set[str] | None" = None,
 ) -> bool:
-    """Check if the sink sits in a branch selected by a declared tool name."""
-    declared = _declared_tool_names(tree)
+    """Check if the sink sits in a branch selected by a declared tool name.
+
+    ``declared`` lets a caller that already walked the module pass the names
+    in rather than provoking another full walk per function.
+    """
+    if declared is None:
+        declared = _declared_tool_names(tree)
     if not declared:
         return False
 
@@ -589,3 +749,283 @@ def _check_module_signals(
     if reachability_cfg.get("module_level_reachability", False):
         return ReachabilityResult(confidence="medium", signals=["module_level_agent_import"])
     return ReachabilityResult()
+
+
+# ---------------------------------------------------------------------------
+# Local call edges (A2/A3): what the per-function analysis did not follow.
+# ---------------------------------------------------------------------------
+#
+# The analysis is per-function: a sink is reported when the function that
+# encloses it is an agent entry point. A sink one hop away — in a helper the
+# entry point calls — is therefore invisible to it.
+#
+# Before this module existed, that gap was silent. A scan of
+#
+#     @tool
+#     def publish(data): send_to_external_service(data)
+#     def send_to_external_service(data): requests.post(URL, json=data)
+#
+# reported CLEAN, with nothing in the output to say a call had been stepped
+# over. Silence read as safety, which is the one thing this project promises
+# never to do.
+#
+# An EDGE is a call site inside an agent-reachable function whose callee is a
+# function defined in the file being analysed. Every edge is classified
+# followed or unfollowed, and the unfollowed ones are surfaced in every
+# output path. The resolution rule is deliberately one-directional: anything
+# ambiguous is left UNFOLLOWED and disclosed, never quietly followed.
+#
+# Calls whose callee cannot be tied to a local definition at all (stdlib,
+# third-party, unresolvable names) are not edges. They are not silently
+# dropped from a denominator — they were never in one. See docs/COVERAGE.md.
+
+
+@dataclass
+class LocalCallEdge:
+    """One call from agent-reachable code into a locally-defined function."""
+
+    file: str
+    line: int
+    col: int
+    caller: str
+    callee: str
+    followed: bool = False
+    #: Why this edge was not followed. One of "not_implemented" (the analysis
+    #: does not follow local calls at all), "ambiguous_binding" (the name does
+    #: not resolve to exactly one unshadowed module-level def),
+    #: "attribute_call" (a method call — receiver type is not resolved), or
+    #: "cross_file" (the name is bound by a first-party import; following it
+    #: would require cross-file analysis, which this tool does not do).
+    reason: str = ""
+
+
+def _module_level_functions(
+    tree: ast.Module,
+) -> dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]]:
+    """Module-level ``def``s by name. A list, so redefinition is visible."""
+    out: dict[str, list] = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out.setdefault(node.name, []).append(node)
+    return out
+
+
+def _all_local_function_names(tree: ast.Module) -> set[str]:
+    """Every function name defined anywhere in this file, methods included."""
+    return {
+        n.name
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+
+def _first_party_imported_names(tree: ast.Module) -> set[str]:
+    """Names bound by a relative import — a definition in the scanned tree.
+
+    ``from .helpers import send`` names a function that lives in the scanned
+    tree but not in this file. Following it is cross-file analysis, which this
+    tool does not do, so the edge is counted and disclosed as unfollowed
+    rather than omitted. An absolute import of a third-party or stdlib module
+    is not an edge: its callee is not in the scanned tree.
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.level and node.level > 0:
+            for alias in node.names:
+                if alias.name != "*":
+                    names.add(alias.asname or alias.name)
+    return names
+
+
+def _names_shadowed_in(func: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Names rebound inside ``func`` — parameters, assignments, local defs.
+
+    A name rebound in the caller does not resolve to the module-level def of
+    the same name, so the call must not be followed.
+    """
+    shadowed: set[str] = set()
+    args = func.args
+    for group in (
+        getattr(args, "posonlyargs", []),
+        args.args,
+        args.kwonlyargs,
+    ):
+        shadowed.update(a.arg for a in group)
+    if args.vararg:
+        shadowed.add(args.vararg.arg)
+    if args.kwarg:
+        shadowed.add(args.kwarg.arg)
+    for node in ast.walk(func):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                for sub in ast.walk(target):
+                    if isinstance(sub, ast.Name):
+                        shadowed.add(sub.id)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            if isinstance(node.target, ast.Name):
+                shadowed.add(node.target.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node is not func:
+                shadowed.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                shadowed.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.With):
+            for item in node.items:
+                if item.optional_vars is not None:
+                    for sub in ast.walk(item.optional_vars):
+                        if isinstance(sub, ast.Name):
+                            shadowed.add(sub.id)
+        elif isinstance(node, ast.For):
+            for sub in ast.walk(node.target):
+                if isinstance(sub, ast.Name):
+                    shadowed.add(sub.id)
+    return shadowed
+
+
+def _module_level_rebindings(tree: ast.Module) -> set[str]:
+    """Names assigned or imported at module level — a def of that name is
+    not the only binding, so a call to it does not resolve to one target."""
+    rebound: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                for sub in ast.walk(target):
+                    if isinstance(sub, ast.Name):
+                        rebound.add(sub.id)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            if isinstance(node.target, ast.Name):
+                rebound.add(node.target.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                rebound.add(alias.asname or alias.name.split(".")[0])
+    return rebound
+
+
+def resolve_local_callee(
+    name: str,
+    *,
+    module_funcs: dict[str, list],
+    module_rebindings: set[str],
+    caller_shadowed: set[str],
+) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef | None, str]:
+    """Resolve a bare call name to the one module-level def it must mean.
+
+    Returns ``(node, "")`` only when the name resolves to exactly one
+    module-level ``def`` that nothing shadows. Every other outcome returns
+    ``(None, reason)`` so the caller can record an unfollowed edge.
+
+    The direction is fixed by design: ambiguity never resolves to "follow it".
+    Following the wrong target would attribute a sink to an entry point that
+    cannot reach it, which is a false positive reported at high confidence —
+    the failure mode this tool is least willing to have.
+    """
+    defs = module_funcs.get(name)
+    if not defs:
+        return None, "unresolved"
+    if len(defs) > 1:
+        return None, "ambiguous_binding"
+    if name in module_rebindings:
+        return None, "ambiguous_binding"
+    if name in caller_shadowed:
+        return None, "ambiguous_binding"
+    return defs[0], ""
+
+
+def collect_local_call_edges(
+    tree: ast.Module,
+    reachability_cfg: dict[str, Any],
+    *,
+    rel_path: str,
+    follow_one_hop: bool = False,
+) -> list[LocalCallEdge]:
+    """Every call from agent-reachable code into a locally-defined function.
+
+    ``follow_one_hop`` reflects whether same-module depth-1 following is
+    active. When it is, edges that resolve cleanly are marked followed and
+    stop being disclosed as gaps; everything else stays unfollowed. The two
+    numbers are produced by this one walk so they cannot disagree.
+    """
+    index = build_entry_point_index(tree, reachability_cfg)
+    if index.empty:
+        # No entry-point evidence anywhere in this module, so no function in
+        # it is agent-reachable and it has no edges by definition.
+        return []
+
+    module_funcs = _module_level_functions(tree)
+    module_rebindings = _module_level_rebindings(tree)
+    local_names = _all_local_function_names(tree)
+    first_party = _first_party_imported_names(tree)
+    if not local_names and not first_party:
+        return []
+
+    edges: list[LocalCallEdge] = []
+    seen_calls: set[int] = set()
+
+    for func in ast.walk(tree):
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if entry_point_signal(tree, func, reachability_cfg, index=index) is None:
+            continue
+
+        caller_shadowed = _names_shadowed_in(func)
+
+        for node in ast.walk(func):
+            if not isinstance(node, ast.Call):
+                continue
+            if id(node) in seen_calls:
+                continue
+
+            callee_name: str | None = None
+            attribute_call = False
+            if isinstance(node.func, ast.Name):
+                callee_name = node.func.id
+            elif isinstance(node.func, ast.Attribute):
+                callee_name = node.func.attr
+                attribute_call = True
+            if callee_name is None:
+                continue
+
+            # An edge requires the callee to be a function defined in the
+            # scanned tree. Everything else is a library call, and a library
+            # call is not an unfollowed hop — it is the sink layer itself.
+            if callee_name not in local_names and callee_name not in first_party:
+                continue
+
+            seen_calls.add(id(node))
+            edge = LocalCallEdge(
+                file=rel_path,
+                line=node.lineno,
+                col=node.col_offset,
+                caller=func.name,
+                callee=callee_name,
+            )
+
+            if attribute_call:
+                # self.helper() / obj.method(): the receiver type is not
+                # resolved, so the target is not known. Disclosed, not followed.
+                edge.reason = "attribute_call"
+            elif callee_name in first_party and callee_name not in module_funcs:
+                edge.reason = "cross_file"
+            else:
+                target, reason = resolve_local_callee(
+                    callee_name,
+                    module_funcs=module_funcs,
+                    module_rebindings=module_rebindings,
+                    caller_shadowed=caller_shadowed,
+                )
+                if target is None:
+                    # "unresolved" here means the name is a method or nested
+                    # def, not a module-level one: a local definition the
+                    # module-level resolution rule cannot reach.
+                    edge.reason = (
+                        "ambiguous_binding" if reason == "ambiguous_binding"
+                        else "not_module_level"
+                    )
+                elif follow_one_hop:
+                    edge.followed = True
+                else:
+                    edge.reason = "not_implemented"
+            edges.append(edge)
+
+    return edges

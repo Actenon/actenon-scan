@@ -142,6 +142,12 @@ class CacheEntry:
     file: str
     findings: list[dict] = field(default_factory=list)
     analysis_error: str | None = None
+    #: Local call edges found in this file (A2/A3). Cached alongside the
+    #: findings because a cache hit must disclose the same analysis gap a
+    #: fresh scan would. A cached scan that reported the findings but dropped
+    #: the unfollowed-call count would under-report the gap on every run
+    #: after the first — the same silent-clean failure, one run later.
+    local_call_edges: list[dict] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps({
@@ -149,6 +155,7 @@ class CacheEntry:
             "file": self.file,
             "findings": self.findings,
             "analysis_error": self.analysis_error,
+            "local_call_edges": self.local_call_edges,
         }, sort_keys=True)
 
     @classmethod
@@ -161,9 +168,30 @@ class CacheEntry:
                 file=d["file"],
                 findings=d.get("findings", []),
                 analysis_error=d.get("analysis_error"),
+                local_call_edges=d.get("local_call_edges", []),
             )
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
+
+
+def _edge_to_dict(e: "LocalCallEdge") -> dict:
+    """Serialise a LocalCallEdge to a JSON-compatible dict."""
+    return {
+        "file": e.file, "line": e.line, "col": e.col,
+        "caller": e.caller, "callee": e.callee,
+        "followed": e.followed, "reason": e.reason,
+    }
+
+
+def _dict_to_edge(d: dict) -> "LocalCallEdge":
+    """Reconstruct a LocalCallEdge from its cached dict."""
+    from actenon_scan.detectors.reachability import LocalCallEdge
+
+    return LocalCallEdge(
+        file=d.get("file", ""), line=d.get("line", 0), col=d.get("col", 0),
+        caller=d.get("caller", ""), callee=d.get("callee", ""),
+        followed=d.get("followed", False), reason=d.get("reason", ""),
+    )
 
 
 def _finding_to_dict(f: Finding) -> dict:
@@ -281,23 +309,27 @@ class FileCache:
     def findings_for(
         self, source: str, file_rel: str, config: Any,
         analysis_flags: dict[str, Any] | None = None,
-    ) -> tuple[list[Finding], str | None] | None:
-        """Return cached (findings, analysis_error) or None on miss.
+    ) -> tuple[list[Finding], str | None, list["LocalCallEdge"]] | None:
+        """Return cached (findings, analysis_error, edges) or None on miss.
 
         On a cache hit, the returned findings are IDENTICAL to what a
         fresh scan would produce (RULE 5: cache never changes findings).
+        The same holds for the local call edges: a cache hit discloses the
+        same analysis gap as a fresh scan.
         """
         key = compute_cache_key(source, config, analysis_flags)
         entry = self.get(key)
         if entry is None:
             return None
         findings = [_dict_to_finding(d) for d in entry.findings]
-        return (findings, entry.analysis_error)
+        edges = [_dict_to_edge(d) for d in entry.local_call_edges]
+        return (findings, entry.analysis_error, edges)
 
     def store(
         self, source: str, file_rel: str, config: Any,
         findings: list[Finding], analysis_error: str | None,
         analysis_flags: dict[str, Any] | None = None,
+        local_call_edges: "list[LocalCallEdge] | None" = None,
     ) -> None:
         """Store a per-file scan result in the cache."""
         key = compute_cache_key(source, config, analysis_flags)
@@ -306,6 +338,7 @@ class FileCache:
             file=file_rel,
             findings=[_finding_to_dict(f) for f in findings],
             analysis_error=analysis_error,
+            local_call_edges=[_edge_to_dict(e) for e in (local_call_edges or [])],
         )
         self.put(entry)
 
