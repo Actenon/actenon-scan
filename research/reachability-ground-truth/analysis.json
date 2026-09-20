@@ -1,0 +1,32 @@
+{
+ "sample_size": 160,
+ "counts": {
+  "NOT_AGENT_REACHABLE": 110,
+  "AMBIGUOUS": 28,
+  "AGENT_REACHABLE": 22
+ },
+ "web_route_only": 20,
+ "wilson_95_share_reachable": [
+  0.09258687095890995,
+  0.19941223061236374
+ ],
+ "weighted_share_reachable": 0.044548086201350916,
+ "inventory_unreachable": 3109,
+ "inventory_reachable": 149,
+ "estimated_missed_population": 138.5,
+ "estimated_ambiguous_population": 803.0,
+ "recall_bracket_low": 0.13663457129756992,
+ "recall_bracket_high": 0.5182608695652174,
+ "mechanisms": {
+  "CALLBACK_REGISTRATION": 6,
+  "DYNAMIC_DISPATCH": 2,
+  "CROSS_MODULE_CALL": 4,
+  "MULTI_HOP_LOCAL_CALL": 3,
+  "LOCAL_HELPER_CALL": 5,
+  "SCHEMA_DISPATCH": 1,
+  "LLM_OUTPUT_TO_SINK": 1
+ },
+ "p01_count": 14,
+ "p01_share_of_reachable": 0.6363636363636364,
+ "p01_estimated_population": 69.5
+}

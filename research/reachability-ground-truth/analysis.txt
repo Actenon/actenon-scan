@@ -1,0 +1,99 @@
+==============================================================================
+GROUND TRUTH
+==============================================================================
+  Sample size:            160
+  AGENT_REACHABLE:        22   (13.8%)
+  NOT_AGENT_REACHABLE:    110   (68.8%)   of which web-route-only: 20
+  AMBIGUOUS:              28   (17.5%)
+  Actenon detected among AGENT_REACHABLE:  0  (BY CONSTRUCTION -- every
+      sampled row scored reachability 'none', so the sample contains no
+      detectable case. See the recall note below.)
+  Actenon missed among AGENT_REACHABLE:    22
+
+  Share of the UNREACHABLE inventory that is agent-reachable:
+    unweighted sample: 22/160 = 13.8%   (95% Wilson: 9.3%-19.9%)
+    weighted estimate:  4.5% of 3109 -> ~138 agent-reachable sinks missed
+    weighted AMBIGUOUS: 25.8% -> ~803 further sinks unresolved
+
+  REAL-WORLD RECALL (sink level, estimated):
+    currently reachable (detected) sinks: 149
+    estimated missed (AGENT_REACHABLE):   ~138
+    recall if AMBIGUOUS all NOT reachable: 51.8%
+    recall if AMBIGUOUS all ARE reachable: 13.7%
+    => bracket: 14% - 52%
+
+==============================================================================
+FALSE-NEGATIVE MECHANISMS (observed counts, AGENT_REACHABLE only)
+==============================================================================
+  mechanism                    n  est.pop  repos
+  CALLBACK_REGISTRATION        6       45  2 (agno, browser-use)
+  LOCAL_HELPER_CALL            5       37  3 (crewai, langchain, superagi)
+  CROSS_MODULE_CALL            4       18  3 (autogen, mcp-atlassian, superagi)
+  MULTI_HOP_LOCAL_CALL         3        6  2 (browser-use, mcp-python-sdk)
+  DYNAMIC_DISPATCH             2       16  2 (agno, aider)
+  SCHEMA_DISPATCH              1        2  1 (mcp-servers)
+  LLM_OUTPUT_TO_SINK           1       15  1 (superagi)
+
+==============================================================================
+P01 -- transitive local/interprocedural reachability
+==============================================================================
+  P01 instances: 14/22 of AGENT_REACHABLE (64%)
+  repositories affected: 9 (aider, autogen, browser-use, crewai, langchain, mcp-atlassian, mcp-python-sdk, mcp-servers, superagi)
+  estimated population: ~70 sinks
+
+  per-case shape:
+   idx repo             depth cross-file  async kind       mechanism
+    18 aider                1       True  False method     DYNAMIC_DISPATCH
+    31 autogen              2       True   True method     CROSS_MODULE_CALL
+    32 autogen              2       True   True method     CROSS_MODULE_CALL
+    53 browser-use          2      False   True method     MULTI_HOP_LOCAL_CALL
+    66 crewai               1      False   True method     LOCAL_HELPER_CALL
+    89 langchain            1      False  False method     LOCAL_HELPER_CALL
+    91 langchain            1      False  False method     LOCAL_HELPER_CALL
+   102 mcp-atlassian        2       True  False method     CROSS_MODULE_CALL
+   105 mcp-python-sdk       2      False   True fn->method MULTI_HOP_LOCAL_CALL
+   106 mcp-python-sdk       3      False   True fn->fn     MULTI_HOP_LOCAL_CALL
+   111 mcp-servers          1      False   True function   SCHEMA_DISPATCH
+   154 superagi             1       True  False method     CROSS_MODULE_CALL
+   158 superagi             1      False  False method     LOCAL_HELPER_CALL
+   159 superagi             1      False  False method     LOCAL_HELPER_CALL
+
+  call depth distribution: depth 1: 8, depth 2: 5, depth 3: 1
+  cross-file: 5/14   same-file: 9/14
+  async:      7/14   sync: 7/14
+  method:     12/14
+
+==============================================================================
+BREAKDOWNS
+==============================================================================
+  AGENT_REACHABLE by repo_name: agno=6, superagi=4, autogen=2, browser-use=2, langchain=2, mcp-python-sdk=2, aider=1, crewai=1
+  AGENT_REACHABLE by category: browser_action=5, code_execution=5, communication=2, shell_execution=2, data_destruction=2, network_egress=2, file_mutation=1, database_mutation=1
+  AGENT_REACHABLE by rule_id: BROWSER-ACTION=5, EXEC-CODE=4, COMMUNICATION-SEND=2, EXEC-SHELL=2, NET-EGRESS=2, EXEC-CONTAINER=1, DATA-DELETE-OS=1, FILE-WRITE=1
+  AGENT_REACHABLE by tier: production=20, example=2
+
+  NOT_AGENT_REACHABLE reasons:
+      35  build_tooling
+      20  web_route_only
+       9  control_library
+       8  framework_internal
+       7  demo_script
+       7  llm_transport
+       6  config_load
+       5  infrastructure
+       4  cli_entrypoint
+       3  auth_flow
+       2  dead_helper
+       1  trusted_config
+       1  research_harness
+       1  test_support
+       1  not_registered
+
+  AMBIGUOUS reasons:
+      15  unresolved_framework
+       7  sample_app
+       2  unresolved_db_layer
+       2  unresolved_utility
+       1  framework_router
+       1  unresolved_input
+
+analysis -> /home/user/actenon-scan/research/reachability-ground-truth/analysis.json
