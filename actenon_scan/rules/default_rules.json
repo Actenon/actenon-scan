@@ -873,14 +873,7 @@
       "bp.post",
       "bp.put",
       "bp.delete",
-      "blueprint.route",
-      "get",
-      "post",
-      "put",
-      "delete",
-      "patch",
-      "route",
-      "api_route"
+      "blueprint.route"
     ],
     "tool_wrappers": [
       "Tool.from_function",
@@ -970,7 +963,8 @@
       ]
     },
     "module_level_reachability": false,
-    "follow_local_calls_depth_1": true
+    "follow_local_calls_depth_1": true,
+    "resource_boundary_enabled": false
   },
   "guard_patterns": [
     "verify_pccb",

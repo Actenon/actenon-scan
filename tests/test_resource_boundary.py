@@ -1,7 +1,13 @@
-"""Work Order 2, Phase 3 — Resource-boundary entry point tests.
+"""Resource-boundary entry point tests.
 
-Tests that FastAPI/Flask route handlers are detected as reachable,
-and that non-handler functions in the same file are NOT.
+FastAPI/Flask route handlers are detected as reachable, and non-handler
+functions in the same file are not.
+
+The signal is OPT-IN: it ships off, and these tests enable it. That is the
+whole subject of `tests/test_resource_boundary_optin.py`, which asserts the
+default is off and that the same sources produce nothing without the flag.
+`_scan_source` therefore enables it explicitly — the behaviour under test
+here is what the signal does when a user asks for it, not whether it is on.
 """
 
 from __future__ import annotations
@@ -18,7 +24,7 @@ def _scan_source(source: str):
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "test.py"
         p.write_text(source)
-        return scan_path(Path(td))
+        return scan_path(Path(td), resource_boundary=True)
 
 
 def test_fastapi_route_handler_unguarded():
@@ -141,3 +147,47 @@ def run_command(cmd: str):
     caps = result.capabilities
     assert len(caps) >= 1
     assert "resource_boundary" in caps[0].reachability_reason
+
+
+def test_every_source_in_this_file_is_silent_at_defaults():
+    """The counterpart assertion: none of the above fires unless asked for.
+
+    Each source here is a plain web handler with no agent framework. Scanned
+    at defaults they must all be silent, which is what makes pallets/flask
+    come back clean.
+    """
+    sources = [
+        '''import subprocess
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.post("/run")
+def run_command(cmd: str):
+    subprocess.run(cmd, shell=True)
+''',
+        '''import subprocess
+from flask import Flask, request
+app = Flask(__name__)
+
+@app.route("/run", methods=["POST"])
+def run_command():
+    subprocess.run(request.form["cmd"], shell=True)
+''',
+        '''import subprocess
+from fastapi import APIRouter
+router = APIRouter()
+
+@router.post("/run")
+def run_command(cmd: str):
+    subprocess.run(cmd, shell=True)
+''',
+    ]
+    for source in sources:
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "test.py").write_text(source)
+            result = scan_path(Path(td))
+            findings = [f for f in result.findings if not f.suppressed]
+            assert findings == [], (
+                f"resource-boundary fired at defaults: "
+                f"{[(f.rule_id, f.line) for f in findings]}"
+            )

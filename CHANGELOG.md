@@ -66,6 +66,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Fixed — resource-boundary precision
+
+- **A parameterised `INSERT` in a plain Flask view was reported as HIGH
+  DATABASE-MUTATE**, in `pallets/flask` — a repository this project pins with
+  category "control", where `corpus-triage.json` states that any finding is a
+  precision failure by definition. No agent framework is imported anywhere in
+  that repo.
+- `reachability.resource_boundary_decorators` contained BARE names — `get`,
+  `post`, `put`, `delete`, `patch`, `route`, `api_route` — so any decorator
+  with one of those names in any codebase matched. Removed; only qualified
+  forms remain (`app.route`, `bp.post`, `router.api_route`, ...).
+- The whole resource-boundary signal is now **opt-in**: off by default,
+  enabled with `--resource-boundary` or the config key
+  `reachability.resource_boundary_enabled`. The default entry-point model is
+  agent tool handlers, which is what the README's headline question asks
+  about.
+- `tests/benchmark/precision/p20_flask_route_no_agent.py` added: zero
+  findings at defaults, the DATABASE-MUTATE finding with the flag.
+- CHALLENGE-004 moved to **Fixed** (v1.5.0).
+
 ### Added — same-module one-hop reachability
 
 - **A sink one hop from an entry point is now reported.** When an

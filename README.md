@@ -377,6 +377,32 @@ is stated and `--include-fixtures` shows them:
 --include-fixtures to show
 ```
 
+## Web route handlers (opt-in)
+
+The question at the top of this page is *what can your AI agent do without
+permission?* — so by default an entry point means an agent tool handler:
+`@tool`, `@mcp.tool`, a `BaseTool` subclass, a function registered in
+`tools=[...]`, a raw tool-schema dispatch.
+
+Web route handlers are a different entry-point class. They receive external
+input, but a `@app.route` decorator says nothing about an agent. They are
+**off by default**:
+
+```bash
+actenon-scan scan . --resource-boundary
+```
+
+Or in `.actenon-scan.json`:
+
+```json
+{ "reachability": { "resource_boundary_enabled": true } }
+```
+
+With this on, expect findings in ordinary web applications that have no agent
+in them at all. That is the flag working, not a bug — you have asked a
+different question. See
+[`docs/COVERAGE.md`](docs/COVERAGE.md#resource-boundary-entry-points).
+
 ## How to configure custom guards
 
 ```bash

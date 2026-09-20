@@ -25,10 +25,19 @@ description: >
   produces this finding, so the recorded corpus evidence predates the
   resource-boundary feature and was never re-measured.
 expected: clean
-status: open
+status: fixed
+fixed_in: 1.5.0
 note: >
-  The fix is to remove the bare decorator names, keep only qualified forms
-  (app.route, bp.post, router.api_route), and make the resource-boundary
-  signal opt-in behind --resource-boundary. With the signal enabled this
-  finding is expected to return — it is a deliberate, requested behaviour at
-  that point, not a default one.
+  Fixed. The bare decorator names were removed, leaving only qualified forms
+  (app.route, bp.post, router.api_route, ...), and the resource-boundary
+  signal is now opt-in behind --resource-boundary or the config key
+  reachability.resource_boundary_enabled.
+
+  pallets/flask at HEAD and at its pinned SHA both report zero findings at
+  defaults. With --resource-boundary this finding returns, by design: at
+  that point the user has asked for web route handlers to count as entry
+  points, and the finding is the answer to the question they asked.
+
+  tests/benchmark/precision/p20_flask_route_no_agent.py is the permanent
+  regression fixture, asserted silent at defaults and reporting with the
+  flag.

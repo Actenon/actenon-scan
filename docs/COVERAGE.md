@@ -321,6 +321,34 @@ point is still missed. There is no cross-file analysis. Both remain visible
 in the unfollowed count — `tests/benchmark/recall/` carries `_depth2` and
 `_crossfile` fixtures recording exactly these misses.
 
+### Resource-boundary entry points
+
+Web route handlers (`@app.route`, `@router.post`, `@bp.get`, ...) are a
+different entry-point class from agent tool handlers. They receive external
+input, but nothing about a route decorator implies an agent is involved.
+
+**Off by default.** Enable with `--resource-boundary`, or the config key
+`reachability.resource_boundary_enabled`.
+
+```bash
+actenon-scan scan . --resource-boundary
+```
+
+Off by default because the decorator alone is not evidence of an agent
+boundary. With it on, scanning `pallets/flask` — a repository pinned in this
+project's own corpus as a CONTROL, where `corpus-triage.json` states any
+finding is a precision failure by definition — reports a parameterised
+`INSERT` in a plain tutorial view as HIGH DATABASE-MUTATE, with no agent
+framework imported anywhere in the repo.
+
+Only qualified decorator forms are recognised (`app.route`, `bp.post`,
+`router.api_route`, ...). The bare names `get`, `post`, `put`, `delete`,
+`patch`, `route` and `api_route` were removed: as bare names they matched any
+decorator called `@get` in any codebase.
+
+`tests/benchmark/precision/p20_flask_route_no_agent.py` pins this: silent at
+defaults, reporting with the flag.
+
 ### Dynamic dispatch
 
 `getattr(obj, name)()`, registry lookups, and plugin systems are invisible.

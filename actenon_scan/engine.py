@@ -317,15 +317,22 @@ def _reachability_markers(reachability_cfg: dict) -> frozenset[str]:
     This follows from the reachability model, not from a substring guess.
     """
     markers: set[str] = set()
-    for key in (
+    keys = [
         "tool_decorators",
-        "resource_boundary_decorators",
         "tool_wrappers",
         "tool_base_classes",
         "tool_methods",
         "tool_list_params",
         "agent_framework_imports",
-    ):
+    ]
+    # Resource-boundary decorators only make a sink reachable when the signal
+    # is enabled. Including them unconditionally would keep whole files in the
+    # rule pass that cannot produce a finding — harmless for correctness, but
+    # the marker set is documented as derived from the detector's own model,
+    # and the detector now consults the flag.
+    if reachability_cfg.get("resource_boundary_enabled", False):
+        keys.append("resource_boundary_decorators")
+    for key in keys:
         for item in reachability_cfg.get(key) or []:
             if isinstance(item, str):
                 # Match on the final attribute so "langchain.tools.tool"
@@ -665,14 +672,18 @@ def _scan_shard(args: tuple) -> "ScanResult":
     # Unpack with cache_dir for backwards compatibility: older payloads
     # (e.g. cached pickled args) may not include it.
     include_fixtures = False
+    resource_boundary = None
     if len(args) == 7:
         target, shard, config, exclude_globs, self_package, suppressions, baseline = args
         cache_dir = None
     elif len(args) == 8:
         target, shard, config, exclude_globs, self_package, suppressions, baseline, cache_dir = args
-    else:
+    elif len(args) == 9:
         (target, shard, config, exclude_globs, self_package, suppressions,
          baseline, cache_dir, include_fixtures) = args
+    else:
+        (target, shard, config, exclude_globs, self_package, suppressions,
+         baseline, cache_dir, include_fixtures, resource_boundary) = args
     cache = None
     if cache_dir is not None:
         from actenon_scan.cache import FileCache
@@ -687,6 +698,7 @@ def _scan_shard(args: tuple) -> "ScanResult":
         explicit_files=shard,
         cache=cache,
         include_fixtures=include_fixtures,
+        resource_boundary=resource_boundary,
     )
 
 
@@ -703,6 +715,7 @@ def scan_path_parallel(
     cache: "FileCache | None" = None,
     on_finding: "Callable[[Finding], None] | None" = None,
     include_fixtures: bool = False,
+    resource_boundary: bool | None = None,
 ) -> "ScanResult":
     """Scan by sharding the file list across `jobs` processes.
 
@@ -729,6 +742,7 @@ def scan_path_parallel(
             baseline_findings=baseline_findings, self_package=self_package,
             cache=cache, on_finding=on_finding,
             include_fixtures=include_fixtures,
+            resource_boundary=resource_boundary,
         )
 
     if jobs <= 1 or not target.is_dir():
@@ -749,7 +763,7 @@ def scan_path_parallel(
 
     payload = [
         (target, sh, config, exclude_globs, self_package, suppressions,
-         baseline_findings, cache_dir, include_fixtures)
+         baseline_findings, cache_dir, include_fixtures, resource_boundary)
         for sh in shards
     ]
     try:
@@ -781,6 +795,8 @@ def scan_path_parallel(
     # guard_patterns to the TS scan (parity with Python/Go paths, which
     # run inside workers where the ruleset is already loaded).
     _ts_rules = load_rules(config)
+    if resource_boundary is not None:
+        _ts_rules.reachability["resource_boundary_enabled"] = bool(resource_boundary)
     ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
         target, include_globs, exclude_globs,
         guard_patterns=_ts_rules.guard_patterns,
@@ -875,6 +891,7 @@ def scan_path(
     cache: "FileCache | None" = None,
     on_finding: "Callable[[Finding], None] | None" = None,
     include_fixtures: bool = False,
+    resource_boundary: bool | None = None,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -891,6 +908,12 @@ def scan_path(
             through to a fresh scan.
         include_fixtures: Report findings in actenon-scan's own vulnerable
             test fixtures instead of holding them aside. Default False.
+        resource_boundary: Treat web route handlers as entry points. None
+            (default) honours the config key
+            ``reachability.resource_boundary_enabled``, which ships False.
+            The flag is applied to the loaded ruleset, so it is part of the
+            cache key and a scan with it on cannot return results cached
+            from a scan with it off.
         on_finding: Optional callback invoked for each finding as it is
             discovered (Work Order 2, Part 4.1 — progressive output).
             The callback receives a Finding object. Findings may arrive
@@ -898,6 +921,8 @@ def scan_path(
             list is sorted by file/line for stable output.
     """
     rules = load_rules(config)
+    if resource_boundary is not None:
+        rules.reachability["resource_boundary_enabled"] = bool(resource_boundary)
     target = Path(target)
     # --changed-only supplies the exact file list from the git diff. Walking
     # the whole tree and then glob-filtering it down to 1-3 files was the fixed

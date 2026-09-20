@@ -125,6 +125,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     # rules
     scan_parser.add_argument(
+        "--resource-boundary",
+        action="store_true",
+        default=False,
+        help="Also treat web route handlers (@app.route, @router.post, ...) "
+             "as entry points. Off by default: a route decorator is not "
+             "evidence that an agent is involved, and enabling it reports "
+             "plain web views with no agent framework present.",
+    )
+    scan_parser.add_argument(
         "--include-fixtures",
         action="store_true",
         default=False,
@@ -602,6 +611,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 cache=cache,
                 on_finding=on_finding,
                 include_fixtures=getattr(args, "include_fixtures", False),
+                resource_boundary=(
+                    True if getattr(args, "resource_boundary", False) else None
+                ),
             )
         else:
             result = scan_path(
@@ -615,6 +627,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 cache=cache,
                 on_finding=on_finding,
                 include_fixtures=getattr(args, "include_fixtures", False),
+                resource_boundary=(
+                    True if getattr(args, "resource_boundary", False) else None
+                ),
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:

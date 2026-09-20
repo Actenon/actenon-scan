@@ -119,7 +119,13 @@ def build_entry_point_index(
     tool_wrappers = reachability_cfg.get("tool_wrappers", [])
     tool_list_params = reachability_cfg.get("tool_list_params", [])
     tool_decorators = reachability_cfg.get("tool_decorators", [])
-    resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
+    # Only evidence when the signal is enabled; otherwise a module full of
+    # route handlers and nothing else must still come back empty.
+    resource_decorators = (
+        reachability_cfg.get("resource_boundary_decorators", [])
+        if reachability_cfg.get("resource_boundary_enabled", False)
+        else []
+    )
     tool_base_classes = reachability_cfg.get("tool_base_classes", [])
 
     wrapped: set[str] = set()
@@ -225,13 +231,22 @@ def entry_point_signal(
     if _has_tool_decorator(func_node, tool_decorators):
         return "tool_decorator"
 
-    # Work Order 2, Phase 3: resource-boundary entry points.
-    # FastAPI/Flask/Django route handlers, CLI commands. These are web
-    # endpoints that receive external input — a different entry-point
-    # class than agent tool handlers, but equally consequential.
-    resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
-    if resource_decorators and _has_resource_boundary_decorator(func_node, resource_decorators):
-        return "resource_boundary"
+    # Resource-boundary entry points: FastAPI/Flask/Django route handlers.
+    # These are web endpoints that receive external input — a different
+    # entry-point class from agent tool handlers, and nothing about a route
+    # decorator implies an agent is involved.
+    #
+    # OFF BY DEFAULT. On by default, and with BARE names ("get", "post",
+    # "route", ...) in the decorator list, this reported a parameterised
+    # INSERT in a plain Flask view as HIGH DATABASE-MUTATE — in pallets/flask,
+    # a repository this project pins as a CONTROL, where corpus-triage.json
+    # says any finding is a precision failure by definition. The README asks
+    # "what can your AI agent do without permission?"; a Flask tutorial with
+    # no agent framework anywhere in it is not an answer to that question.
+    if reachability_cfg.get("resource_boundary_enabled", False):
+        resource_decorators = reachability_cfg.get("resource_boundary_decorators", [])
+        if resource_decorators and _has_resource_boundary_decorator(func_node, resource_decorators):
+            return "resource_boundary"
 
     # HIGH: tool wrapper calls (Tool.from_function, etc.)
     if index is not None:

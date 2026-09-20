@@ -39,13 +39,13 @@ _These are the cases the scanner currently gets wrong._
 |---|-----------|----------|-------|----------|-------|
 | #0 | @actenon | — | false-positive | go | Constant-path delete in Cleanup method reported as finding |
 | #0 | @actenon | — | missed-sink | go | os.Chmod / os.Chown not detected — deliberately excluded for parity |
-| #0 | @actenon | external review | false-positive | python | Parameterised INSERT in a plain Flask view reported HIGH DATABASE-MUTATE |
 
 ## Fixed cases
 
 | # | Submitter | Found by | Class | Language | Title | Fix |
 |---|-----------|----------|-------|----------|-------|-----|
 | #0 | @actenon | external review | missed-sink | python | Sink one hop from an entry point is missed, and the scan reports clean | v1.5.0 |
+| #0 | @actenon | external review | false-positive | python | Parameterised INSERT in a plain Flask view reported HIGH DATABASE-MUTATE | v1.5.0 |
 
 ---
 
