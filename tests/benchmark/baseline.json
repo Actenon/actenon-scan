@@ -1,6 +1,28 @@
 {
   "recall_corpus": 3,
-  "precision": 11,
+  "precision": 16,
   "soundness": 6,
-  "recall_synthetic": 5
+  "recall_synthetic": 9,
+  "recall_by_depth": {
+    "crossfile": {
+      "pass": 0,
+      "total": 3,
+      "expected_fail": true
+    },
+    "depth0": {
+      "pass": 3,
+      "total": 3,
+      "expected_fail": false
+    },
+    "depth1": {
+      "pass": 3,
+      "total": 3,
+      "expected_fail": false
+    },
+    "depth2": {
+      "pass": 0,
+      "total": 3,
+      "expected_fail": true
+    }
+  }
 }

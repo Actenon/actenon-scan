@@ -308,7 +308,7 @@ than fix them.
 
 | Case | Reason code |
 |------|-------------|
-| Depth >= 2 — a call made by an already-followed callee | not walked; following is non-transitive |
+| Depth >= 2 — a call made by an already-followed callee | `depth_limit` |
 | A callee in another file, including `from .helpers import send` | `cross_file` |
 | A method call — `self.helper()`, `obj.method()` | `attribute_call` |
 | A name shadowed by a parameter, assignment, import or redefinition | `ambiguous_binding` |
@@ -317,9 +317,22 @@ than fix them.
 
 Following is depth-1 and non-transitive: a function reached by following is
 never used as a source of further edges, so a sink two hops from an entry
-point is still missed. There is no cross-file analysis. Both remain visible
-in the unfollowed count — `tests/benchmark/recall/` carries `_depth2` and
-`_crossfile` fixtures recording exactly these misses.
+point is still missed. There is no cross-file analysis.
+
+Both misses stay visible. The outgoing calls of a followed callee are
+**counted** as unfollowed (`depth_limit`) even though they are not walked,
+so a depth-2 miss shows up as reduced analysis coverage rather than as a
+clean 100%. `tests/benchmark/recall/depth/` carries `_depth0`, `_depth1`,
+`_depth2` and `_crossfile` fixtures for three sink families, and
+`tests/benchmark/baseline.json` records recall **per depth** with the depth-2
+and cross-file misses as expected failures.
+
+| Depth | NET-EGRESS | EXEC-SHELL | DATA-DELETE-SQL |
+|-------|-----------|------------|-----------------|
+| 0 (tool body) | found | found | found |
+| 1 (same-module hop) | found | found | found |
+| 2 (two hops) | **missed** | **missed** | **missed** |
+| cross-file | **missed** | **missed** | **missed** |
 
 ### Resource-boundary entry points
 

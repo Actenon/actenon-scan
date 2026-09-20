@@ -66,6 +66,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Added — hop-depth recall axis
+
+- `tests/benchmark/recall/depth/` holds depth-stratified fixtures for three
+  sink families (NET-EGRESS, EXEC-SHELL, DATA-DELETE-SQL) at four distances:
+  `_depth0`, `_depth1`, `_depth2`, `_crossfile`.
+- `tests/benchmark/baseline.json` reports recall **per depth**, not as a
+  scalar. `depth0` 3/3, `depth1` 3/3, `depth2` 0/3, `crossfile` 0/3 — the
+  last two recorded as expected failures. A fixture that starts passing
+  fails the check until the baseline is updated to say so; one that stops
+  passing fails as a regression.
+- **The depth-2 fixtures caught a hole in the coverage figure itself.** A
+  function reached by one-hop following had its own outgoing calls neither
+  walked nor counted, so a depth-2 miss reported "1 followed, 0 not followed
+  (100.0%)" — a perfect coverage number over a missed sink. Those calls are
+  now counted as unfollowed with reason `depth_limit`. They are still not
+  walked; the analysis stays depth-1 and non-transitive.
+
 ### Fixed — tool-wrapper false reachability
 
 - `_get_call_name` returns `""` for a call target that is neither a Name nor

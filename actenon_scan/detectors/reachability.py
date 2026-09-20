@@ -832,9 +832,11 @@ class LocalCallEdge:
     #: Why this edge was not followed. One of "not_implemented" (the analysis
     #: does not follow local calls at all), "ambiguous_binding" (the name does
     #: not resolve to exactly one unshadowed module-level def),
-    #: "attribute_call" (a method call — receiver type is not resolved), or
+    #: "attribute_call" (a method call — receiver type is not resolved),
     #: "cross_file" (the name is bound by a first-party import; following it
-    #: would require cross-file analysis, which this tool does not do).
+    #: would require cross-file analysis, which this tool does not do), or
+    #: "depth_limit" (a call made BY a function that following reached;
+    #: walking it would be the second hop, which this tool does not do).
     reason: str = ""
 
 
@@ -1126,5 +1128,46 @@ def analyse_local_calls(
             tree, module_funcs[name][0], reachability_cfg, index=index
         ) is None
     }
+
+    # THE SECOND HOP.
+    #
+    # Following is depth-1, so a function we followed INTO is analysed but its
+    # own outgoing calls are not walked. Those calls are the depth-2 boundary,
+    # and they must be counted.
+    #
+    # Without this, a sink two hops from an entry point was missed AND the
+    # scan reported "1 followed, 0 not followed (100.0%)" — a perfect coverage
+    # figure over a miss, which is precisely the false assurance this whole
+    # disclosure exists to prevent. The depth-2 benchmark fixtures caught it.
+    #
+    # This counts the edge; it does not walk it. Analysis stays depth-1 and
+    # non-transitive.
+    for name in one_hop_targets:
+        target = module_funcs[name][0]
+        target_shadowed = _names_shadowed_in(target)
+        for node in ast.walk(target):
+            if not isinstance(node, ast.Call) or id(node) in seen_calls:
+                continue
+            callee_name = None
+            if isinstance(node.func, ast.Name):
+                callee_name = node.func.id
+            elif isinstance(node.func, ast.Attribute):
+                callee_name = node.func.attr
+            if callee_name is None:
+                continue
+            if callee_name not in local_names and callee_name not in first_party:
+                continue
+            if callee_name == name:
+                continue  # self-call: no new code behind it
+            seen_calls.add(id(node))
+            edges.append(LocalCallEdge(
+                file=rel_path,
+                line=node.lineno,
+                col=node.col_offset,
+                caller=target.name,
+                callee=callee_name,
+                followed=False,
+                reason="depth_limit",
+            ))
 
     return LocalCallAnalysis(edges=edges, one_hop_targets=one_hop_targets)
