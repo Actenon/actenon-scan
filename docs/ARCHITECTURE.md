@@ -249,3 +249,197 @@ To extend the repository layer:
 
 Every change MUST come with a test that fails without it and passes
 with it (per the project-wide rule).
+
+## Later-slice modules (foundations, not yet wired into the engine)
+
+The following modules were added in subsequent slices as **standalone
+primitives**. They are NOT yet called from `engine_augment.py` — they
+are substrates for future integration. Each is pinned by its own test
+file in `tests/repository/` plus adversarial tests in
+`tests/adversarial/`.
+
+### `guard_resolution.py` — Cross-file guard body inspection (Objective 7)
+
+Extends the per-file guard analyzer's name-heuristic fallback with
+repository-local evidence. When a guard call resolves to a function
+defined elsewhere in the repo (via `RepositoryIndex`), the body is
+inspected for:
+
+- `ast.Raise` anywhere → `raises_on_failure=True` (assert-style)
+- `ast.Return` at top level → `returns_bool=True` (predicate-style)
+
+Public API:
+
+- `GuardStyle` enum: `ASSERT` / `PREDICATE` / `UNKNOWN`
+- `GuardBodyInspection` dataclass
+- `GuardResolution` dataclass
+- `resolve_guard_call(call_node, in_module, index)` — main entry
+- `inspect_guard_body(guard_symbol, index)`
+
+Conservative invariants:
+
+- A guard whose body cannot be inspected → UNKNOWN, never silently
+  promoted to ASSERT.
+- A guard that both raises AND returns → UNKNOWN.
+- The conservative name-heuristic fallback (when the guard is
+  unresolved) is the SAME list as `guards.py:655-659` — it
+  deliberately excludes `check_permission`, `check_access`,
+  `check_auth`, `verify_token` (bias to UNKNOWN, never ASSERT).
+
+### `guard_semantics.py` — Semantic guard taxonomy (Objective 5)
+
+Classifies guard names into 9 semantic kinds so downstream
+authority-binding can refuse to treat authentication as action
+authorization.
+
+`GuardKind` members:
+
+- `AUTHENTICATION` — proves *who* (never authorizes an action)
+- `AUTHORIZATION` — proves *what may be done* (action-specific)
+- `VALIDATION` — proves input well-formed (never authorizes an action)
+- `SANITIZATION` — transforms input (never authorizes an action)
+- `HUMAN_APPROVAL` — separate human channel
+- `POLICY_ENFORCEMENT` — OPA/Cedar/Casbin
+- `CAPABILITY_PROOF` — PCC/PCCB token check
+- `RATE_LIMIT` — throttles (never authorizes an action)
+- `UNKNOWN_GUARD`
+
+Public API:
+
+- `classify_guard_name(name)` → `GuardClassification`
+- `classify_guard_call(call_node)` → `GuardClassification`
+- `action_authorization_strength(classification)` → `'strong'` /
+  `'weak'` / `'none'`
+- `extract_action_label(name)` → action label (e.g. `"refund"` from
+  `"authorize_refund"`) or `None` for non-authorization guards
+- `infer_sink_action_label(sink_call_name)` → action label inferred
+  from the sink's name
+
+The CRITICAL invariant: `AUTHENTICATION` and `VALIDATION` MUST NEVER
+have `is_action_authorization=True`. Pinned by
+`test_authenticate_is_authentication_not_authorization`,
+`test_validate_email_is_validation_not_authorization`, and the
+adversarial `test_authentication_does_not_authorize_refund`.
+
+### `authority_binding.py` — Authority/action value binding (Objective 8)
+
+Compares the parameters of an authority call (e.g.
+`authorize_refund(cust, amt)`) with the parameters of a sink call
+(e.g. `refund(cust, amt)`) using taint provenance.
+
+`BindingState` members: `BOUND` / `UNBOUND` / `UNKNOWN`.
+
+Public API:
+
+- `compare_authority_to_sink(authority_call, sink_call, func_node, ...)`
+  → `BindingResult`
+- `compare_all_authority_to_sink_params(...)` → `list[BindingResult]`
+- `overall_binding_state(results)` → worst-case aggregation
+  (`UNBOUND` > `UNKNOWN` > `BOUND`)
+
+**Soundness gate (runs FIRST):** the action-label check. The
+authority's action label (e.g. `"read"` from `authorize_read`) is
+compared against the sink's action label (e.g. `"refund"` from
+`refund`). When they differ, the binding is provably `UNBOUND`
+regardless of parameter matching. This is the canonical hostile
+case from the brief:
+
+```python
+authorize_read(cust)
+refund(cust, amt)
+```
+
+Even though `cust` matches at index 0, the authority is for the
+*read* action while the sink performs the *refund* action. The
+soundness gate catches this BEFORE the parameter-binding check and
+returns `UNBOUND`. Pinned by
+`test_authority_binding_wrong_action_unbound` (adversarial).
+
+Conservative invariants:
+
+- `UNKNOWN` is NEVER silently promoted to `BOUND`.
+- One constant, one parameter → `UNBOUND` (provably different values).
+- A taint transformation NEVER downgrades — an unrecognized call's
+  result is `UNKNOWN`, not `UNTAINTED`.
+
+### `cfg.py` — Control Flow Graph + dominator analysis (Objective 6)
+
+Builds a per-function CFG and computes immediate dominators via the
+Cooper-Harvey-Kennedy iterative algorithm. Currently a standalone
+primitive — NOT yet wired into `guards.py` (the existing AST-ancestry
+dominance check in `guards.py` is still the active path).
+
+Public API:
+
+- `CFGNode` dataclass (basic block: id, statements, successors,
+  start_line, terminator)
+- `CFG` dataclass (entry, nodes dict, function_name)
+- `build_cfg(func_node)` → `CFG`
+- `dominators(cfg)` → `{node_id: immediate_dominator_id}`
+- `dominates(cfg, doms, dominator_id, dominated_id)` → `bool`
+- `reverse_postorder(cfg)` → `list[int]`
+
+Handles: sequential execution, if/elif/else, early return, raise,
+for/while loops (with break/continue), nested function defs (opaque).
+
+Documented limitations: try/except/finally and match/case are NOT
+modelled (treated as opaque sequential blocks). Pinned by
+`test_cfg.py`'s 14 tests including the brief's Case A
+(if-cond-authorize-then-sink — does NOT dominate), Case B
+(authorize-before-if-sink-after — DOES dominate), and Case C
+(sink-before-authorize — NOT guarded).
+
+### `ts_symbol_index.py` — TypeScript symbol index (Objective 11, partial)
+
+Mirrors the Python `RepositoryIndex` API for TS/JS source files.
+Uses `tree-sitter-typescript` (already a dependency via the
+`[typescript]` extra). Builds the substrate for a future TS call
+graph + transitive reachability layer (not yet implemented).
+
+Public API:
+
+- `TSSymbolKind` enum: `MODULE` / `FUNCTION` / `ARROW_FUNCTION` /
+  `CLASS` / `METHOD`
+- `TSSymbol`, `TSImport`, `TSResolvedTarget`, `TSCallSite` dataclasses
+- `TSRepositoryIndex` with `build()`, `add_file()`, `finalize()`,
+  `resolve_call_target()`, `lookup_symbol()`, `call_sites_in()`
+
+Conservative invariants:
+
+- Dynamic imports (`await import('mod')`) → UNRESOLVED, never silently
+  resolved.
+- Computed-key property access (`obj[name]()`) → UNRESOLVED.
+- External bare specifiers → HEURISTIC, never silently treated as local.
+- Re-uses the SAME `ResolutionCertainty` enum as the Python index.
+
+## Conservative invariants across all later-slice modules
+
+Every module in this section preserves the project-wide rule:
+**FALSE ASSURANCE IS WORSE THAN A REVIEWABLE FALSE POSITIVE.**
+
+- `UNKNOWN` is never silently promoted to a stronger state.
+- Heuristic matches are explicitly labelled (`HEURISTIC` certainty,
+  `'weak'` strength, etc.) — never silently treated as proven.
+- External guards fall back to a name heuristic ONLY when no body is
+  available, and the heuristic deliberately biases to UNKNOWN/weak for
+  ambiguous names (`check_permission`, `check_access`, `check_auth`,
+  `verify_token`).
+- The authority-binding layer's soundness gate (action-label check)
+  runs BEFORE the parameter-binding check, so an authority for the
+  wrong action cannot slip through via parameter matching alone.
+
+## What these modules do NOT yet do (integration is the next slice)
+
+- `engine_augment.py` does NOT call `resolve_guard_call`,
+  `classify_guard_name`, `compare_authority_to_sink`, or
+  `build_cfg` yet. The existing per-file guard analyzer in
+  `guards.py` is unchanged.
+- The TS index is a substrate only — no TS call graph, no TS
+  transitive reachability, no TS effect propagation.
+- The CFG primitive is not wired into `guards.py`'s dominance check.
+- The authority-binding layer's results are not yet surfaced in
+  findings' evidence chains.
+
+These integrations are the next slices. The current state is
+**MATERIAL IMPROVEMENT** with foundations pinned by 95 repository
+unit tests + 25 adversarial end-to-end tests.

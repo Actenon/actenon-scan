@@ -73,6 +73,45 @@ from actenon_scan.repository.certainty import (
     CERTAINTY_ORDER,
     combine_certainty,
 )
+from actenon_scan.repository.guard_resolution import (
+    GuardStyle,
+    GuardBodyInspection,
+    GuardResolution,
+    resolve_guard_call,
+    inspect_guard_body,
+)
+from actenon_scan.repository.guard_semantics import (
+    GuardKind,
+    GuardClassification,
+    classify_guard_name,
+    classify_guard_call,
+    action_authorization_strength,
+    extract_action_label,
+    infer_sink_action_label,
+)
+from actenon_scan.repository.authority_binding import (
+    BindingState,
+    BindingResult,
+    compare_authority_to_sink,
+    compare_all_authority_to_sink_params,
+    overall_binding_state,
+)
+from actenon_scan.repository.cfg import (
+    CFGNode,
+    CFG,
+    build_cfg,
+    dominators,
+    dominates,
+    reverse_postorder,
+)
+from actenon_scan.repository.ts_symbol_index import (
+    TSRepositoryIndex,
+    TSSymbol,
+    TSSymbolKind,
+    TSImport,
+    TSCallSite,
+    TSResolvedTarget,
+)
 
 __all__ = [
     # symbol index
@@ -107,4 +146,38 @@ __all__ = [
     "AnalysisCertainty",
     "CERTAINTY_ORDER",
     "combine_certainty",
+    # guard resolution (Slice 7)
+    "GuardStyle",
+    "GuardBodyInspection",
+    "GuardResolution",
+    "resolve_guard_call",
+    "inspect_guard_body",
+    # guard semantics (Slice 5)
+    "GuardKind",
+    "GuardClassification",
+    "classify_guard_name",
+    "classify_guard_call",
+    "action_authorization_strength",
+    "extract_action_label",
+    "infer_sink_action_label",
+    # authority binding (Slice 8)
+    "BindingState",
+    "BindingResult",
+    "compare_authority_to_sink",
+    "compare_all_authority_to_sink_params",
+    "overall_binding_state",
+    # CFG (Slice 6)
+    "CFGNode",
+    "CFG",
+    "build_cfg",
+    "dominators",
+    "dominates",
+    "reverse_postorder",
+    # TS symbol index (Slice 11 partial)
+    "TSRepositoryIndex",
+    "TSSymbol",
+    "TSSymbolKind",
+    "TSImport",
+    "TSCallSite",
+    "TSResolvedTarget",
 ]
