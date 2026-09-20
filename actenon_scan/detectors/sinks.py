@@ -1127,6 +1127,23 @@ def _origin_is_db(origin: ReceiverOrigin) -> bool:
     return False
 
 
+def _identifier_tokens(name: str) -> set[str]:
+    """Split an identifier into lowercase word tokens.
+
+    Handles snake_case, camelCase, PascalCase, SCREAMING_CASE and digits:
+      ``self.db_session`` -> {"self", "db", "session"}
+      ``sandbox_backend``  -> {"sandbox", "backend"}
+      ``asyncSession``     -> {"async", "session"}
+    """
+    tokens: set[str] = set()
+    for part in re.split(r"[^A-Za-z0-9]+", name):
+        if not part:
+            continue
+        for word in re.findall(r"[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|[0-9]+", part):
+            tokens.add(word.lower())
+    return tokens
+
+
 def _name_looks_db(name: str) -> bool:
     """Heuristic: does a variable/attribute name look DB-ish?
 
@@ -1135,15 +1152,20 @@ def _name_looks_db(name: str) -> bool:
     is strong evidence, so a DB-ish name is sufficient confirming
     evidence here. Callers that need strict binding MUST use
     _origin_is_db instead.
+
+    Matching is anchored to WORD TOKENS, not raw substrings. An unanchored
+    substring test accepts any identifier that merely contains a DB name:
+    ``sandbox`` contains "db" (san-DB-ox), so ``sandbox.execute(cmd)`` was
+    reported as DATA-DELETE-SQL at HIGH severity -- a shell executor
+    mislabelled as destructive SQL. That is the same defect class as agno's
+    ``step.execute()``, which the receiver constraint was added to fix;
+    the constraint narrowed it rather than closing it.
+
+    Receivers whose NAME is uninformative but whose ORIGIN traces to a DB
+    constructor (``curr = conn.cursor()``) are still accepted -- by
+    _origin_is_db, which runs first in _is_db_receiver.
     """
-    name_lower = name.lower()
-    for db_name in _DB_RECEIVER_NAMES:
-        if name_lower == db_name or name_lower.startswith(db_name):
-            return True
-    for db_name in _DB_RECEIVER_NAMES:
-        if db_name in name_lower:
-            return True
-    return False
+    return bool(_identifier_tokens(name) & _DB_RECEIVER_NAMES)
 
 
 def _is_db_receiver(

@@ -1,6 +1,6 @@
 {
   "recall_corpus": 3,
-  "precision": 11,
+  "precision": 16,
   "soundness": 6,
-  "recall_synthetic": 5
+  "recall_synthetic": 9
 }
