@@ -92,13 +92,17 @@ def generate_scoreboard(challenges: list[dict]) -> str:
     lines.append("_These are the cases the scanner currently gets wrong._")
     lines.append("")
     if open_cases:
-        lines.append("| # | Submitter | Class | Language | Title |")
-        lines.append("|---|-----------|-------|----------|-------|")
+        # "Found by" records where a case came from when that is not the
+        # submitter — a case filed by the maintainers on someone else's
+        # finding should say so on the page, not only in the fixture file.
+        lines.append("| # | Submitter | Found by | Class | Language | Title |")
+        lines.append("|---|-----------|----------|-------|----------|-------|")
         for c in open_cases:
             issue = c.get("issue", 0)
             issue_link = f"[#{issue}](https://github.com/Actenon/actenon-scan/issues/{issue})" if issue > 0 else f"#{issue}"
+            found_by = c.get("found_by", "—")
             lines.append(
-                f"| {issue_link} | @{c.get('submitter', '?')} | {c.get('class', '?')} | {c.get('language', '?')} | {c.get('title', '?')} |"
+                f"| {issue_link} | @{c.get('submitter', '?')} | {found_by} | {c.get('class', '?')} | {c.get('language', '?')} | {c.get('title', '?')} |"
             )
     else:
         lines.append("_No open cases._")
@@ -108,14 +112,15 @@ def generate_scoreboard(challenges: list[dict]) -> str:
     lines.append("## Fixed cases")
     lines.append("")
     if fixed_cases:
-        lines.append("| # | Submitter | Class | Language | Title | Fix |")
-        lines.append("|---|-----------|-------|----------|-------|-----|")
+        lines.append("| # | Submitter | Found by | Class | Language | Title | Fix |")
+        lines.append("|---|-----------|----------|-------|----------|-------|-----|")
         for c in fixed_cases:
             issue = c.get("issue", 0)
             issue_link = f"[#{issue}](https://github.com/Actenon/actenon-scan/issues/{issue})" if issue > 0 else f"#{issue}"
             fix_version = c.get("fixed_in", "?")
+            found_by = c.get("found_by", "—")
             lines.append(
-                f"| {issue_link} | @{c.get('submitter', '?')} | {c.get('class', '?')} | {c.get('language', '?')} | {c.get('title', '?')} | v{fix_version} |"
+                f"| {issue_link} | @{c.get('submitter', '?')} | {found_by} | {c.get('class', '?')} | {c.get('language', '?')} | {c.get('title', '?')} | v{fix_version} |"
             )
     else:
         lines.append("_No fixed cases yet._")

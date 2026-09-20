@@ -71,6 +71,42 @@ else:
 
     _CASES = _load_challenge_cases()
 
+    def _check_control(case_id, metadata, source_file):
+        """A challenge may carry a CONTROL: the same sink the scanner DOES find.
+
+        Without it, a missed-sink case can be waved away as "that sink is not
+        in the ruleset". The control removes that reading by showing the
+        identical sink reported in a form the scanner handles, so the
+        difference between the two files is the only thing under discussion.
+
+        The control assertion runs even when the case itself is an expected
+        failure: if the control ever stops firing, the challenge has quietly
+        stopped demonstrating anything.
+        """
+        from actenon_scan.engine import scan_path
+
+        control_name = metadata.get("control_file")
+        if not control_name:
+            return
+        control = source_file.parent / control_name
+        assert control.exists(), (
+            f"Challenge {case_id}: control_file {control_name} is missing."
+        )
+        control_findings = [
+            f for f in scan_path(control).findings if not f.suppressed
+        ]
+        expected_rule = metadata.get("control_rule_id") or metadata.get("rule_id")
+        if expected_rule:
+            assert any(f.rule_id == expected_rule for f in control_findings), (
+                f"Challenge {case_id}: the CONTROL no longer reports "
+                f"{expected_rule}. The challenge demonstrates nothing until "
+                f"it does. Got: {[f.rule_id for f in control_findings]}"
+            )
+        else:
+            assert control_findings, (
+                f"Challenge {case_id}: the CONTROL reports nothing."
+            )
+
     def _test_challenge(case_id, metadata, source_file):
         """Run the scanner on a challenge fixture and check the result."""
         from actenon_scan.engine import scan_path
@@ -131,6 +167,9 @@ else:
             def test_func():
                 if skip_reason:
                     pytest.skip(skip_reason)
+                # The control is asserted BEFORE the xfail: an open case is
+                # allowed to fail, its control is not.
+                _check_control(cid, meta, src)
                 if xfail:
                     pytest.xfail(f"Open challenge case — not yet fixed (see scoreboard)")
                 _test_challenge(cid, meta, src)

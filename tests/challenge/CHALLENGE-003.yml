@@ -1,0 +1,30 @@
+# Challenge case metadata.
+# This file is read by the scoreboard generator and the test runner.
+
+issue: 0  # 0 = filed by maintainers from an external review, not a GitHub issue
+submitter: actenon
+found_by: external review
+class: missed-sink
+language: python
+title: "Sink one hop from an entry point is missed, and the scan reports clean"
+description: >
+  A @tool-decorated entry point calls a module-level helper in the same file,
+  and the helper performs the consequential action. Analysis is per-function:
+  reachability is decided by the function ENCLOSING the sink, so the helper
+  is not agent-reachable and the sink is not reported. The scan printed
+  "No supported unguarded consequential-action paths were identified" with
+  nothing to indicate a call had been stepped over.
+
+  CHALLENGE-003.control.py holds the identical sink written inline in the
+  tool body. It is reported as MEDIUM NET-EGRESS. The single function call
+  is the entire difference between a finding and silence.
+expected: finding
+rule_id: NET-EGRESS
+control_file: CHALLENGE-003.control.py
+control_rule_id: NET-EGRESS
+status: open
+note: >
+  The silence is now disclosed: every scan reports how many calls from
+  agent-reachable code into locally-defined functions it did not follow, and
+  reports analysis coverage as a count pair. Disclosure is not detection —
+  this case stays OPEN until the sink itself is reported.

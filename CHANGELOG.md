@@ -66,6 +66,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Added — challenge cases
+
+- `CHALLENGE-003` (missed-sink/python): the one-hop miss, with
+  `CHALLENGE-003.control.py` holding the identical sink inline. The control
+  is asserted on every run, before the case's own expected failure, so the
+  challenge cannot quietly stop demonstrating anything.
+- `CHALLENGE-004` (false-positive/python): the Flask view reduced from
+  `examples/tutorial/flaskr/auth.py:66`.
+- Both filed by @actenon and recorded as found by external review; the
+  scoreboard gained a "Found by" column so provenance appears on the page
+  rather than only in the fixture file. `docs/SOUNDNESS_CHALLENGE.md`
+  regenerated: 4 open cases, 0 fixed.
+
 ### Changed — documentation
 
 - `docs/COVERAGE.md` "Interprocedural flow" now states the false-NEGATIVE

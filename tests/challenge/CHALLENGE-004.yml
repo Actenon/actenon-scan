@@ -1,0 +1,34 @@
+# Challenge case metadata.
+# This file is read by the scoreboard generator and the test runner.
+
+issue: 0  # 0 = filed by maintainers from an external review, not a GitHub issue
+submitter: actenon
+found_by: external review
+class: false-positive
+language: python
+title: "Parameterised INSERT in a plain Flask view reported HIGH DATABASE-MUTATE"
+description: >
+  Reduced from pallets/flask examples/tutorial/flaskr/auth.py:66. flask is
+  pinned in tests/benchmark/pinned_repos.json with category "control", and
+  corpus-triage.json states that any finding in a control repo is a precision
+  failure by definition.
+
+  No agent framework is imported anywhere in the source repository. The SQL
+  is parameterised. The view is reported only because
+  reachability.resource_boundary_decorators contains the BARE names "get",
+  "post", "put", "delete", "patch", "route" and "api_route" and is on by
+  default, so @bp.route matches and the handler is treated as a
+  HIGH-confidence entry point.
+
+  Separately: tests/benchmark/corpus-results.json records 0 findings for
+  flask at its pinned SHA. Re-running the current scanner at that same SHA
+  produces this finding, so the recorded corpus evidence predates the
+  resource-boundary feature and was never re-measured.
+expected: clean
+status: open
+note: >
+  The fix is to remove the bare decorator names, keep only qualified forms
+  (app.route, bp.post, router.api_route), and make the resource-boundary
+  signal opt-in behind --resource-boundary. With the signal enabled this
+  finding is expected to return — it is a deliberate, requested behaviour at
+  that point, not a default one.
