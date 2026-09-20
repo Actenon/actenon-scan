@@ -33,7 +33,10 @@ def _run_gate(triage: dict, results: dict, pinned: dict, tmp_path: Path) -> tupl
     (bench / "corpus-results.json").write_text(json.dumps(results, indent=2))
     (bench / "pinned_repos.json").write_text(json.dumps(pinned, indent=2))
 
-    # Run the gate script with the temp bench dir patched in
+    # Run the gate script with the temp bench dir patched in.
+    # Use --no-remeasure because these tests verify the TRIAGE LOGIC
+    # (checking committed JSON), not the re-measurement (cloning repos).
+    # The re-measurement gate is tested separately in CI.
     result = subprocess.run(
         [sys.executable, "-c", f"""
 import sys
@@ -41,6 +44,7 @@ from pathlib import Path
 sys.path.insert(0, "{REPO_ROOT}")
 import scripts.check_corpus_triage as gate
 gate.BENCH = Path("{bench}")
+sys.argv = ['check_corpus_triage.py', '--no-remeasure']
 sys.exit(gate.main())
 """],
         capture_output=True, text=True, timeout=30,

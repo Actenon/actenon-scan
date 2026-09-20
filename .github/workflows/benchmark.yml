@@ -32,7 +32,15 @@ jobs:
         # evidence for it.
         run: python scripts/check_coverage_contract.py
 
-      - name: Verify corpus triage (zero false positives)
+      - name: Verify corpus triage (re-measures pinned repos)
+        # Task 3: the gate now RE-MEASURES by default — clones each
+        # pinned repo at its SHA, scans it, and compares to triage.
+        # If network fetching fails, the gate fails loudly (exit 2).
+        # Pass --no-remeasure ONLY for local dev (NOT for CI).
+        # 30-minute timeout: cloning 25 repos + scanning takes time.
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/check_corpus_triage.py
 
       - name: Run benchmark
