@@ -589,3 +589,147 @@ def _check_module_signals(
     if reachability_cfg.get("module_level_reachability", False):
         return ReachabilityResult(confidence="medium", signals=["module_level_agent_import"])
     return ReachabilityResult()
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Same-file, same-class method resolution.
+#
+# Ground truth (research/reachability-ground-truth/labels.json): 12 of 14
+# confirmed AGENT_REACHABLE cases are METHODS. 9 of 14 same-file. 8 single-hop.
+# Nothing beyond 3 hops. The existing per-file reachability detector treats
+# a sink in a non-@tool method as not-reachable. This function closes that
+# gap for the SAME-CLASS case: when an agent-reachable method calls self.x()
+# and x is defined in the same class, propagate reachability.
+#
+# Conservative constraints (per brief):
+#   - Same-file, same-class ONLY. No cross-file, no inheritance, no dynamic
+#     dispatch.
+#   - Resolve only when exactly one definition matches in that class body
+#     and the name is not shadowed or reassigned. Anything else → unfollowed.
+#   - max_hops=3 (configurable). Chains deeper than this are marked
+#     unfollowed, not silently followed.
+#   - Confidence is MEDIUM (below an in-body sink which is HIGH).
+#   - A guard dominating the call site in the CALLER counts as dominating
+#     for the callee — same rule as the per-file detector.
+# ---------------------------------------------------------------------------
+
+# Default max_hops for same-class method resolution.
+DEFAULT_SAME_CLASS_MAX_HOPS = 3
+
+
+def detect_same_class_method_reachability(
+    tree: ast.Module,
+    reachability_cfg: dict[str, Any],
+    *,
+    self_package: str | None = None,
+    max_hops: int = DEFAULT_SAME_CLASS_MAX_HOPS,
+) -> dict[int, tuple[str, int]]:
+    """Find methods that are transitively reachable via same-class
+    method calls from agent-reachable entrypoints.
+
+    Returns a dict mapping callee method line number →
+    (signal, hops_from_entrypoint).
+
+    The signal is "same_class_method" for all newly-reachable methods
+    (distinct from the per-file signals like "tool_decorator").
+
+    Algorithm:
+    1. Walk all ClassDef nodes in the file.
+    2. For each class, build a method map: name → FunctionDef (must be
+       unique — if two methods share a name, mark as ambiguous and skip).
+    3. For each method in the class, determine if it is agent-reachable
+       via the EXISTING detect_reachability() signals (tool_decorator,
+       tool_base_class_method, etc.). These are the ENTRYPOINTS.
+    4. Build a same-class call graph: for each method, find self.x()
+       calls where x is a method in the same class.
+    5. BFS from entrypoints, following same-class method calls, up to
+       max_hops. Mark each newly-reachable method with (signal, hops).
+    6. Return the map of newly-reachable methods (excluding the
+       entrypoints themselves, which are already HIGH confidence).
+    """
+    reachable: dict[int, tuple[str, int]] = {}
+
+    for cls_node in ast.walk(tree):
+        if not isinstance(cls_node, ast.ClassDef):
+            continue
+
+        # Build the method map for this class
+        method_map: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        ambiguous_names: set[str] = set()
+        for child in cls_node.body:
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if child.name in method_map:
+                    # Duplicate name — ambiguous, skip this name entirely
+                    ambiguous_names.add(child.name)
+                else:
+                    method_map[child.name] = child
+
+        # Remove ambiguous names
+        for name in ambiguous_names:
+            method_map.pop(name, None)
+
+        if not method_map:
+            continue
+
+        # Find agent-reachable entrypoints in this class
+        entrypoints: list[tuple[int, int]] = []  # (lineno, 0_hops)
+        for name, method in method_map.items():
+            reach = detect_reachability(
+                tree, method.lineno, reachability_cfg, self_package=self_package
+            )
+            if reach.confidence != "none":
+                entrypoints.append((method.lineno, 0))
+
+        if not entrypoints:
+            continue
+
+        # Build same-class call graph: caller_lineno → [(callee_lineno, callee_name)]
+        call_graph: dict[int, list[tuple[int, str]]] = {}
+        for name, method in method_map.items():
+            caller_line = method.lineno
+            for node in ast.walk(method):
+                if isinstance(node, ast.Call):
+                    # Check for self.x() or cls.x()
+                    if isinstance(node.func, ast.Attribute):
+                        if (
+                            isinstance(node.func.value, ast.Name)
+                            and node.func.value.id in ("self", "cls")
+                        ):
+                            callee_name = node.func.attr
+                            if callee_name in method_map:
+                                callee = method_map[callee_name]
+                                call_graph.setdefault(caller_line, []).append(
+                                    (callee.lineno, callee_name)
+                                )
+                    # Check for ClassName.x() — same class, static method
+                    elif (
+                        isinstance(node.func, ast.Attribute)
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == cls_node.name
+                    ):
+                        callee_name = node.func.attr
+                        if callee_name in method_map:
+                            callee = method_map[callee_name]
+                            call_graph.setdefault(caller_line, []).append(
+                                (callee.lineno, callee_name)
+                            )
+
+        # BFS from entrypoints, up to max_hops
+        visited: set[int] = set()
+        queue: list[tuple[int, int]] = []  # (method_lineno, hops)
+        for ep_line, _ in entrypoints:
+            visited.add(ep_line)
+            queue.append((ep_line, 0))
+
+        while queue:
+            current_line, hops = queue.pop(0)
+            if hops >= max_hops:
+                continue
+            for callee_line, callee_name in call_graph.get(current_line, []):
+                if callee_line in visited:
+                    continue
+                visited.add(callee_line)
+                reachable[callee_line] = ("same_class_method", hops + 1)
+                queue.append((callee_line, hops + 1))
+
+    return reachable

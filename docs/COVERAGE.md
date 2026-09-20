@@ -39,6 +39,9 @@ or if a recall fixture has no row here.
 | `r08` | SMTP `send_message` — `smtplib.SMTP(...).send_message(...)` | PARTIAL | - |
 | `r09` | Shell execution without external_execution guard | PARTIAL | - |
 | `r10` | SQL execute without validation guard | PARTIAL | - |
+| `r11` | Same-class method resolution — `BaseTool._run` → `self.helper()` → sink | PARTIAL | - |
+| `r12` | Same-class multi-hop (2 hops) — `BaseTool._execute` → `self.a()` → `self.b()` → sink | PARTIAL | - |
+| `r13` | Same-class multi-hop (2 hops, email) — `BaseTool._execute` → `self.send()` → `smtp.send_message` | PARTIAL | - |
 
 **COVERED (3)** — detector fires, and it has been shown to fire on real code
 that a third party wrote.

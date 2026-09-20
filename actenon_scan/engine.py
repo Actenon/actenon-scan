@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from actenon_scan.detectors.guards import check_guard, GuardCheckResult
-from actenon_scan.detectors.reachability import detect_reachability
+from actenon_scan.detectors.reachability import detect_reachability, ReachabilityResult
 from actenon_scan.detectors.sinks import detect_sinks
 from actenon_scan.capability import Capability, CapabilitySummary, guard_status_to_capability_state
 from actenon_scan.rules.loader import Ruleset, load_rules
@@ -922,10 +922,42 @@ def scan_path(
             # Detect declarative guards (class attributes, decorators, constructor params)
             declarative_guarded_classes = _find_declarative_guarded_classes(tree, rules.reachability)
 
+            # Task 2: Compute same-class method reachability for this file.
+            # This finds methods that are transitively reachable via
+            # self.x() calls from agent-reachable entrypoints in the
+            # same class. Sinks in these methods would be missed by the
+            # per-file reachability check (which only flags sinks
+            # directly inside @tool-decorated functions).
+            from actenon_scan.detectors.reachability import (
+                detect_same_class_method_reachability,
+            )
+            same_class_reachable = detect_same_class_method_reachability(
+                tree, rules.reachability, self_package=self_package
+            )
+
             for sf in sink_findings:
                 reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
                 if reach.confidence == "none":
-                    continue  # not agent-reachable — skip
+                    # Task 2: Check if this sink is in a method that is
+                    # same-class-reachable from an agent entrypoint.
+                    # If so, treat it as MEDIUM confidence (below the
+                    # HIGH confidence of a direct in-tool sink).
+                    #
+                    # same_class_reachable keys are FunctionDef.lineno
+                    # (the 'def' line), not the sink's line. Find the
+                    # enclosing function's lineno.
+                    from actenon_scan.detectors.reachability import (
+                        _find_enclosing_function,
+                    )
+                    enclosing = _find_enclosing_function(tree, sf.line)
+                    if enclosing is not None and enclosing.lineno in same_class_reachable:
+                        signal, hops = same_class_reachable[enclosing.lineno]
+                        reach = ReachabilityResult(
+                            confidence="medium",
+                            signals=[f"{signal}({hops}_hops)"],
+                        )
+                    else:
+                        continue  # not agent-reachable — skip
 
                 # Suppress file-deletion findings inside `finally` blocks
                 # when the deleted path is a temp file (created with
