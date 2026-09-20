@@ -114,6 +114,20 @@ def main(argv: list[str] | None = None) -> int:
              "Use this in CI to keep the cache on a persistent volume "
              "across runs, or to avoid polluting the workspace.",
     )
+    scan_parser.add_argument(
+        "--repository-analysis",
+        action="store_true",
+        default=False,
+        help="Enable repository-level consequence analysis: builds a "
+             "call graph, computes transitive reachability from agent "
+             "entrypoints, propagates function effect summaries, and "
+             "AUGMENTS per-file findings with call-chain evidence. "
+             "Catches sinks in helpers that are only reachable via "
+             "transitive calls (e.g. agent_action → layer_one → "
+             "layer_two → subprocess.run). Per-file findings are never "
+             "suppressed. New findings are only added when the call "
+             "path is fully RESOLVED.",
+    )
 
     # rules
     _rules_parser = subparsers.add_parser("rules", help="List active rules.")
@@ -589,6 +603,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 baseline_findings=baseline,
                 cache=cache,
                 on_finding=on_finding,
+                repository_analysis=getattr(args, "repository_analysis", False),
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:
