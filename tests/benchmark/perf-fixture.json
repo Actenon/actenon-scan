@@ -104,6 +104,16 @@
         "verdict": "parallel 10% SLOWER"
       },
       "auto_jobs_decision": "serial (cores < 8), so the regression above cannot recur by default"
+    },
+    "apple_silicon_10_core_v1_5_0": {
+      "cores": 10,
+      "python": "3.12",
+      "date": "2026-09-20",
+      "branch": "fix/disclose-analysis-gaps",
+      "serial_ms": 3396,
+      "auto_mode_ms": 1106,
+      "auto_jobs_decision": "parallel (10 cores >= 8, 1954 files >= 250)",
+      "note": "Same host, Python 3.12 (a supported version; the 1.4.0 row above was taken on 3.14). Measured at the branch point on 3.12 the serial scan is 2501ms, so the v1.5.0 cost of the local-call-edge analysis on this fixture is 2501 -> 3396ms serial, about 1.36x. The work is a per-file walk that the previous version never did: entry-point detection used to be asked only about functions enclosing a sink, and is now asked about every function so that call edges can be counted and disclosed. build_entry_point_index collects the module-wide signals in one pass; without it the same analysis cost 19.9s. Default (auto) mode is 1106ms and the never-slower assertion holds at ratio 0.33."
     }
   },
   "auto_parallel_thresholds": {
@@ -119,5 +129,6 @@
     "changed_only_3_files_ms": 165,
     "hardware": "Apple Silicon, 10 cores, Python 3.14",
     "note": "before/after measured on the same machine. The 6539ms in the v0.7.0 work order was the published package on different hardware and is not comparable."
-  }
+  },
+  "_measurement_discipline_note": "Rows are ADDED per machine and per version, never substituted. The 1.4.0 figures above were taken on Python 3.14 on this same host and are left untouched; the 1.5.0 row states its own Python version so the two are not silently compared."
 }

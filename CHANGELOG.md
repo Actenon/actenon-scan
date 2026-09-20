@@ -189,6 +189,18 @@ numbers agree is for: a contradiction that used to be invisible now fails.
   rather than only in the fixture file. `docs/SOUNDNESS_CHALLENGE.md`
   regenerated: 4 open cases, 0 fixed.
 
+### Performance
+
+- Serial scan of the pinned langchain fixture: 2501ms at the branch point,
+  3396ms at v1.5.0 on the same host and Python (about 1.36x). The cost is a
+  per-file walk the previous version never did — entry-point detection used
+  to be asked only about functions enclosing a sink and is now asked about
+  every function, so that call edges can be counted and disclosed.
+  `build_entry_point_index` collects the module-wide signals in one pass;
+  without it the same analysis cost 19.9s. Default (auto) mode is 1106ms and
+  the never-slower assertion holds at ratio 0.33. Recorded under a new key in
+  `perf-fixture.json`; the existing figures are untouched.
+
 ### Changed — documentation
 
 - `docs/COVERAGE.md` "Interprocedural flow" now states the false-NEGATIVE
