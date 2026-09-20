@@ -28,7 +28,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No changes yet._
+### Repository-level analysis: honesty disclosure
+
+The repository-level analysis layer (call graph, symbol index, taint)
+was enabled by default in v1.4.0 but resolved only 0.06% of transitive
+edges (2 followed, 3,297 unfollowed) on the 160-case labelled corpus.
+The unfollowed count was recorded on `ScanResult` but not printed in
+most output paths — a directory scan reported clean over 3,297
+unexamined edges with no indication.
+
+**Fixed**: the `transitive_unfollowed_count` now appears in every
+output path (pretty, list, json, sarif, markdown, html) — both in the
+clean-scan case and when there are findings. The disclosure line:
+
+> Repository analysis: N transitively-reachable sinks caught (would
+> have been missed by per-file scan); N unresolved agent-entrypoint
+> calls not followed (dynamic dispatch / external modules).
+
+A CI gate (`tests/test_repository_disclosure_gate.py`, 8 tests)
+asserts the disclosure appears when the repo layer is enabled and is
+omitted when disabled (`--no-repository-analysis`).
+
+### Same-file same-class method resolution
+
+Ground truth (160-case labelled corpus): 12 of 14 confirmed
+AGENT_REACHABLE cases are METHODS. 9 of 14 same-file. 8 single-hop.
+The existing per-file reachability detector treats a sink in a
+non-`@tool` method as not-reachable — a helper method called from an
+agent-reachable entrypoint in the same class was invisible.
+
+**Added** `detect_same_class_method_reachability()` in
+`detectors/reachability.py`:
+- Same-file, same-class ONLY (no cross-file, no inheritance, no
+  dynamic dispatch)
+- Resolves `self.x()` and `Class.x()` calls where `x` is a method in
+  the same class body
+- Ambiguous names (duplicate definitions) are skipped entirely
+- BFS up to `max_hops=3` (configurable)
+- Distinct signal `same_class_method(N_hops)` — MEDIUM confidence,
+  below the HIGH confidence of a direct in-tool sink
+
+**Validation** against the 22 AGENT_REACHABLE labelled cases:
+- Before (per-file only): **0/22** caught
+- After (with same-class): **3/22** caught
+- The 3 caught are `LOCAL_HELPER_CALL` cases where the entrypoint and
+  sink are in the same class with `self.x()` calls (crewai StagehandTool,
+  superagi ApolloSearchTool, superagi SendEmailAttachmentTool)
+- 3/22 is below the ceiling of 12-14 — we are not over-following
+
+**Recall fixtures** added: `r11_same_class_method.py`,
+`r12_same_class_multi_hop.py`, `r13_same_class_three_hops.py`.
+
 
 ## [1.4.0] — 2026-07-29
 
