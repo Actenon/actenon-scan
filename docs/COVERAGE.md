@@ -257,9 +257,39 @@ interprocedural dataflow, not a better vocabulary. Full triage table in
 
 ### Interprocedural flow
 
-Analysis is per-function. A guard in a caller does not protect a sink in a
-callee, and scan will report the callee's sink as unguarded. This produces
-false positives on codebases that centralise authorization at a dispatch layer.
+**Per-file scan (default):** Analysis is per-function. A guard in a caller
+does not protect a sink in a callee, and scan will report the callee's sink
+as unguarded. This produces false positives on codebases that centralise
+authorization at a dispatch layer.
+
+**Repository-level augmentation (opt-in via `--repository-analysis`):**
+When enabled, scan builds a repository symbol index, an interprocedural call
+graph with explicit `RESOLVED`/`HEURISTIC`/`UNRESOLVED` edge certainty, and
+propagates function effect summaries through SCCs to a fixed point. This
+layer:
+
+- Catches sinks in helpers that are only reachable via transitive calls
+  (e.g. `@tool agent_action → layer_one → layer_two → subprocess.run`).
+  The per-file scan misses these because the sink-bearing function isn't
+  itself agent-reachable; the repository layer proves reachability via
+  the call chain.
+- Augments existing per-file findings with the call-chain evidence in
+  `reachability_reason` (e.g. `transitive:agent_action → layer_one →
+  layer_two`).
+- **Never suppresses per-file findings.** Existing per-file findings are
+  always preserved; the repository layer only adds new findings or
+  augments existing ones.
+- Emits new findings only when the transitive path is fully `RESOLVED`.
+  Paths with `HEURISTIC` edges are recorded as evidence but do not
+  produce new findings (conservative — never silently promote unknown
+  to safe).
+- Records any analysis error in `analysis_errors` under the
+  `<repository-analysis>` file marker, never silently swallowing failures.
+
+See `tests/adversarial/test_transitive_reachability.py` for the pinned
+guarantees. The repository layer is **partial** — see the architecture
+documentation for what it does and does not model:
+`docs/ARCHITECTURE.md#repository-layer`.
 
 ### Dynamic dispatch
 

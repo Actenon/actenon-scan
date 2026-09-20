@@ -675,6 +675,7 @@ def scan_path(
     explicit_files: list[Path] | None = None,
     cache: "FileCache | None" = None,
     on_finding: "Callable[[Finding], None] | None" = None,
+    repository_analysis: bool = False,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -1132,6 +1133,60 @@ def scan_path(
             unsupported_files = [(f, l) for f, l in unsupported_files if not f.endswith(".go")]
 
     total_scanned = len(files) + ts_scanned + go_scanned
+
+    # ── Repository-level augmentation (Slice 1+) ──────────────────────
+    # Run cross-file analysis AFTER the per-file scan to AUGMENT findings
+    # with transitive reachability evidence. The per-file findings are
+    # never suppressed — this layer only adds new findings (for sinks
+    # reachable only transitively) and augments existing findings'
+    # reachability_reason with the call chain.
+    #
+    # Opt-in via the `repository_analysis` flag (default False to
+    # preserve backwards compatibility and avoid fixture-lock changes
+    # in this slice). When enabled, this layer:
+    #   1. Builds a RepositoryIndex from all .py files under target.
+    #   2. Discovers agent entrypoints from reachability config.
+    #   3. Computes transitive reachability through the call graph.
+    #   4. Propagates effect summaries from per-file sinks.
+    #   5. Adds new findings for sinks reachable only transitively.
+    #   6. Augments existing findings' reachability_reason with the chain.
+    if repository_analysis and target.is_dir() and files:
+        from actenon_scan.repository.engine_augment import (
+            RepositoryAnalysisConfig,
+            analyze_repository,
+        )
+        repo_cfg = RepositoryAnalysisConfig(
+            enabled=True,
+            emit_heuristic_new_findings=False,
+            max_depth=32,
+            max_iterations=16,
+        )
+        repo_result = analyze_repository(
+            target,
+            findings=findings,
+            capabilities=capabilities,
+            reachability_cfg=rules.reachability,
+            config=repo_cfg,
+            rules_sinks=rules.sinks,
+            files=files,
+        )
+        # Augment existing findings with call-chain evidence.
+        for finding_idx, path, certainty in repo_result.augmented_findings:
+            if finding_idx < len(findings):
+                f = findings[finding_idx]
+                chain = path.chain_text()
+                if chain and chain not in f.reachability_reason:
+                    suffix = (
+                        f" [transitive path: {chain}]"
+                        if f.reachability_reason
+                        else f"transitive path: {chain}"
+                    )
+                    f.reachability_reason = f.reachability_reason + suffix
+        # Add new findings.
+        findings.extend(repo_result.new_findings)
+        # Record the analysis error if any.
+        if repo_result.analysis_error:
+            analysis_errors.append(("<repository-analysis>", repo_result.analysis_error))
 
     return ScanResult(
         findings=findings,
