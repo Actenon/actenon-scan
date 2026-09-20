@@ -123,3 +123,33 @@ def test_a_baseline_added_between_runs_still_takes_effect(tmp_path: Path):
     second = scan_path(tree, cache=cache, baseline_findings=hashes)
     assert second.rule_match_count == 0
     assert all(f.suppressed for f in second.findings)
+
+
+def test_cache_key_carries_the_entry_schema_version():
+    """A field added to CacheEntry must invalidate existing entries.
+
+    The key carried only the scanner version, so adding `capabilities` to the
+    entry within one version left every stored entry matching its key and
+    answering with an empty list — the findings came back from cache and the
+    capability summary came back as zero. A warm cache printed a partial
+    answer that looked complete.
+    """
+    from dataclasses import fields
+
+    from actenon_scan.cache import (
+        CACHE_ENTRY_SCHEMA_VERSION,
+        CacheEntry,
+        compute_cache_key,
+    )
+
+    key = compute_cache_key("x = 1", None)
+    assert f":s{CACHE_ENTRY_SCHEMA_VERSION}:" in key
+
+    # If this fails, a field was added to CacheEntry. Bump
+    # CACHE_ENTRY_SCHEMA_VERSION and update this list, so that every machine
+    # with a warm cache recomputes instead of silently returning the old
+    # shape.
+    assert {f.name for f in fields(CacheEntry)} == {
+        "cache_key", "file", "findings", "analysis_error",
+        "local_call_edges", "capabilities",
+    }

@@ -75,9 +75,22 @@ def format_json(result: ScanResult) -> str:
             }
             for c in result.capabilities
         ],
+        # Counts come from capability_summary, which deduplicates by call site
+        # and resolves each site's state against the FINAL findings. Counting
+        # the raw capability list here instead meant json reported
+        # review_required_count 87 beside finding_count 85 — the same
+        # inconsistency the text output had, in the format that machines read.
         "capability_count": len(result.capabilities),
-        "guard_found_count": sum(1 for c in result.capabilities if c.state == "GUARD_FOUND"),
-        "review_required_count": sum(1 for c in result.capabilities if c.state == "REVIEW_REQUIRED"),
+        "guard_found_count": result.capability_summary.guard_found,
+        "review_required_count": result.capability_summary.review_required,
+        "accepted_decision_count": result.capability_summary.accepted_decision,
+        # The headline number: distinct call sites, deduplicated by sink.
+        # Equal to review_required_count by construction.
+        "consequential_action_count": result.consequential_action_count,
+        # Unsuppressed Findings, NOT deduplicated — one call site matched by
+        # two rules appears twice here and once above. Two reasons to look at
+        # one action.
+        "rule_match_count": result.rule_match_count,
         "scanned": result.files_scanned,
         "unsupported": {
             "count": len(result.unsupported_files),

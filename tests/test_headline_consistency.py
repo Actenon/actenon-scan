@@ -120,3 +120,26 @@ def test_consequence_map_rows_that_outsum_the_headline_say_so(multi_rule):
     """One action in two categories appears twice in the map, by design."""
     out = format_pretty(multi_rule)
     assert "carry more than one consequence type" in out
+
+
+def test_json_counts_come_from_the_reconciled_summary(multi_rule):
+    """json must not recompute the counts from the raw capability list.
+
+    It did, and so reported review_required_count 87 beside finding_count 85
+    — the same inconsistency the text output had, in the format machines
+    read and humans do not check.
+    """
+    d = json.loads(format_json(multi_rule))
+    assert d["review_required_count"] == d["consequential_action_count"] == 2
+    assert d["rule_match_count"] == 3
+    assert (
+        d["capability_count"]
+        >= d["guard_found_count"] + d["review_required_count"]
+    )
+
+
+def test_json_and_pretty_report_the_same_action_count(multi_rule):
+    d = json.loads(format_json(multi_rule))
+    out = format_pretty(multi_rule)
+    printed = int(re.search(r"can reach (\d+) consequential", out).group(1))
+    assert d["consequential_action_count"] == printed

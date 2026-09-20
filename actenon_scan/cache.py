@@ -58,6 +58,21 @@ def _get_scanner_version() -> str:
         return "0.0.0+unknown"
 
 
+#: Version of the CACHE ENTRY SCHEMA — what a stored entry holds, not what
+#: the scanner computes. Bump it whenever a field is added to CacheEntry.
+#:
+#: The key already carried the scanner version, which is not enough: adding
+#: `capabilities` to the entry within one version left every existing entry
+#: matching its key and answering with an empty list. The findings came back
+#: from cache and the capability summary came back as zero, so a warm cache
+#: printed "Consequential capabilities: 0" above "can reach 82 consequential
+#: actions" — a silent partial answer that looked like a complete one.
+#:
+#: A field added without bumping this is a silent data loss on every machine
+#: with a warm cache, so the test suite asserts this constant is listed in
+#: the key and that every CacheEntry field is accounted for here.
+CACHE_ENTRY_SCHEMA_VERSION = 2
+
 # ---------------------------------------------------------------------------
 # Cache key computation.
 # ---------------------------------------------------------------------------
@@ -120,13 +135,17 @@ def compute_cache_key(
     The key incorporates all inputs that affect the findings:
       - file content hash
       - scanner version
+      - cache entry schema version
       - config hash (rules + guards + reachability)
       - analysis-flags hash
     """
     ch = _content_hash(source)
     cgh = _config_hash(config)
     afh = _analysis_flags_hash(analysis_flags)
-    return f"{_get_scanner_version()}:{ch}:{cgh}:{afh}"
+    return (
+        f"{_get_scanner_version()}:s{CACHE_ENTRY_SCHEMA_VERSION}:"
+        f"{ch}:{cgh}:{afh}"
+    )
 
 
 # ---------------------------------------------------------------------------
