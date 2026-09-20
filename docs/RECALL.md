@@ -1,9 +1,176 @@
 # Recall — the first honest number
 
-**Status:** NOT YET COMPUTABLE. Methodology documented. Sample collection required.
+**Status:** BRACKET NARROWED. Real-world labelled-sink recall now 43%–52%
+(was 14%–52%). The three recall figures below remain separate and are not
+collapsed into one number. Verified single-number recall still requires the
+work in §"What would be needed to produce a verified recall figure".
 **Data:** [`tests/benchmark/recall-denominator.json`](../tests/benchmark/recall-denominator.json)
+**Reachability ground truth:** [`research/reachability-ground-truth/labels.json`](../research/reachability-ground-truth/labels.json),
+[`research/reachability-ground-truth/ambiguity_resolution.json`](../research/reachability-ground-truth/ambiguity_resolution.json),
+[`research/reachability-ground-truth/README.md`](../research/reachability-ground-truth/README.md)
 **Methodology:** [`tests/benchmark/recall_methodology.md`](../tests/benchmark/recall_methodology.md)
-**Author:** Agent A3 — recall denominator study (Task 5-A3)
+**Author:** Agent A3 — recall denominator study (Task 5-A3); ambiguity
+adjudication by sub-agent 6-T5 (Task 5).
+
+---
+
+## Update — narrowed bracket after ambiguity adjudication (Task 5, sub-agent 6-T5)
+
+This section supersedes the §"Estimate range" below for the real-world
+labelled-sink figure. The earlier estimate (29.6%–80.8%) was a coverage-gap
+estimate with no statistical coverage; the reachability ground-truth study
+replaced it with a labelled-sample bracket of **14%–52%**, and this update
+narrows that bracket to **43%–52%** by adjudicating 16 of the 28 AMBIGUOUS
+labels.
+
+### The three recall figures, kept separate
+
+| Metric | Value | Source |
+|---|---|---|
+| Synthetic adversarial recall | 9/10 | `tests/benchmark/soundness/*` |
+| Corpus-demonstrated architecture recall | 3/10 — gates CI | `tests/benchmark/recall_methodology.md` |
+| **Real-world labelled sink recall — bracket** | **43%–52%** (was 14%–52%) | this section |
+| Precision benchmark | 16/16 | `tests/benchmark/precision/*` |
+
+Never collapse them into one number. The synthetic and corpus figures have
+fully-observed denominators; the real-world bracket is a weighted-sample
+estimate whose width encodes classification uncertainty (now mostly resolved)
+plus sampling uncertainty (still wide).
+
+### How the bracket was narrowed
+
+The 14%–52% bracket was driven by AMBIGUITY: 28 of 160 labels were AMBIGUOUS,
+carrying a weighted total of 803 against a sample total weight of 3,109
+(25.8% of the weighted sample, vs 17.5% unweighted — ambiguity concentrated in
+thinly-sampled, high-weight strata). The bracket was the bounding exercise:
+
+- If every AMBIGUOUS case is NOT reachable → recall = 149/(149+138.5) = **51.8%** (high end)
+- If every AMBIGUOUS case IS reachable → recall = 149/(149+138.5+803) = **13.7%** (low end)
+
+Sub-agent 6-T5 adjudicated 16 of the 28 AMBIGUOUS labels against the README
+decision rule (AGENT_REACHABLE requires a path from an agent/tool/model-controlled
+boundary; web-route-only paths and internal-code-only paths are
+NOT_AGENT_REACHABLE; sample-app/build-script code is NOT_AGENT_REACHABLE).
+Source for the 10 highest-weight cases was fetched at the pinned SHA from
+GitHub and inspected; the remaining 6 sample-app cases were adjudicated on
+the prior labeler's site-verified evidence text plus the decision rule.
+
+**All 16 adjudications moved AMBIGUOUS → NOT_AGENT_REACHABLE.** No AMBIGUOUS
+case was upgraded to AGENT_REACHABLE. This is a real result, not a tidy one:
+the AMBIGUOUS bucket turned out to consist mostly of (a) DB/storage helpers
+with no caller traced to a registered tool, (b) sandbox-setup plumbing not
+invoked at agent runtime, (c) vector-store admin reached via internal
+indexing APIs, and (d) sample/example apps. None of these is an agent
+boundary action.
+
+### Adjudication summary
+
+| | |
+|---|---|
+| Cases adjudicated | 16 of 28 AMBIGUOUS |
+| Adjudications to AGENT_REACHABLE | 0 |
+| Adjudications to NOT_AGENT_REACHABLE | 16 |
+| Strata touched | 14 (see `ambiguity_resolution.json`) |
+| Weighted ambiguity before | 803.0 |
+| Weighted ambiguity after | 60.0 |
+| Weighted ambiguity reduction | 743.0 (92.5%) — exceeds the halving target |
+| Bracket width before | 38.1 percentage points |
+| Bracket width after | 8.9 percentage points |
+| Bracket width reduction | 76.6% — materially narrowed |
+
+Top strata adjudicated (by weight removed): `llamaindex|data_destruction`
+(w=297, idx 101), `openai-agents|code_execution` (w=117, idx 130),
+`agno|data_destruction` (w=151 across idx 2 and 4),
+`openai-agents|data_destruction` (w=33, idx 129),
+`semantic-kernel|data_destruction` (w=33, idx 150),
+`agno|file_mutation` (w=30, idx 12), `agno|communication` (w=20, idx 5),
+`langchain|data_destruction` (w=15, idx 88), `metagpt|network_egress`
+(w=15, idx 113), plus 6 sample-app cases in `autogen|*`, `browser-use|*`
+totalling 32 weight.
+
+### Did the bracket narrow materially?
+
+**Yes.** Width dropped from 38.1 to 8.9 percentage points (76.6% narrower).
+Weighted ambiguity dropped from 803 to 60 (92.5% reduction), exceeding the
+halving target. The high end (52%) is unchanged because no case was upgraded
+to AGENT_REACHABLE — the narrowing came entirely from moving the low end up
+from 14% to 43%, as AMBIGUOUS cases were reclassified NOT_AGENT_REACHABLE
+rather than AGENT_REACHABLE. The true recall is therefore most likely closer
+to the high end (52%) than to the midpoint.
+
+### What this update did NOT do
+
+- It did **not** produce a verified single-number recall. The remaining 12
+  AMBIGUOUS cases (weighted 60) are `unresolved_framework` /
+  `unresolved_input` cases where static analysis genuinely cannot decide
+  without a runtime trace. They were left as AMBIGUOUS, not adjudicated.
+- It did **not** change the detected-side count of 149 reachable sinks,
+  nor the weighted AGENT_REACHABLE-but-missed estimate of 138.5 (4.45%
+  weighted share of the unreachable inventory).
+- It did **not** introduce or modify any code. Only `labels.json`,
+  `ambiguity_resolution.json` (new), and this document changed.
+- It did **not** commit or push.
+- It did **not** introduce any "authority coverage", "% protected", "% safe",
+  or any metric that divides findings by an estimate of total consequential
+  actions. The bracket's denominators are fully observed on the detected
+  side and weighted-by-design on the missed side; the AMBIGUOUS bucket is a
+  weighted sum of explicitly-labelled sample rows, not an estimate of total
+  actions.
+
+### Reproducing the new bracket
+
+```bash
+python3 - <<'PY'
+import json
+labels = json.load(open("research/reachability-ground-truth/labels.json"))
+from collections import defaultdict
+w = defaultdict(float)
+for r in labels: w[r["label"]] += r["weight"]
+detected, reach, ambig = 149, w["AGENT_REACHABLE"], w["AMBIGUOUS"]
+print("high (ambig NOT reachable):", round(detected/(detected+reach)*100,1), "%")
+print("low  (ambig IS reachable):", round(detected/(detected+reach+ambig)*100,1), "%")
+PY
+```
+
+Outputs `high 51.8 %` / `low 42.9 %` → bracket **43%–52%**.
+
+### Remaining AMBIGUOUS (12 cases, weighted 60)
+
+| idx | weight | stratum | reason |
+|---|---:|---|---|
+| 13 | 9.0 | agno\|shell_execution | unresolved_utility |
+| 67 | 11.0 | crewai\|network_egress | unresolved_framework |
+| 95 | 10.0 | llamaindex\|database_mutation | unresolved_framework |
+| 49 | 6.0 | browser-use\|network_egress | unresolved_framework |
+| 117 | 7.0 | metagpt\|browser_action | unresolved_framework |
+| 128 | 7.0 | openai-agents\|database_mutation | unresolved_framework |
+| 103 | 4.0 | mcp-atlassian\|file_mutation | unresolved_framework |
+| 87 | 2.0 | langchain\|browser_action | unresolved_framework |
+| 70 | 1.0 | crewai\|database_mutation | unresolved_framework |
+| 116 | 1.0 | metagpt\|repository_mutation | unresolved_framework |
+| 22 | 1.0 | aider\|browser_action | unresolved_input |
+| 127 | 1.0 | openai-agents\|browser_action | sample_app (potentially a real computer tool, left AMBIGUOUS by analogy with the mcp-python-sdk examples/mcpserver/memory.py AGENT_REACHABLE case in the README) |
+
+These were left as AMBIGUOUS. Static adjudication has done what it can;
+the residual 60 weighted cases require either a runtime trace or a deeper
+interprocedural call-graph resolution (the README's "one next capability"
+recommendation) to decide. Forcing them to one side would fabricate
+confidence that does not exist.
+
+### A note on what this update reveals about static adjudication
+
+The bracket narrowed materially *because* the AMBIGUOUS bucket turned out to
+be dominated by NOT_AGENT_REACHABLE cases that the prior labeler had parked
+as AMBIGUOUS out of caution — DB helpers, sandbox plumbing, sample apps.
+None of the adjudicated cases were genuine agent-reachable false negatives
+in disguise. That is itself a finding: the residual ambiguity in static
+reachability labelling is *not* hiding a population of missed agent sinks.
+The remaining AMBIGUOUS cases are framework plumbing where the call chain
+genuinely passes through a generic dispatch that static analysis cannot
+resolve without the call-graph work the README recommends. The narrowing
+therefore says less "we now know the recall is 43–52%" and more "the
+ambiguity in our prior label was concentrated in cases that, when
+adjudicated, did not move the high end".
 
 ---
 

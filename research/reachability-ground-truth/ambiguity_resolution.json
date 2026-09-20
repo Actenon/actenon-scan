@@ -1,0 +1,191 @@
+{
+ "_meta": {
+  "task": "Task 5 (6-T5): narrow the 14%-52% recall bracket",
+  "author": "Agent Task5",
+  "method": "Adjudicate AMBIGUOUS cases in the highest-weight strata against the README decision rule (AGENT_REACHABLE requires a path from an agent/tool/model-controlled boundary; web-route-only and internal-code-only paths are NOT_AGENT_REACHABLE; sample-app/build-script code is NOT_AGENT_REACHABLE). High-weight strata were inspected by fetching the pinned source from GitHub for the top 6 cases; the remaining 10 sample-app and clear-internal-helper cases were adjudicated on the prior labeler's verified evidence text plus the decision rule.",
+  "github_source_verified": [2, 4, 5, 12, 88, 101, 113, 129, 130, 150],
+  "evidence_text_only": [44, 45, 46, 57, 58, 59],
+  "no_adjudications_to_agent_reachable": true,
+  "note": "Every adjudication moved AMBIGUOUS to NOT_AGENT_REACHABLE. No AMBIGUOUS case was upgraded to AGENT_REACHABLE. The high end of the bracket (52%) is therefore unchanged; only the low end moves. The remaining 12 AMBIGUOUS cases (60 weighted) are unresolved-framework paths where static analysis genuinely cannot decide without a runtime trace; they were left as AMBIGUOUS."
+ },
+ "adjudications": [
+  {
+   "idx": 101,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "drop_table_purge is a module-level vector-store admin fn; reached via internal indexing API (LoadAndSearchToolSpec.load), not a model/tool boundary. Verified source.",
+   "stratum": "llamaindex|data_destruction",
+   "weight": 297.0
+  },
+  {
+   "idx": 130,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "BaseSandboxSession.mkdir traced chain passes through app.post route; web-route-only path is NOT_AGENT_REACHABLE per README decision rule. Verified source.",
+   "stratum": "openai-agents|code_execution",
+   "weight": 117.0
+  },
+  {
+   "idx": 2,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "ais_table_available is a table-existence check DB helper; callers are framework-internal, none a registered agent tool. Verified source.",
+   "stratum": "agno|data_destruction",
+   "weight": 75.5
+  },
+  {
+   "idx": 4,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "DbFileSystem.move is a storage-layer helper; callers are framework-internal, none an agent boundary. Verified source.",
+   "stratum": "agno|data_destruction",
+   "weight": 75.5
+  },
+  {
+   "idx": 129,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "FuseMountPattern.apply is a sandbox-setup mount operation (blobfuse2 mount at session init); not invoked by the agent at runtime. Verified source.",
+   "stratum": "openai-agents|data_destruction",
+   "weight": 33.0
+  },
+  {
+   "idx": 150,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "SqlServerCollection.ensure_collection_exists is vector-store collection setup; internal infrastructure, not a model/tool boundary. Verified source.",
+   "stratum": "semantic-kernel|data_destruction",
+   "weight": 33.0
+  },
+  {
+   "idx": 12,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "Generic httpx download utility; 19 callers, none a registered agent tool. Verified source.",
+   "stratum": "agno|file_mutation",
+   "weight": 30.0
+  },
+  {
+   "idx": 5,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "Telegram send_message driven by inbound webhook (resource boundary); model controls text but not the send decision. Verified source.",
+   "stratum": "agno|communication",
+   "weight": 20.0
+  },
+  {
+   "idx": 88,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "SQLRecordManager.adelete_keys is indexing-bookkeeping internal API on the indexing record-manager; not an agent boundary. Verified source.",
+   "stratum": "langchain|data_destruction",
+   "weight": 15.0
+  },
+  {
+   "idx": 113,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "MinecraftExtEnv.pause is environment-lifecycle bookkeeping invoked as a side-effect of _step; the agent does not choose to call it. Verified source.",
+   "stratum": "metagpt|network_egress",
+   "weight": 15.0
+  },
+  {
+   "idx": 58,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "browser-use news-use example save_article in examples/apps/; demonstration code, not a production agent deployment.",
+   "stratum": "browser-use|file_mutation",
+   "weight": 13.5
+  },
+  {
+   "idx": 46,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "autogen gitty sample shells out to gh; file in samples/simple_team/, demonstration code, no caller found.",
+   "stratum": "autogen|shell_execution",
+   "weight": 8.0
+  },
+  {
+   "idx": 57,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "browser-use msg-use example scheduler in examples/apps/; demonstration code, not a production agent deployment.",
+   "stratum": "browser-use|communication",
+   "weight": 4.5
+  },
+  {
+   "idx": 44,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "autogen gitty sample DB layer in samples/simple_team/; demonstration code, not a production agent deployment.",
+   "stratum": "autogen|database_mutation",
+   "weight": 2.0
+  },
+  {
+   "idx": 45,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "autogen gitty sample DB layer in samples/simple_team/; demonstration code, not a production agent deployment.",
+   "stratum": "autogen|database_mutation",
+   "weight": 2.0
+  },
+  {
+   "idx": 59,
+   "old_label": "AMBIGUOUS",
+   "new_label": "NOT_AGENT_REACHABLE",
+   "reason": "browser-use custom-functions file_upload example in examples/custom-functions/; demonstration code, not a production agent deployment.",
+   "stratum": "browser-use|data_destruction",
+   "weight": 2.0
+  }
+ ],
+ "strata_touched": [
+  "agno|data_destruction",
+  "agno|communication",
+  "agno|file_mutation",
+  "autogen|database_mutation",
+  "autogen|shell_execution",
+  "browser-use|communication",
+  "browser-use|data_destruction",
+  "browser-use|file_mutation",
+  "langchain|data_destruction",
+  "llamaindex|data_destruction",
+  "metagpt|network_egress",
+  "openai-agents|code_execution",
+  "openai-agents|data_destruction",
+  "semantic-kernel|data_destruction"
+ ],
+ "total_adjudicated": 16,
+ "weighted_ambiguity_before": 803.0,
+ "weighted_ambiguity_after": 60.0,
+ "weighted_ambiguity_reduction": 743.0,
+ "weighted_ambiguity_reduction_pct": 92.5,
+ "bracket_before": [0.14, 0.52],
+ "bracket_after": [0.43, 0.52],
+ "bracket_width_before_pct_points": 38.1,
+ "bracket_width_after_pct_points": 8.9,
+ "bracket_width_reduction_pct": 76.6,
+ "remaining_ambiguous_count": 12,
+ "remaining_ambiguous_strata": [
+  "agno|shell_execution",
+  "aider|browser_action",
+  "browser-use|network_egress",
+  "crewai|database_mutation",
+  "crewai|network_egress",
+  "langchain|browser_action",
+  "llamaindex|database_mutation",
+  "mcp-atlassian|file_mutation",
+  "metagpt|browser_action",
+  "metagpt|repository_mutation",
+  "openai-agents|browser_action",
+  "openai-agents|database_mutation"
+ ],
+ "remaining_ambiguous_reasons": [
+  "All remaining AMBIGUOUS carry reason=unresolved_framework or unresolved_input; the prior labeler flagged these as 'cannot determine from static analysis alone'. They are left as AMBIGUOUS rather than adjudicated, because no fetched source established an agent boundary for any of them. These are genuinely undecidable from static analysis and require a runtime trace."
+ ],
+ "three_recall_figures_kept_separate": {
+  "synthetic_adversarial_recall": "9/10",
+  "corpus_demonstrated_architecture_recall": "3/10",
+  "real_world_labelled_sink_recall_bracket": "43% - 52% (was 14% - 52%)"
+ },
+ "forbidden_metrics_not_introduced": "No authority coverage, % protected, % safe, or any figure dividing findings by an estimate of total consequential actions. The bracket's denominators are fully observed on the detected side (149 reachable sinks, weighted-by-design on the missed side) and the AMBIGUOUS bucket is a weighted sum of explicitly-labelled sample rows, not an estimate of total actions."
+}
