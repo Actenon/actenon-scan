@@ -64,7 +64,7 @@ pinned commit SHA, in Python / TypeScript / Go files.
    [`docs/COVERAGE.md`](../../docs/COVERAGE.md) §r05) custom agent loops.
 3. The action is **unguarded**: no guard on every path to the sink dominates
    it (per scan's guard-dominance logic in
-   [`actenon_scan/guards.py`](../../actenon_scan/guards.py)).
+   [`actenon_scan/detectors/guards.py`](../../actenon_scan/detectors/guards.py)).
 4. The guard (if present) is **not bound** to the action — this is the
    binding limitation documented in [`docs/COVERAGE.md`](../../docs/COVERAGE.md)
    §"The central limitation: parameter binding". A guard that authorises a
@@ -181,7 +181,7 @@ For each sampled file:
 
 1. **Identify every agent-reachable function** in the file. Use scan's
    reachability module
-   ([`actenon_scan/reachability.py`](../../actenon_scan/reachability.py)) to
+   ([`actenon_scan/detectors/reachability.py`](../../actenon_scan/detectors/reachability.py)) to
    list candidate entrypoints, then verify by hand. Record the qualified
    name (e.g. `MyTool._execute`).
 
@@ -198,7 +198,7 @@ For each sampled file:
      entrypoint to this sink
    - `guarded`: true iff a guard exists on some path to the sink
    - `guard_dominates`: true iff a guard exists on **every** path to the
-     sink (per [`actenon_scan/guards.py`](../../actenon_scan/guards.py)
+     sink (per [`actenon_scan/detectors/guards.py`](../../actenon_scan/detectors/guards.py)
      dominance logic)
    - (hand-only) `guard_bound`: true iff the guard's arguments refer to the
      same variables as the sink — scan cannot verify this, but a human
@@ -397,9 +397,9 @@ verified misses:
 - [`tests/benchmark/baseline.json`](./baseline.json) — scoreboard
 - [`actenon_scan/rules/default_rules.json`](../../actenon_scan/rules/default_rules.json)
   — sink rules scan looks for
-- [`actenon_scan/reachability.py`](../../actenon_scan/reachability.py) —
+- [`actenon_scan/detectors/reachability.py`](../../actenon_scan/detectors/reachability.py) —
   agent entrypoint recognition
-- [`actenon_scan/guards.py`](../../actenon_scan/guards.py) —
+- [`actenon_scan/detectors/guards.py`](../../actenon_scan/detectors/guards.py) —
   guard dominance logic
 - Brown, Cai & DasGupta (2001), "Interval Estimation for a Binomial
   Proportion", *Statistical Science* 16(2):101–133 — Wilson interval

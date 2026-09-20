@@ -247,7 +247,8 @@ Per [`tests/benchmark/recall_methodology.md`](../tests/benchmark/recall_methodol
 1. **Clone the 25 pinned repos at their pinned SHAs** (in
    [`tests/benchmark/pinned_repos.json`](../tests/benchmark/pinned_repos.json)).
    The fetch URL pattern is
-   `https://github.com/{repo}/archive/{sha}.tar.gz`.
+   `https://github.com/{repo}/archive/{sha}.tar.gz` where `{repo}`
+   is the `full_name` field and `{sha}` is the pinned SHA from the JSON.
 
 2. **Hand-label 20 files per repo across 3 repos** (60 files total),
    stratified per methodology §3.2:
