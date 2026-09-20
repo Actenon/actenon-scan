@@ -34,35 +34,38 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 
 ## Findings
 
-- **Total findings:** 22
-- **True positives (hand-triaged):** 21
+- **Total findings:** 26
+- **True positives (hand-triaged):** 24
 - **False positives:** 1
 
 ### By consequence category
 
 | Category | Count |
 |---|---|
-| unknown | 22 |
+| unknown | 26 |
 
 ### By rule
 
 | Rule | Count |
 |---|---|
 | NET-EGRESS | 9 |
-| FILE-OPEN-WRITE | 6 |
+| FILE-OPEN-WRITE | 8 |
 | COMMUNICATION-SEND | 2 |
 | DATA-DELETE-OS | 2 |
 | FILE-WRITE | 1 |
 | EXEC-SHELL | 1 |
 | NET-EGRESS-GO | 1 |
+| EXEC-CODE | 1 |
+| DATA-DELETE-SQL | 1 |
 
 ### By repository
 
 | Repository | Findings |
 |---|---|
-| crewAIInc/crewAI | 8 |
+| crewAIInc/crewAI | 10 |
 | TransformerOptimus/SuperAGI | 6 |
 | FoundationAgents/MetaGPT | 5 |
+| openai/openai-agents-python | 2 |
 | modelcontextprotocol/servers | 1 |
 | modelcontextprotocol/python-sdk | 1 |
 | github/github-mcp-server | 1 |
@@ -109,9 +112,9 @@ were identified and fixed:
    was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ
    rule's qualified patterns.
 
-### Current measurement: 21/22 (95% precision)
+### Current measurement: 24/25 (96% precision)
 
-After fixes, the current corpus has 21 findings,
+After fixes, the current corpus has 24 findings,
 all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number
 that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is
 present or any finding is untriaged.
@@ -209,8 +212,8 @@ python scripts/generate_corpus_study.py --check
 
 ## Scanner version
 
-- **Measured with:** actenon-scan 1.4.0
-- **Measurement date:** 2026-07-29
+- **Measured with:** actenon-scan 1.5.0
+- **Measurement date:** 2026-09-20
 
 The corpus is a measurement taken with a specific scanner version. When
 the scanner's analysis changes materially, the corpus must be re-measured.

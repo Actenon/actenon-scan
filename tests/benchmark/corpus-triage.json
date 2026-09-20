@@ -2,9 +2,10 @@
   "_comment": "Hand triage of every finding in corpus-results.json. A corpus count with no triage behind it is the same defect as a benchmark score with no detector behind it. Any FALSE_POSITIVE entry fails CI: the rule must be fixed and a regression fixture added, not the entry edited.",
   "corpus_sha_source": "tests/benchmark/pinned_repos.json",
   "totals": {
-    "findings": 22,
-    "true_positives": 21,
-    "false_positives": 1
+    "findings": 26,
+    "true_positives": 24,
+    "false_positives": 1,
+    "true_positive_wrong_category": 1
   },
   "false_positives_found_and_fixed_this_run": [
     {
@@ -261,6 +262,50 @@
       "status": "recorded",
       "recorded_date": "2026-07-29",
       "tracking_issue": 81
+    },
+    {
+      "repo": "crewAIInc/crewAI",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/brave_search_tool/base.py",
+      "line": 26,
+      "rule_id": "FILE-OPEN-WRITE",
+      "confidence": "medium",
+      "verdict": "TRUE_POSITIVE",
+      "rationale": "open(filename, 'w').write(content) inside the module-level helper _save_results_to_file, called at line 268 from the _run method of a crewai BaseTool subclass. The caller is an LLM-selected tool handler (tool_base_class_method), so the write is agent-reachable; no guard dominates it in the callee or at the call site. Found only because same-module depth-1 following landed (signal one_hop_local), which is why the reachability confidence is medium rather than high: the helper could have other callers the analysis has not examined. The filename is a timestamp and is not model-controlled; the CONTENT written is agent-obtained search results. A tool that writes to the process working directory without an authority check is the documented FILE consequence category.",
+      "found_by": "B1 same-module one-hop reachability"
+    },
+    {
+      "repo": "crewAIInc/crewAI",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/serper_dev_tool/serper_dev_tool.py",
+      "line": 94,
+      "rule_id": "FILE-OPEN-WRITE",
+      "confidence": "medium",
+      "verdict": "TRUE_POSITIVE",
+      "rationale": "Identical shape to the brave_search_tool case above: _save_results_to_file writes agent-obtained search results with open(filename, 'w'), reached one hop from a crewai BaseTool _run handler. Agent-reachable, unguarded, reported at medium reachability confidence via one_hop_local.",
+      "found_by": "B1 same-module one-hop reachability"
+    },
+    {
+      "repo": "openai/openai-agents-python",
+      "sha": "c1b423749e2bf8ca5f89cad13e2a144c9683a6ee",
+      "file": "src/agents/sandbox/capabilities/tools/shell_tool.py",
+      "line": 99,
+      "rule_id": "EXEC-CODE",
+      "confidence": "medium",
+      "verdict": "TRUE_POSITIVE",
+      "rationale": "session.exec(command, timeout=..., shell=..., user=...) inside _run_one_shot_exec, called at lines 211 and 225 from the run method of a tool base class. This is a sandbox SHELL TOOL: the command is the model-supplied argument and reaches execution with no authority check on the analysed path. Agent-reachable consequential execution, exactly the class of action this scanner exists to surface. Found by same-module depth-1 following (one_hop_local), hence medium reachability confidence. Sandboxing is a mitigation, not an authorization check, and the scanner does not claim to establish exploitability.",
+      "found_by": "B1 same-module one-hop reachability"
+    },
+    {
+      "repo": "openai/openai-agents-python",
+      "sha": "c1b423749e2bf8ca5f89cad13e2a144c9683a6ee",
+      "file": "src/agents/sandbox/capabilities/tools/shell_tool.py",
+      "line": 99,
+      "rule_id": "DATA-DELETE-SQL",
+      "confidence": "medium",
+      "verdict": "TRUE_POSITIVE_WRONG_CATEGORY",
+      "rationale": "THE SAME CALL as the EXEC-CODE entry above \u2014 one source line, two rule matches, counted as ONE consequential action by the sink-identity deduplication and kept as two rule matches in the detail view. The action is real and correctly flagged. The CATEGORY is wrong: _is_sql_execute_call matched because the method is named 'exec', the receiver is named 'session' (in the DB-receiver name heuristic) and the SQL argument is non-literal. This is a sandbox session, not a database session. The heuristic is not removed because 'exec' on a session IS the SQLModel API (sqlmodel.Session.exec), so the pattern is a genuine SQL idiom that happens to collide here. Recorded as a category imprecision on a true action rather than counted as a clean true positive; it is not counted twice in the headline.",
+      "found_by": "B1 same-module one-hop reachability"
     }
   ],
   "corrections": [
@@ -305,10 +350,14 @@
       "corrected_count": 21,
       "original_precision": "22/22 (100%)",
       "corrected_precision": "21/22 (95.5%)"
+    },
+    {
+      "date": "2026-09-20",
+      "description": "v1.5.0 re-measurement on the pinned corpus. 135 findings before, 26 after. REMOVED 113: resource-boundary entry points became opt-in and lost their bare decorator names (B2) \u2014 fastapi -18 and flask -1, both CONTROL repos where any finding is a precision failure by definition, plus superagi -59, openhands -31, autogen -4, all web route handlers in applications with no agent on the path. ADDED 4 rule matches / 3 consequential actions, all from same-module depth-1 following (B1), all hand-triaged below. A fifth group of 4 (aider benchmark/benchmark.py FILE-WRITE) appeared in the first B1 measurement and was FIXED rather than recorded: _get_call_name returns '' for a call target that is neither a Name nor an Attribute, and '' is a substring of every tool-wrapper name, so aider's lox.thread(threads)(run_test) registered run_test as a tool. That pre-existing reachability false positive had been masked because run_test's own body holds no sink; following one hop exposed it. The empty call name is now rejected."
     }
   ],
-  "scanner_version_measured_with": "1.4.0",
-  "measurement_date": "2026-07-29",
+  "scanner_version_measured_with": "1.5.0",
+  "measurement_date": "2026-09-20",
   "corpus_exercised_ts_guard_rewrite": {
     "ts_files_scanned": 2311,
     "ts_sink_candidates": 140,

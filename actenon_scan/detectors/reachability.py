@@ -144,28 +144,22 @@ def build_entry_point_index(
             declared |= _tool_names_in_dict(node)
         elif isinstance(node, ast.Call):
             if tool_wrappers:
+                # Matching rule identical to _is_wrapped_as_tool, including
+                # its rejection of an empty call name. The index decides which
+                # functions the call-edge walk treats as entry points while
+                # the sink path uses _is_wrapped_as_tool; if the two disagreed
+                # the walk would report fewer unfollowed calls than the
+                # findings path implies, under-reporting the gap. There is a
+                # test asserting they agree on every function in the pinned
+                # langchain fixture.
                 call_name = _get_call_name(node.func)
-                for arg in node.args:
-                    if isinstance(arg, ast.Name):
-                        # Matching rule copied verbatim from
-                        # _is_wrapped_as_tool, including the case where
-                        # _get_call_name returns "" for a call target that is
-                        # neither a Name nor an Attribute: "" is a substring
-                        # of every wrapper, so that call matches. That is
-                        # over-inclusive, and it is REPRODUCED here on
-                        # purpose. The index decides which functions the
-                        # call-edge walk treats as entry points; the sink path
-                        # still uses _is_wrapped_as_tool. If the two disagreed,
-                        # the walk would report fewer unfollowed calls than the
-                        # findings path implies — under-reporting the gap,
-                        # which is the one direction this must never fail in.
-                        # (The over-inclusiveness itself is a separate
-                        # precision defect; fixing it changes findings and
-                        # needs corpus re-triage, so it is not done here.)
-                        for wrapper in tool_wrappers:
-                            if wrapper in call_name or call_name in wrapper:
-                                wrapped.add(arg.id)
-                                break
+                if call_name:
+                    for arg in node.args:
+                        if isinstance(arg, ast.Name):
+                            for wrapper in tool_wrappers:
+                                if wrapper in call_name or call_name in wrapper:
+                                    wrapped.add(arg.id)
+                                    break
             if tool_list_params:
                 for kw in node.keywords:
                     if kw.arg in tool_list_params and isinstance(
@@ -422,6 +416,19 @@ def _is_wrapped_as_tool(tree: ast.Module, func_name: str, tool_wrappers: list[st
                 if isinstance(arg, ast.Name) and arg.id == func_name:
                     # Check if the call target is a known wrapper
                     call_name = _get_call_name(node.func)
+                    if not call_name:
+                        # _get_call_name returns "" when the call target is
+                        # neither a Name nor an Attribute — a call on a call,
+                        # a subscript, a lambda. "" is a substring of every
+                        # wrapper name, so the check below used to match ALL
+                        # of them and mark the argument as a registered tool.
+                        #
+                        # aider's `lox.thread(threads)(run_test)` is exactly
+                        # this shape: a thread-pool decorator applied to a
+                        # benchmark harness function, read as a tool
+                        # registration. Every sink reachable from run_test was
+                        # then agent-reachable at HIGH confidence.
+                        continue
                     for wrapper in tool_wrappers:
                         if wrapper in call_name or call_name in wrapper:
                             return True

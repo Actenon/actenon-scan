@@ -66,6 +66,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly one unshadowed module-level definition is left unfollowed and
   disclosed, never guessed at.
 
+### Fixed — tool-wrapper false reachability
+
+- `_get_call_name` returns `""` for a call target that is neither a Name nor
+  an Attribute (a call on a call, a subscript, a lambda), and `""` is a
+  substring of every configured tool-wrapper name — so such a call registered
+  its argument as a tool. aider's
+  `run_test_threaded = lox.thread(threads)(run_test)` is exactly that shape:
+  a thread-pool decorator applied to a benchmark harness function, read as a
+  tool registration. Every sink reachable from `run_test` became
+  agent-reachable at HIGH confidence.
+- Pre-existing, and masked: `run_test`'s own body holds no sink, so nothing
+  fired until depth-1 following looked into `run_test_real`. Four aider
+  FILE-WRITE findings appeared in the first B1 corpus measurement and were
+  fixed rather than triaged away.
+
+### Corpus re-measurement (v1.5.0)
+
+- 135 findings before, 26 after, across the 25 pinned repositories.
+- **-113 removed**, all from the resource-boundary change: `fastapi` -18 and
+  `flask` -1, both CONTROL repos where any finding is a precision failure by
+  definition, plus `superagi` -59, `openhands` -31, `autogen` -4 — web route
+  handlers in applications with no agent on the path. All 5 control repos now
+  report zero.
+- **+4 added** (3 consequential actions after sink deduplication), all from
+  same-module one-hop following, all hand-triaged into
+  `corpus-triage.json` with a rationale: 2 crewai `FILE-OPEN-WRITE`
+  (TRUE_POSITIVE), 1 openai-agents sandbox shell exec reported by two rules
+  on one line (TRUE_POSITIVE, with the DATA-DELETE-SQL label recorded as a
+  category imprecision on a true action, counted once).
+- `corpus-results.json` re-measured — it recorded 0 findings for flask at its
+  pinned SHA while the scanner produced one there, so it predated the
+  resource-boundary feature. `docs/CORPUS_RESULTS.md` and
+  `docs/CORPUS_STUDY.md` updated to match. Precision 24/25 (96.0%).
+
 ### Fixed — resource-boundary precision
 
 - **A parameterised `INSERT` in a plain Flask view was reported as HIGH
