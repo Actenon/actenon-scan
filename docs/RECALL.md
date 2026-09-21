@@ -1,9 +1,30 @@
 # Recall — the first honest number
 
-**Status:** BRACKET NARROWED. Real-world labelled-sink recall now 43%–52%
-(was 14%–52%). The three recall figures below remain separate and are not
-collapsed into one number. Verified single-number recall still requires the
-work in §"What would be needed to produce a verified recall figure".
+> **WITHDRAWAL NOTE (2026-09-20):** The 43%–52% bracket published in commit
+> `129b926` is **withdrawn**. Three defects invalidate it:
+>
+> 1. All 16 adjudications moved in one direction (to NOT_AGENT_REACHABLE);
+>    0 moved to AGENT_REACHABLE. The adjudication is not symmetric — it
+>    narrowed the bracket by moving the low end up, which is the direction
+>    that flatters the tool.
+> 2. 6 of 16 adjudications are not reachability judgements: they reclassify
+>    cases as NOT_AGENT_REACHABLE because the file is in `examples/` or
+>    `samples/` — a scope change, not an adjudication. The scope rule was
+>    applied one way: two AGENT_REACHABLE cases in `examples/mcpserver/memory.py`
+>    were left reachable.
+> 3. The highest-weight case (`llamaindex|data_destruction`, w=297) names
+>    `LoadAndSearchToolSpec.load` as the caller and concludes "not a
+>    model/tool boundary," but `LoadAndSearchToolSpec` exists to hand
+>    `load()` to an agent as a tool.
+>
+> The defensible bracket is **14%–52%** until re-adjudicated under
+> pre-registered rules (see Phase 4 of the correctness PR). No replacement
+> number is published in this PR.
+
+**Status:** BRACKET WITHDRAWN. The 43%–52% bracket (commit `129b926`) is
+invalid as computed. The 14%–52% bracket stands pending re-adjudication.
+The three recall figures below remain separate and are not collapsed into
+one number.
 **Data:** [`tests/benchmark/recall-denominator.json`](../tests/benchmark/recall-denominator.json)
 **Reachability ground truth:** [`research/reachability-ground-truth/labels.json`](../research/reachability-ground-truth/labels.json),
 [`research/reachability-ground-truth/ambiguity_resolution.json`](../research/reachability-ground-truth/ambiguity_resolution.json),
@@ -16,12 +37,17 @@ adjudication by sub-agent 6-T5 (Task 5).
 
 ## Update — narrowed bracket after ambiguity adjudication (Task 5, sub-agent 6-T5)
 
+> **WITHDRAWN (2026-09-20):** The 43%–52% bracket published here is
+> withdrawn. See the withdrawal note at the top of this file. The
+> 14%–52% bracket stands. The text below is retained as a historical
+> record of what was claimed and why it was wrong.
+
 This section supersedes the §"Estimate range" below for the real-world
 labelled-sink figure. The earlier estimate (29.6%–80.8%) was a coverage-gap
 estimate with no statistical coverage; the reachability ground-truth study
 replaced it with a labelled-sample bracket of **14%–52%**, and this update
-narrows that bracket to **43%–52%** by adjudicating 16 of the 28 AMBIGUOUS
-labels.
+~~narrows that bracket to **43%–52%**~~ (WITHDRAWN — see correction above)
+by adjudicating 16 of the 28 AMBIGUOUS labels.
 
 ### The three recall figures, kept separate
 
@@ -29,7 +55,7 @@ labels.
 |---|---|---|
 | Synthetic adversarial recall | 9/10 | `tests/benchmark/soundness/*` |
 | Corpus-demonstrated architecture recall | 3/10 — gates CI | `tests/benchmark/recall_methodology.md` |
-| **Real-world labelled sink recall — bracket** | **43%–52%** (was 14%–52%) | this section |
+| **Real-world labelled sink recall — bracket** | ~~43%–52%~~ (WITHDRAWN) → **14%–52%** (stands pending re-adjudication) | this section |
 | Precision benchmark | 16/16 | `tests/benchmark/precision/*` |
 
 Never collapse them into one number. The synthetic and corpus figures have
@@ -132,7 +158,9 @@ print("low  (ambig IS reachable):", round(detected/(detected+reach+ambig)*100,1)
 PY
 ```
 
-Outputs `high 51.8 %` / `low 42.9 %` → bracket **43%–52%**.
+Outputs `high 51.8 %` / `low 42.9 %` → bracket ~~43%–52%~~ (WITHDRAWN —
+see correction note at top of file). The 14%–52% bracket stands pending
+re-adjudication under pre-registered rules.
 
 ### Remaining AMBIGUOUS (12 cases, weighted 60)
 

@@ -399,12 +399,12 @@ schema and `CONTRIBUTING.md` for the match-type reference.
 
 ---
 
-### Every claim above is machine-verified
+### Machine-verified package claims
 
 The `claims: machine-verified` badge links to a CI gate
 ([`verify-claims.yml`](.github/workflows/verify-claims.yml)) that fails on
-every PR, push to `main`, and once a day if any factual claim this README
-makes about the package stops being true:
+every PR, push to `main`, and once a day if any of these specific factual
+claims about the **package itself** stop being true:
 
 - **Zero runtime dependencies** — scan's single most important credibility
   claim (it is what lets a security team deploy scan unilaterally into a
@@ -415,7 +415,11 @@ makes about the package stops being true:
 - **The ecosystem table** — rendered from the protocol's `ecosystem.yaml`,
   never hand-edited.
 
-If a claim drifts, the badge goes red before a human notices.
+The badge does **not** verify claims about scan's detection coverage, recall,
+precision, or safety. Those claims are verified by the benchmark gate
+([`benchmark.yml`](.github/workflows/benchmark.yml)) and the corpus triage
+gate ([`check_corpus_triage.py`](scripts/check_corpus_triage.py)), not by
+`verify-claims.yml`.
 
 ---
 

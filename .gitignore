@@ -10,3 +10,4 @@ dist/
 .venv/
 .actenon-scan-cache/
 .release-notes-*.md
+disclosures/drafts/

@@ -30,11 +30,25 @@ Scanner output is a **candidate finding**, not a confirmed vulnerability. Every 
 
 For requested scans:
 
-1. **Findings are delivered privately first.** The maintainer receives the full report before any publication decision.
-2. **Reproduction evidence** is included: the exact commit, scanner version, command, and output.
-3. **Right of reply.** The maintainer may identify configuration, guards, or architecture outside the analysed scope that the scanner could not see.
-4. **Corrections.** The report is corrected where evidence supports correction. False positives are removed. Guard-outside-scope findings are reclassified.
-5. **No automatic publication.** The report is not published without explicit consent.
+0. **Before drafting, check public databases.** Query NVD, OSV, and GitHub
+   Security Advisories for the affected project. Record what was checked and
+   the result. If the finding corresponds to a known CVE, it is a
+   **rediscovery**, not a novel finding — the draft must say so, link the CVE,
+   and state that no disclosure is required. Never characterise a rediscovery
+   as novel.
+1. **Unsent drafts are never committed to this repository.** Draft reports
+   are stored locally in `disclosures/drafts/` (which is in `.gitignore`).
+   A draft committed to a public repository is a disclosure, not a draft.
+2. **Where a project has no private channel** (no SECURITY.md, private
+   vulnerability reporting disabled), the public first contact carries **no
+   technical detail** — only a request for a private contact route. Technical
+   detail (file, line, exploit path) is shared only after a private channel
+   is established.
+3. **Findings are delivered privately first.** The maintainer receives the full report before any publication decision.
+4. **Reproduction evidence** is included: the exact commit, scanner version, command, and output.
+5. **Right of reply.** The maintainer may identify configuration, guards, or architecture outside the analysed scope that the scanner could not see.
+6. **Corrections.** The report is corrected where evidence supports correction. False positives are removed. Guard-outside-scope findings are reclassified.
+7. **No automatic publication.** The report is not published without explicit consent.
 
 ## Publication consent
 

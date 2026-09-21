@@ -745,9 +745,51 @@ collapsed.
 same-file, 12 of 14 methods. Nothing deeper than 3 hops was needed.
 
 The most severe individual case: `superagi/agent/output_handler.py:180` calls
-`eval()` directly on the LLM's `assistant_reply`.
+`eval()` directly on the LLM's `assistant_reply`. This is
+[CVE-2024-21552](https://nvd.nist.gov/vuln/detail/CVE-2024-21552) (CVSS 9.8,
+public since 2024; NVD lists all versions affected, no remediation). See
+[REDISCOVERY-CVE-2024-21552.md](research/reachability-ground-truth/REDISCOVERY-CVE-2024-21552.md).
+The scanner matched the `eval()` sink but did **not** connect it to an agent
+boundary — it is one of the 19 misses (mechanism `LLM_OUTPUT_TO_SINK`). Human
+ground-truth adjudication identified the path.
 
-## The transitive reachability layer exists, is enabled, and resolves 0.06%
+## The transitive reachability layer exists, is enabled, and resolves few edges on real code
+
+> **Correction note (2026-09-20):** A previous version of this section
+> stated the repository layer "resolves 0.06% of transitive edges" and
+> presented the ratio `2 / 3,297 = 0.06%` as a resolution rate. That
+> ratio is a **unit error**. The numerator (`transitive_followed_count` =
+> 2) counts **new findings** the repository layer emitted. The
+> denominator (`transitive_unfollowed_count` = 3,297) counts
+> **unresolved call sites directly out of agent entrypoints**, which
+> includes every call to an external library (`subprocess.run`,
+> `requests.post`, `json.loads`, etc.). Dividing findings by call
+> sites produces a number with no physical meaning. The 0.06% figure
+> has been removed from this section, the CHANGELOG, and the research
+> README.
+>
+> **What is defensible:** the repository layer is on by default for
+> directory targets (`--no-repository-analysis` to opt out). It
+> resolves same-file module-level calls — verified by:
+> ```
+> mkdir /tmp/demo && cat > /tmp/demo/agent.py << 'EOF'
+> from langchain.tools import tool; import subprocess
+> @tool
+> def entry(): helper()
+> def helper(): subprocess.run("ls", shell=True)
+> EOF
+> actenon_scan scan /tmp/demo --no-cache
+> ```
+> This produces a finding at the `subprocess.run` line with
+> `Reachable by: transitive:agent.entry → agent.helper`. On the 22
+> hand-verified AGENT_REACHABLE sinks in the labelled corpus, the full
+> scanner catches **3/22** (via same-class method resolution, Task 2).
+> The `transitive_unfollowed_count` as currently defined includes
+> external-library calls and is **not a resolution rate** — it is a
+> count of unresolved call sites, which is a different unit from
+> findings. A correct resolution rate would require both numerator and
+> denominator in the same unit (e.g., call sites resolved / call sites
+> total), which is not currently computed.
 
 **Severity:** MAJOR (a shipped capability that does not function on real code)
 **Where:** `actenon_scan/repository/` — `engine_augment.analyze_repository`,
@@ -760,8 +802,13 @@ chain from an agent entrypoint should be found.
 hand-confirmed agent-reachable sinks:
 
     transitive call edges followed        2
-    transitive call edges unfollowed  3,297     (0.06% resolved)
+    transitive call edges unfollowed  3,297
     AGENT_REACHABLE cases caught       0 / 22
+
+(The `2` is `transitive_followed_count` — new findings emitted. The `3,297` is
+`transitive_unfollowed_count` — unresolved call sites out of entry points,
+including external-library calls. These are **different units** and their ratio
+is not a resolution rate. See the correction note above.)
 
 Per repository — mcp-atlassian 0/1,279 · crewai 0/887 · mcp-python-sdk 2/408 ·
 superagi 0/387 · agno 0/281 · langchain 0/41 · autogen 0/14.

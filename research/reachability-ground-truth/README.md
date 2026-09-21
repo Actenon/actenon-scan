@@ -223,7 +223,10 @@ def _ripgrep_search(self, ...):
 
 ### The most severe individual finding
 
-`superagi/agent/output_handler.py:180` —
+`superagi/agent/output_handler.py:180` — this is
+[CVE-2024-21552](https://nvd.nist.gov/vuln/detail/CVE-2024-21552) (CVSS 9.8,
+public since 2024). See
+[REDISCOVERY-CVE-2024-21552.md](REDISCOVERY-CVE-2024-21552.md).
 
 ```python
 def handle(self, session, assistant_reply):
@@ -232,8 +235,12 @@ def handle(self, session, assistant_reply):
 ```
 
 `eval()` applied directly to the LLM's reply, reached from
-`ToolOutputHandler.handle_tool_response(session, assistant_reply)`. Arbitrary
-code execution driven by model output, currently scored unreachable.
+`ToolOutputHandler.handle_tool_response(session, assistant_reply)`. The
+scanner matched the `eval()` sink (`EXEC-CODE` rule) but did **not** connect
+it to an agent boundary — mechanism `LLM_OUTPUT_TO_SINK` is outside the
+entry-point → sink model. Human ground-truth adjudication identified the path.
+Arbitrary code execution driven by model output, currently scored unreachable
+by the scanner.
 
 ---
 
@@ -336,9 +343,18 @@ Measured across the ten repositories holding the 22 confirmed cases:
 
 ```
 transitive call edges followed      2
-transitive call edges unfollowed  3,297      (0.06% resolved)
+transitive call edges unfollowed  3,297
 AGENT_REACHABLE cases caught       0 / 22
 ```
+
+> **Correction note (2026-09-20):** A previous version presented
+> `2 / 3,297 = 0.06% resolved` as a resolution rate. That ratio is a
+> unit error: the numerator counts new findings emitted; the
+> denominator counts unresolved call sites out of entry points
+> (including external-library calls). Dividing findings by call sites
+> produces a number with no physical meaning. The 0.06% figure has
+> been removed. The two numbers are reported separately above without
+> a ratio.
 
 Per repository: mcp-atlassian 0 followed / 1,279 unfollowed · crewai
 0/887 · mcp-python-sdk 2/408 · superagi 0/387 · agno 0/281 · langchain
