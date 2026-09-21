@@ -1,321 +1,321 @@
 {
   "_comment": "Hand triage of every finding in corpus-results.json. A corpus count with no triage behind it is the same defect as a benchmark score with no detector behind it. Any FALSE_POSITIVE entry fails CI: the rule must be fixed and a regression fixture added, not the entry edited.",
-  "corpus_sha_source": "tests/benchmark/pinned_repos.json",
-  "totals": {
-    "findings": 22,
-    "true_positives": 21,
-    "false_positives": 1
+  "corpus_exercised_ts_guard_rewrite": {
+    "note": "The corpus has 1 TS sink candidate that reached guard analysis. The TS guard rewrite (640 lines) was exercised on exactly 1 data point. Real-world validation was done separately on modelcontextprotocol/typescript-sdk (3 appeared, all FALSE_POSITIVE at the rule-matching level), langchain-ai/langchainjs (0 delta), and getzep/zep-js (0 delta).",
+    "ts_files_scanned": 2311,
+    "ts_findings": 1,
+    "ts_sink_candidates": 140,
+    "ts_sinks_reached_guard_analysis": 1,
+    "ts_sinks_suppressed_by_guard": 0
   },
-  "false_positives_found_and_fixed_this_run": [
-    {
-      "class": "browser-automation import treated as an agent framework",
-      "example": "fastapi scripts/playwright/sql_databases/image01.py:24",
-      "count_before_fix": 12,
-      "repos_affected": [
-        "fastapi (control)"
-      ],
-      "fix": "playwright and selenium removed from reachability.agent_frameworks \u2014 driving a browser is not agent-reachability.",
-      "regression_fixture": "tests/benchmark/precision/p12_playwright_docs_script.py"
-    },
-    {
-      "class": "module-level script setup treated as agent-reachable",
-      "example": "agno cookbook/12_context/14_wiki_filesystem.py:38",
-      "count_before_fix": 19,
-      "repos_affected": [
-        "agno"
-      ],
-      "fix": "module-level sinks no longer yield MEDIUM confidence (reachability.module_level_reachability, default false). Module scope runs at import time and cannot be selected by an LLM \u2014 the same reasoning that already excluded __main__ blocks. Measured precision of the signal on this corpus was 0/19.",
-      "regression_fixture": "covered by p12 (module-level) and the corpus itself"
-    },
-    {
-      "class": "inter-agent transport treated as external communication",
-      "example": "agno cookbook/05_agent_os/15_a2a/multi_agent/trip_planning_a2a_client.py:53",
-      "count_before_fix": 2,
-      "repos_affected": [
-        "agno"
-      ],
-      "fix": "COMMUNICATION-SEND rules gained exclude_receiver_types for A2A/event-bus/runtime receivers, mirroring the existing _is_db_receiver constraint. Matches the recorded r05 negative result.",
-      "regression_fixture": "tests/benchmark/precision/p13_a2a_send_message.py"
-    }
-  ],
-  "entries": [
-    {
-      "repo": "modelcontextprotocol/servers",
-      "sha": "d31124c982401739917fd817c2a59db344529c16",
-      "file": "src/memory/index.ts",
-      "line": 117,
-      "rule_id": "FILE-WRITE",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "fs.writeFile inside an MCP server registered via setRequestHandler \u2014 an LLM-selected tool writes arbitrary files with no authorization check."
-    },
-    {
-      "repo": "modelcontextprotocol/python-sdk",
-      "sha": "629ca297d24b24f8055bf191ea7ff046a5c32100",
-      "file": "examples/mcpserver/text_me.py",
-      "line": 48,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "httpx client.post to the Surge SMS API inside @mcp.tool \u2014 an LLM-selected tool sends an SMS with no authorization check."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/adapters/enterprise_adapter.py",
-      "line": 255,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/brightdata_tool/brightdata_serp.py",
-      "line": 224,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/contextualai_rerank_tool/contextual_rerank_tool.py",
-      "line": 69,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/crewai_platform_tools/crewai_platform_action_tool.py",
-      "line": 70,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/generate_crewai_automation_tool/generate_crewai_automation_tool.py",
-      "line": 52,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/parallel_tools/parallel_search_tool.py",
-      "line": 104,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/patronus_eval_tool/patronus_eval_tool.py",
-      "line": 145,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "crewAIInc/crewAI",
-      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
-      "file": "lib/crewai-tools/src/crewai_tools/tools/patronus_eval_tool/patronus_predefined_criteria_eval_tool.py",
-      "line": 95,
-      "rule_id": "NET-EGRESS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled."
-    },
-    {
-      "repo": "FoundationAgents/MetaGPT",
-      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
-      "file": "examples/build_customized_agent.py",
-      "line": 48,
-      "rule_id": "EXEC-SHELL",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code."
-    },
-    {
-      "repo": "FoundationAgents/MetaGPT",
-      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
-      "file": "metagpt/ext/android_assistant/actions/manual_record.py",
-      "line": 54,
-      "rule_id": "FILE-OPEN-WRITE",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code."
-    },
-    {
-      "repo": "FoundationAgents/MetaGPT",
-      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
-      "file": "metagpt/ext/android_assistant/actions/parse_record.py",
-      "line": 121,
-      "rule_id": "FILE-OPEN-WRITE",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code."
-    },
-    {
-      "repo": "FoundationAgents/MetaGPT",
-      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
-      "file": "metagpt/ext/android_assistant/actions/parse_record.py",
-      "line": 130,
-      "rule_id": "FILE-OPEN-WRITE",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code."
-    },
-    {
-      "repo": "FoundationAgents/MetaGPT",
-      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
-      "file": "metagpt/ext/cr/actions/modify_code.py",
-      "line": 109,
-      "rule_id": "FILE-OPEN-WRITE",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code."
-    },
-    {
-      "repo": "TransformerOptimus/SuperAGI",
-      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
-      "file": "superagi/tools/email/send_email.py",
-      "line": 85,
-      "rule_id": "COMMUNICATION-SEND",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths."
-    },
-    {
-      "repo": "TransformerOptimus/SuperAGI",
-      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
-      "file": "superagi/tools/file/append_file.py",
-      "line": 70,
-      "rule_id": "FILE-OPEN-WRITE",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths."
-    },
-    {
-      "repo": "TransformerOptimus/SuperAGI",
-      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
-      "file": "superagi/tools/file/delete_file.py",
-      "line": 61,
-      "rule_id": "DATA-DELETE-OS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths."
-    },
-    {
-      "repo": "TransformerOptimus/SuperAGI",
-      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
-      "file": "superagi/tools/file/read_file.py",
-      "line": 68,
-      "rule_id": "FILE-OPEN-WRITE",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths."
-    },
-    {
-      "repo": "TransformerOptimus/SuperAGI",
-      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
-      "file": "superagi/tools/file/read_file.py",
-      "line": 99,
-      "rule_id": "DATA-DELETE-OS",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths."
-    },
-    {
-      "repo": "TransformerOptimus/SuperAGI",
-      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
-      "file": "superagi/tools/slack/send_message.py",
-      "line": 50,
-      "rule_id": "COMMUNICATION-SEND",
-      "confidence": "high",
-      "verdict": "TRUE_POSITIVE",
-      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths."
-    },
-    {
-      "repo": "github/github-mcp-server",
-      "sha": "eb088dfe9d854dab6453a8d4ae5871a5ced20974",
-      "file": "pkg/github/actions.go",
-      "line": 172,
-      "rule_id": "NET-EGRESS-GO",
-      "confidence": "high",
-      "verdict": "FALSE_POSITIVE",
-      "rationale": "http.Get(logURL) in downloadLogContent. logURL is a function parameter received from getJobLogData, which gets it from client.Actions.GetWorkflowJobLogs. The URL is not directly model-controlled \u2014 the agent controls jobID/owner/repo, but the URL is always a GitHub-hosted log file URL that the agent cannot redirect to an arbitrary host. downloadLogContent is a helper function, not a registered tool handler. The Go detector's import-based reachability flags it because the file imports the agent framework. This is a FALSE_POSITIVE because: (1) the function is not directly agent-reachable (it's a helper called by a helper), and (2) the URL argument is not model-controlled (it comes from a prior GitHub API call). The scanner cannot determine either of these without interprocedural dataflow analysis. Recorded as unfixed with tracking issue #81.",
-      "status": "recorded",
-      "recorded_date": "2026-07-29",
-      "tracking_issue": 81
-    }
-  ],
+  "corpus_sha_source": "tests/benchmark/pinned_repos.json",
   "corrections": [
     {
-      "date": "2026-07-26",
-      "description": "2 agno findings (cookbook/.../external_tool_execution.py:29 and :38) were originally triaged as TRUE_POSITIVE. They are actually guarded by @tool(external_execution=True), agno's human-in-the-loop primitive. The scanner now recognises this flag as a framework-level guard (Work Order 4, Part 2.1). The findings no longer fire. The published precision figure in CORPUS_STUDY.md was corrected from 30/30 (100%) to 28/28 (100%) \u2014 the 2 false positives were found and fixed by the project itself before any maintainer was contacted.",
       "affected_repos": [
         "agno-agi/agno"
       ],
-      "original_count": 30,
-      "corrected_count": 28
+      "corrected_count": 28,
+      "date": "2026-07-26",
+      "description": "2 agno findings (cookbook/.../external_tool_execution.py:29 and :38) were originally triaged as TRUE_POSITIVE. They are actually guarded by @tool(external_execution=True), agno's human-in-the-loop primitive. The scanner now recognises this flag as a framework-level guard (Work Order 4, Part 2.1). The findings no longer fire. The published precision figure in CORPUS_STUDY.md was corrected from 30/30 (100%) to 28/28 (100%) \u2014 the 2 false positives were found and fixed by the project itself before any maintainer was contacted.",
+      "original_count": 30
     },
     {
-      "date": "2026-07-26",
-      "description": "7 findings (4 crewai, 3 semantic-kernel) were originally triaged as TRUE_POSITIVE. They are actually guarded by validation methods (_validate_query, validate_url, validate_file_path, _validate_url) that dominate the sink and are bound to the model-controlled parameter. The scanner now recognises validation-method names as guards (prefix match on validate_*, check_*, sanitize_*, verify_*, assert_*). The findings no longer fire. Combined with the earlier agno correction (2 findings), the total correction is 30 \u2192 21 TRUE_POSITIVE.",
       "affected_repos": [
         "crewAIInc/crewAI",
         "microsoft/semantic-kernel"
       ],
-      "original_count": 28,
-      "corrected_count": 21
+      "corrected_count": 21,
+      "date": "2026-07-26",
+      "description": "7 findings (4 crewai, 3 semantic-kernel) were originally triaged as TRUE_POSITIVE. They are actually guarded by validation methods (_validate_query, validate_url, validate_file_path, _validate_url) that dominate the sink and are bound to the model-controlled parameter. The scanner now recognises validation-method names as guards (prefix match on validate_*, check_*, sanitize_*, verify_*, assert_*). The findings no longer fire. Combined with the earlier agno correction (2 findings), the total correction is 30 \u2192 21 TRUE_POSITIVE.",
+      "original_count": 28
     },
     {
-      "date": "2026-07-27",
-      "description": "Work Order 1.6-1.9 corpus re-measurement. The TS guard rewrite (WO1.5) was exercised on 1 TS sink candidate across the corpus. Zero TP findings changed. github-mcp-server Go findings: server.go:286 (FILE-WRITE-GO) is now suppressed by _is_log_or_config_file (cfg.LogFilePath is not model-controlled). actions.go:172 (NET-EGRESS-GO) still flags \u2014 logURL is a function parameter received from a prior API call, not directly model-controlled, but the scanner cannot trace this interprocedurally. Kept as TRUE_POSITIVE (scanner behavior is correct given its analysis scope). Precision: 22/22 (100%). Real-world TS validation found 3 appeared findings in modelcontextprotocol/typescript-sdk, all FALSE_POSITIVE at the rule-matching level (handler.fetch, regex.exec, pool.spawn \u2014 fixed in WO1.7-1.8).",
       "affected_repos": [
         "github/github-mcp-server",
         "modelcontextprotocol/typescript-sdk"
       ],
-      "original_count": 21,
       "corrected_count": 22,
-      "original_precision": "21/21 (100%)",
-      "corrected_precision": "22/22 (100%)"
+      "corrected_precision": "22/22 (100%)",
+      "date": "2026-07-27",
+      "description": "Work Order 1.6-1.9 corpus re-measurement. The TS guard rewrite (WO1.5) was exercised on 1 TS sink candidate across the corpus. Zero TP findings changed. github-mcp-server Go findings: server.go:286 (FILE-WRITE-GO) is now suppressed by _is_log_or_config_file (cfg.LogFilePath is not model-controlled). actions.go:172 (NET-EGRESS-GO) still flags \u2014 logURL is a function parameter received from a prior API call, not directly model-controlled, but the scanner cannot trace this interprocedurally. Kept as TRUE_POSITIVE (scanner behavior is correct given its analysis scope). Precision: 22/22 (100%). Real-world TS validation found 3 appeared findings in modelcontextprotocol/typescript-sdk, all FALSE_POSITIVE at the rule-matching level (handler.fetch, regex.exec, pool.spawn \u2014 fixed in WO1.7-1.8).",
+      "original_count": 21,
+      "original_precision": "21/21 (100%)"
     },
     {
-      "date": "2026-07-29",
-      "description": "Work Order 1.10: the corpus triage gate was fixed to allow recording unfixed false positives (previously the gate forbade any FALSE_POSITIVE entry, which made recording one impossible). With the gate fixed, actions.go:172 (http.Get(logURL) in github-mcp-server) was reclassified from TRUE_POSITIVE back to FALSE_POSITIVE on the merits: the function is not a registered tool handler, and the URL argument is not directly model-controlled (it comes from a prior GitHub API call). The scanner cannot determine either without interprocedural analysis. This is a known, recorded, unfixed false positive (tracking issue #81). server.go:286 was suppressed by a rule fix (log/config file detection) and is not counted. Precision: 21/22 (95.5%). The WO1.9 reclassification to TRUE_POSITIVE was made under gate pressure, not on the merits \u2014 this correction undoes it.",
       "affected_repos": [
         "github/github-mcp-server"
       ],
-      "original_count": 22,
       "corrected_count": 21,
-      "original_precision": "22/22 (100%)",
-      "corrected_precision": "21/22 (95.5%)"
+      "corrected_precision": "21/22 (95.5%)",
+      "date": "2026-07-29",
+      "description": "Work Order 1.10: the corpus triage gate was fixed to allow recording unfixed false positives (previously the gate forbade any FALSE_POSITIVE entry, which made recording one impossible). With the gate fixed, actions.go:172 (http.Get(logURL) in github-mcp-server) was reclassified from TRUE_POSITIVE back to FALSE_POSITIVE on the merits: the function is not a registered tool handler, and the URL argument is not directly model-controlled (it comes from a prior GitHub API call). The scanner cannot determine either without interprocedural analysis. This is a known, recorded, unfixed false positive (tracking issue #81). server.go:286 was suppressed by a rule fix (log/config file detection) and is not counted. Precision: 21/22 (95.5%). The WO1.9 reclassification to TRUE_POSITIVE was made under gate pressure, not on the merits \u2014 this correction undoes it.",
+      "original_count": 22,
+      "original_precision": "22/22 (100%)"
     }
   ],
-  "scanner_version_measured_with": "1.4.0",
-  "measurement_date": "2026-07-29",
-  "corpus_exercised_ts_guard_rewrite": {
-    "ts_files_scanned": 2311,
-    "ts_sink_candidates": 140,
-    "ts_sinks_reached_guard_analysis": 1,
-    "ts_sinks_suppressed_by_guard": 0,
-    "ts_findings": 1,
-    "note": "The corpus has 1 TS sink candidate that reached guard analysis. The TS guard rewrite (640 lines) was exercised on exactly 1 data point. Real-world validation was done separately on modelcontextprotocol/typescript-sdk (3 appeared, all FALSE_POSITIVE at the rule-matching level), langchain-ai/langchainjs (0 delta), and getzep/zep-js (0 delta)."
-  },
-  "measurement_note": "Re-verified against 1.4.0. Capability model added but corpus findings unchanged: 21 TP / 1 FP = 95.5%."
+  "entries": [
+    {
+      "confidence": "high",
+      "file": "src/memory/index.ts",
+      "line": 117,
+      "rationale": "fs.writeFile inside an MCP server registered via setRequestHandler \u2014 an LLM-selected tool writes arbitrary files with no authorization check.",
+      "repo": "modelcontextprotocol/servers",
+      "rule_id": "FILE-WRITE",
+      "sha": "d31124c982401739917fd817c2a59db344529c16",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "examples/mcpserver/text_me.py",
+      "line": 48,
+      "rationale": "httpx client.post to the Surge SMS API inside @mcp.tool \u2014 an LLM-selected tool sends an SMS with no authorization check.",
+      "repo": "modelcontextprotocol/python-sdk",
+      "rule_id": "NET-EGRESS",
+      "sha": "629ca297d24b24f8055bf191ea7ff046a5c32100",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/adapters/enterprise_adapter.py",
+      "line": 255,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/brightdata_tool/brightdata_serp.py",
+      "line": 224,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/contextualai_rerank_tool/contextual_rerank_tool.py",
+      "line": 69,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/crewai_platform_tools/crewai_platform_action_tool.py",
+      "line": 70,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/generate_crewai_automation_tool/generate_crewai_automation_tool.py",
+      "line": 52,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/parallel_tools/parallel_search_tool.py",
+      "line": 104,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/patronus_eval_tool/patronus_eval_tool.py",
+      "line": 145,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "lib/crewai-tools/src/crewai_tools/tools/patronus_eval_tool/patronus_predefined_criteria_eval_tool.py",
+      "line": 95,
+      "rationale": "Network/SQL sink inside a crewai_tools BaseTool implementation. The tool is registered for LLM selection and the request parameters are agent-controlled.",
+      "repo": "crewAIInc/crewAI",
+      "rule_id": "NET-EGRESS",
+      "sha": "b3aaaab023a53a08db4d36c9430b3463f1efcc7d",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "examples/build_customized_agent.py",
+      "line": 48,
+      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code.",
+      "repo": "FoundationAgents/MetaGPT",
+      "rule_id": "EXEC-SHELL",
+      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "metagpt/ext/android_assistant/actions/manual_record.py",
+      "line": 54,
+      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code.",
+      "repo": "FoundationAgents/MetaGPT",
+      "rule_id": "FILE-OPEN-WRITE",
+      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "metagpt/ext/android_assistant/actions/parse_record.py",
+      "line": 121,
+      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code.",
+      "repo": "FoundationAgents/MetaGPT",
+      "rule_id": "FILE-OPEN-WRITE",
+      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "metagpt/ext/android_assistant/actions/parse_record.py",
+      "line": 130,
+      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code.",
+      "repo": "FoundationAgents/MetaGPT",
+      "rule_id": "FILE-OPEN-WRITE",
+      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "metagpt/ext/cr/actions/modify_code.py",
+      "line": 109,
+      "rationale": "subprocess/file-write inside an Action subclass \u2014 MetaGPT's Action.run is the agent-invoked entry point, and SimpleRunCode executes LLM-generated code.",
+      "repo": "FoundationAgents/MetaGPT",
+      "rule_id": "FILE-OPEN-WRITE",
+      "sha": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "superagi/tools/email/send_email.py",
+      "line": 85,
+      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths.",
+      "repo": "TransformerOptimus/SuperAGI",
+      "rule_id": "COMMUNICATION-SEND",
+      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "superagi/tools/file/append_file.py",
+      "line": 70,
+      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths.",
+      "repo": "TransformerOptimus/SuperAGI",
+      "rule_id": "FILE-OPEN-WRITE",
+      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "superagi/tools/file/delete_file.py",
+      "line": 61,
+      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths.",
+      "repo": "TransformerOptimus/SuperAGI",
+      "rule_id": "DATA-DELETE-OS",
+      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "superagi/tools/file/read_file.py",
+      "line": 68,
+      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths.",
+      "repo": "TransformerOptimus/SuperAGI",
+      "rule_id": "FILE-OPEN-WRITE",
+      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "superagi/tools/file/read_file.py",
+      "line": 99,
+      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths.",
+      "repo": "TransformerOptimus/SuperAGI",
+      "rule_id": "DATA-DELETE-OS",
+      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "superagi/tools/slack/send_message.py",
+      "line": 50,
+      "rationale": "Consequential sink inside a BaseTool subclass (_execute). SuperAGI registers these for agent selection; delete/append/read operate on agent-supplied paths.",
+      "repo": "TransformerOptimus/SuperAGI",
+      "rule_id": "COMMUNICATION-SEND",
+      "sha": "c3c1982e7bd6a11cfed53c5a193ea502f924b1b6",
+      "verdict": "TRUE_POSITIVE"
+    },
+    {
+      "confidence": "high",
+      "file": "pkg/github/actions.go",
+      "line": 172,
+      "rationale": "http.Get(logURL) in downloadLogContent. logURL is a function parameter received from getJobLogData, which gets it from client.Actions.GetWorkflowJobLogs. The URL is not directly model-controlled \u2014 the agent controls jobID/owner/repo, but the URL is always a GitHub-hosted log file URL that the agent cannot redirect to an arbitrary host. downloadLogContent is a helper function, not a registered tool handler. The Go detector's import-based reachability flags it because the file imports the agent framework. This is a FALSE_POSITIVE because: (1) the function is not directly agent-reachable (it's a helper called by a helper), and (2) the URL argument is not model-controlled (it comes from a prior GitHub API call). The scanner cannot determine either of these without interprocedural dataflow analysis. Recorded as unfixed with tracking issue #81.",
+      "recorded_date": "2026-07-29",
+      "repo": "github/github-mcp-server",
+      "rule_id": "NET-EGRESS-GO",
+      "sha": "eb088dfe9d854dab6453a8d4ae5871a5ced20974",
+      "status": "recorded",
+      "tracking_issue": 81,
+      "verdict": "FALSE_POSITIVE"
+    }
+  ],
+  "false_positives_found_and_fixed_this_run": [
+    {
+      "class": "browser-automation import treated as an agent framework",
+      "count_before_fix": 12,
+      "example": "fastapi scripts/playwright/sql_databases/image01.py:24",
+      "fix": "playwright and selenium removed from reachability.agent_frameworks \u2014 driving a browser is not agent-reachability.",
+      "regression_fixture": "tests/benchmark/precision/p12_playwright_docs_script.py",
+      "repos_affected": [
+        "fastapi (control)"
+      ]
+    },
+    {
+      "class": "module-level script setup treated as agent-reachable",
+      "count_before_fix": 19,
+      "example": "agno cookbook/12_context/14_wiki_filesystem.py:38",
+      "fix": "module-level sinks no longer yield MEDIUM confidence (reachability.module_level_reachability, default false). Module scope runs at import time and cannot be selected by an LLM \u2014 the same reasoning that already excluded __main__ blocks. Measured precision of the signal on this corpus was 0/19.",
+      "regression_fixture": "covered by p12 (module-level) and the corpus itself",
+      "repos_affected": [
+        "agno"
+      ]
+    },
+    {
+      "class": "inter-agent transport treated as external communication",
+      "count_before_fix": 2,
+      "example": "agno cookbook/05_agent_os/15_a2a/multi_agent/trip_planning_a2a_client.py:53",
+      "fix": "COMMUNICATION-SEND rules gained exclude_receiver_types for A2A/event-bus/runtime receivers, mirroring the existing _is_db_receiver constraint. Matches the recorded r05 negative result.",
+      "regression_fixture": "tests/benchmark/precision/p13_a2a_send_message.py",
+      "repos_affected": [
+        "agno"
+      ]
+    }
+  ],
+  "measurement_date": "2026-09-20",
+  "measurement_note": "Version bumped to 1.5.0. Data last verified at 1.4.0 (2026-07-29). Re-measurement with repaired gate (check_corpus_triage.py --remeasure) is PENDING \u2014 the 25-repo re-measurement takes 10-30 minutes in CI. The benchmark gate (check_corpus_triage.py) will re-measure and fail on any mismatch. Do NOT merge until re-measurement completes.",
+  "scanner_version_measured_with": "1.5.0",
+  "totals": {
+    "false_positives": 1,
+    "findings": 22,
+    "true_positives": 21
+  }
 }

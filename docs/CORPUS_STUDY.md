@@ -209,8 +209,8 @@ python scripts/generate_corpus_study.py --check
 
 ## Scanner version
 
-- **Measured with:** actenon-scan 1.4.0
-- **Measurement date:** 2026-07-29
+- **Measured with:** actenon-scan 1.5.0
+- **Measurement date:** 2026-09-20
 
 The corpus is a measurement taken with a specific scanner version. When
 the scanner's analysis changes materially, the corpus must be re-measured.

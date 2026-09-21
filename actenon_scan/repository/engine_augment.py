@@ -422,16 +422,36 @@ def analyze_repository(
         reach = transitive_reachable(graph, ep_qnames, max_depth=cfg.max_depth)
 
         # Disclosure: count UNRESOLVED edges out of agent entrypoints.
-        # These are call sites the repo layer could NOT follow —
-        # dynamic dispatch (``getattr(obj, 'm')()``), external-module
-        # calls, etc. Sinks reached only through such calls are NOT in
-        # the findings list; the disclosure count tells the user these
-        # unfollowable calls exist so they can audit them manually.
+        # These are call sites the repo layer could NOT follow.
+        # Phase 3.2 (D3): only count edges where the callee is a LOCAL
+        # call (a bare name, self.x, or dynamic dispatch on a local
+        # variable). External-library calls (subprocess.run,
+        # requests.post, json.loads, etc.) are NOT counted as unfollowed
+        # — they are external calls, a different unit. An inline sink
+        # (requests.post directly inside @tool) should NOT produce
+        # "1 unfollowed call".
+        #
+        # Heuristic: if the callee text has a dot prefix that is NOT
+        # "self" or "cls", it's likely an external-module call. Bare
+        # names (like `fn` from `getattr`) are counted as unfollowed
+        # (conservative — might be local, we can't prove otherwise).
         unfollowed = 0
+        external_call_count = 0  # separate, informational
         for ep_qname in ep_qnames:
             for edge in graph.edges_by_caller.get(ep_qname, []):
                 if edge.is_unresolved():
-                    unfollowed += 1
+                    callee = edge.callee
+                    # Determine if this is an external-library call
+                    is_external = (
+                        "." in callee
+                        and not callee.startswith("self.")
+                        and not callee.startswith("cls.")
+                        and not callee.startswith("<")
+                    )
+                    if is_external:
+                        external_call_count += 1
+                    else:
+                        unfollowed += 1
         result.transitive_unfollowed_count = unfollowed
 
         # Seed effect summaries from per-file findings/capabilities AND
