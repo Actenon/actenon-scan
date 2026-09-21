@@ -909,7 +909,25 @@
       "tools",
       "toolkits",
       "functions",
-      "plugins"
+      "plugins",
+      "sync_tools",
+      "tools_list",
+      "handlers"
+    ],
+    "tool_registration_patterns": [
+      "server.call_tool",
+      "register_tool",
+      "add_tool_handler",
+      "register_function",
+      "register_for_llm",
+      "register_for_execution",
+      "call_tool",
+      "list_tools"
+    ],
+    "callback_executor_functions": [
+      "asyncio.to_thread",
+      "loop.run_in_executor",
+      "run_in_executor"
     ],
     "agent_frameworks": [
       "langchain",

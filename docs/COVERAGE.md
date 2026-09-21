@@ -39,9 +39,12 @@ or if a recall fixture has no row here.
 | `r08` | SMTP `send_message` — `smtplib.SMTP(...).send_message(...)` | PARTIAL | - |
 | `r09` | Shell execution without external_execution guard | PARTIAL | - |
 | `r10` | SQL execute without validation guard | PARTIAL | - |
-| `r11` | Same-class method resolution — `BaseTool._run` → `self.helper()` → sink | PARTIAL | - |
-| `r12` | Same-class multi-hop (2 hops) — `BaseTool._execute` → `self.a()` → `self.b()` → sink | PARTIAL | - |
+| `r11` | Same-class method resolution — `BaseTool._run` → `self.helper()` → sink. Phase 5 also resolves the nested-`@tool` shape: `__init__` defines `@tool def file_tool(): self._handle_delete(...)`, where `_handle_delete` is a same-class method with the sink (langchain `anthropic_tools.py:1040`, `file_search.py:314`). | PARTIAL | - |
+| `r12` | Same-class multi-hop (≤3 hops) — `BaseTool._execute` → `self.a()` → `self.b()` → sink. Phase 5 also follows the MCP callback-registration + executor shape: `@server.call_tool()` handler invokes `asyncio.to_thread(self._execute, …)` which calls `self._ensure_namespace()` which calls `exec(...)` (browser-use `cli_mcp.py:105`, 3 hops; `:128`, 1 hop). | PARTIAL | - |
 | `r13` | Same-class multi-hop (2 hops, email) — `BaseTool._execute` → `self.send()` → `smtp.send_message` | PARTIAL | - |
+| `r15` | MCP callback registration — `@server.call_tool()` nested handler invokes a same-class method via `asyncio.to_thread(self.M)`. Resolved by suffix-matching on `tool_decorators` (Phase 5) plus the `callback_executor_functions` whitelist. | PARTIAL | - |
+| `r16` | List-assigned-once tool registration — Toolkit `__init__` builds `tools = [self.M, …]` (literal, single assignment, no `.append()`) and passes it to `super().__init__(tools=tools)`. Resolved by extending `_is_in_tool_list` to handle `self.M` references and the local-list-then-pass shape (Phase 5.2). Conditional `tools.append(self.M)` (agno/agentql.py, agno/telegram.py) is dynamic registration and is NOT resolved — disclosed as an unresolved entry point. | PARTIAL | - |
+| `r17` | Nested-`@tool` helper call — `__init__` defines `@tool def file_tool(): self.helper()` where `helper` is a same-class method with the sink. Resolved by recognising nested agent-reachable FunctionDefs as same-class-reachable entrypoints (Phase 5.1). | PARTIAL | - |
 
 **COVERED (3)** — detector fires, and it has been shown to fire on real code
 that a third party wrote.
