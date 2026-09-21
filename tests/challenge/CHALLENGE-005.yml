@@ -1,0 +1,27 @@
+id: CHALLENGE-005
+title: "LLM output flows to eval() — mechanism LLM_OUTPUT_TO_SINK (CVE-2024-21552 shape)"
+class: missed-sink
+language: python
+status: open
+submitted_by: actenon
+submitted_date: 2026-09-20
+issue: 0
+rule_id: EXEC-CODE
+expected: finding
+evidence: |
+  The scanner's EXEC-CODE rule matches `eval(assistant_reply)` at the
+  sink line. But the scanner does NOT connect it to an agent boundary
+  because the mechanism is LLM_OUTPUT_TO_SINK — the LLM's text output
+  flows directly to eval() without going through a recognised tool
+  boundary (@tool, tool base class, tools= list, callback
+  registration). The entry-point → sink model cannot represent this
+  path because the "entry point" IS the LLM output itself.
+
+  This is the CVE-2024-21552 shape in SuperAGI
+  (superagi/agent/output_handler.py:180). The scanner matched the
+  sink; human ground-truth adjudication identified the path.
+
+  See docs/COVERAGE.md "LLM output reaching a sink" section.
+  See research/reachability-ground-truth/REDISCOVERY-CVE-2024-21552.md.
+
+fixture_file: tests/challenge/CHALLENGE-005.py

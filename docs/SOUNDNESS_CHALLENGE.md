@@ -39,6 +39,7 @@ _These are the cases the scanner currently gets wrong._
 |---|-----------|-------|----------|-------|
 | #0 | @actenon | false-positive | go | Constant-path delete in Cleanup method reported as finding |
 | #0 | @actenon | missed-sink | go | os.Chmod / os.Chown not detected — deliberately excluded for parity |
+| #0 | @? | missed-sink | python | LLM output flows to eval() — mechanism LLM_OUTPUT_TO_SINK (CVE-2024-21552 shape) |
 
 ## Fixed cases
 

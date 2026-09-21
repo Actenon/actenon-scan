@@ -26,6 +26,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing repos; this is NOT a breaking change (the ruleset version in
   `default_rules.json` is bumped instead).
 
+## [1.5.0] — 2026-09-20
+
+### Public corrections (Phase 1)
+
+- Retracted the 0.06% claim (unit error: findings divided by call sites)
+- CVE-2024-21552 rediscovery note (scanner matched sink, did not connect
+  to agent boundary; human adjudication identified the path)
+- DISCLOSURE_POLICY.md: pre-draft checks (NVD/OSV/GHSA), unsent drafts
+  never committed to this repository
+- Withdrew the 43%-52% recall bracket (three defects: direction bias,
+  scope-as-adjudication, misclassified highest-weight case)
+- README: replaced "Every claim above is machine-verified" with
+  "Machine-verified package claims" (names only what verify-claims.yml
+  actually verifies)
+
+### Cache determinism fix (Phase 2 / D1)
+
+- Capabilities now cached alongside findings (warm cache capability
+  summary agrees with findings count)
+- Declarative-guard suppression preserved on cache hit (follows from
+  file content, which the cache key hashes)
+- `entry_schema_version=2` in cache key (prior schema entries rejected)
+
+### Default-exclude disclosure (Phase 3 / D10)
+
+- Files excluded by default patterns (venv, build, tests/fixtures, test
+  files) are now counted and the count is printed in every output path
+- `default_excluded_count` field added to `ScanResult` and JSON output
+- A file under `tests/fixtures/` is disclosed as excluded, not silent
+
+### Re-adjudicated recall bracket (Phase 4)
+
+- Pre-registered `ADJUDICATION_RULES.md` before any re-examination
+- 16 Task-5 cases re-adjudicated: 2 moved to AGENT_REACHABLE, 14 to
+  NOT_AGENT_REACHABLE, 0 stayed AMBIGUOUS (NOT one-directional)
+- Brackets: (a) examples in scope: 27.6%-31.0%; (b) examples out of
+  scope: 26.1%-29.4%
+- LoadAndSearchToolSpec.load traced: load IS agent-facing but does NOT
+  chain to drop_table_purge
+- Three recall figures kept separate: synthetic 9/10, corpus 3/10,
+  real-world ~26%-31%, precision 16/16
+
+### LLM output to sink (Phase 5.3)
+
+- `LLM_OUTPUT_TO_SINK` mechanism documented as NOT COVERED in
+  `docs/COVERAGE.md` with CVE-2024-21552 as motivating example
+- `tests/challenge/CHALLENGE-005.yml` filed as open challenge
+
+### README truth pass (Phase 6)
+
+- Repository layer documented (default-on, --no-repository-analysis,
+  disclosure counts)
+- Cross-file guard protection tested: guard in caller NOT detected for
+  sink in callee (documented limitation)
+- Guard detection stated as AST ancestry (lexical), not CFG dominance
+- Pre-commit rev pin updated (v1.2.0 → v1.4.0)
+- Category mismatch fixed: 16/16/16 (detection table = component
+  table = default_rules.json categories)
+
+### Reconciliation ledger (Phase 3.1)
+
+- `docs/RECONCILIATION-disclose-analysis-gaps.md`: 14 commits
+  classified (3 PORTED, 2 SUPERSEDED, 9 NOT_PORTED)
+
+### Bare-verb reconciliation (Task 4c, carried from main)
+
+- `--resource-boundary` flag (opt-in, not default)
+- Bare decorator names removed (`@get`, `@post`, `@patch` — prevents
+  collision with `@patch` from `unittest.mock`)
+- Qualified forms kept (`@app.get`, `@router.post`, `@org_router.get`)
+
+### NOT DONE in 1.5.0
+
+- Phase 5.1-5.2: 5 in-scope misses not resolved; callback/list
+  registration not derived
+- Phase 3.2: edge definition, per-edge detail, fixture exclusion with
+  --include-fixtures, headline dedup, _get_call_name fix,
+  depth-stratified benchmark, CHALLENGE-004 — NOT PORTED (requires
+  LocalCallEdge structure from unmerged branch)
+- Phase 7.1: corpus re-measurement with repaired gate not completed
+  (25-repo re-measurement takes 10-30 minutes in CI)
+- Phase 7.3: branch report partially done (10 merged deleted, 67
+  non-merged listed for human decision)
+
+
 ## [Unreleased]
 
 ### Repository-level analysis: honesty disclosure
