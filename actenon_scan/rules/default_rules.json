@@ -981,7 +981,8 @@
       ]
     },
     "module_level_reachability": false,
-    "resource_boundary_enabled": false
+    "resource_boundary_enabled": false,
+    "follow_local_calls_depth_1": true
   },
   "guard_patterns": [
     "verify_pccb",

@@ -104,6 +104,15 @@ class ScanResult:
     # M files were excluded. This count must be disclosed in every
     # output path.
     default_excluded_count: int = 0
+    # Phase 3.2: per-edge detail for unfollowed local calls. Each entry
+    # is a LocalCallEdge dict with file, line, caller, callee_text,
+    # callee_qname, certainty, reason. Surfaced in JSON/SARIF/markdown/HTML.
+    local_call_edges: list[dict] = field(default_factory=list)
+    # Phase 3.2 (A3): analysis-coverage count pair — both sides observed.
+    # local_calls_followed = edges where callee was resolved (followed)
+    # local_calls_unfollowed = edges where callee is local but unresolved
+    local_calls_followed: int = 0
+    local_calls_unfollowed: int = 0
 
     @property
     def finding_count(self) -> int:
@@ -741,6 +750,11 @@ def scan_path(
     # like @get and @post are NEVER detected (they match @patch from
     # unittest.mock).
     resource_boundary: bool | None = None,
+    # Phase 3.2 (A5): include actenon-scan's own test fixtures in the
+    # scan. Default False — the fixtures are the scanner's own test code,
+    # not the user's blast radius. When True, **/tests/fixtures/** is
+    # NOT excluded by default patterns.
+    include_fixtures: bool = False,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -792,7 +806,7 @@ def scan_path(
         files = [f for f in explicit_files if f.exists() and f.suffix == ".py"]
         _default_excluded_count = 0
     else:
-        files, _default_excluded_count = _collect_files(target, include_globs, exclude_globs)
+        files, _default_excluded_count = _collect_files(target, include_globs, exclude_globs, include_fixtures=include_fixtures)
     # With an explicit file list (--changed-only), classify unsupported files
     # by checking each file's suffix directly — no tree walk needed.
     # This was previously skipped entirely (unsupported_files = []) for perf,
@@ -971,8 +985,16 @@ def scan_path(
             # directly inside @tool-decorated functions).
             from actenon_scan.detectors.reachability import (
                 detect_same_class_method_reachability,
+                detect_module_level_reachability,
             )
             same_class_reachable = detect_same_class_method_reachability(
+                tree, rules.reachability, self_package=self_package
+            )
+            # Phase 5.1: also check module-level function reachability
+            # (follow_local_calls_depth_1). When an agent-reachable
+            # function calls a module-level function by bare name,
+            # follow it one hop at MEDIUM confidence.
+            module_level_reachable = detect_module_level_reachability(
                 tree, rules.reachability, self_package=self_package
             )
 
@@ -981,18 +1003,19 @@ def scan_path(
                 if reach.confidence == "none":
                     # Task 2: Check if this sink is in a method that is
                     # same-class-reachable from an agent entrypoint.
-                    # If so, treat it as MEDIUM confidence (below the
-                    # HIGH confidence of a direct in-tool sink).
-                    #
-                    # same_class_reachable keys are FunctionDef.lineno
-                    # (the 'def' line), not the sink's line. Find the
-                    # enclosing function's lineno.
                     from actenon_scan.detectors.reachability import (
                         _find_enclosing_function,
                     )
                     enclosing = _find_enclosing_function(tree, sf.line)
                     if enclosing is not None and enclosing.lineno in same_class_reachable:
                         signal, hops = same_class_reachable[enclosing.lineno]
+                        reach = ReachabilityResult(
+                            confidence="medium",
+                            signals=[f"{signal}({hops}_hops)"],
+                        )
+                    elif enclosing is not None and enclosing.lineno in module_level_reachable:
+                        # Phase 5.1: module-level function reachability
+                        signal, hops = module_level_reachable[enclosing.lineno]
                         reach = ReachabilityResult(
                             confidence="medium",
                             signals=[f"{signal}({hops}_hops)"],
@@ -1346,6 +1369,9 @@ def scan_path(
         transitive_unfollowed_count=transitive_unfollowed_count,
         repository_analysis_enabled=repository_analysis_enabled,
         default_excluded_count=_default_excluded_count,
+        local_call_edges=getattr(repo_result, "local_call_edges", []) if repository_analysis_enabled else [],
+        local_calls_followed=getattr(repo_result, "local_calls_followed", 0) if repository_analysis_enabled else 0,
+        local_calls_unfollowed=getattr(repo_result, "local_calls_unfollowed", 0) if repository_analysis_enabled else 0,
     )
 
 
@@ -1494,6 +1520,7 @@ def _collect_files(
     target: Path,
     include_globs: list[str] | None,
     exclude_globs: list[str] | None,
+    include_fixtures: bool = False,
 ) -> list[Path]:
     """Collect .py files to scan, respecting include/exclude globs.
 
@@ -1544,8 +1571,10 @@ def _collect_files(
         ".coverage/**", "htmlcov/**",
         # Actenon's own shipped test fixtures (defensive — the wheel also
         # excludes them now, but this catches source-checkout scans).
-        "**/tests/fixtures/**",
+        # Phase 3.2 (A5): skipped when --include-fixtures is passed.
     ]
+    if not include_fixtures:
+        default_dir_excludes.append("**/tests/fixtures/**")
 
     # Detect virtual environments by marker file (pyvenv.cfg). Any directory
     # containing pyvenv.cfg is a venv, regardless of its name. This catches

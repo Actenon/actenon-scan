@@ -154,6 +154,16 @@ def main(argv: list[str] | None = None) -> int:
              "are NEVER matched — they collide with @patch from "
              "unittest.mock and similar.",
     )
+    # Phase 3.2 (A5): --include-fixtures overrides the default exclude
+    # for actenon-scan's own test fixtures (**/tests/fixtures/**).
+    scan_parser.add_argument(
+        "--include-fixtures",
+        action="store_true",
+        default=False,
+        help="Include actenon-scan's own test fixtures (tests/fixtures/) "
+             "in the scan. Excluded by default — the fixtures are the "
+             "scanner's own test code, not the user's blast radius.",
+    )
 
     # rules
     _rules_parser = subparsers.add_parser("rules", help="List active rules.")
@@ -649,6 +659,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 resource_boundary=(
                     True if getattr(args, "resource_boundary", False) else None
                 ),
+                include_fixtures=getattr(args, "include_fixtures", False),
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:

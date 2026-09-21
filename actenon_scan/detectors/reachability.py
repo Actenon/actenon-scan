@@ -308,7 +308,13 @@ def _get_call_name(node: ast.expr) -> str:
         return node.id
     if isinstance(node, ast.Attribute):
         return _get_attribute_chain(node)
-    return ""
+    # Phase 3.2: call-on-a-call (e.g., lox.thread(threads)(run_test)).
+    # Previously returned "" which matched every wrapper name. Now returns
+    # the unparse text so different wrappers are distinguishable.
+    try:
+        return ast.unparse(node)
+    except Exception:
+        return ""
 
 
 def _is_tool_method(
@@ -957,5 +963,86 @@ def detect_same_class_method_reachability(
                 visited.add(callee_line)
                 reachable[callee_line] = ("same_class_method", hops + 1)
                 queue.append((callee_line, hops + 1))
+
+    return reachable
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.1: Module-level function reachability (follow_local_calls_depth_1).
+#
+# When an agent-reachable function (e.g., @tool-decorated) calls a MODULE-LEVEL
+# function by bare name, follow it one hop at MEDIUM confidence. This resolves
+# the mcp-python-sdk/memory.py cases where the chain crosses namespaces.
+#
+# Conservative constraints:
+#   - Same-file ONLY. No cross-file.
+#   - max_hops=1 (configurable via follow_local_calls_depth_1 in config)
+#   - Only when the callee name exactly matches one top-level function
+#   - Ambiguous names (multiple definitions) → not followed
+# ---------------------------------------------------------------------------
+
+
+def detect_module_level_reachability(
+    tree: ast.Module,
+    reachability_cfg: dict[str, Any],
+    *,
+    self_package: str | None = None,
+) -> dict[int, tuple[str, int]]:
+    """Find module-level functions that are reachable via bare-name calls
+    from agent-reachable entrypoints. Returns a dict mapping callee function
+    line number → (signal, hops).
+
+    The signal is "one_hop_local" — MEDIUM confidence, below the HIGH
+    confidence of a direct in-tool sink.
+    """
+    if not reachability_cfg.get("follow_local_calls_depth_1", False):
+        return {}
+
+    reachable: dict[int, tuple[str, int]] = {}
+
+    # Build a map of top-level function names → FunctionDef
+    top_level_funcs: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    ambiguous: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name in top_level_funcs:
+                ambiguous.add(node.name)
+            else:
+                top_level_funcs[node.name] = node
+    for name in ambiguous:
+        top_level_funcs.pop(name, None)
+
+    if not top_level_funcs:
+        return {}
+
+    # Find agent-reachable entrypoints (top-level functions)
+    entrypoints: list[int] = []
+    for name, func in top_level_funcs.items():
+        reach = detect_reachability(
+            tree, func.lineno, reachability_cfg, self_package=self_package
+        )
+        if reach.confidence != "none":
+            entrypoints.append(func.lineno)
+
+    if not entrypoints:
+        return {}
+
+    # For each entrypoint, find bare-name calls to other top-level functions
+    for ep_line in entrypoints:
+        ep_func = None
+        for name, func in top_level_funcs.items():
+            if func.lineno == ep_line:
+                ep_func = func
+                break
+        if ep_func is None:
+            continue
+
+        for node in ast.walk(ep_func):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                callee_name = node.func.id
+                if callee_name in top_level_funcs:
+                    callee = top_level_funcs[callee_name]
+                    if callee.lineno not in reachable and callee.lineno != ep_line:
+                        reachable[callee.lineno] = ("one_hop_local", 1)
 
     return reachable

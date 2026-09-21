@@ -170,7 +170,30 @@ def format_sarif(result: ScanResult) -> str:
                                     if getattr(result, "repository_analysis_enabled", False)
                                     else "Repository analysis disabled (--no-repository-analysis)."
                                 },
+                            },
+                            # Phase 3.2: per-edge detail for unfollowed local calls
+                        ] + [
+                            {
+                                "level": "note",
+                                "message": {
+                                    "text": (
+                                        f"Unfollowed local call: {edge.get('callee_text', '?')} "
+                                        f"at {edge.get('file', '?')}:{edge.get('line', '?')} "
+                                        f"in {edge.get('caller', '?')} "
+                                        f"(reason: {edge.get('reason', '?')})"
+                                    ),
+                                },
+                                # SARIF locations for the unfollowed edge
+                                "locations": [
+                                    {
+                                        "physicalLocation": {
+                                            "artifactLocation": {"uri": edge.get("file", "")},
+                                            "region": {"startLine": edge.get("line", 0)},
+                                        }
+                                    }
+                                ] if edge.get("file") else [],
                             }
+                            for edge in getattr(result, "local_call_edges", [])
                         ],
                     }
                 ],

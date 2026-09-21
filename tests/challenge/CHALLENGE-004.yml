@@ -1,0 +1,25 @@
+id: CHALLENGE-004
+title: "@patch from unittest.mock scored HIGH as a web route (bare-verb collision)"
+class: false-positive
+language: python
+status: fixed
+submitted_by: actenon
+submitted_date: 2026-09-20
+issue: 0
+rule_id: null
+expected: no-finding
+evidence: |
+  The resource_boundary_decorators list previously included bare names
+  ("get", "post", "patch", etc.) alongside qualified forms. As bare
+  names they matched any decorator called @patch in any codebase —
+  including @patch from unittest.mock, which scored HIGH as a web
+  route handler.
+  
+  Fixed: bare names removed from resource_boundary_decorators (Task 4c,
+  commit 69203f8). Only qualified forms (app.get, router.post, etc.)
+  remain, and the signal is gated behind --resource-boundary (opt-in).
+  
+  @patch from unittest.mock no longer matches at defaults or with
+  --resource-boundary. Pinned by tests/test_resource_boundary.py::
+  test_patch_from_unittest_mock_not_matched.
+fixture_file: tests/challenge/CHALLENGE-004.py

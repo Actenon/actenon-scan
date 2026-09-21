@@ -43,7 +43,9 @@ _These are the cases the scanner currently gets wrong._
 
 ## Fixed cases
 
-_No fixed cases yet._
+| # | Submitter | Class | Language | Title | Fix |
+|---|-----------|-------|----------|-------|-----|
+| #0 | @? | false-positive | python | @patch from unittest.mock scored HIGH as a web route (bare-verb collision) | v? |
 
 ---
 

@@ -321,6 +321,11 @@ def transitive_disclosure_line(result: ScanResult) -> str | None:
     if excluded > 0:
         file_word = "file" if excluded == 1 else "files"
         line += f" {excluded} {file_word} excluded by default patterns (venv/build/test fixtures)."
+    # Phase 3.2 (A3): analysis-coverage count pair — both sides observed.
+    followed = getattr(result, "local_calls_followed", 0)
+    unfollowed_local = getattr(result, "local_calls_unfollowed", 0)
+    if followed > 0 or unfollowed_local > 0:
+        line += f" Local call analysis: {followed} followed, {unfollowed_local} unfollowed."
     return line
 
 
