@@ -98,6 +98,12 @@ class ScanResult:
     transitive_followed_count: int = 0
     transitive_unfollowed_count: int = 0
     repository_analysis_enabled: bool = False
+    # Phase 3.3 (D10): count of .py files excluded by DEFAULT patterns
+    # (venv, build, tests/fixtures, test files). These excludes are
+    # silent — the user sees "scanned N file(s)" without knowing
+    # M files were excluded. This count must be disclosed in every
+    # output path.
+    default_excluded_count: int = 0
 
     @property
     def finding_count(self) -> int:
@@ -604,7 +610,7 @@ def scan_path_parallel(
     if jobs <= 1 or not target.is_dir():
         return serial()
 
-    files = _collect_files(target, include_globs, exclude_globs)
+    files, _default_excluded_count_parallel = _collect_files(target, include_globs, exclude_globs)
     # Below this size, process startup costs more than the parallelism saves.
     if len(files) < MIN_FILES_FOR_AUTO_PARALLEL:
         return serial()
@@ -784,8 +790,9 @@ def scan_path(
     # cost that dominated the pre-commit path.
     if explicit_files is not None:
         files = [f for f in explicit_files if f.exists() and f.suffix == ".py"]
+        _default_excluded_count = 0
     else:
-        files = _collect_files(target, include_globs, exclude_globs)
+        files, _default_excluded_count = _collect_files(target, include_globs, exclude_globs)
     # With an explicit file list (--changed-only), classify unsupported files
     # by checking each file's suffix directly — no tree walk needed.
     # This was previously skipped entirely (unsupported_files = []) for perf,
@@ -1338,6 +1345,7 @@ def scan_path(
         transitive_followed_count=transitive_followed_count,
         transitive_unfollowed_count=transitive_unfollowed_count,
         repository_analysis_enabled=repository_analysis_enabled,
+        default_excluded_count=_default_excluded_count,
     )
 
 
@@ -1496,7 +1504,7 @@ def _collect_files(
     """
 
     if target.is_file():
-        return [target] if target.suffix == ".py" else []
+        return ([target] if target.suffix == ".py" else []), 0
 
     # Collect all .py files recursively — use os.walk for speed
     # (pathlib.rglob is ~2x slower on large trees)
@@ -1575,17 +1583,28 @@ def _collect_files(
         exclude.extend(default_test_excludes)
 
     files = []
+    default_excluded_count = 0
+    # Phase 3.3 (D10): count files excluded by DEFAULT patterns (not
+    # user-supplied --exclude). These are the silent excludes that
+    # must be disclosed.
+    default_exclude_patterns = set(default_dir_excludes + default_test_excludes)
+
     for filepath in all_py_files:
         rel = filepath.relative_to(target)
         rel_str = str(rel)
 
         # Check excludes
         excluded = False
+        excluded_by_default = False
         for pattern in exclude:
             if _glob_match(rel_str, pattern):
                 excluded = True
+                if pattern in default_exclude_patterns:
+                    excluded_by_default = True
                 break
         if excluded:
+            if excluded_by_default:
+                default_excluded_count += 1
             continue
 
         # Check includes — if any include matches, the file is included
@@ -1597,7 +1616,7 @@ def _collect_files(
         if included:
             files.append(filepath)
 
-    return files
+    return files, default_excluded_count
 
 
 # File extensions recognised as source but not analysable by the base install.

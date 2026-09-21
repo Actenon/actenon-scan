@@ -121,6 +121,8 @@ def format_json(result: ScanResult) -> str:
         "transitive_followed_count": getattr(result, "transitive_followed_count", 0),
         "transitive_unfollowed_count": getattr(result, "transitive_unfollowed_count", 0),
         "repository_analysis_enabled": getattr(result, "repository_analysis_enabled", False),
+        # Phase 3.3 (D10): default-exclude count
+        "default_excluded_count": getattr(result, "default_excluded_count", 0),
         # Field semantics: the "confidence" field on each finding measures
         # REACHABILITY confidence — how confident the scanner is that the
         # sink is agent-reachable (i.e., inside a @tool or @mcp.tool

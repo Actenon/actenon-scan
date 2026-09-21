@@ -307,11 +307,40 @@ def transitive_disclosure_line(result: ScanResult) -> str | None:
     # Pluralisation
     sink_word = "sink" if followed == 1 else "sinks"
     call_word = "call" if unfollowed == 1 else "calls"
-    return (
+    line = (
         f"Repository analysis: {followed} transitively-reachable {sink_word} "
         f"caught (would have been missed by per-file scan); "
         f"{unfollowed} unresolved agent-entrypoint {call_word} not followed "
         f"(dynamic dispatch / external modules)."
+    )
+    # Phase 3.3 (D10): default-exclude disclosure. Files excluded by
+    # default patterns (venv, build, tests/fixtures, test files) are
+    # silent. This count must be disclosed so the user knows files
+    # were excluded.
+    excluded = getattr(result, "default_excluded_count", 0)
+    if excluded > 0:
+        file_word = "file" if excluded == 1 else "files"
+        line += f" {excluded} {file_word} excluded by default patterns (venv/build/test fixtures)."
+    return line
+
+
+def default_exclude_disclosure_line(result: ScanResult) -> str | None:
+    """Render the default-exclude disclosure line (Phase 3.3 / D10).
+
+    Returns None when no files were excluded by default patterns.
+    Otherwise returns a line disclosing the count.
+
+    This is SEPARATE from transitive_disclosure_line because the
+    default-exclude count applies to ALL directory scans regardless
+    of whether the repository layer is enabled.
+    """
+    excluded = getattr(result, "default_excluded_count", 0)
+    if excluded == 0:
+        return None
+    file_word = "file" if excluded == 1 else "files"
+    return (
+        f"Default-exclude: {excluded} {file_word} excluded by default "
+        f"patterns (venv/build/test fixtures/tests). Use --include to scan them."
     )
 
 
