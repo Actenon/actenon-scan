@@ -856,23 +856,36 @@ def scan_path(
         # analysis. A cache hit returns identical findings (RULE 5: cache
         # never changes findings). A cache miss falls through to the
         # fresh scan below, and the result is stored at the end.
+        #
+        # Phase 2 (D1): capabilities are now cached alongside findings.
+        # Declarative-guard suppression is PRESERVED across a cache hit
+        # (it follows from file content, which is what the cache key hashes).
+        # Only user-supplied suppression (baseline, inline) is reset and
+        # re-applied, because that can change between runs without the
+        # file changing.
         _cached_file_error: str | None = None
         if cache is not None:
             cached = cache.findings_for(source, rel, rules)
             if cached is not None:
-                cached_findings, _cached_file_error = cached
+                cached_findings, _cached_file_error, cached_caps = cached
+                # Phase 2: restore cached capabilities so the capability
+                # summary agrees with the findings count.
+                for cc in cached_caps:
+                    capabilities.append(cc)
                 for cf in cached_findings:
-                    # Reset suppression state and re-apply from the CURRENT
-                    # baseline + suppressions sets. The cache stores findings
-                    # with the suppression state from cache-write time, which
-                    # may be stale (the user may have added/removed baseline
-                    # entries, or added/removed inline suppressions). Without
-                    # this reset, a user who runs `scan .`, then `baseline .`,
-                    # then `scan . --baseline b.json` would see all findings
-                    # unsuppressed because the cache short-circuits the
-                    # baseline check. (Round-3 audit P0.)
-                    cf.suppressed = False
-                    cf.suppression_reason = ""
+                    # Phase 2 (D1): DON'T reset declarative-guard
+                    # suppression. It follows from file content (which the
+                    # cache key hashes), so it's sound to preserve.
+                    # Only reset USER-SUPPLIED suppression (baseline, inline)
+                    # because that can change between runs.
+                    _was_declarative = (
+                        cf.suppressed
+                        and cf.suppression_reason.startswith("declarative_guard:")
+                    )
+                    # Reset only user-supplied suppression
+                    if not _was_declarative:
+                        cf.suppressed = False
+                        cf.suppression_reason = ""
                     if suppressions and (rel, cf.rule_id) in suppressions:
                         cf.suppressed = True
                         cf.suppression_reason = "inline_suppression"
@@ -927,6 +940,7 @@ def scan_path(
         # Track per-file findings for caching. Findings for this file
         # start at this index in the findings list.
         _per_file_start = len(findings)
+        _per_file_cap_start = len(capabilities)
         _per_file_error: str | None = None
 
         # tree is already parsed above; no need to re-parse
@@ -1099,7 +1113,11 @@ def scan_path(
         # hash + scanner version, so any change invalidates correctly.
         if cache is not None:
             _per_file_findings = findings[_per_file_start:]
-            cache.store(source, rel, rules, _per_file_findings, _per_file_error)
+            # Phase 2 (D1): cache capabilities alongside findings so a
+            # cache hit produces the same capability summary.
+            _per_file_caps = capabilities[_per_file_cap_start:]
+            cache.store(source, rel, rules, _per_file_findings, _per_file_error,
+                        capabilities=_per_file_caps)
 
     # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
     if explicit_files is not None:

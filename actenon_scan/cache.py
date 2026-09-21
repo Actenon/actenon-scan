@@ -136,12 +136,25 @@ def compute_cache_key(
 
 @dataclass
 class CacheEntry:
-    """One cached per-file scan result."""
+    """One cached per-file scan result.
+
+    Phase 2 (D1): capabilities are now cached alongside findings.
+    Previously, a cache hit returned findings but skipped capability
+    construction, so a warm cache counted capabilities only for files
+    that happened to miss — the capability summary disagreed with the
+    findings count.
+    """
 
     cache_key: str
     file: str
     findings: list[dict] = field(default_factory=list)
     analysis_error: str | None = None
+    #: Capabilities found in this file. Cached so a cache hit produces
+    #: the same capability summary as a fresh scan.
+    capabilities: list[dict] = field(default_factory=list)
+    #: Schema version for the cache entry. Bumped when the entry format
+    #: changes, so entries written by a prior schema never match.
+    entry_schema_version: int = 2
 
     def to_json(self) -> str:
         return json.dumps({
@@ -149,6 +162,8 @@ class CacheEntry:
             "file": self.file,
             "findings": self.findings,
             "analysis_error": self.analysis_error,
+            "capabilities": self.capabilities,
+            "entry_schema_version": self.entry_schema_version,
         }, sort_keys=True)
 
     @classmethod
@@ -156,11 +171,19 @@ class CacheEntry:
         """Parse a cache entry from JSON. Returns None on corruption."""
         try:
             d = json.loads(data)
+            # Phase 2: reject entries with an incompatible schema version.
+            # This prevents stale entries from a prior format from being
+            # silently served (e.g., entries without capabilities).
+            v = d.get("entry_schema_version", 1)
+            if v != 2:
+                return None
             return cls(
                 cache_key=d["cache_key"],
                 file=d["file"],
                 findings=d.get("findings", []),
                 analysis_error=d.get("analysis_error"),
+                capabilities=d.get("capabilities", []),
+                entry_schema_version=2,
             )
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
@@ -204,6 +227,30 @@ def _dict_to_finding(d: dict) -> Finding:
         snippet_hash=d.get("snippet_hash", ""),
         tier=d.get("tier", "production"),
     )
+
+
+# Phase 2: capability serialization (D1 fix)
+
+_CAPABILITY_FIELDS = (
+    "file", "line", "col", "rule_id", "category", "severity", "call_text",
+    "state", "guard_status", "guard_message", "confidence",
+    "reachability_reason", "reachability_source", "tier", "language",
+    "snippet_hash",
+)
+
+
+def _capability_to_dict(c) -> dict:
+    """Serialise a Capability to a JSON-compatible dict."""
+    return {name: getattr(c, name, None) for name in _CAPABILITY_FIELDS}
+
+
+def _dict_to_capability(d: dict):
+    """Reconstruct a Capability from its cached dict."""
+    from actenon_scan.capability import Capability
+    return Capability(**{
+        name: d[name] for name in _CAPABILITY_FIELDS
+        if name in d and d[name] is not None
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -281,31 +328,39 @@ class FileCache:
     def findings_for(
         self, source: str, file_rel: str, config: Any,
         analysis_flags: dict[str, Any] | None = None,
-    ) -> tuple[list[Finding], str | None] | None:
-        """Return cached (findings, analysis_error) or None on miss.
+    ) -> tuple[list[Finding], str | None, list] | None:
+        """Return cached (findings, analysis_error, capabilities) or None on miss.
 
         On a cache hit, the returned findings are IDENTICAL to what a
         fresh scan would produce (RULE 5: cache never changes findings).
+        Phase 2 (D1): capabilities are now returned alongside findings
+        so the capability summary agrees with the findings count.
         """
         key = compute_cache_key(source, config, analysis_flags)
         entry = self.get(key)
         if entry is None:
             return None
         findings = [_dict_to_finding(d) for d in entry.findings]
-        return (findings, entry.analysis_error)
+        caps = [_dict_to_capability(d) for d in entry.capabilities]
+        return (findings, entry.analysis_error, caps)
 
     def store(
         self, source: str, file_rel: str, config: Any,
         findings: list[Finding], analysis_error: str | None,
         analysis_flags: dict[str, Any] | None = None,
+        capabilities: list | None = None,
     ) -> None:
-        """Store a per-file scan result in the cache."""
+        """Store a per-file scan result in the cache.
+
+        Phase 2 (D1): capabilities are now cached alongside findings.
+        """
         key = compute_cache_key(source, config, analysis_flags)
         entry = CacheEntry(
             cache_key=key,
             file=file_rel,
             findings=[_finding_to_dict(f) for f in findings],
             analysis_error=analysis_error,
+            capabilities=[_capability_to_dict(c) for c in (capabilities or [])],
         )
         self.put(entry)
 
