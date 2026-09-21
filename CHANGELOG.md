@@ -30,12 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Repository-level analysis: honesty disclosure
 
+> **Correction note (2026-09-20):** A previous version of this entry
+> stated the repository layer "resolved only 0.06% of transitive edges
+> (2 followed, 3,297 unfollowed)." That ratio is a **unit error**:
+> the numerator counts new findings emitted; the denominator counts
+> unresolved call sites out of entry points (including external-library
+> calls). Dividing findings by call sites produces a number with no
+> physical meaning. The 0.06% figure has been removed. What is
+> defensible: the repository layer is on by default, resolves same-file
+> module-level calls, and catches 3/22 hand-verified AGENT_REACHABLE
+> sinks. The `transitive_unfollowed_count` is not a resolution rate.
+
 The repository-level analysis layer (call graph, symbol index, taint)
-was enabled by default in v1.4.0 but resolved only 0.06% of transitive
-edges (2 followed, 3,297 unfollowed) on the 160-case labelled corpus.
-The unfollowed count was recorded on `ScanResult` but not printed in
-most output paths — a directory scan reported clean over 3,297
-unexamined edges with no indication.
+was enabled by default in v1.4.0. The unfollowed count was recorded on
+`ScanResult` but not printed in most output paths — a directory scan
+reported clean over unexamined edges with no indication.
 
 **Fixed**: the `transitive_unfollowed_count` now appears in every
 output path (pretty, list, json, sarif, markdown, html) — both in the
@@ -78,6 +87,26 @@ agent-reachable entrypoint in the same class was invisible.
 
 **Recall fixtures** added: `r11_same_class_method.py`,
 `r12_same_class_multi_hop.py`, `r13_same_class_three_hops.py`.
+
+### Recall bracket withdrawal (2026-09-20)
+
+> **WITHDRAWAL:** The 43%–52% recall bracket published in commit `129b926`
+> is **withdrawn**. Three defects invalidate it: (1) all 16 adjudications
+> moved in one direction; (2) 6 of 16 are scope changes, not reachability
+> judgements; (3) the highest-weight case was misclassified. The 14%–52%
+> bracket stands pending re-adjudication under pre-registered rules. See
+> [docs/RECALL.md](docs/RECALL.md) for the full withdrawal note.
+
+### CVE-2024-21552 rediscovery note (2026-09-20)
+
+The `superagi/agent/output_handler.py:180` `eval(assistant_reply)` case
+identified in the ground-truth pass is
+[CVE-2024-21552](https://nvd.nist.gov/vuln/detail/CVE-2024-21552) (CVSS 9.8,
+public since 2024). The scanner matched the sink but did not connect it to
+an agent boundary. See
+[REDISCOVERY-CVE-2024-21552.md](research/reachability-ground-truth/REDISCOVERY-CVE-2024-21552.md).
+No disclosure is required and none will be sent. The previously-committed
+draft report has been removed.
 
 
 ## [1.4.0] — 2026-07-29
