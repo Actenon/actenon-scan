@@ -1,0 +1,19 @@
+{
+  "r01_mcp_tool": 0,
+  "r02_langchain_tool": 0,
+  "r03_basetool": 0,
+  "r04_openai_function_tool": 0,
+  "r05_custom_agent_loop": 0,
+  "r06_action_observation": 0,
+  "r07_raw_tool_schema": 0,
+  "r08_smtp_send_message": 0,
+  "r09_external_execution_removed": 0,
+  "r10_no_validation_guard": 0,
+  "r11_same_class_method": 1,
+  "r12_same_class_multi_hop": 2,
+  "r13_same_class_three_hops": 2,
+  "r14_ts_handler_vocab": 0,
+  "r15_mcp_callback_registration": 0,
+  "r16_local_list_registration": 0,
+  "r17_nested_tool_helper_call": 1
+}

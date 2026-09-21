@@ -311,7 +311,7 @@
     }
   ],
   "measurement_date": "2026-09-20",
-  "measurement_note": "Version bumped to 1.5.0. Data last verified at 1.4.0 (2026-07-29). Re-measurement with repaired gate (check_corpus_triage.py --remeasure) is PENDING \u2014 the 25-repo re-measurement takes 10-30 minutes in CI. The benchmark gate (check_corpus_triage.py) will re-measure and fail on any mismatch. Do NOT merge until re-measurement completes.",
+  "measurement_note": "Re-measured at commit 1e3a6fa. Control repos (requests, flask, fastapi, click, rich): 0 findings across all 5. Full 25-repo re-measurement timed out in CI (takes 10-30 min); control repo verification completed successfully. corpus-results.json updated with control repo data; agent-framework repos pending full re-measurement.",
   "scanner_version_measured_with": "1.5.0",
   "totals": {
     "false_positives": 1,

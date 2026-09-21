@@ -122,6 +122,8 @@ def remeasure_corpus(pinned: dict, work_dir: Path | None = None) -> dict:
     the corpus-results.json schema."""
     if work_dir is None:
         work_dir = Path(tempfile.mkdtemp(prefix="corpus-remeasure-"))
+    elif isinstance(work_dir, str):
+        work_dir = Path(work_dir)
 
     results: dict = {
         "totals_by_category": {},

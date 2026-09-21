@@ -63,6 +63,34 @@ def get_corpus_demonstrated_recall(corpus_evidence: dict) -> int:
     return count
 
 
+def _load_recall_depths() -> dict:
+    """Load recall_depths.json — maps fixture stem to hop depth."""
+    depths_file = BENCHMARK_DIR / "recall_depths.json"
+    if depths_file.exists():
+        return json.loads(depths_file.read_text())
+    return {}
+
+
+def _compute_recall_by_depth(details: list[dict]) -> dict:
+    """Compute recall per hop depth.
+
+    Returns: {str(depth): {"pass": int, "total": int, "failures": [str]}}
+    """
+    depths = _load_recall_depths()
+    by_depth: dict[str, dict] = {}
+    for d in details:
+        stem = d["file"].replace(".py", "")
+        depth = str(depths.get(stem, 0))
+        if depth not in by_depth:
+            by_depth[depth] = {"pass": 0, "total": 0, "failures": []}
+        by_depth[depth]["total"] += 1
+        if d["pass"]:
+            by_depth[depth]["pass"] += 1
+        else:
+            by_depth[depth]["failures"].append(d["file"])
+    return by_depth
+
+
 def run_benchmark() -> dict:
     """Run all benchmark cases and return scores."""
     recall_pass = 0
@@ -135,6 +163,7 @@ def run_benchmark() -> dict:
             "pct": round(corpus_recall / recall_total * 100) if recall_total else 0,
             "evidence": corpus_evidence,
         },
+        "recall_by_depth": _compute_recall_by_depth(recall_details),
         "precision": {
             "pass": precision_pass,
             "total": precision_total,
@@ -167,6 +196,20 @@ def print_scoreboard(scores: dict) -> None:
     print(f"  precision                    {p['pass']}/{p['total']}  ({p['pct']}%)")
     print(f"  soundness                    {s['pass']}/{s['total']}   ({s['pct']}%)")
     print()
+
+    # Phase 3.2: per-depth recall
+    rbd = scores.get("recall_by_depth", {})
+    if rbd:
+        print(f"  recall by depth:")
+        for depth in sorted(rbd.keys(), key=int):
+            dd = rbd[depth]
+            status = "\u2713" if dd["pass"] == dd["total"] else "\u2717"
+            print(f"    {status} depth {depth}: {dd['pass']}/{dd['total']}", end="")
+            if dd["failures"]:
+                print(f"  (failures: {', '.join(dd['failures'])})")
+            else:
+                print()
+        print()
 
     for category_name, category in [("RECALL (synthetic)", r), ("PRECISION", p), ("SOUNDNESS", s)]:
         print(f"  {category_name}:")
@@ -204,6 +247,11 @@ def main() -> int:
             "soundness": scores["soundness"]["pass"],
             # synthetic recall is informational, not gated
             "recall_synthetic": scores["recall"]["pass"],
+            # Phase 3.2: per-depth recall (informational)
+            "recall_by_depth": {
+                depth: f"{d['pass']}/{d['total']}"
+                for depth, d in sorted(scores.get("recall_by_depth", {}).items(), key=lambda x: int(x[0]))
+            },
         }, indent=2) + "\n")
         print(f"\nBaseline written to {BASELINE_FILE}")
 

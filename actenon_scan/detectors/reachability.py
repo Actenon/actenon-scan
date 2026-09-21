@@ -141,6 +141,18 @@ def _reachability_for_func(
         result.signals.append("action_dispatch")
         return result
 
+    # Phase 5.2: dynamic .append() registration. When a method is appended
+    # to a tools list via `something.append(self.method)` in __init__ of a
+    # tool base class, the method IS agent-reachable (it's registered as a
+    # tool). This handles the agno/agentql and agno/telegram patterns.
+    # Conservative: only matches `self.<method>` or bare-name function refs
+    # in .append() calls within __init__ methods of classes that subclass
+    # a tool_base_class.
+    if _is_dynamic_registration(tree, func_node, reachability_cfg):
+        result.confidence = "high"
+        result.signals.append("dynamic_registration")
+        return result
+
     # The sink is inside a NON-TOOL function. Even if the module imports an
     # agent framework, a regular internal function is not agent-reachable.
     # Without this gate, every file in a framework's own repo (where every
@@ -315,6 +327,86 @@ def _get_call_name(node: ast.expr) -> str:
         return ast.unparse(node)
     except Exception:
         return ""
+
+
+def _is_dynamic_registration(
+    tree: ast.Module,
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    reachability_cfg: dict[str, Any],
+) -> bool:
+    """Phase 5.2: Check if the method is registered via dynamic .append()
+    in the __init__ of a tool base class.
+
+    Pattern:
+        class MyTools(Toolkit):
+            def __init__(self):
+                self.tools = []
+                self.tools.append(self.scrape_website)  # ← this method
+
+    Conservative constraints:
+    - Only matches `something.append(self.<method_name>)` or
+      `something.append(<bare_name>)` in __init__ of a class that
+      subclasses a tool_base_class.
+    - getattr-based or computed registration is NOT matched
+      (disclosed as unresolved elsewhere).
+    - Generic callbacks= arguments and event handlers are NOT matched.
+    """
+    tool_base_classes = reachability_cfg.get("tool_base_classes", [])
+    if not tool_base_classes:
+        return False
+
+    # Find the enclosing class
+    enclosing_class: ast.ClassDef | None = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for child in node.body:
+                if child is func_node:
+                    enclosing_class = node
+                    break
+            if enclosing_class is not None:
+                break
+    if enclosing_class is None:
+        return False
+
+    # Check if the class subclasses a tool base class
+    is_tool_base = False
+    for base in enclosing_class.bases:
+        base_name = _get_base_name(base)
+        if base_name in tool_base_classes:
+            is_tool_base = True
+            break
+    if not is_tool_base:
+        return False
+
+    # Find the __init__ method
+    init_method: ast.FunctionDef | None = None
+    for child in enclosing_class.body:
+        if isinstance(child, ast.FunctionDef) and child.name == "__init__":
+            init_method = child
+            break
+    if init_method is None:
+        return False
+
+    # Look for .append(self.<func_name>) or .append(<bare_name>) patterns
+    for node in ast.walk(init_method):
+        if not isinstance(node, ast.Call):
+            continue
+        # Check if this is a .append() call
+        if (isinstance(node.func, ast.Attribute)
+            and node.func.attr == "append"
+            and len(node.args) >= 1):
+            arg = node.args[0]
+            # Case 1: self.<method_name>
+            if (isinstance(arg, ast.Attribute)
+                and isinstance(arg.value, ast.Name)
+                and arg.value.id == "self"
+                and arg.attr == func_node.name):
+                return True
+            # Case 2: bare-name function reference
+            if isinstance(arg, ast.Name) and arg.id == func_node.name:
+                return True
+
+    return False
 
 
 def _is_tool_method(
@@ -987,12 +1079,20 @@ def detect_module_level_reachability(
     reachability_cfg: dict[str, Any],
     *,
     self_package: str | None = None,
+    max_hops: int = 3,
 ) -> dict[int, tuple[str, int]]:
     """Find module-level functions that are reachable via bare-name calls
     from agent-reachable entrypoints. Returns a dict mapping callee function
     line number → (signal, hops).
 
-    The signal is "one_hop_local" — MEDIUM confidence, below the HIGH
+    Phase 5.1: max_hops=3 (was 1). Follows chains like:
+      remember → add_memory → merge_with → delete_memory (3 hops)
+
+    Phase 5.1 (cross-namespace): also follows local-variable method calls
+    where the variable is assigned from a constructor call:
+      new_memory = MemoryNode(...) → new_memory.save() → MemoryNode.save
+
+    The signal is "local_call" — MEDIUM confidence, below the HIGH
     confidence of a direct in-tool sink.
     """
     if not reachability_cfg.get("follow_local_calls_depth_1", False):
@@ -1015,6 +1115,24 @@ def detect_module_level_reachability(
     if not top_level_funcs:
         return {}
 
+    # Build a map of class names → ClassDef (for cross-namespace tracking)
+    class_defs: dict[str, ast.ClassDef] = {}
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            # Only register if unambiguous
+            if node.name not in class_defs:
+                class_defs[node.name] = node
+
+    # Build a map of class name → {method_name → method FunctionDef}
+    class_methods: dict[str, dict[str, ast.FunctionDef | ast.AsyncFunctionDef]] = {}
+    for cls_name, cls_node in class_defs.items():
+        methods: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        for child in cls_node.body:
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if child.name not in methods:
+                    methods[child.name] = child
+        class_methods[cls_name] = methods
+
     # Find agent-reachable entrypoints (top-level functions)
     entrypoints: list[int] = []
     for name, func in top_level_funcs.items():
@@ -1027,22 +1145,68 @@ def detect_module_level_reachability(
     if not entrypoints:
         return {}
 
-    # For each entrypoint, find bare-name calls to other top-level functions
+    # BFS from entrypoints, following both bare-name calls to top-level
+    # functions AND local-variable method calls (where the variable type
+    # is determined from a constructor call).
+    visited: set[int] = set()
+    queue: list[tuple[int, int]] = []  # (function_lineno, hops)
     for ep_line in entrypoints:
-        ep_func = None
-        for name, func in top_level_funcs.items():
-            if func.lineno == ep_line:
-                ep_func = func
-                break
-        if ep_func is None:
+        visited.add(ep_line)
+        queue.append((ep_line, 0))
+
+    # Map from function lineno → FunctionDef (for both top-level and class methods)
+    all_funcs_by_line: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    for func in top_level_funcs.values():
+        all_funcs_by_line[func.lineno] = func
+    for methods in class_methods.values():
+        for method in methods.values():
+            all_funcs_by_line[method.lineno] = method
+
+    while queue:
+        current_line, hops = queue.pop(0)
+        if hops >= max_hops:
+            continue
+        current_func = all_funcs_by_line.get(current_line)
+        if current_func is None:
             continue
 
-        for node in ast.walk(ep_func):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        # Track local variable → class type assignments in this function
+        # e.g., `new_memory = MemoryNode(...)` → var_types["new_memory"] = "MemoryNode"
+        var_types: dict[str, str] = {}
+        for node in ast.walk(current_func):
+            if isinstance(node, ast.Assign):
+                if (isinstance(node.value, ast.Call)
+                    and isinstance(node.value.func, ast.Name)
+                    and node.value.func.id in class_defs):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            var_types[target.id] = node.value.func.id
+
+        for node in ast.walk(current_func):
+            if not isinstance(node, ast.Call):
+                continue
+            # Case 1: bare-name call to a top-level function
+            if isinstance(node.func, ast.Name):
                 callee_name = node.func.id
                 if callee_name in top_level_funcs:
                     callee = top_level_funcs[callee_name]
-                    if callee.lineno not in reachable and callee.lineno != ep_line:
-                        reachable[callee.lineno] = ("one_hop_local", 1)
+                    if callee.lineno not in visited:
+                        visited.add(callee.lineno)
+                        reachable[callee.lineno] = ("local_call", hops + 1)
+                        queue.append((callee.lineno, hops + 1))
+            # Case 2: method call on a local variable whose type is known
+            elif (isinstance(node.func, ast.Attribute)
+                  and isinstance(node.func.value, ast.Name)):
+                var_name = node.func.value.id
+                method_name = node.func.attr
+                if var_name in var_types:
+                    cls_name = var_types[var_name]
+                    methods = class_methods.get(cls_name, {})
+                    if method_name in methods:
+                        callee = methods[method_name]
+                        if callee.lineno not in visited:
+                            visited.add(callee.lineno)
+                            reachable[callee.lineno] = ("local_call", hops + 1)
+                            queue.append((callee.lineno, hops + 1))
 
     return reachable
