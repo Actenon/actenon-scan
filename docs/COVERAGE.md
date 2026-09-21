@@ -119,6 +119,26 @@ not share:
 Dominance is the check that catches guards which exist, read correctly in
 review, and never run.
 
+**Implementation note (verified by reading
+[`actenon_scan/detectors/guards.py`](../actenon_scan/detectors/guards.py),
+`_build_parent_map` + `_dominates`):** the dominance check is **AST ancestry
+(lexical), not CFG dominance.** There is no control-flow graph. The
+implementation builds a `parent_map` from `ast.iter_child_nodes` on the
+sink's enclosing function only, then walks the guard call's syntactic
+ancestor chain and rejects the guard if any ancestor is an `ast.If`,
+`ast.ExceptHandler`, `ast.Try` (with a swallowing handler), or a nested
+`ast.FunctionDef`/`AsyncFunctionDef`/`ast.Lambda` that the sink is not
+also inside. This is a sound over-approximation for in-function lexical
+contexts but it is **not** a path-sensitive CFG. Consequences:
+
+- **Same-function guards dominate** when they share the sink's lexical
+  ancestor chain (the common case — `authorize(); sink()`).
+- **Guards in `if`/`else`/`except`/`finally`/nested-function contexts the
+  sink is not also inside are rejected.** All four soundness cases above.
+- **The check is per-function.** The `parent_map` is built on the sink's
+  enclosing function only. A guard in a different function body cannot
+  dominate the sink — see "Cross-file guard protection" below.
+
 ### 3. Is the guard's result actually enforced?
 
 A guard that returns a decision which is then discarded enforces nothing
@@ -260,12 +280,14 @@ interprocedural dataflow, not a better vocabulary. Full triage table in
 
 ### Interprocedural flow
 
-**Per-file scan (default):** Analysis is per-function. A guard in a caller
-does not protect a sink in a callee, and scan will report the callee's sink
-as unguarded. This produces false positives on codebases that centralise
-authorization at a dispatch layer.
+**Per-file scan (when the repo layer is disabled with
+`--no-repository-analysis`, or when scanning a single file):** Analysis is
+per-function. A guard in a caller does not protect a sink in a callee, and
+scan will report the callee's sink as unguarded. This produces false
+positives on codebases that centralise authorization at a dispatch layer.
 
-**Repository-level augmentation (opt-in via `--repository-analysis`):**
+**Repository-level augmentation (ON by default since commit `25ee4f9` / v1.4.0
+release; opt out with `--no-repository-analysis`):**
 When enabled, scan builds a repository symbol index, an interprocedural call
 graph with explicit `RESOLVED`/`HEURISTIC`/`UNRESOLVED` edge certainty, and
 propagates function effect summaries through SCCs to a fixed point. This
@@ -293,6 +315,68 @@ See `tests/adversarial/test_transitive_reachability.py` for the pinned
 guarantees. The repository layer is **partial** — see the architecture
 documentation for what it does and does not model:
 `docs/ARCHITECTURE.md#repository-layer`.
+
+### Cross-file guard protection
+
+**NOT detected.** A guard in file A (the caller) does **not** protect a
+sink in file B (the callee), even when the repository layer resolves the
+transitive call edge that makes the sink agent-reachable. The guard
+check is per-function (see "Does the guard dominate the sink?" above):
+the `parent_map` is built on the sink's enclosing function only, so a
+guard in a different function body — let alone a different file — is
+invisible to the dominance walk.
+
+This was verified by test (Phase 6.2, on actenon-scan 1.4.0):
+
+- `caller.py` defines a `@tool()`-decorated `my_tool(target)` that calls
+  `authorize("delete")` (a default guard pattern) **before** calling
+  `helper(target)` imported from `callee.py`.
+- `callee.py` defines `helper(path)` whose body contains the sink
+  `os.remove(path)`.
+
+```
+$ actenon-scan scan /tmp/p6_cross_file_test
+Your agent can reach 1 consequential action without a dominating authorization check.
+
+  DATA LOSS        1   remove
+
+Most exposed: callee.py:6  remove()
+  Reachable by:              transitive:caller.my_tool → callee.helper
+  Consequence:               DATA LOSS
+  Guard evidence:            none found on the analysed path
+  Model-controlled inputs:   path
+  Rule:                      DATA-DELETE-OS
+  Severity:                  medium (sink match: high)
+
+1 findings in 2 files (0.07s)
+
+Repository analysis: 1 transitively-reachable sink caught (would have been
+missed by per-file scan); 0 unresolved agent-entrypoint calls not followed
+(dynamic dispatch / external modules).
+```
+
+Two facts are visible in this output:
+
+1. **The repository layer DID resolve the cross-file call edge.** The
+   finding is emitted with `Reachable by: transitive:caller.my_tool →
+   callee.helper`. The repo layer lifted the sink in `callee.helper`
+   to agent-reachable via the `@tool` entrypoint in `caller.my_tool`.
+   (`--no-repository-analysis` produces **0 findings** — the per-file
+   scan misses the sink entirely because `helper` is not
+   `@tool`-decorated.)
+2. **The guard in `caller.my_tool` is NOT detected as protecting the
+   sink in `callee.helper`.** `Guard evidence: none found on the
+   analysed path`. The dominance walk runs on `callee.helper`'s AST,
+   where no guard call exists; the `authorize("delete")` call in
+   `caller.my_tool` is in a different function body (and a different
+   file) and is therefore invisible to the per-function parent_map.
+
+This is the same root cause as the same-class-method limitation: the
+guard check is per-function, the repo layer resolves call edges, and
+the two never meet. Closing this needs an interprocedural dominance
+check that walks the call chain the repo layer already resolved —
+currently out of scope. Pinned here as a documented limitation, not a
+silent miss.
 
 ### Dynamic dispatch
 
@@ -409,6 +493,124 @@ This is a useful negative result. The custom agent loop pattern is too broad
 to distinguish from framework internals without interprocedural dataflow
 analysis. The strategy is recorded as not-yet-viable rather than abandoned;
 a future version with interprocedural analysis may revisit it.
+
+## NOT COVERED: LLM output reaching a sink (`LLM_OUTPUT_TO_SINK`)
+
+**Mechanism:** the model's `assistant_reply` (or equivalent LLM-generated
+text) flows directly to a sink — `eval()`, `exec()`, `subprocess.run(...,
+shell=True)`, `os.system(...)` — without going through a recognised tool
+boundary (`@tool`, `@mcp.tool`, `BaseTool._run`, etc.). The agent loop
+calls the model, gets a string back, and passes it to the sink inside an
+output handler or dispatcher that is not itself in the recognised
+entrypoint vocabulary.
+
+**Status: NOT COVERED.** The scanner's reachability model is
+entrypoint-anchored: a sink is agent-reachable only if a recognised
+`@tool` / `BaseTool` / `setRequestHandler` boundary sits at the head of
+the path. The path from the LLM output string through a non-`@tool`
+output handler to a sink does not pass through a recognised boundary and
+is therefore not resolved by the per-file reachability detector or by
+the repository-layer call graph (the call crosses a class boundary via
+a different receiver type). This is the r05 negative result above, now
+named explicitly.
+
+**The sink itself is still matched.** The rule for the sink (`EXEC-CODE`
+for `eval()`, `EXEC-SHELL` for `subprocess`, etc.) fires on the call
+expression inside the function body. What does NOT happen is the
+**reachability lift**: the sink is reported only if its enclosing
+function is itself in the recognised entrypoint vocabulary. In the
+canonical case (an output handler that is not `@tool`-decorated), the
+sink fires neither in the per-file pass nor via the repo layer's
+transitive reachability.
+
+### Motivating example: CVE-2024-21552 (SuperAGI `eval()`)
+
+The motivating real-world case is
+[CVE-2024-21552](https://nvd.nist.gov/vuln/detail/CVE-2024-21552)
+(CVSS 9.8; public since 2024; NVD lists all versions of SuperAGI
+affected, no remediation). The vulnerable code is at
+`superagi/agent/output_handler.py:180`:
+
+```python
+# ReplaceTaskOutputHandler.handle calls eval(assistant_reply) at line 180
+class ReplaceTaskOutputHandler(ToolOutputHandler):
+    def handle(self, assistant_reply: str):
+        ...
+        result = eval(assistant_reply)   # noqa — the vulnerable sink
+```
+
+`assistant_reply` is the LLM's output string. The handler is not a
+`@tool`-decorated entrypoint; the call path from the agent's chat loop
+through `ToolOutputHandler.handle_tool_response(...)` to `eval(...)`
+does not pass through any boundary the scanner recognises. The `EXEC-CODE`
+rule matches the `eval(...)` call expression, but the sink is reported
+as agent-reachable only when its enclosing function is a recognised
+entrypoint — which `ReplaceTaskOutputHandler.handle` is not.
+
+This case is `idx=153` in
+[`research/reachability-ground-truth/labels.json`](../research/reachability-ground-truth/labels.json).
+The hand-triage labelled it `AGENT_REACHABLE` (the most severe case in
+the 160-case sample); the scanner marked `actenon_detected: false` for
+the reachability lift (the `eval()` sink fired, but the path from the
+LLM output to the sink was not resolved). The full rediscovery note is
+in
+[`research/reachability-ground-truth/REDISCOVERY-CVE-2024-21552.md`](../research/reachability-ground-truth/REDISCOVERY-CVE-2024-21552.md).
+
+**Honest framing:** "Actenon Scan found CVE-2024-21552" is **false**.
+The scanner matched the `eval()` sink (the `EXEC-CODE` rule fires). A
+human adjudicator found the path from the LLM output to the sink. The
+scanner does not detect the `LLM_OUTPUT_TO_SINK` mechanism and does not
+claim to. This limitation is the open challenge for a future
+interprocedural-dataflow pass.
+
+### Open challenge fixture (CHALLENGE-005) — proposed, not yet filed
+
+A challenge fixture should be filed at
+`tests/challenge/CHALLENGE-005.yml` (and a paired Python fixture
+`tests/challenge/CHALLENGE-005.py`) recording the `LLM_OUTPUT_TO_SINK`
+mechanism as **expected-fail**. The proposed metadata:
+
+```yaml
+# tests/challenge/CHALLENGE-005.yml — proposed, not yet filed.
+# This documentation pass (Phase 6) modifies only README.md and
+# docs/COVERAGE.md; the fixture file is out of scope here and must be
+# added in a follow-up that is allowed to touch tests/challenge/.
+issue: 0           # 0 = seeded by maintainers, not from a GitHub issue
+submitter: actenon
+class: missed-sink
+language: python
+title: "LLM output flows to eval() — mechanism LLM_OUTPUT_TO_SINK (CVE-2024-21552 shape)"
+description: >
+  A non-@tool output handler class receives the LLM's assistant_reply
+  string and passes it directly to eval() (or exec(), or
+  subprocess.run(..., shell=True)). The scanner's entrypoint-anchored
+  reachability model does not recognise the output-handler method as an
+  agent boundary; the EXEC-CODE rule fires on the eval() call but the
+  sink is not lifted to agent-reachable. Motivating real-world case:
+  CVE-2024-21552 in SuperAGI (superagi/agent/output_handler.py:180).
+expected: finding
+rule_id: EXEC-CODE
+status: open
+note: >
+  NOT COVERED. See docs/COVERAGE.md "LLM output reaching a sink
+  (LLM_OUTPUT_TO_SINK)" and the rediscovery note at
+  research/reachability-ground-truth/REDISCOVERY-CVE-2024-21552.md.
+  Closing this challenge needs real interprocedural dataflow from the
+  LLM-output string to the sink, not a better vocabulary.
+```
+
+The paired fixture (`CHALLENGE-005.py`) should be a non-`@tool` class
+with a `handle(assistant_reply)` method that calls
+`eval(assistant_reply)`, plus an `agent_loop()` that calls the model
+and dispatches via the handler — no `@tool`/`@mcp.tool`/`BaseTool`
+decorator anywhere on the path. The expected scan output is **clean**
+(0 findings) because the sink is not lifted to agent-reachable; the
+challenge asserts that this is the documented behaviour, not a silent
+miss.
+
+**This fixture is not yet filed.** Phase 6 modified only README.md and
+docs/COVERAGE.md. The fixture file should be added in a follow-up that
+is allowed to touch `tests/challenge/`.
 
 ## r06: action/observation classes (OpenHands)
 
