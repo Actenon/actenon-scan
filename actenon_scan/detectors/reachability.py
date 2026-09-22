@@ -1172,15 +1172,42 @@ def detect_module_level_reachability(
 
         # Track local variable → class type assignments in this function
         # e.g., `new_memory = MemoryNode(...)` → var_types["new_memory"] = "MemoryNode"
+        # Also handles:
+        #   - ast.AnnAssign (type-annotated assignments)
+        #   - ast.Await wrapping (async: `new_memory = await MemoryNode.create(...)`)
+        #   - Class factory methods (MemoryNode.from_content → MemoryNode)
         var_types: dict[str, str] = {}
         for node in ast.walk(current_func):
+            value = None
             if isinstance(node, ast.Assign):
-                if (isinstance(node.value, ast.Call)
-                    and isinstance(node.value.func, ast.Name)
-                    and node.value.func.id in class_defs):
-                    for target in node.targets:
-                        if isinstance(target, ast.Name):
-                            var_types[target.id] = node.value.func.id
+                value = node.value
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                value = node.value
+                targets = [node.target]
+            else:
+                continue
+            if value is None:
+                continue
+            # Unwrap await
+            if isinstance(value, ast.Await):
+                value = value.value
+            if not isinstance(value, ast.Call):
+                continue
+            func = value.func
+            cls_name = None
+            # Case 1: direct constructor — MemoryNode(...)
+            if isinstance(func, ast.Name) and func.id in class_defs:
+                cls_name = func.id
+            # Case 2: class factory method — MemoryNode.from_content(...)
+            elif (isinstance(func, ast.Attribute)
+                  and isinstance(func.value, ast.Name)
+                  and func.value.id in class_defs):
+                cls_name = func.value.id
+            if cls_name:
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        var_types[target.id] = cls_name
 
         for node in ast.walk(current_func):
             if not isinstance(node, ast.Call):

@@ -19,8 +19,8 @@
     "rule_id": "BROWSER-ACTION",
     "mechanism": "CALLBACK_REGISTRATION",
     "enclosing_class": "AgentQLTools",
-    "caught_before": false,
-    "caught_after": false,
+    "caught_before": true,
+    "caught_after": true,
     "error": null
   },
   {
@@ -31,8 +31,8 @@
     "rule_id": "BROWSER-ACTION",
     "mechanism": "CALLBACK_REGISTRATION",
     "enclosing_class": "AgentQLTools",
-    "caught_before": false,
-    "caught_after": false,
+    "caught_before": true,
+    "caught_after": true,
     "error": null
   },
   {
@@ -67,8 +67,8 @@
     "rule_id": "COMMUNICATION-SEND",
     "mechanism": "CALLBACK_REGISTRATION",
     "enclosing_class": "TelegramTools",
-    "caught_before": false,
-    "caught_after": false,
+    "caught_before": true,
+    "caught_after": true,
     "error": null
   },
   {
@@ -200,7 +200,7 @@
     "mechanism": "MULTI_HOP_LOCAL_CALL",
     "enclosing_class": "MemoryNode",
     "caught_before": false,
-    "caught_after": false,
+    "caught_after": true,
     "error": null
   },
   {
@@ -212,7 +212,7 @@
     "mechanism": "MULTI_HOP_LOCAL_CALL",
     "enclosing_class": null,
     "caught_before": false,
-    "caught_after": false,
+    "caught_after": true,
     "error": null
   },
   {

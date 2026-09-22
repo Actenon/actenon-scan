@@ -1031,7 +1031,7 @@
     }
   ],
   "measurement_date": "2026-09-21",
-  "measurement_note": "Full 25-repo re-measurement at commit 5b2f615. 93 TP, 1 recorded FP. 0 findings in 5 control repos. All agent-framework findings are TRUE_POSITIVE \u2014 agent tools performing consequential actions (code exec, shell, container, database, file, network).",
+  "measurement_note": "Re-measured at commit 461eba229701. Control repos: 0 findings. 93 TP + 1 FP.",
   "scanner_version_measured_with": "1.5.0",
   "totals": {
     "false_positives": 1,

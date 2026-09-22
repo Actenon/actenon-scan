@@ -1024,7 +1024,7 @@
       "severity": "low"
     }
   ],
-  "measured_at_sha": "5b2f61532d1f80ec92abca96d510ffe1e96f5942",
+  "measured_at_sha": "461eba229701ebcd5ca33a3134b652b15b4ddffc",
   "repos": {
     "Aider-AI/aider": {
       "category": "application",
