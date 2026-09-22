@@ -1,5 +1,17 @@
 [
   {
+    "idx": 4,
+    "repo_name": "agno",
+    "file": "libs/agno/agno/fs/db.py",
+    "line": 416,
+    "rule_id": "DATA-DELETE-SQL",
+    "mechanism": "DYNAMIC_DISPATCH",
+    "enclosing_class": "DbFileSystem",
+    "caught_before": false,
+    "caught_after": false,
+    "error": null
+  },
+  {
     "idx": 6,
     "repo_name": "agno",
     "file": "libs/agno/agno/tools/agentql.py",
@@ -31,8 +43,8 @@
     "rule_id": "EXEC-CODE",
     "mechanism": "CALLBACK_REGISTRATION",
     "enclosing_class": "DaytonaTools",
-    "caught_before": false,
-    "caught_after": false,
+    "caught_before": true,
+    "caught_after": true,
     "error": null
   },
   {
@@ -43,8 +55,8 @@
     "rule_id": "EXEC-CONTAINER",
     "mechanism": "CALLBACK_REGISTRATION",
     "enclosing_class": "DockerTools",
-    "caught_before": false,
-    "caught_after": false,
+    "caught_before": true,
+    "caught_after": true,
     "error": null
   },
   {
@@ -116,7 +128,7 @@
     "mechanism": "MULTI_HOP_LOCAL_CALL",
     "enclosing_class": "CLIMCPServer",
     "caught_before": false,
-    "caught_after": false,
+    "caught_after": true,
     "error": null
   },
   {
@@ -128,7 +140,7 @@
     "mechanism": "CALLBACK_REGISTRATION",
     "enclosing_class": "CLIMCPServer",
     "caught_before": false,
-    "caught_after": false,
+    "caught_after": true,
     "error": null
   },
   {
@@ -152,7 +164,7 @@
     "mechanism": "LOCAL_HELPER_CALL",
     "enclosing_class": "FilesystemFileSearchMiddleware",
     "caught_before": false,
-    "caught_after": false,
+    "caught_after": true,
     "error": null
   },
   {
@@ -164,7 +176,7 @@
     "mechanism": "LOCAL_HELPER_CALL",
     "enclosing_class": "_FilesystemClaudeFileToolMiddleware",
     "caught_before": false,
-    "caught_after": false,
+    "caught_after": true,
     "error": null
   },
   {
@@ -211,6 +223,18 @@
     "rule_id": "GIT-MUTATE",
     "mechanism": "SCHEMA_DISPATCH",
     "enclosing_class": null,
+    "caught_before": false,
+    "caught_after": false,
+    "error": null
+  },
+  {
+    "idx": 130,
+    "repo_name": "openai-agents",
+    "file": "src/agents/sandbox/session/base_sandbox_session.py",
+    "line": 1100,
+    "rule_id": "EXEC-CODE",
+    "mechanism": "CROSS_MODULE_CALL",
+    "enclosing_class": "BaseSandboxSession",
     "caught_before": false,
     "caught_after": false,
     "error": null
