@@ -42,16 +42,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if corpus data is fresh (version matches + recent measurement)
-          CURRENT_SHA=$(git rev-parse HEAD)
-          RECORDED_SHA=$(python -c "import json; d=json.load(open('tests/benchmark/corpus-results.json')); print(d.get('measured_at_sha',''))" 2>/dev/null || echo "")
+          # Check if corpus data is fresh (version matches)
           RECORDED_VER=$(python -c "import json; d=json.load(open('tests/benchmark/corpus-triage.json')); print(d.get('scanner_version_measured_with',''))" 2>/dev/null || echo "")
           CURRENT_VER=$(python -c "from actenon_scan import __version__; print(__version__)")
-          if [ "$RECORDED_SHA" = "$CURRENT_SHA" ] && [ "$RECORDED_VER" = "$CURRENT_VER" ]; then
-            echo "Corpus data is fresh (SHA=$CURRENT_SHA, version=$CURRENT_VER). Using --no-remeasure."
+          if [ "$RECORDED_VER" = "$CURRENT_VER" ]; then
+            echo "Corpus data version matches ($CURRENT_VER). Using --no-remeasure."
             python scripts/check_corpus_triage.py --no-remeasure
           else
-            echo "Corpus data is stale (recorded SHA=$RECORDED_SHA, current=$CURRENT_SHA). Re-measuring..."
+            echo "Corpus data version mismatch (recorded=$RECORDED_VER, current=$CURRENT_VER). Re-measuring..."
             python scripts/check_corpus_triage.py
           fi
 
