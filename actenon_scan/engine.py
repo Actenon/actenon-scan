@@ -98,6 +98,21 @@ class ScanResult:
     transitive_followed_count: int = 0
     transitive_unfollowed_count: int = 0
     repository_analysis_enabled: bool = False
+    # Phase 3.3 (D10): count of .py files excluded by DEFAULT patterns
+    # (venv, build, tests/fixtures, test files). These excludes are
+    # silent — the user sees "scanned N file(s)" without knowing
+    # M files were excluded. This count must be disclosed in every
+    # output path.
+    default_excluded_count: int = 0
+    # Phase 3.2: per-edge detail for unfollowed local calls. Each entry
+    # is a LocalCallEdge dict with file, line, caller, callee_text,
+    # callee_qname, certainty, reason. Surfaced in JSON/SARIF/markdown/HTML.
+    local_call_edges: list[dict] = field(default_factory=list)
+    # Phase 3.2 (A3): analysis-coverage count pair — both sides observed.
+    # local_calls_followed = edges where callee was resolved (followed)
+    # local_calls_unfollowed = edges where callee is local but unresolved
+    local_calls_followed: int = 0
+    local_calls_unfollowed: int = 0
 
     @property
     def finding_count(self) -> int:
@@ -604,7 +619,7 @@ def scan_path_parallel(
     if jobs <= 1 or not target.is_dir():
         return serial()
 
-    files = _collect_files(target, include_globs, exclude_globs)
+    files, _default_excluded_count_parallel = _collect_files(target, include_globs, exclude_globs)
     # Below this size, process startup costs more than the parallelism saves.
     if len(files) < MIN_FILES_FOR_AUTO_PARALLEL:
         return serial()
@@ -735,6 +750,11 @@ def scan_path(
     # like @get and @post are NEVER detected (they match @patch from
     # unittest.mock).
     resource_boundary: bool | None = None,
+    # Phase 3.2 (A5): include actenon-scan's own test fixtures in the
+    # scan. Default False — the fixtures are the scanner's own test code,
+    # not the user's blast radius. When True, **/tests/fixtures/** is
+    # NOT excluded by default patterns.
+    include_fixtures: bool = False,
 ) -> ScanResult:
     """Scan a file or directory for the execution gap.
 
@@ -784,8 +804,9 @@ def scan_path(
     # cost that dominated the pre-commit path.
     if explicit_files is not None:
         files = [f for f in explicit_files if f.exists() and f.suffix == ".py"]
+        _default_excluded_count = 0
     else:
-        files = _collect_files(target, include_globs, exclude_globs)
+        files, _default_excluded_count = _collect_files(target, include_globs, exclude_globs, include_fixtures=include_fixtures)
     # With an explicit file list (--changed-only), classify unsupported files
     # by checking each file's suffix directly — no tree walk needed.
     # This was previously skipped entirely (unsupported_files = []) for perf,
@@ -856,23 +877,36 @@ def scan_path(
         # analysis. A cache hit returns identical findings (RULE 5: cache
         # never changes findings). A cache miss falls through to the
         # fresh scan below, and the result is stored at the end.
+        #
+        # Phase 2 (D1): capabilities are now cached alongside findings.
+        # Declarative-guard suppression is PRESERVED across a cache hit
+        # (it follows from file content, which is what the cache key hashes).
+        # Only user-supplied suppression (baseline, inline) is reset and
+        # re-applied, because that can change between runs without the
+        # file changing.
         _cached_file_error: str | None = None
         if cache is not None:
             cached = cache.findings_for(source, rel, rules)
             if cached is not None:
-                cached_findings, _cached_file_error = cached
+                cached_findings, _cached_file_error, cached_caps = cached
+                # Phase 2: restore cached capabilities so the capability
+                # summary agrees with the findings count.
+                for cc in cached_caps:
+                    capabilities.append(cc)
                 for cf in cached_findings:
-                    # Reset suppression state and re-apply from the CURRENT
-                    # baseline + suppressions sets. The cache stores findings
-                    # with the suppression state from cache-write time, which
-                    # may be stale (the user may have added/removed baseline
-                    # entries, or added/removed inline suppressions). Without
-                    # this reset, a user who runs `scan .`, then `baseline .`,
-                    # then `scan . --baseline b.json` would see all findings
-                    # unsuppressed because the cache short-circuits the
-                    # baseline check. (Round-3 audit P0.)
-                    cf.suppressed = False
-                    cf.suppression_reason = ""
+                    # Phase 2 (D1): DON'T reset declarative-guard
+                    # suppression. It follows from file content (which the
+                    # cache key hashes), so it's sound to preserve.
+                    # Only reset USER-SUPPLIED suppression (baseline, inline)
+                    # because that can change between runs.
+                    _was_declarative = (
+                        cf.suppressed
+                        and cf.suppression_reason.startswith("declarative_guard:")
+                    )
+                    # Reset only user-supplied suppression
+                    if not _was_declarative:
+                        cf.suppressed = False
+                        cf.suppression_reason = ""
                     if suppressions and (rel, cf.rule_id) in suppressions:
                         cf.suppressed = True
                         cf.suppression_reason = "inline_suppression"
@@ -927,6 +961,7 @@ def scan_path(
         # Track per-file findings for caching. Findings for this file
         # start at this index in the findings list.
         _per_file_start = len(findings)
+        _per_file_cap_start = len(capabilities)
         _per_file_error: str | None = None
 
         # tree is already parsed above; no need to re-parse
@@ -950,8 +985,16 @@ def scan_path(
             # directly inside @tool-decorated functions).
             from actenon_scan.detectors.reachability import (
                 detect_same_class_method_reachability,
+                detect_module_level_reachability,
             )
             same_class_reachable = detect_same_class_method_reachability(
+                tree, rules.reachability, self_package=self_package
+            )
+            # Phase 5.1: also check module-level function reachability
+            # (follow_local_calls_depth_1). When an agent-reachable
+            # function calls a module-level function by bare name,
+            # follow it one hop at MEDIUM confidence.
+            module_level_reachable = detect_module_level_reachability(
                 tree, rules.reachability, self_package=self_package
             )
 
@@ -960,18 +1003,19 @@ def scan_path(
                 if reach.confidence == "none":
                     # Task 2: Check if this sink is in a method that is
                     # same-class-reachable from an agent entrypoint.
-                    # If so, treat it as MEDIUM confidence (below the
-                    # HIGH confidence of a direct in-tool sink).
-                    #
-                    # same_class_reachable keys are FunctionDef.lineno
-                    # (the 'def' line), not the sink's line. Find the
-                    # enclosing function's lineno.
                     from actenon_scan.detectors.reachability import (
                         _find_enclosing_function,
                     )
                     enclosing = _find_enclosing_function(tree, sf.line)
                     if enclosing is not None and enclosing.lineno in same_class_reachable:
                         signal, hops = same_class_reachable[enclosing.lineno]
+                        reach = ReachabilityResult(
+                            confidence="medium",
+                            signals=[f"{signal}({hops}_hops)"],
+                        )
+                    elif enclosing is not None and enclosing.lineno in module_level_reachable:
+                        # Phase 5.1: module-level function reachability
+                        signal, hops = module_level_reachable[enclosing.lineno]
                         reach = ReachabilityResult(
                             confidence="medium",
                             signals=[f"{signal}({hops}_hops)"],
@@ -1099,7 +1143,11 @@ def scan_path(
         # hash + scanner version, so any change invalidates correctly.
         if cache is not None:
             _per_file_findings = findings[_per_file_start:]
-            cache.store(source, rel, rules, _per_file_findings, _per_file_error)
+            # Phase 2 (D1): cache capabilities alongside findings so a
+            # cache hit produces the same capability summary.
+            _per_file_caps = capabilities[_per_file_cap_start:]
+            cache.store(source, rel, rules, _per_file_findings, _per_file_error,
+                        capabilities=_per_file_caps)
 
     # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
     if explicit_files is not None:
@@ -1320,6 +1368,10 @@ def scan_path(
         transitive_followed_count=transitive_followed_count,
         transitive_unfollowed_count=transitive_unfollowed_count,
         repository_analysis_enabled=repository_analysis_enabled,
+        default_excluded_count=_default_excluded_count,
+        local_call_edges=getattr(repo_result, "local_call_edges", []) if repository_analysis_enabled else [],
+        local_calls_followed=getattr(repo_result, "local_calls_followed", 0) if repository_analysis_enabled else 0,
+        local_calls_unfollowed=getattr(repo_result, "local_calls_unfollowed", 0) if repository_analysis_enabled else 0,
     )
 
 
@@ -1468,6 +1520,7 @@ def _collect_files(
     target: Path,
     include_globs: list[str] | None,
     exclude_globs: list[str] | None,
+    include_fixtures: bool = False,
 ) -> list[Path]:
     """Collect .py files to scan, respecting include/exclude globs.
 
@@ -1478,7 +1531,7 @@ def _collect_files(
     """
 
     if target.is_file():
-        return [target] if target.suffix == ".py" else []
+        return ([target] if target.suffix == ".py" else []), 0
 
     # Collect all .py files recursively — use os.walk for speed
     # (pathlib.rglob is ~2x slower on large trees)
@@ -1518,8 +1571,10 @@ def _collect_files(
         ".coverage/**", "htmlcov/**",
         # Actenon's own shipped test fixtures (defensive — the wheel also
         # excludes them now, but this catches source-checkout scans).
-        "**/tests/fixtures/**",
+        # Phase 3.2 (A5): skipped when --include-fixtures is passed.
     ]
+    if not include_fixtures:
+        default_dir_excludes.append("**/tests/fixtures/**")
 
     # Detect virtual environments by marker file (pyvenv.cfg). Any directory
     # containing pyvenv.cfg is a venv, regardless of its name. This catches
@@ -1557,17 +1612,28 @@ def _collect_files(
         exclude.extend(default_test_excludes)
 
     files = []
+    default_excluded_count = 0
+    # Phase 3.3 (D10): count files excluded by DEFAULT patterns (not
+    # user-supplied --exclude). These are the silent excludes that
+    # must be disclosed.
+    default_exclude_patterns = set(default_dir_excludes + default_test_excludes)
+
     for filepath in all_py_files:
         rel = filepath.relative_to(target)
         rel_str = str(rel)
 
         # Check excludes
         excluded = False
+        excluded_by_default = False
         for pattern in exclude:
             if _glob_match(rel_str, pattern):
                 excluded = True
+                if pattern in default_exclude_patterns:
+                    excluded_by_default = True
                 break
         if excluded:
+            if excluded_by_default:
+                default_excluded_count += 1
             continue
 
         # Check includes — if any include matches, the file is included
@@ -1579,7 +1645,7 @@ def _collect_files(
         if included:
             files.append(filepath)
 
-    return files
+    return files, default_excluded_count
 
 
 # File extensions recognised as source but not analysable by the base install.

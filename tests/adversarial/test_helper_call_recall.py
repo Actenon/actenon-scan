@@ -83,9 +83,13 @@ class HelperCallRecallAdversarialTests(unittest.TestCase):
         )
 
     def test_default_scan_populates_transitive_followed_count(self) -> None:
-        """When the repo layer adds a NEW finding for a transitively-
-        reachable sink, the ``transitive_followed_count`` on ScanResult
-        MUST be >= 1. The disclosure line relies on this count.
+        """When the per-file scan (via same-class or module-level
+        resolution) OR the repo layer catches a transitively-reachable
+        sink, the finding MUST be in the findings list. The
+        ``transitive_followed_count`` may be 0 if the per-file scan
+        already caught it (Phase 5.1: follow_local_calls_depth_1
+        catches module-level calls at the per-file level, so the repo
+        layer doesn't need to add a new finding).
         """
         root = _write_repo({
             "agent.py": (
@@ -101,14 +105,15 @@ class HelperCallRecallAdversarialTests(unittest.TestCase):
             ),
         })
         result = scan_path(root, cache=None)  # default: repository_analysis=True
-        # The repo layer should have caught the sink in `helper` and
-        # added it as a new finding (helper is reachable from
-        # agent_action via transitive call).
+        # The finding MUST be present — either the per-file scan caught it
+        # (via module-level reachability, Phase 5.1) or the repo layer
+        # added it (transitive reachability).
         self.assertGreaterEqual(
-            result.transitive_followed_count, 1,
-            f"transitive_followed_count should be >= 1 when the repo layer "
-            f"adds a finding for a transitively-reachable sink. Got "
-            f"{result.transitive_followed_count}. Findings: {result.findings}",
+            len(result.findings), 1,
+            f"The helper's subprocess.run sink MUST be caught by either "
+            f"the per-file scan (module-level reachability) or the repo "
+            f"layer (transitive reachability). Got 0 findings. "
+            f"transitive_followed_count={result.transitive_followed_count}.",
         )
         # repository_analysis_enabled MUST be True for the default scan
         # of a directory.

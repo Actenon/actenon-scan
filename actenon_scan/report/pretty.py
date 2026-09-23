@@ -16,6 +16,7 @@ from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_LIMITATIONS,
     CLEAN_SCAN_STATEMENT,
     consequence_label,
+    default_exclude_disclosure_line,
     group_by_consequence,
     select_most_exposed,
     transitive_disclosure_line,
@@ -171,6 +172,13 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
         lines.append("")
         lines.append(disclosure)
 
+    # Phase 3.3 (D10): default-exclude disclosure. Files excluded by
+    # default patterns must be disclosed.
+    exclude_disclosure = default_exclude_disclosure_line(result)
+    if exclude_disclosure is not None:
+        lines.append("")
+        lines.append(exclude_disclosure)
+
     return "\n".join(lines) + "\n"
 
 
@@ -215,6 +223,12 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
     disclosure = transitive_disclosure_line(result)
     if disclosure is not None:
         lines.append(disclosure)
+        lines.append("")
+
+    # Phase 3.3 (D10): default-exclude disclosure in clean-scan too.
+    exclude_disclosure = default_exclude_disclosure_line(result)
+    if exclude_disclosure is not None:
+        lines.append(exclude_disclosure)
         lines.append("")
 
     if result.unsupported_files:

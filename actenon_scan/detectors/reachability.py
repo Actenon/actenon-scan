@@ -52,6 +52,28 @@ def detect_reachability(
         # Not in a function — check module-level signals
         return _check_module_signals(tree, reachability_cfg, self_package, sink_line=sink_line)
 
+    return _reachability_for_func(tree, func_node, reachability_cfg, self_package, sink_line)
+
+
+def _reachability_for_func(
+    tree: ast.Module,
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    reachability_cfg: dict[str, Any],
+    self_package: str | None,
+    sink_line: int,
+) -> ReachabilityResult:
+    """Compute reachability for a known enclosing FunctionDef.
+
+    Phase 5.1: split out of detect_reachability so that callers that already
+    hold the FunctionDef (notably detect_same_class_method_reachability, when
+    walking nested entrypoints whose ``def`` line is inside an outer method)
+    can bypass the line-based _find_enclosing_function lookup. That lookup
+    returns the OUTERMOST function whose span contains the line, so for a
+    nested ``@tool`` function defined inside ``__init__`` it would resolve
+    to ``__init__`` (no decorator) instead of the nested entrypoint.
+    """
+    result = ReachabilityResult()
+
     # Check for HIGH confidence: tool decorators on the function
     tool_decorators = reachability_cfg.get("tool_decorators", [])
     if _has_tool_decorator(func_node, tool_decorators):
@@ -117,6 +139,18 @@ def detect_reachability(
     if _is_action_dispatch(func_node, sink_line):
         result.confidence = "high"
         result.signals.append("action_dispatch")
+        return result
+
+    # Phase 5.2: dynamic .append() registration. When a method is appended
+    # to a tools list via `something.append(self.method)` in __init__ of a
+    # tool base class, the method IS agent-reachable (it's registered as a
+    # tool). This handles the agno/agentql and agno/telegram patterns.
+    # Conservative: only matches `self.<method>` or bare-name function refs
+    # in .append() calls within __init__ methods of classes that subclass
+    # a tool_base_class.
+    if _is_dynamic_registration(tree, func_node, reachability_cfg):
+        result.confidence = "high"
+        result.signals.append("dynamic_registration")
         return result
 
     # The sink is inside a NON-TOOL function. Even if the module imports an
@@ -189,11 +223,27 @@ def _is_inside_class_body(tree: ast.Module, line: int) -> bool:
 
 
 def _has_tool_decorator(func_node: ast.FunctionDef | ast.AsyncFunctionDef, tool_decorators: list[str]) -> bool:
-    """Check if the function has a tool decorator."""
+    """Check if the function has a tool decorator.
+
+    Phase 5: also matches the LAST SEGMENT of attribute-chain decorators
+    against tool_decorators. This is what lets ``@self.server.call_tool()``
+    match the existing ``"call_tool"`` entry — the MCP callback-registration
+    pattern used by browser-use/browser_use/mcp/cli_mcp.py (and the same
+    suffix-matching policy that ``_has_resource_boundary_decorator`` already
+    applies to ``@app.get("/path")``).
+    """
     for decorator in func_node.decorator_list:
         name = _get_decorator_name(decorator)
+        # Exact match (e.g., "tool", "mcp.tool", "call_tool")
         if name in tool_decorators:
             return True
+        # Suffix match for attribute-chain decorators. Catches
+        # @self.server.call_tool() -> "call_tool" and @app.tool() -> "tool".
+        # Consistent with _has_resource_boundary_decorator.
+        if "." in name:
+            last_segment = name.rsplit(".", 1)[-1]
+            if last_segment in tool_decorators:
+                return True
     return False
 
 
@@ -270,7 +320,93 @@ def _get_call_name(node: ast.expr) -> str:
         return node.id
     if isinstance(node, ast.Attribute):
         return _get_attribute_chain(node)
-    return ""
+    # Phase 3.2: call-on-a-call (e.g., lox.thread(threads)(run_test)).
+    # Previously returned "" which matched every wrapper name. Now returns
+    # the unparse text so different wrappers are distinguishable.
+    try:
+        return ast.unparse(node)
+    except Exception:
+        return ""
+
+
+def _is_dynamic_registration(
+    tree: ast.Module,
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    reachability_cfg: dict[str, Any],
+) -> bool:
+    """Phase 5.2: Check if the method is registered via dynamic .append()
+    in the __init__ of a tool base class.
+
+    Pattern:
+        class MyTools(Toolkit):
+            def __init__(self):
+                self.tools = []
+                self.tools.append(self.scrape_website)  # ← this method
+
+    Conservative constraints:
+    - Only matches `something.append(self.<method_name>)` or
+      `something.append(<bare_name>)` in __init__ of a class that
+      subclasses a tool_base_class.
+    - getattr-based or computed registration is NOT matched
+      (disclosed as unresolved elsewhere).
+    - Generic callbacks= arguments and event handlers are NOT matched.
+    """
+    tool_base_classes = reachability_cfg.get("tool_base_classes", [])
+    if not tool_base_classes:
+        return False
+
+    # Find the enclosing class
+    enclosing_class: ast.ClassDef | None = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for child in node.body:
+                if child is func_node:
+                    enclosing_class = node
+                    break
+            if enclosing_class is not None:
+                break
+    if enclosing_class is None:
+        return False
+
+    # Check if the class subclasses a tool base class
+    is_tool_base = False
+    for base in enclosing_class.bases:
+        base_name = _get_base_name(base)
+        if base_name in tool_base_classes:
+            is_tool_base = True
+            break
+    if not is_tool_base:
+        return False
+
+    # Find the __init__ method
+    init_method: ast.FunctionDef | None = None
+    for child in enclosing_class.body:
+        if isinstance(child, ast.FunctionDef) and child.name == "__init__":
+            init_method = child
+            break
+    if init_method is None:
+        return False
+
+    # Look for .append(self.<func_name>) or .append(<bare_name>) patterns
+    for node in ast.walk(init_method):
+        if not isinstance(node, ast.Call):
+            continue
+        # Check if this is a .append() call
+        if (isinstance(node.func, ast.Attribute)
+            and node.func.attr == "append"
+            and len(node.args) >= 1):
+            arg = node.args[0]
+            # Case 1: self.<method_name>
+            if (isinstance(arg, ast.Attribute)
+                and isinstance(arg.value, ast.Name)
+                and arg.value.id == "self"
+                and arg.attr == func_node.name):
+                return True
+            # Case 2: bare-name function reference
+            if isinstance(arg, ast.Name) and arg.id == func_node.name:
+                return True
+
+    return False
 
 
 def _is_tool_method(
@@ -329,22 +465,123 @@ def _is_in_tool_list(tree: ast.Module, func_name: str, tool_list_params: list[st
         agent = Agent(tools=[my_tool_func, other_tool])
         agent = Agno(toolkits=[my_toolkit])
 
-    The function name must appear as a bare Name reference inside one of the
-    list/tuple arguments named in tool_list_params.
+    Phase 5.2 extends the original bare-Name matching to recognise the
+    two additional registration shapes that appear in real Agno Toolkit
+    subclasses (modelcontextprotocol-registered tools):
+
+      1. ``self.<method>`` references inside the list/tuple literal —
+         ``super().__init__(tools=[self.scrape_website])``.
+      2. The "local list assigned once, then passed" shape —
+         ``tools = [self.scrape_website, ...]; super().__init__(tools=tools)``.
+
+    Conservative constraints (per Phase 5.2 brief):
+      - The list literal must be assigned exactly once and not reassigned
+        before being passed to the registration kwarg. Anything mutating it
+        via ``.append()``, ``.extend()``, or ``getattr(self, name)`` is
+        dynamic registration and is NOT resolved — those are disclosed as
+        unresolved entry points instead.
+      - Generic ``callbacks=`` arguments and event handlers are NOT tools;
+        they are not in tool_list_params and so are never matched here.
     """
+    # Pattern 1: direct list/tuple literal passed as a registration kwarg
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         for kw in node.keywords:
             if kw.arg in tool_list_params and isinstance(kw.value, (ast.List, ast.Tuple)):
-                for elt in kw.value.elts:
-                    if isinstance(elt, ast.Name) and elt.id == func_name:
-                        return True
-                    # Also handle Tool(func_name) wrapper inside the list
-                    if isinstance(elt, ast.Call):
-                        for arg in elt.args:
-                            if isinstance(arg, ast.Name) and arg.id == func_name:
-                                return True
+                if _list_contains_func_ref(kw.value.elts, func_name):
+                    return True
+
+    # Pattern 2: local list variable assigned exactly once (as a list/tuple
+    # literal) and then passed as a registration kwarg. We track every
+    # assignment target whose RHS is a list/tuple literal containing the
+    # function reference. If the same target is reassigned (e.g., via
+    # .append/.extend, or a second literal assignment, or a non-literal RHS),
+    # the variable is marked dynamic and excluded.
+    list_var_state: dict[str, str] = {}  # var_name -> "clean" | "dynamic"
+    for node in ast.walk(tree):
+        # ast.Assign: tools = [...] or tools = something_else
+        if isinstance(node, ast.Assign):
+            value_is_literal_list = isinstance(node.value, (ast.List, ast.Tuple))
+            for tgt in node.targets:
+                if not isinstance(tgt, ast.Name):
+                    continue
+                prev = list_var_state.get(tgt.id)
+                if prev is not None:
+                    list_var_state[tgt.id] = "dynamic"
+                    continue
+                if value_is_literal_list:
+                    contains = _list_contains_func_ref(node.value.elts, func_name)
+                    list_var_state[tgt.id] = "clean" if contains else "neutral"
+                else:
+                    list_var_state[tgt.id] = "dynamic"
+        # ast.AnnAssign: tools: List[Any] = [...] — Agno's preferred form.
+        # Without this branch, every Agno Toolkit subclass (where the local
+        # list is type-annotated) would be missed.
+        elif isinstance(node, ast.AnnAssign):
+            if (isinstance(node.target, ast.Name)
+                    and isinstance(node.value, (ast.List, ast.Tuple))):
+                tgt = node.target.id
+                prev = list_var_state.get(tgt)
+                if prev is not None:
+                    list_var_state[tgt] = "dynamic"
+                    continue
+                contains = _list_contains_func_ref(node.value.elts, func_name)
+                list_var_state[tgt] = "clean" if contains else "neutral"
+        # Mutating calls (list.append/extend/insert) and getattr() comprehensions
+        # mark any list variable as dynamic.
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr in ("append", "extend", "insert"):
+                if node.func.value and isinstance(node.func.value, ast.Name):
+                    name = node.func.value.id
+                    if name in list_var_state:
+                        list_var_state[name] = "dynamic"
+
+    clean_list_vars = {v for v, s in list_var_state.items() if s == "clean"}
+    if not clean_list_vars:
+        return False
+
+    # Now look for any call that passes one of these clean list vars as a
+    # registration kwarg.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for kw in node.keywords:
+            if (
+                kw.arg in tool_list_params
+                and isinstance(kw.value, ast.Name)
+                and kw.value.id in clean_list_vars
+            ):
+                return True
+    return False
+
+
+def _list_contains_func_ref(elts: list, func_name: str) -> bool:
+    """True if any element is ``func_name`` (bare Name) or ``self.func_name``
+    (Attribute access on ``self``), or a ``Tool(func_name)`` wrapper around
+    either of those."""
+    for elt in elts:
+        if isinstance(elt, ast.Name) and elt.id == func_name:
+            return True
+        if (
+            isinstance(elt, ast.Attribute)
+            and elt.attr == func_name
+            and isinstance(elt.value, ast.Name)
+            and elt.value.id == "self"
+        ):
+            return True
+        # Tool(func_name) / Tool.from_function(self.func_name) wrapper
+        if isinstance(elt, ast.Call):
+            for arg in elt.args:
+                if isinstance(arg, ast.Name) and arg.id == func_name:
+                    return True
+                if (
+                    isinstance(arg, ast.Attribute)
+                    and arg.attr == func_name
+                    and isinstance(arg.value, ast.Name)
+                    and arg.value.id == "self"
+                ):
+                    return True
     return False
 
 
@@ -681,40 +918,87 @@ def detect_same_class_method_reachability(
         if not method_map:
             continue
 
-        # Find agent-reachable entrypoints in this class
+        # Phase 5.1: discover nested FunctionDefs inside the class's direct
+        # methods. A nested function decorated with @tool / @server.call_tool()
+        # is an agent-reachable entrypoint even though it is not a class-body
+        # method. This is the langchain AgentMiddleware pattern
+        # (file_search.py:314, anthropic_tools.py:1040):
+        #     class M(AgentMiddleware):
+        #         def __init__(self): ...
+        #             @tool
+        #             def file_tool(...): self._handle_delete(...)   # entry
+        #         def _handle_delete(self, ...): shutil.rmtree(...)  # sink
+        # and the browser-use MCP pattern (cli_mcp.py:128):
+        #     class CLIMCPServer:
+        #         def _register_handlers(self):
+        #             @self.server.call_tool()  # entry via suffix match
+        #             async def handle_call_tool(name, args):
+        #                 asyncio.to_thread(self._execute, code)
+        #         def _execute(self, code): exec(code, ns)   # sink
+        nested_funcs: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
+        seen_nested_ids: set[int] = set()
+        for method in method_map.values():
+            for sub in ast.walk(method):
+                if (
+                    isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and sub is not method
+                    and id(sub) not in seen_nested_ids
+                ):
+                    nested_funcs.append(sub)
+                    seen_nested_ids.add(id(sub))
+
+        # Find agent-reachable entrypoints in this class. Direct methods
+        # (existing) PLUS nested functions that themselves satisfy the
+        # per-file reachability detector (e.g., @tool decorator). We call
+        # _reachability_for_func directly with the FunctionDef because
+        # detect_reachability's line-based _find_enclosing_function would
+        # resolve a nested def to its outer wrapper method (which has no
+        # decorator) instead of to the nested entrypoint itself.
         entrypoints: list[tuple[int, int]] = []  # (lineno, 0_hops)
         for name, method in method_map.items():
-            reach = detect_reachability(
-                tree, method.lineno, reachability_cfg, self_package=self_package
+            reach = _reachability_for_func(
+                tree, method, reachability_cfg, self_package, method.lineno
             )
             if reach.confidence != "none":
                 entrypoints.append((method.lineno, 0))
+        for nf in nested_funcs:
+            reach = _reachability_for_func(
+                tree, nf, reachability_cfg, self_package, nf.lineno
+            )
+            if reach.confidence != "none":
+                entrypoints.append((nf.lineno, 0))
 
         if not entrypoints:
             continue
 
-        # Build same-class call graph: caller_lineno → [(callee_lineno, callee_name)]
+        # Same-class call graph: caller_lineno -> [(callee_lineno, callee_name)]
+        # Sources walked for outgoing edges: every direct method AND every
+        # nested entrypoint. Edges are only added to callees that exist in
+        # method_map (direct class-body methods) — we never chain through
+        # other nested functions, which keeps the traversal conservative.
+        executor_patterns = reachability_cfg.get("callback_executor_functions", [])
         call_graph: dict[int, list[tuple[int, str]]] = {}
-        for name, method in method_map.items():
-            caller_line = method.lineno
-            for node in ast.walk(method):
-                if isinstance(node, ast.Call):
-                    # Check for self.x() or cls.x()
-                    if isinstance(node.func, ast.Attribute):
-                        if (
-                            isinstance(node.func.value, ast.Name)
-                            and node.func.value.id in ("self", "cls")
-                        ):
-                            callee_name = node.func.attr
-                            if callee_name in method_map:
-                                callee = method_map[callee_name]
-                                call_graph.setdefault(caller_line, []).append(
-                                    (callee.lineno, callee_name)
-                                )
-                    # Check for ClassName.x() — same class, static method
+        all_callers = list(method_map.values()) + nested_funcs
+        for caller in all_callers:
+            caller_line = caller.lineno
+            for node in ast.walk(caller):
+                if not isinstance(node, ast.Call):
+                    continue
+                # Direct self.x() / cls.x() call
+                if isinstance(node.func, ast.Attribute):
+                    if (
+                        isinstance(node.func.value, ast.Name)
+                        and node.func.value.id in ("self", "cls")
+                    ):
+                        callee_name = node.func.attr
+                        if callee_name in method_map:
+                            callee = method_map[callee_name]
+                            call_graph.setdefault(caller_line, []).append(
+                                (callee.lineno, callee_name)
+                            )
+                    # ClassName.x() — same class, static method
                     elif (
-                        isinstance(node.func, ast.Attribute)
-                        and isinstance(node.func.value, ast.Name)
+                        isinstance(node.func.value, ast.Name)
                         and node.func.value.id == cls_node.name
                     ):
                         callee_name = node.func.attr
@@ -722,6 +1006,36 @@ def detect_same_class_method_reachability(
                             callee = method_map[callee_name]
                             call_graph.setdefault(caller_line, []).append(
                                 (callee.lineno, callee_name)
+                            )
+                # Executor pattern: KNOWN_EXECUTOR(self.M, ...) — passing a
+                # bound method as the first positional argument to a thread/
+                # executor helper is the same-class equivalent of a direct
+                # self.M() call (the executor invokes M on the same `self`).
+                # Only a small whitelist is followed; getattr(self, name) and
+                # arbitrary higher-order functions are NOT resolved.
+                if executor_patterns and node.args:
+                    executor_name = _get_call_name(node.func)
+                    if executor_name and "." in executor_name:
+                        executor_suffix = executor_name.rsplit(".", 1)[-1]
+                    else:
+                        executor_suffix = executor_name
+                    is_executor = any(
+                        executor_name == p
+                        or ("." in p and executor_suffix == p.rsplit(".", 1)[-1])
+                        or ("." not in p and executor_suffix == p)
+                        for p in executor_patterns
+                    )
+                    if is_executor:
+                        first = node.args[0]
+                        if (
+                            isinstance(first, ast.Attribute)
+                            and isinstance(first.value, ast.Name)
+                            and first.value.id in ("self", "cls")
+                            and first.attr in method_map
+                        ):
+                            callee = method_map[first.attr]
+                            call_graph.setdefault(caller_line, []).append(
+                                (callee.lineno, first.attr)
                             )
 
         # BFS from entrypoints, up to max_hops
@@ -741,5 +1055,185 @@ def detect_same_class_method_reachability(
                 visited.add(callee_line)
                 reachable[callee_line] = ("same_class_method", hops + 1)
                 queue.append((callee_line, hops + 1))
+
+    return reachable
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.1: Module-level function reachability (follow_local_calls_depth_1).
+#
+# When an agent-reachable function (e.g., @tool-decorated) calls a MODULE-LEVEL
+# function by bare name, follow it one hop at MEDIUM confidence. This resolves
+# the mcp-python-sdk/memory.py cases where the chain crosses namespaces.
+#
+# Conservative constraints:
+#   - Same-file ONLY. No cross-file.
+#   - max_hops=1 (configurable via follow_local_calls_depth_1 in config)
+#   - Only when the callee name exactly matches one top-level function
+#   - Ambiguous names (multiple definitions) → not followed
+# ---------------------------------------------------------------------------
+
+
+def detect_module_level_reachability(
+    tree: ast.Module,
+    reachability_cfg: dict[str, Any],
+    *,
+    self_package: str | None = None,
+    max_hops: int = 3,
+) -> dict[int, tuple[str, int]]:
+    """Find module-level functions that are reachable via bare-name calls
+    from agent-reachable entrypoints. Returns a dict mapping callee function
+    line number → (signal, hops).
+
+    Phase 5.1: max_hops=3 (was 1). Follows chains like:
+      remember → add_memory → merge_with → delete_memory (3 hops)
+
+    Phase 5.1 (cross-namespace): also follows local-variable method calls
+    where the variable is assigned from a constructor call:
+      new_memory = MemoryNode(...) → new_memory.save() → MemoryNode.save
+
+    The signal is "local_call" — MEDIUM confidence, below the HIGH
+    confidence of a direct in-tool sink.
+    """
+    if not reachability_cfg.get("follow_local_calls_depth_1", False):
+        return {}
+
+    reachable: dict[int, tuple[str, int]] = {}
+
+    # Build a map of top-level function names → FunctionDef
+    top_level_funcs: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    ambiguous: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name in top_level_funcs:
+                ambiguous.add(node.name)
+            else:
+                top_level_funcs[node.name] = node
+    for name in ambiguous:
+        top_level_funcs.pop(name, None)
+
+    if not top_level_funcs:
+        return {}
+
+    # Build a map of class names → ClassDef (for cross-namespace tracking)
+    class_defs: dict[str, ast.ClassDef] = {}
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            # Only register if unambiguous
+            if node.name not in class_defs:
+                class_defs[node.name] = node
+
+    # Build a map of class name → {method_name → method FunctionDef}
+    class_methods: dict[str, dict[str, ast.FunctionDef | ast.AsyncFunctionDef]] = {}
+    for cls_name, cls_node in class_defs.items():
+        methods: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        for child in cls_node.body:
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if child.name not in methods:
+                    methods[child.name] = child
+        class_methods[cls_name] = methods
+
+    # Find agent-reachable entrypoints (top-level functions)
+    entrypoints: list[int] = []
+    for name, func in top_level_funcs.items():
+        reach = detect_reachability(
+            tree, func.lineno, reachability_cfg, self_package=self_package
+        )
+        if reach.confidence != "none":
+            entrypoints.append(func.lineno)
+
+    if not entrypoints:
+        return {}
+
+    # BFS from entrypoints, following both bare-name calls to top-level
+    # functions AND local-variable method calls (where the variable type
+    # is determined from a constructor call).
+    visited: set[int] = set()
+    queue: list[tuple[int, int]] = []  # (function_lineno, hops)
+    for ep_line in entrypoints:
+        visited.add(ep_line)
+        queue.append((ep_line, 0))
+
+    # Map from function lineno → FunctionDef (for both top-level and class methods)
+    all_funcs_by_line: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    for func in top_level_funcs.values():
+        all_funcs_by_line[func.lineno] = func
+    for methods in class_methods.values():
+        for method in methods.values():
+            all_funcs_by_line[method.lineno] = method
+
+    while queue:
+        current_line, hops = queue.pop(0)
+        if hops >= max_hops:
+            continue
+        current_func = all_funcs_by_line.get(current_line)
+        if current_func is None:
+            continue
+
+        # Track local variable → class type assignments in this function
+        # e.g., `new_memory = MemoryNode(...)` → var_types["new_memory"] = "MemoryNode"
+        # Also handles:
+        #   - ast.AnnAssign (type-annotated assignments)
+        #   - ast.Await wrapping (async: `new_memory = await MemoryNode.create(...)`)
+        #   - Class factory methods (MemoryNode.from_content → MemoryNode)
+        var_types: dict[str, str] = {}
+        for node in ast.walk(current_func):
+            value = None
+            if isinstance(node, ast.Assign):
+                value = node.value
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                value = node.value
+                targets = [node.target]
+            else:
+                continue
+            if value is None:
+                continue
+            # Unwrap await
+            if isinstance(value, ast.Await):
+                value = value.value
+            if not isinstance(value, ast.Call):
+                continue
+            func = value.func
+            cls_name = None
+            # Case 1: direct constructor — MemoryNode(...)
+            if isinstance(func, ast.Name) and func.id in class_defs:
+                cls_name = func.id
+            # Case 2: class factory method — MemoryNode.from_content(...)
+            elif (isinstance(func, ast.Attribute)
+                  and isinstance(func.value, ast.Name)
+                  and func.value.id in class_defs):
+                cls_name = func.value.id
+            if cls_name:
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        var_types[target.id] = cls_name
+
+        for node in ast.walk(current_func):
+            if not isinstance(node, ast.Call):
+                continue
+            # Case 1: bare-name call to a top-level function
+            if isinstance(node.func, ast.Name):
+                callee_name = node.func.id
+                if callee_name in top_level_funcs:
+                    callee = top_level_funcs[callee_name]
+                    if callee.lineno not in visited:
+                        visited.add(callee.lineno)
+                        reachable[callee.lineno] = ("local_call", hops + 1)
+                        queue.append((callee.lineno, hops + 1))
+            # Case 2: method call on a local variable whose type is known
+            elif (isinstance(node.func, ast.Attribute)
+                  and isinstance(node.func.value, ast.Name)):
+                var_name = node.func.value.id
+                method_name = node.func.attr
+                if var_name in var_types:
+                    cls_name = var_types[var_name]
+                    methods = class_methods.get(cls_name, {})
+                    if method_name in methods:
+                        callee = methods[method_name]
+                        if callee.lineno not in visited:
+                            visited.add(callee.lineno)
+                            reachable[callee.lineno] = ("local_call", hops + 1)
+                            queue.append((callee.lineno, hops + 1))
 
     return reachable

@@ -74,14 +74,18 @@ def check_case(case: dict) -> dict:
     reach_before = detect_reachability(tree, line, rules.reachability)
     caught_before = reach_before.confidence != "none"
 
-    # Check after: with same-class method resolution
+    # Check after: with same-class AND module-level resolution
     same_class = detect_same_class_method_reachability(tree, rules.reachability)
+    from actenon_scan.detectors.reachability import detect_module_level_reachability
+    module_level = detect_module_level_reachability(tree, rules.reachability)
     # Find the enclosing function's lineno
     from actenon_scan.detectors.reachability import _find_enclosing_function
     enclosing = _find_enclosing_function(tree, line)
     caught_after = caught_before
     if not caught_after and enclosing is not None:
         if enclosing.lineno in same_class:
+            caught_after = True
+        elif enclosing.lineno in module_level:
             caught_after = True
 
     return {

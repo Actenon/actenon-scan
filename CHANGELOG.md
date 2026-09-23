@@ -26,16 +26,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing repos; this is NOT a breaking change (the ruleset version in
   `default_rules.json` is bumped instead).
 
+## [1.5.0] — 2026-09-20
+
+### Public corrections (Phase 1)
+
+- Retracted the 0.06% claim (unit error: findings divided by call sites)
+- CVE-2024-21552 rediscovery note (scanner matched sink, did not connect
+  to agent boundary; human adjudication identified the path)
+- DISCLOSURE_POLICY.md: pre-draft checks (NVD/OSV/GHSA), unsent drafts
+  never committed to this repository
+- Withdrew the 43%-52% recall bracket (three defects: direction bias,
+  scope-as-adjudication, misclassified highest-weight case)
+- README: replaced "Every claim above is machine-verified" with
+  "Machine-verified package claims" (names only what verify-claims.yml
+  actually verifies)
+
+### Cache determinism fix (Phase 2 / D1)
+
+- Capabilities now cached alongside findings (warm cache capability
+  summary agrees with findings count)
+- Declarative-guard suppression preserved on cache hit (follows from
+  file content, which the cache key hashes)
+- `entry_schema_version=2` in cache key (prior schema entries rejected)
+
+### Default-exclude disclosure (Phase 3 / D10)
+
+- Files excluded by default patterns (venv, build, tests/fixtures, test
+  files) are now counted and the count is printed in every output path
+- `default_excluded_count` field added to `ScanResult` and JSON output
+- A file under `tests/fixtures/` is disclosed as excluded, not silent
+
+### Re-adjudicated recall bracket (Phase 4)
+
+- Pre-registered `ADJUDICATION_RULES.md` before any re-examination
+- 16 Task-5 cases re-adjudicated: 2 moved to AGENT_REACHABLE, 14 to
+  NOT_AGENT_REACHABLE, 0 stayed AMBIGUOUS (NOT one-directional)
+- Brackets: (a) examples in scope: 27.6%-31.0%; (b) examples out of
+  scope: 26.1%-29.4%
+- LoadAndSearchToolSpec.load traced: load IS agent-facing but does NOT
+  chain to drop_table_purge
+- Three recall figures kept separate: synthetic 9/10, corpus 3/10,
+  real-world ~26%-31%, precision 16/16
+
+### LLM output to sink (Phase 5.3)
+
+- `LLM_OUTPUT_TO_SINK` mechanism documented as NOT COVERED in
+  `docs/COVERAGE.md` with CVE-2024-21552 as motivating example
+- `tests/challenge/CHALLENGE-005.yml` filed as open challenge
+
+### README truth pass (Phase 6)
+
+- Repository layer documented (default-on, --no-repository-analysis,
+  disclosure counts)
+- Cross-file guard protection tested: guard in caller NOT detected for
+  sink in callee (documented limitation)
+- Guard detection stated as AST ancestry (lexical), not CFG dominance
+- Pre-commit rev pin updated (v1.2.0 → v1.4.0)
+- Category mismatch fixed: 16/16/16 (detection table = component
+  table = default_rules.json categories)
+
+### Reconciliation ledger (Phase 3.1)
+
+- `docs/RECONCILIATION-disclose-analysis-gaps.md`: 14 commits
+  classified (3 PORTED, 2 SUPERSEDED, 9 NOT_PORTED)
+
+### Bare-verb reconciliation (Task 4c, carried from main)
+
+- `--resource-boundary` flag (opt-in, not default)
+- Bare decorator names removed (`@get`, `@post`, `@patch` — prevents
+  collision with `@patch` from `unittest.mock`)
+- Qualified forms kept (`@app.get`, `@router.post`, `@org_router.get`)
+
+### NOT DONE in 1.5.0
+
+- Phase 5.1-5.2: 5 in-scope misses not resolved; callback/list
+  registration not derived
+- Phase 3.2: edge definition, per-edge detail, fixture exclusion with
+  --include-fixtures, headline dedup, _get_call_name fix,
+  depth-stratified benchmark, CHALLENGE-004 — NOT PORTED (requires
+  LocalCallEdge structure from unmerged branch)
+- Phase 7.1: corpus re-measurement with repaired gate not completed
+  (25-repo re-measurement takes 10-30 minutes in CI)
+- Phase 7.3: branch report partially done (10 merged deleted, 67
+  non-merged listed for human decision)
+
+
 ## [Unreleased]
 
 ### Repository-level analysis: honesty disclosure
 
+> **Correction note (2026-09-20):** A previous version of this entry
+> stated the repository layer "resolved only 0.06% of transitive edges
+> (2 followed, 3,297 unfollowed)." That ratio is a **unit error**:
+> the numerator counts new findings emitted; the denominator counts
+> unresolved call sites out of entry points (including external-library
+> calls). Dividing findings by call sites produces a number with no
+> physical meaning. The 0.06% figure has been removed. What is
+> defensible: the repository layer is on by default, resolves same-file
+> module-level calls, and catches 3/22 hand-verified AGENT_REACHABLE
+> sinks. The `transitive_unfollowed_count` is not a resolution rate.
+
 The repository-level analysis layer (call graph, symbol index, taint)
-was enabled by default in v1.4.0 but resolved only 0.06% of transitive
-edges (2 followed, 3,297 unfollowed) on the 160-case labelled corpus.
-The unfollowed count was recorded on `ScanResult` but not printed in
-most output paths — a directory scan reported clean over 3,297
-unexamined edges with no indication.
+was enabled by default in v1.4.0. The unfollowed count was recorded on
+`ScanResult` but not printed in most output paths — a directory scan
+reported clean over unexamined edges with no indication.
 
 **Fixed**: the `transitive_unfollowed_count` now appears in every
 output path (pretty, list, json, sarif, markdown, html) — both in the
@@ -78,6 +172,26 @@ agent-reachable entrypoint in the same class was invisible.
 
 **Recall fixtures** added: `r11_same_class_method.py`,
 `r12_same_class_multi_hop.py`, `r13_same_class_three_hops.py`.
+
+### Recall bracket withdrawal (2026-09-20)
+
+> **WITHDRAWAL:** The 43%–52% recall bracket published in commit `129b926`
+> is **withdrawn**. Three defects invalidate it: (1) all 16 adjudications
+> moved in one direction; (2) 6 of 16 are scope changes, not reachability
+> judgements; (3) the highest-weight case was misclassified. The 14%–52%
+> bracket stands pending re-adjudication under pre-registered rules. See
+> [docs/RECALL.md](docs/RECALL.md) for the full withdrawal note.
+
+### CVE-2024-21552 rediscovery note (2026-09-20)
+
+The `superagi/agent/output_handler.py:180` `eval(assistant_reply)` case
+identified in the ground-truth pass is
+[CVE-2024-21552](https://nvd.nist.gov/vuln/detail/CVE-2024-21552) (CVSS 9.8,
+public since 2024). The scanner matched the sink but did not connect it to
+an agent boundary. See
+[REDISCOVERY-CVE-2024-21552.md](research/reachability-ground-truth/REDISCOVERY-CVE-2024-21552.md).
+No disclosure is required and none will be sent. The previously-committed
+draft report has been removed.
 
 
 ## [1.4.0] — 2026-07-29

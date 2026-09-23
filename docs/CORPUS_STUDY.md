@@ -34,38 +34,46 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 
 ## Findings
 
-- **Total findings:** 22
-- **True positives (hand-triaged):** 21
+- **Total findings:** 94
+- **True positives (hand-triaged):** 93
 - **False positives:** 1
 
 ### By consequence category
 
 | Category | Count |
 |---|---|
-| unknown | 22 |
+| unknown | 94 |
 
 ### By rule
 
 | Rule | Count |
 |---|---|
-| NET-EGRESS | 9 |
-| FILE-OPEN-WRITE | 6 |
-| COMMUNICATION-SEND | 2 |
+| NET-EGRESS | 27 |
+| FILE-OPEN-WRITE | 14 |
+| EXEC-CODE | 14 |
+| DATA-DELETE-SQL | 12 |
+| EXEC-CONTAINER | 8 |
+| BROWSER-ACTION | 5 |
+| EXEC-SHELL | 4 |
+| COMMUNICATION-SEND | 3 |
+| NET-EGRESS-GO | 2 |
+| FILE-WRITE | 2 |
 | DATA-DELETE-OS | 2 |
-| FILE-WRITE | 1 |
-| EXEC-SHELL | 1 |
-| NET-EGRESS-GO | 1 |
+| DATABASE-MUTATE | 1 |
 
 ### By repository
 
 | Repository | Findings |
 |---|---|
-| crewAIInc/crewAI | 8 |
-| TransformerOptimus/SuperAGI | 6 |
-| FoundationAgents/MetaGPT | 5 |
+| agno-agi/agno | 46 |
+| crewAIInc/crewAI | 20 |
+| TransformerOptimus/SuperAGI | 11 |
+| FoundationAgents/MetaGPT | 8 |
+| modelcontextprotocol/python-sdk | 3 |
+| browser-use/browser-use | 2 |
+| github/github-mcp-server | 2 |
+| langchain-ai/langchain | 1 |
 | modelcontextprotocol/servers | 1 |
-| modelcontextprotocol/python-sdk | 1 |
-| github/github-mcp-server | 1 |
 
 ## The false-positive rate
 
@@ -109,9 +117,9 @@ were identified and fixed:
    was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ
    rule's qualified patterns.
 
-### Current measurement: 21/22 (95% precision)
+### Current measurement: 93/94 (99% precision)
 
-After fixes, the current corpus has 21 findings,
+After fixes, the current corpus has 93 findings,
 all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number
 that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is
 present or any finding is untriaged.
@@ -209,8 +217,8 @@ python scripts/generate_corpus_study.py --check
 
 ## Scanner version
 
-- **Measured with:** actenon-scan 1.4.0
-- **Measurement date:** 2026-07-29
+- **Measured with:** actenon-scan 1.5.0
+- **Measurement date:** 2026-09-21
 
 The corpus is a measurement taken with a specific scanner version. When
 the scanner's analysis changes materially, the corpus must be re-measured.

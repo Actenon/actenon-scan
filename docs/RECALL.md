@@ -1,27 +1,286 @@
 # Recall — the first honest number
 
-**Status:** BRACKET NARROWED. Real-world labelled-sink recall now 43%–52%
-(was 14%–52%). The three recall figures below remain separate and are not
-collapsed into one number. Verified single-number recall still requires the
-work in §"What would be needed to produce a verified recall figure".
+> **WITHDRAWAL NOTE (2026-09-20):** The 43%–52% bracket published in commit
+> `129b926` is **withdrawn**. Three defects invalidate it:
+>
+> 1. All 16 adjudications moved in one direction (to NOT_AGENT_REACHABLE);
+>    0 moved to AGENT_REACHABLE. The adjudication is not symmetric — it
+>    narrowed the bracket by moving the low end up, which is the direction
+>    that flatters the tool.
+> 2. 6 of 16 adjudications are not reachability judgements: they reclassify
+>    cases as NOT_AGENT_REACHABLE because the file is in `examples/` or
+>    `samples/` — a scope change, not an adjudication. The scope rule was
+>    applied one way: two AGENT_REACHABLE cases in `examples/mcpserver/memory.py`
+>    were left reachable.
+> 3. The highest-weight case (`llamaindex|data_destruction`, w=297) names
+>    `LoadAndSearchToolSpec.load` as the caller and concludes "not a
+>    model/tool boundary," but `LoadAndSearchToolSpec` exists to hand
+>    `load()` to an agent as a tool.
+>
+> The defensible bracket was **14%–52%** until re-adjudicated under
+> pre-registered rules. That re-adjudication is now complete (see the
+> "Phase 4 re-adjudication" section below). The new bracket, reported
+> under both scope variants, is **~26%–31%**. No single headline
+> recall number is published in this PR.
+
+**Status:** PHASE 4 COMPLETE. The 43%–52% bracket (commit `129b926`) is
+invalid as computed and is superseded by the Phase 4 re-adjudication
+below. The new real-world labelled-sink bracket is **~26%–31%**, reported
+under both scope variants. The three recall figures below remain
+separate and are not collapsed into one number.
 **Data:** [`tests/benchmark/recall-denominator.json`](../tests/benchmark/recall-denominator.json)
 **Reachability ground truth:** [`research/reachability-ground-truth/labels.json`](../research/reachability-ground-truth/labels.json),
 [`research/reachability-ground-truth/ambiguity_resolution.json`](../research/reachability-ground-truth/ambiguity_resolution.json),
+[`research/reachability-ground-truth/adjudication_results.json`](../research/reachability-ground-truth/adjudication_results.json),
+[`research/reachability-ground-truth/ADJUDICATION_RULES.md`](../research/reachability-ground-truth/ADJUDICATION_RULES.md),
 [`research/reachability-ground-truth/README.md`](../research/reachability-ground-truth/README.md)
 **Methodology:** [`tests/benchmark/recall_methodology.md`](../tests/benchmark/recall_methodology.md)
 **Author:** Agent A3 — recall denominator study (Task 5-A3); ambiguity
-adjudication by sub-agent 6-T5 (Task 5).
+adjudication by sub-agent 6-T5 (Task 5); re-adjudication by sub-agent
+7-P4 (Phase 4 of the correctness PR).
+
+---
+
+## Phase 4 re-adjudication — new bracket under pre-registered rules (Task 7-P4)
+
+> The Phase 4 rules were pre-registered in
+> [`research/reachability-ground-truth/ADJUDICATION_RULES.md`](../research/reachability-ground-truth/ADJUDICATION_RULES.md)
+> **before** any case was re-examined. Commit order in this PR is the
+> proof of pre-registration: that file's first commit predates the
+> re-adjudication recorded in
+> [`research/reachability-ground-truth/adjudication_results.json`](../research/reachability-ground-truth/adjudication_results.json).
+> The 16 cases adjudicated in commit `129b926` were each reset to their
+> pre-`129b926` state (label `AMBIGUOUS`, with the original reason)
+> before being re-adjudicated.
+
+### The three recall figures, kept separate (Phase 4)
+
+| Metric | Value | Source |
+|---|---|---|
+| Synthetic adversarial recall | 9/10 | `tests/benchmark/soundness/*` |
+| Corpus-demonstrated architecture recall | 3/10 — gates CI | `tests/benchmark/recall_methodology.md` |
+| **Real-world labelled sink recall — bracket** | **~26%–31%** (both scope variants) | this section |
+| Precision benchmark | 16/16 | `tests/benchmark/precision/*` |
+
+Never collapse them into one number. No headline recall number is
+published. The synthetic and corpus figures have fully-observed
+denominators; the real-world bracket is a weighted-sample estimate whose
+width encodes both classification uncertainty (the AMBIGUOUS bucket) and
+sampling uncertainty (still wide at 160 labels).
+
+### Direction counts — Phase 4 reverses the asymmetry
+
+| Direction | n | idx |
+|---|---:|---|
+| AMBIGUOUS → AGENT_REACHABLE | 2 | 4, 130 |
+| AMBIGUOUS → NOT_AGENT_REACHABLE | 14 | 2, 5, 12, 44, 45, 46, 57, 58, 59, 88, 101, 113, 129, 150 |
+| stayed AMBIGUOUS | 0 | — |
+
+The Task-5 result was one-directional (16/16 → NOT_AGENT_REACHABLE);
+this re-adjudication is **not** one-directional. Two cases moved the
+other way (`AMBIGUOUS → AGENT_REACHABLE`), which is the symmetry the
+withdrawal note required. The reversal is real, not a tidy round-number
+fix:
+
+- **idx 4 (`agno|data_destruction`, w=75.5):** `DbFileSystem.move` is
+  reached from `FileSystemTools(Toolkit).move_file`, registered via the
+  dynamic `sync_tools = [getattr(self, name) for name in registered]`
+  pattern (`fs/toolkit.py:139`) — the same `DYNAMIC_DISPATCH` pattern
+  already recognised for the agno `Workspace` case (idx 11). The Task-5
+  labeler missed this because the chain crosses a method-call boundary
+  that pure site inspection does not see.
+- **idx 130 (`openai-agents|code_execution`, w=117):**
+  `BaseSandboxSession.mkdir` is reached from
+  `SandboxApplyPatchTool(CustomTool)._on_invoke_tool`
+  (`capabilities/tools/apply_patch_tool.py:214`), which is constructed
+  by `Filesystem(Capability).tools()` (`capabilities/filesystem.py:36`)
+  and returned in the `tools=` list (`filesystem.py:41`). The chain
+  crosses three files: `apply_patch_tool.py` → `apply_patch.py:171/172`
+  (`_write_text` → `self._session.mkdir`) → `base_sandbox_session.py:1100`
+  (`self.exec(*cmd, shell=False, user=user)`). The Task-5 evidence
+  "traced_chain_via_app_post" was wrong — there is a real agent-runtime
+  chain. (A separate sandbox-setup chain via `manifest_ops._build_manifest_applier`
+  also reaches the sink but is not agent-runtime.)
+
+### The LoadAndSearchToolSpec.load trace (idx 101, w=297 — the highest weight)
+
+This is the case the withdrawal note specifically called out. The
+actual trace, from fetched source at the pinned SHA
+(`run-llama/llama_index @ 199e9b5b130bbde72639358a08935b913e7132c0`,
+file `llama-index-core/llama_index/core/tools/tool_spec/load_and_search/base.py`):
+
+```
+LoadAndSearchToolSpec.__init__:
+  self._tool_list = [FunctionTool.from_defaults(fn=self.load, ...),     # base.py:86-92
+                     FunctionTool.from_defaults(fn=self.read, ...)]
+  # ^^^ load IS an agent-facing tool (registered via FunctionTool.from_defaults + to_tool_list())
+
+LoadAndSearchToolSpec.load(*args, **kwargs):                              # base.py:131
+  if self._index is None:
+    self._index = self._index_cls.from_documents(docs, **self._index_kwargs)  # base.py:153
+    # ^^^ self._index_cls defaults to VectorStoreIndex (set in from_defaults at base.py:96:
+    #       index_cls = index_cls or VectorStoreIndex)
+    # VectorStoreIndex.from_documents does NOT call OraLlamaVS.from_documents.
+
+OraLlamaVS.from_documents(cls, docs, table_name, **kwargs):              # oracledb/base.py:770
+  drop_table_purge(_client, table_name)                                  # oracledb/base.py:782
+
+OraLlamaVS.drop(self):                                                   # oracledb/base.py:671
+  drop_table_purge(self._client, self.table_name)                        # oracledb/base.py:672
+```
+
+**Conclusion:** `LoadAndSearchToolSpec.load` IS an agent-facing tool
+(the README withdrawal note was right about that) but it does **NOT**
+chain to `drop_table_purge`. The chain `load → OraLlamaVS.from_documents
+→ drop_table_purge` does not exist because `load` calls
+`VectorStoreIndex.from_documents`, not `OraLlamaVS.from_documents`.
+`drop_table_purge` is only reachable from `OraLlamaVS.drop()` (admin
+method) and `OraLlamaVS.from_documents()` (setup classmethod), neither
+of which is called by an agent boundary in repository-local code.
+
+So the Task-5 adjudication reached the right answer
+(`NOT_AGENT_REACHABLE`) for the wrong reason
+(`vector_store_admin_via_indexing_api`). The corrected reason recorded
+in `labels.json` is `vector_store_admin_no_agent_chain`.
+
+### Bracket — variant (a): examples IN scope
+
+Demo-directory cases are adjudicated on reachability alone; the demo
+code is the population. A sink in `examples/mcpserver/memory.py`
+reached from `@mcp.tool()` is AGENT_REACHABLE; a sink in
+`examples/apps/news-use/news_monitor.py` reached only from `main()` is
+NOT_AGENT_REACHABLE.
+
+| | |
+|---|---|
+| Weighted AGENT_REACHABLE | 331.0 (22 → 24; +75.5 idx 4, +117 idx 130) |
+| Weighted AMBIGUOUS | 60.0 (12 cases, untouched by Phase 4) |
+| Weighted NOT_AGENT_REACHABLE | 2,718.0 |
+| Total weighted | 3,109.0 (unchanged — every case still has a weight) |
+| Detected | 149 (unchanged) |
+| **High end (AMBIGUOUS NOT reachable)** | **31.0%** = 149/(149+331) |
+| **Low end (AMBIGUOUS IS reachable)** | **27.6%** = 149/(149+331+60) |
+| **Bracket (a)** | **27.6% – 31.0%** |
+
+### Bracket — variant (b): examples OUT of scope
+
+Every case whose file path begins with `examples/`, `samples/`,
+`cookbook/`, `demos/`, or `notebooks/` is removed from the population
+**on both sides** — including the two AGENT_REACHABLE cases in
+`examples/mcpserver/memory.py` (idx 105, 106, weight 5.0 total). This
+is the correction to the asymmetric scope rule applied in commit
+`129b926`, which removed demo-directory AMBIGUOUS cases from the low
+end while leaving demo-directory AGENT_REACHABLE cases in the high end.
+
+| | |
+|---|---|
+| Labels removed | 18 (15 NOT_AGENT_REACHABLE, 2 AGENT_REACHABLE, 1 AMBIGUOUS) |
+| Weight removed (missed side) | 214.5 (208.5 NOT + 5.0 AGENT + 1.0 AMB) |
+| Weighted AGENT_REACHABLE | 326.0 (331.0 − 5.0) |
+| Weighted AMBIGUOUS | 59.0 (60.0 − 1.0) |
+| Total weighted (missed side) | 2,894.5 |
+| Detected (adjusted) | ~136 (149 − ~13 demo-directory detected; the demo fraction of the unreachable inventory is 264/3,109 = 8.5%, applied to the 149 detected as an estimate — see caveat below) |
+| **High end (AMBIGUOUS NOT reachable)** | **29.4%** = 136/(136+326) |
+| **Low end (AMBIGUOUS IS reachable)** | **26.1%** = 136/(136+326+59) |
+| **Bracket (b)** | **26.1% – 29.4%** |
+| Bracket (b), conservative (detected unchanged at 149) | 27.9% – 31.4% |
+
+**Detected-side caveat:** the `unreachable_inventory.json` contains
+only the 3,109 unreachable sinks; the 149 detected sinks are not
+stored per-file. The demo fraction of unreachable (264/3,109 = 8.5%) is
+applied to 149 as an estimate, giving ~13 demo-directory detected
+findings. The conservative bracket (detected unchanged at 149) is
+27.9%–31.4%. A more precise variant-(b) detected count requires a
+per-file breakdown of the 149 detected sinks, which is not committed in
+this PR.
+
+### Why the bracket did not move much between variants
+
+The two brackets are close (variant (a) 27.6–31.0%; variant (b)
+26.1–29.4%) because demo weight is small: 214.5 of 3,109 = 6.9% of
+the sample. Removing demos moves both ends by ~2 points. The
+asymmetric scope rule in commit `129b926` was a real defect, but its
+numeric effect on the bracket was small — the bigger correction in
+Phase 4 is the two cases moved to AGENT_REACHABLE (idx 4 and idx 130),
+which moves the high end from 51.8% (the original 14%–52% bracket's
+high end) to ~31%.
+
+### Remaining AMBIGUOUS (12 cases, weighted 60) — unchanged by Phase 4
+
+The 12 remaining AMBIGUOUS cases are the same ones identified by Task
+5 as `unresolved_framework` / `unresolved_input` / `sample_app`. Phase
+4 did not adjudicate them — they were not part of the 16 re-adjudicated
+cases. They stay AMBIGUOUS and continue to drive the bracket width.
+
+| idx | weight | stratum | reason |
+|---|---:|---|---|
+| 13 | 9.0 | agno\|shell_execution | unresolved_utility |
+| 67 | 11.0 | crewai\|network_egress | unresolved_framework |
+| 95 | 10.0 | llamaindex\|database_mutation | unresolved_framework |
+| 49 | 6.0 | browser-use\|network_egress | unresolved_framework |
+| 117 | 7.0 | metagpt\|browser_action | unresolved_framework |
+| 128 | 7.0 | openai-agents\|database_mutation | unresolved_framework |
+| 103 | 4.0 | mcp-atlassian\|file_mutation | unresolved_framework |
+| 87 | 2.0 | langchain\|browser_action | unresolved_framework |
+| 70 | 1.0 | crewai\|database_mutation | unresolved_framework |
+| 116 | 1.0 | metagpt\|repository_mutation | unresolved_framework |
+| 22 | 1.0 | aider\|browser_action | unresolved_input |
+| 127 | 1.0 | openai-agents\|browser_action | sample_app |
+
+### What this update did NOT do
+
+- It did **not** produce a verified single-number recall. The remaining
+  12 AMBIGUOUS cases (weighted 60) are `unresolved_framework` /
+  `unresolved_input` cases where static analysis genuinely cannot
+  decide without a runtime trace or a deeper interprocedural
+  call-graph resolution. They were left as AMBIGUOUS, not adjudicated.
+- It did **not** change the detected-side count of 149 reachable sinks,
+  except for the variant-(b) detected-side adjustment (~136).
+- It did **not** introduce or modify any code. Only `labels.json`,
+  `adjudication_results.json` (new), `ADJUDICATION_RULES.md` (new), and
+  this document changed.
+- It did **not** commit or push.
+- It did **not** introduce any "authority coverage", "% protected",
+  "% safe", or any metric that divides findings by an estimate of total
+  consequential actions.
+
+### Reproducing the new bracket
+
+```bash
+python3 - <<'PY'
+import json
+from collections import defaultdict
+labels = json.load(open("research/reachability-ground-truth/labels.json"))
+w = defaultdict(float)
+for r in labels: w[r["label"]] += r["weight"]
+detected, reach, ambig = 149, w["AGENT_REACHABLE"], w["AMBIGUOUS"]
+print("variant (a) high (ambig NOT reachable):", round(detected/(detected+reach)*100,1), "%")
+print("variant (a) low  (ambig IS reachable):", round(detected/(detected+reach+ambig)*100,1), "%")
+PY
+```
+
+Outputs `variant (a) high 31.0 %` / `variant (a) low 27.6 %`. Variant
+(b) requires removing demo cases and adjusting detected; see
+`adjudication_results.json` for the full calculation.
 
 ---
 
 ## Update — narrowed bracket after ambiguity adjudication (Task 5, sub-agent 6-T5)
 
+> **WITHDRAWN (2026-09-20) and SUPERSEDED by Phase 4 above.** The
+> 43%–52% bracket published here is withdrawn. The 14%–52% bracket
+> that stood pending re-adjudication has been re-adjudicated; the new
+> bracket is **~26%–31%** under both scope variants. See the "Phase 4
+> re-adjudication" section above. The text below is retained as a
+> historical record of what was claimed, why it was wrong, and how the
+> pre-registered rules in `ADJUDICATION_RULES.md` corrected it.
+
 This section supersedes the §"Estimate range" below for the real-world
 labelled-sink figure. The earlier estimate (29.6%–80.8%) was a coverage-gap
 estimate with no statistical coverage; the reachability ground-truth study
 replaced it with a labelled-sample bracket of **14%–52%**, and this update
-narrows that bracket to **43%–52%** by adjudicating 16 of the 28 AMBIGUOUS
-labels.
+~~narrows that bracket to **43%–52%**~~ (WITHDRAWN — see correction above)
+by adjudicating 16 of the 28 AMBIGUOUS labels.
 
 ### The three recall figures, kept separate
 
@@ -29,7 +288,7 @@ labels.
 |---|---|---|
 | Synthetic adversarial recall | 9/10 | `tests/benchmark/soundness/*` |
 | Corpus-demonstrated architecture recall | 3/10 — gates CI | `tests/benchmark/recall_methodology.md` |
-| **Real-world labelled sink recall — bracket** | **43%–52%** (was 14%–52%) | this section |
+| **Real-world labelled sink recall — bracket** | ~~43%–52%~~ (WITHDRAWN) → **14%–52%** (stands pending re-adjudication) | this section |
 | Precision benchmark | 16/16 | `tests/benchmark/precision/*` |
 
 Never collapse them into one number. The synthetic and corpus figures have
@@ -132,7 +391,9 @@ print("low  (ambig IS reachable):", round(detected/(detected+reach+ambig)*100,1)
 PY
 ```
 
-Outputs `high 51.8 %` / `low 42.9 %` → bracket **43%–52%**.
+Outputs `high 51.8 %` / `low 42.9 %` → bracket ~~43%–52%~~ (WITHDRAWN —
+see correction note at top of file). The 14%–52% bracket stands pending
+re-adjudication under pre-registered rules.
 
 ### Remaining AMBIGUOUS (12 cases, weighted 60)
 

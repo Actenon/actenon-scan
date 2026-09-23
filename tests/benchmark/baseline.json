@@ -2,5 +2,10 @@
   "recall_corpus": 3,
   "precision": 16,
   "soundness": 6,
-  "recall_synthetic": 9
+  "recall_synthetic": 15,
+  "recall_by_depth": {
+    "0": "11/12",
+    "1": "2/2",
+    "2": "2/2"
+  }
 }

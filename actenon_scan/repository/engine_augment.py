@@ -350,6 +350,12 @@ class RepositoryAnalysisResult:
     # exist in agent-reachable code.
     transitive_followed_count: int = 0
     transitive_unfollowed_count: int = 0
+    # Phase 3.2: per-edge detail for unfollowed local calls.
+    # Each dict: {file, line, caller, callee_text, callee_qname, certainty, reason}
+    local_call_edges: list[dict] = field(default_factory=list)
+    # Phase 3.2 (A3): analysis-coverage count pair.
+    local_calls_followed: int = 0
+    local_calls_unfollowed: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -422,17 +428,55 @@ def analyze_repository(
         reach = transitive_reachable(graph, ep_qnames, max_depth=cfg.max_depth)
 
         # Disclosure: count UNRESOLVED edges out of agent entrypoints.
-        # These are call sites the repo layer could NOT follow —
-        # dynamic dispatch (``getattr(obj, 'm')()``), external-module
-        # calls, etc. Sinks reached only through such calls are NOT in
-        # the findings list; the disclosure count tells the user these
-        # unfollowable calls exist so they can audit them manually.
+        # These are call sites the repo layer could NOT follow.
+        # Phase 3.2 (D3): only count edges where the callee is a LOCAL
+        # call (a bare name, self.x, or dynamic dispatch on a local
+        # variable). External-library calls (subprocess.run,
+        # requests.post, json.loads, etc.) are NOT counted as unfollowed
+        # — they are external calls, a different unit. An inline sink
+        # (requests.post directly inside @tool) should NOT produce
+        # "1 unfollowed call".
+        #
+        # Heuristic: if the callee text has a dot prefix that is NOT
+        # "self" or "cls", it's likely an external-module call. Bare
+        # names (like `fn` from `getattr`) are counted as unfollowed
+        # (conservative — might be local, we can't prove otherwise).
         unfollowed = 0
+        external_call_count = 0  # separate, informational
+        local_edges: list[dict] = []
+        followed_count = 0
         for ep_qname in ep_qnames:
             for edge in graph.edges_by_caller.get(ep_qname, []):
-                if edge.is_unresolved():
-                    unfollowed += 1
+                if edge.is_resolved():
+                    followed_count += 1
+                elif edge.is_unresolved():
+                    callee = edge.callee
+                    # Determine if this is an external-library call
+                    is_external = (
+                        "." in callee
+                        and not callee.startswith("self.")
+                        and not callee.startswith("cls.")
+                        and not callee.startswith("<")
+                    )
+                    if is_external:
+                        external_call_count += 1
+                    else:
+                        unfollowed += 1
+                        # Phase 3.2: record per-edge detail for unfollowed
+                        # local calls. Surface in JSON/SARIF/markdown/HTML.
+                        local_edges.append({
+                            "file": edge.site.location.file,
+                            "line": edge.site.location.line,
+                            "caller": edge.caller,
+                            "callee_text": edge.site.callee_text,
+                            "callee_qname": edge.callee,
+                            "certainty": edge.certainty.value,
+                            "reason": "unresolved_local_call",
+                        })
         result.transitive_unfollowed_count = unfollowed
+        result.local_call_edges = local_edges
+        result.local_calls_followed = followed_count
+        result.local_calls_unfollowed = unfollowed
 
         # Seed effect summaries from per-file findings/capabilities AND
         # independent sink detection.

@@ -91,6 +91,10 @@ Most exposed: app/tools.py:47  process_refund()
 Next:
   actenon-scan explain app/tools.py:47
   actenon-scan fix app/tools.py:47
+
+Repository analysis: 1 transitively-reachable sink caught (would have been
+missed by per-file scan); 184 unresolved agent-entrypoint calls not followed
+(dynamic dispatch / external modules).
 ```
 
 **What this means:** the scanner found 12 consequential capabilities
@@ -133,6 +137,65 @@ codebase is safe.
 **Supported languages:** Python, TypeScript, Go. Zero runtime dependencies.
 No Actenon account required.
 
+## Repository-level analysis (default on)
+
+For directory targets, scan runs a second pass on top of the per-file
+analysis: it builds a repository symbol index, an interprocedural call
+graph with explicit `RESOLVED`/`HEURISTIC`/`UNRESOLVED` edge certainty,
+computes transitive reachability from `@tool` entrypoints (depth 32), and
+propagates function effect summaries through strongly-connected components
+to a fixed point. This is what catches a sink in a helper that the per-file
+scan misses because the helper is not itself `@tool`-decorated — the
+canonical case is `@mcp.tool() def my_tool(): helper()` where `helper`
+does `requests.post(...)`.
+
+The repository layer has been **on by default for directory targets since
+commit `25ee4f9`** (v1.4.0 release). It is **opt-out**:
+
+```bash
+actenon-scan scan . --no-repository-analysis    # per-file scan only
+```
+
+The repository layer **augments** per-file findings; it never suppresses
+them. New findings are emitted only when the transitive path is fully
+`RESOLVED`. Paths with `HEURISTIC` edges are recorded as evidence but
+produce no new findings (conservative — never silently promote unknown
+to safe).
+
+### The disclosure line
+
+Every scan that runs the repo layer prints a one-line disclosure at the
+end of the output. It appears in **all six output formats** — `pretty`,
+`list`, `json`, `sarif`, `markdown`, and `html` (in JSON and SARIF it is
+carried as the `transitive_followed_count` / `transitive_unfollowed_count`
+fields plus `repository_analysis_enabled`; in the human-readable formats
+it is rendered as the trailing "Repository analysis:" line). When the repo
+layer is disabled with `--no-repository-analysis`, the disclosure is
+omitted.
+
+```
+Repository analysis: N transitively-reachable sinks caught (would have
+been missed by per-file scan); N unresolved agent-entrypoint calls not
+followed (dynamic dispatch / external modules).
+```
+
+The two counts mean different things and must not be divided:
+
+- **`transitive_followed_count`** (the first `N`) — the number of **new
+  findings** the repository layer emitted that the per-file scan missed.
+  These are sinks in helpers that became reachable only through a
+  resolved transitive call chain.
+- **`transitive_unfollowed_count`** (the second `N`) — the number of
+  **unresolved call sites directly out of agent entrypoints**, including
+  every call to an external library (`subprocess.run`, `requests.post`,
+  `json.loads`, etc.). It is a count of unresolved call sites, **not a
+  resolution rate**: dividing the first number by the second produces a
+  ratio with no physical meaning (findings ÷ call sites).
+
+A CI gate (`tests/test_repository_disclosure_gate.py`) asserts the
+disclosure appears when the repo layer is enabled and is omitted when
+disabled.
+
 ## What Actenon Scan detects
 
 Actenon Scan finds places where a model-controlled or agent-controlled
@@ -144,18 +207,21 @@ a dominating authority check in the analysed path.
 
 | Category | Examples |
 |----------|----------|
-| REPOSITORY | PyGithub create_file/delete_file, raw GitHub REST, GitPython push/commit |
+| REPOSITORY | PyGithub create_file/delete_file, raw GitHub REST (POST/PUT/PATCH/DELETE to api.github.com/repos) |
+| VCS | GitPython `repo.push/commit/reset`, `git.push/commit/reset` (distinct from GitHub repo-mutation above) |
 | MONEY | Stripe refunds, Braintree charges, generic payment SDK calls |
-| DATA LOSS | SQL DELETE, s3.delete_objects, file deletion |
-| EXECUTION | subprocess, os.system, eval/exec, container creation |
-| DATABASE | psycopg2/sqlite3 execute with caller-controlled SQL |
-| EGRESS | requests/httpx POST/PUT/DELETE to external URLs |
-| MESSAGING | SMTP email, Slack, Twilio, SendGrid, Resend, SES |
-| IDENTITY | IAM mutations, access-control changes |
-| SECRETS | Secrets-manager reads |
-| DEPLOYMENT | kubectl, terraform, helm |
-| FILE | File writes, chmod, rename |
-| BROWSER | Playwright page.click/fill, Selenium send_keys |
+| DATA LOSS | SQL DELETE, s3.delete_objects, `os.remove`/`os.unlink`/`shutil.rmtree` |
+| EXECUTION | `eval`/`exec`, `container.exec_run`, `docker exec` |
+| SHELL | `subprocess.run/Popen/call`, `os.system/popen`, `pty.spawn` (distinct from eval/exec above) |
+| DATABASE | psycopg2/sqlite3 `execute`/`executemany`/`executescript` with caller-controlled SQL |
+| EGRESS | `requests`/`httpx`/`aiohttp` POST/PUT/DELETE to external URLs |
+| MESSAGING | SMTP `sendmail`/`send_message`, Slack, Twilio, SNS, SES, SendGrid, Resend, Postmark |
+| IDENTITY | `create_user`, `assign_role`, `rotate_keys`, `update_permissions` (identity/account lifecycle) |
+| ACCESS CONTROL | IAM `put_user_policy`, `attach_role_policy`, `create_role`, `create_access_key`, `update_assume_role_policy` |
+| SECRETS | Secrets-manager reads (`get_secret_value`, `get_parameter`, `read_secret`) |
+| DEPLOYMENT | `kubectl`/`kubernetes-client`, `terraform`, `helm` |
+| FILE | File writes, `chmod`, `rename`, `os.OpenFile` (Go) |
+| BROWSER | Playwright `page.click/fill/submit`, Selenium `send_keys` |
 | PROVIDER | Provider-SDK calls (aws-sdk, gcp, azure) |
 
 ## What it does not establish
@@ -266,7 +332,7 @@ That's it. The action:
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Actenon/actenon-scan
-    rev: v1.2.0
+    rev: v1.4.0    # pin to the latest release tag; see https://github.com/Actenon/actenon-scan/releases
     hooks:
       - id: actenon-scan
         args: [--changed-only, HEAD]
@@ -399,12 +465,12 @@ schema and `CONTRIBUTING.md` for the match-type reference.
 
 ---
 
-### Every claim above is machine-verified
+### Machine-verified package claims
 
 The `claims: machine-verified` badge links to a CI gate
 ([`verify-claims.yml`](.github/workflows/verify-claims.yml)) that fails on
-every PR, push to `main`, and once a day if any factual claim this README
-makes about the package stops being true:
+every PR, push to `main`, and once a day if any of these specific factual
+claims about the **package itself** stop being true:
 
 - **Zero runtime dependencies** — scan's single most important credibility
   claim (it is what lets a security team deploy scan unilaterally into a
@@ -415,7 +481,11 @@ makes about the package stops being true:
 - **The ecosystem table** — rendered from the protocol's `ecosystem.yaml`,
   never hand-edited.
 
-If a claim drifts, the badge goes red before a human notices.
+The badge does **not** verify claims about scan's detection coverage, recall,
+precision, or safety. Those claims are verified by the benchmark gate
+([`benchmark.yml`](.github/workflows/benchmark.yml)) and the corpus triage
+gate ([`check_corpus_triage.py`](scripts/check_corpus_triage.py)), not by
+`verify-claims.yml`.
 
 ---
 
