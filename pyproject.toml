@@ -68,6 +68,7 @@ packages = [
     "actenon_scan",
     "actenon_scan.detectors",
     "actenon_scan.report",
+    "actenon_scan.repository",
     "actenon_scan.rules",
 ]
 
