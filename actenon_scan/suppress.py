@@ -18,29 +18,78 @@ SUPPRESSION_PATTERN_IGNORE = re.compile(r"#\s*actenon-scan:\s*ignore\[([^\]]+)\]
 SUPPRESSION_PATTERN_SUPPRESS = re.compile(r"#\s*actenon-scan:\s*suppress\s+([A-Z][A-Z0-9\-_]*)")
 
 
-def parse_suppressions(source: str, filename: str) -> set[tuple[str, str]]:
+class SuppressionSet(set):
+    """Set of ``(filename, rule_id, comment_line)`` suppression entries.
+
+    A suppression comment on line N covers a finding on line N (trailing
+    comment) or N+1 (comment on the line above) — never every finding of
+    that rule elsewhere in the file. Membership tests with the older
+    ``(filename, rule_id)`` pair still answer "does this file carry a
+    suppression for this rule?" so existing callers keep working.
+    """
+
+    def __contains__(self, item: object) -> bool:
+        if isinstance(item, tuple) and len(item) == 2:
+            return any(
+                isinstance(e, tuple) and e[:2] == item for e in set.__iter__(self)
+            )
+        return set.__contains__(self, item)
+
+
+def parse_suppressions(source: str, filename: str) -> SuppressionSet:
     """Parse inline suppression comments from source code.
 
-    Returns a set of (filename, rule_id) tuples for suppressed findings.
-    A suppression on line N suppresses a finding on line N or N+1.
+    Returns a :class:`SuppressionSet` of ``(filename, rule_id, line)``
+    entries, where ``line`` is the 1-based line of the comment. A
+    suppression on line N suppresses a finding on line N or N+1 (see
+    :func:`is_suppressed`).
 
     Both ``ignore[RULE-ID]`` and ``suppress RULE-ID`` syntaxes are accepted.
     """
-    suppressions: set[tuple[str, str]] = set()
+    suppressions = SuppressionSet()
     lines = source.splitlines()
-    for i, line in enumerate(lines):
+    for i, line in enumerate(lines, start=1):
         # Try the bracketed ignore[RULE-ID] form first.
         match = SUPPRESSION_PATTERN_IGNORE.search(line)
         if match:
             rule_id = match.group(1).strip()
-            suppressions.add((filename, rule_id))
+            suppressions.add((filename, rule_id, i))
             continue
         # Then the README-documented suppress RULE-ID form.
         match = SUPPRESSION_PATTERN_SUPPRESS.search(line)
         if match:
             rule_id = match.group(1).strip()
-            suppressions.add((filename, rule_id))
+            suppressions.add((filename, rule_id, i))
     return suppressions
+
+
+def is_suppressed(
+    suppressions: set | None,
+    filename: str,
+    rule_id: str,
+    line: int,
+) -> bool:
+    """Return True if an inline suppression covers this finding.
+
+    ``rule_id`` may carry a guard-state suffix (``-WEAK``/``-UNBOUND``); a
+    suppression for the base rule covers it. Line-scoped entries
+    ``(file, rule, comment_line)`` match a finding on ``comment_line`` or
+    ``comment_line + 1``. A legacy ``(file, rule)`` pair supplied by an API
+    caller keeps its old file-wide meaning.
+    """
+    if not suppressions:
+        return False
+    rule_ids = {rule_id}
+    for suffix in ("-WEAK", "-UNBOUND"):
+        if rule_id.endswith(suffix):
+            rule_ids.add(rule_id[: -len(suffix)])
+    for rid in rule_ids:
+        for entry in ((filename, rid, line), (filename, rid, line - 1)):
+            if set.__contains__(suppressions, entry):
+                return True
+        if set.__contains__(suppressions, (filename, rid)):
+            return True
+    return False
 
 
 def _normalize_key(filepath: Path, target: Path | None) -> str:
@@ -74,7 +123,7 @@ def _normalize_key(filepath: Path, target: Path | None) -> str:
 def collect_suppressions_from_file(
     filepath: Path,
     target: Path | None = None,
-) -> set[tuple[str, str]]:
+) -> SuppressionSet:
     """Read a file and parse its suppression comments.
 
     ``target`` is the scan root passed to ``scan_path``. It MUST be supplied
@@ -91,4 +140,4 @@ def collect_suppressions_from_file(
         key = _normalize_key(filepath, target)
         return parse_suppressions(source, key)
     except (OSError, UnicodeDecodeError):
-        return set()
+        return SuppressionSet()
