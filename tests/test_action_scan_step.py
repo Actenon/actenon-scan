@@ -34,8 +34,14 @@ def _load_action() -> dict:
     return yaml.safe_load((ROOT / "action.yml").read_text(encoding="utf-8"))
 
 
-def _run_scan_step(workdir: Path, inputs: dict[str, str]) -> dict[str, str]:
-    """Run the action's scan step in ``workdir`` and return its step outputs."""
+def _run_scan_step(
+    workdir: Path, inputs: dict[str, str], shim_body: str | None = None
+) -> dict[str, str]:
+    """Run the action's scan step in ``workdir`` and return its step outputs.
+
+    ``shim_body`` replaces the ``actenon-scan`` executable (default: run
+    this checkout's scanner).
+    """
     action = _load_action()
     values = {name: str(spec.get("default", "")) for name, spec in action["inputs"].items()}
     values.update(inputs)
@@ -53,18 +59,25 @@ def _run_scan_step(workdir: Path, inputs: dict[str, str]) -> dict[str, str]:
         return context[expr]
 
     script = re.sub(r"\$\{\{(.*?)\}\}", substitute, step["run"])
+    step_env = {
+        key: re.sub(r"\$\{\{(.*?)\}\}", substitute, str(value))
+        for key, value in (step.get("env") or {}).items()
+    }
 
     # Put an `actenon-scan` shim on PATH that runs THIS checkout with the
     # current interpreter, so the test does not depend on a console script.
     shim_dir = workdir.parent / "shim"
     shim_dir.mkdir(exist_ok=True)
     shim = shim_dir / "actenon-scan"
-    shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" -m actenon_scan "$@"\n')
+    shim.write_text(
+        shim_body or f'#!/bin/sh\nexec "{sys.executable}" -m actenon_scan "$@"\n'
+    )
     shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
 
     output_file = workdir.parent / "github_output"
     output_file.write_text("")
     env = dict(os.environ)
+    env.update(step_env)
     env["PATH"] = f"{shim_dir}{os.pathsep}{env.get('PATH', '')}"
     env["PYTHONPATH"] = f"{ROOT}{os.pathsep}{env.get('PYTHONPATH', '')}"
     env["GITHUB_OUTPUT"] = str(output_file)
@@ -130,3 +143,34 @@ def test_fail_step_runs_on_any_nonzero_scan_exit() -> None:
     )
     condition = fail_step["if"].replace(" ", "")
     assert "steps.scan.outputs.exit_code!='0'" in condition, fail_step["if"]
+
+
+def test_crash_without_results_is_not_reported_as_findings(tmp_path: Path) -> None:
+    """A traceback exits 1 — the same code as "findings found". Without a
+    results.json the step must report an incomplete scan (exit_code 3),
+    not a findings failure with 0 counts."""
+    work = tmp_path / "repo"
+    work.mkdir()
+    out = _run_scan_step(
+        work,
+        {"fail-on": "none"},
+        shim_body="#!/bin/sh\necho 'Traceback (most recent call last):' >&2\nexit 1\n",
+    )
+    assert out["exit_code"] == "3", out
+
+
+def test_paths_with_spaces_are_passed_as_one_argument(tmp_path: Path) -> None:
+    work = tmp_path / "repo"
+    (work / "my agent").mkdir(parents=True)
+    (work / "my agent" / "agent.py").write_text(textwrap.dedent("""\
+        import os
+        from mcp.server.fastmcp import FastMCP
+        mcp = FastMCP("x")
+
+        @mcp.tool()
+        def rm(path: str) -> None:
+            os.remove(path)
+    """))
+    out = _run_scan_step(work, {"path": "my agent", "fail-on": "none"})
+    assert out["exit_code"] == "0", out
+    assert int(out["findings-count"]) == 1, out

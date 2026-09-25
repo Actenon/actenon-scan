@@ -72,3 +72,31 @@ jobs:
 
   # The verify-claims job moved to verify-claims.yml so the README
   # badge can link to a dedicated gate.
+
+  # The test jobs install editable, which puts the source tree on sys.path
+  # and hides packaging mistakes: a subpackage missing from pyproject's
+  # package list still imports. This job installs the BUILT wheel into a
+  # clean venv and runs a real directory scan, which imports every layer
+  # (a wheel without actenon_scan.repository crashed here).
+  wheel-smoke:
+    name: Built wheel installs and scans a directory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel --outdir dist/
+      - name: Install wheel into a clean venv (outside the checkout)
+        run: |
+          python -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install dist/actenon_scan-*.whl
+      - name: Scan a directory with the installed wheel
+        working-directory: /tmp
+        run: |
+          /tmp/wheel-venv/bin/actenon-scan scan "$GITHUB_WORKSPACE/tests/benchmark/recall" \
+            --format json --output /tmp/wheel-scan.json --fail-on none --no-cache
+          /tmp/wheel-venv/bin/python -c "import json; d=json.load(open('/tmp/wheel-scan.json')); assert d['repository_analysis_enabled'] and d['finding_count'] > 0, d; print('OK', d['finding_count'], 'findings')"

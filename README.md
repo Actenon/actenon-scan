@@ -312,6 +312,7 @@ That's it. The action:
 | `config` | `""` | Path to config file |
 | `baseline` | `""` | Path to baseline.json for known-findings suppression |
 | `scan-scope` | `auto` | `changed` (PR only), `full` (entire repo), or `auto` |
+| `fail-on-unsupported` | `false` | Fail when unsupported source files (e.g. `.rb`, `.java`) were found and not scanned |
 | `comment-on-pr` | `true` | Post sticky blast-radius comment on PRs |
 | `upload-sarif` | `true` | Upload SARIF to Security tab |
 | `version` | `""` | Pin scanner version (default: action's own version) |
@@ -344,6 +345,9 @@ repos:
 
 The default workflow does **not** block merging solely because findings exist
 unless you explicitly configure `fail-on: high`.
+It **does** fail if the scan itself does not complete (a usage/config error,
+a crash, or a `--changed-only` base ref git cannot diff against): a scan
+that produced no result is never reported as a green, zero-finding check.
 
 ### Exit codes
 

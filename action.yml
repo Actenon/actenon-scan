@@ -100,52 +100,64 @@ runs:
     - name: Run actenon-scan
       id: scan
       shell: bash
+      # Inputs reach the script through the environment, never through
+      # ${{ }} interpolation into the script text, and every argument is
+      # passed as its own array element — no string concatenation, no eval.
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_FAIL_ON_UNSUPPORTED: ${{ inputs.fail-on-unsupported }}
+        SCAN_SCOPE: ${{ steps.scope.outputs.scope }}
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_REF: ${{ github.base_ref }}
       run: |
         set +e
-        # Build the scan command. Always produce SARIF + JSON for downstream steps.
-        # NOTE: argparse keeps only the LAST value of a non-repeatable option,
-        # so we cannot pass --format/--output twice on one line. We run the
-        # scan TWICE — once for JSON (with --fail-on), once for SARIF (with
-        # --fail-on none so SARIF generation is never short-circuited).
-        SCAN_PATH="${{ inputs.path }}"
-        FAIL_ON="${{ inputs.fail-on }}"
+        # The scan runs TWICE — once for JSON (authoritative for counts and
+        # --fail-on), once for SARIF (--fail-on none so SARIF generation is
+        # never short-circuited). argparse keeps only the LAST value of a
+        # non-repeatable option, so one invocation cannot produce both.
 
-        # Common args (scope, config, baseline) appended to BOTH invocations.
-        COMMON_ARGS=""
-        # --changed-only for PR scope
-        if [ "${{ steps.scope.outputs.scope }}" = "changed" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+        # Common args (scope, config, baseline) for BOTH invocations.
+        COMMON_ARGS=()
+        if [ "$SCAN_SCOPE" = "changed" ] && [ "$EVENT_NAME" = "pull_request" ]; then
           # Work Order 1.11: fetch the base branch so --changed-only can diff
-          # against it. actions/checkout with default fetch-depth does NOT
-          # fetch the base branch, causing --changed-only origin/main to fail
-          # silently with "no scannable files changed" and a zero-finding
-          # scan. This was found by Phase 6 external verification.
-          git fetch origin ${{ github.base_ref }} --depth=1 2>/dev/null || true
-          COMMON_ARGS="$COMMON_ARGS --changed-only origin/${{ github.base_ref }}"
+          # against it (actions/checkout does not fetch it by default). If
+          # the fetch fails, the scanner now exits 2 on the failed git diff
+          # instead of reporting "nothing changed".
+          git fetch origin "$BASE_REF" --depth=1 2>/dev/null || true
+          COMMON_ARGS+=(--changed-only "origin/$BASE_REF")
         fi
-        # Config and baseline
-        if [ -n "${{ inputs.config }}" ]; then COMMON_ARGS="$COMMON_ARGS --config ${{ inputs.config }}"; fi
-        if [ -n "${{ inputs.baseline }}" ]; then COMMON_ARGS="$COMMON_ARGS --baseline ${{ inputs.baseline }}"; fi
-        # Work Order 1.5: --fail-on-unsupported (Action input). Only added
-        # to the JSON pass (the authoritative pass for exit code). The SARIF
-        # pass uses --fail-on none and must not fail on unsupported files.
-        # Leading space: the value is concatenated straight onto
-        # "--fail-on $FAIL_ON" below (like COMMON_ARGS).
-        UNSUPPORTED_ARG=""
-        if [ "${{ inputs.fail-on-unsupported }}" = "true" ]; then
-          UNSUPPORTED_ARG=" --fail-on-unsupported"
-        fi
+        if [ -n "$INPUT_CONFIG" ]; then COMMON_ARGS+=(--config "$INPUT_CONFIG"); fi
+        if [ -n "$INPUT_BASELINE" ]; then COMMON_ARGS+=(--baseline "$INPUT_BASELINE"); fi
 
         # --- Pass 1: JSON (authoritative for counts + fail-on) ---
-        JSON_CMD="actenon-scan scan $SCAN_PATH --format json --output results.json --fail-on $FAIL_ON$UNSUPPORTED_ARG$COMMON_ARGS"
-        echo "Running: $JSON_CMD"
-        eval $JSON_CMD 2>&1 | tee scan-output.txt
-        EXIT_CODE=$?
-        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+        rm -f results.json results.sarif
+        JSON_ARGS=(scan "$INPUT_PATH" --format json --output results.json --fail-on "$INPUT_FAIL_ON")
+        # Work Order 1.5: --fail-on-unsupported only on the authoritative
+        # JSON pass; the SARIF pass must not fail on unsupported files.
+        if [ "$INPUT_FAIL_ON_UNSUPPORTED" = "true" ]; then
+          JSON_ARGS+=(--fail-on-unsupported)
+        fi
+        JSON_ARGS+=("${COMMON_ARGS[@]}")
+        echo "Running: actenon-scan ${JSON_ARGS[*]}"
+        actenon-scan "${JSON_ARGS[@]}" 2>&1 | tee scan-output.txt
+        EXIT_CODE=${PIPESTATUS[0]}
+
+        # Exit 0/1 are only meaningful if the scan actually produced its
+        # JSON result. A traceback also exits 1 — without this check a
+        # crash would be reported as "findings" with 0 counts.
+        if [ "$EXIT_CODE" -le 1 ] && ! python3 -c "import json,sys; d=json.load(open('results.json')); sys.exit(0 if 'findings' in d else 1)" 2>/dev/null; then
+          echo "::error::actenon-scan exited $EXIT_CODE without writing a valid results.json" >&2
+          EXIT_CODE=3
+        fi
+        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
 
         # --- Pass 2: SARIF (for the Security tab; never fails the build) ---
-        SARIF_CMD="actenon-scan scan $SCAN_PATH --format sarif --output results.sarif --fail-on none$COMMON_ARGS"
-        echo "Running: $SARIF_CMD"
-        eval $SARIF_CMD 2>&1 | tee -a scan-output.txt
+        SARIF_ARGS=(scan "$INPUT_PATH" --format sarif --output results.sarif --fail-on none "${COMMON_ARGS[@]}")
+        echo "Running: actenon-scan ${SARIF_ARGS[*]}"
+        actenon-scan "${SARIF_ARGS[@]}" 2>&1 | tee -a scan-output.txt
         # SARIF pass exit code is intentionally ignored — it must not affect
         # the build's pass/fail status (that's what JSON pass + --fail-on is for).
 
@@ -158,18 +170,17 @@ runs:
         else
           FINDINGS=0; HIGH=0; MEDIUM=0; LOW=0
         fi
-        echo "findings-count=$FINDINGS" >> $GITHUB_OUTPUT
-        echo "high-count=$HIGH" >> $GITHUB_OUTPUT
-        echo "medium-count=$MEDIUM" >> $GITHUB_OUTPUT
-        echo "low-count=$LOW" >> $GITHUB_OUTPUT
-        echo "sarif-path=results.sarif" >> $GITHUB_OUTPUT
+        echo "findings-count=$FINDINGS" >> "$GITHUB_OUTPUT"
+        echo "high-count=$HIGH" >> "$GITHUB_OUTPUT"
+        echo "medium-count=$MEDIUM" >> "$GITHUB_OUTPUT"
+        echo "low-count=$LOW" >> "$GITHUB_OUTPUT"
+        echo "sarif-path=results.sarif" >> "$GITHUB_OUTPUT"
         echo "Findings: $FINDINGS (high=$HIGH, medium=$MEDIUM, low=$LOW)"
 
         # Check for unsupported files (RULE 7 — never silently scan nothing)
         if grep -q "NOT scanned" scan-output.txt 2>/dev/null; then
           echo "⚠️  Some files were NOT scanned (unsupported language). See output above." >&2
         fi
-
         exit 0
 
     - name: Upload SARIF
