@@ -514,6 +514,17 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         exclude_globs.extend(auto_exclude)
     if args.changed_only:
         changed_files = _get_changed_files(args.changed_only, target)
+        if changed_files is None:
+            # git could not compute the diff (unknown ref, not a repo, no
+            # git). Reporting "nothing changed" here would turn a failure
+            # to analyse into a clean result.
+            print(
+                f"actenon-scan: --changed-only {args.changed_only}: could not "
+                f"determine the changed files (see the git error above). "
+                f"No clean result is reported for a scan that did not run.",
+                file=sys.stderr,
+            )
+            return 2
         if not changed_files:
             # P1-5 fix: previously, an empty git diff silently fell through
             # to a full scan (because explicit_files stayed None and the
@@ -526,10 +537,10 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 f"Nothing to scan.",
                 file=sys.stderr,
             )
-            # Print an empty result so callers piping output get something.
-            from actenon_scan.report.pretty import format_pretty as _fp
+            # Emit an empty result in the requested format (and to
+            # --output) so callers that read the output file get one.
             from actenon_scan.engine import ScanResult as _SR
-            print(_fp(_SR()), end="")
+            _emit_scan_output(args, _SR(), None)
             return 0
         # Pass the exact paths through rather than converting to include
         # globs: globbing still walked the entire tree before filtering,
@@ -572,9 +583,8 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                     f"excluded by config. Nothing to scan.",
                     file=sys.stderr,
                 )
-                from actenon_scan.report.pretty import format_pretty as _fp2
                 from actenon_scan.engine import ScanResult as _SR2
-                print(_fp2(_SR2()), end="")
+                _emit_scan_output(args, _SR2(), None)
                 return 0
 
     try:
@@ -671,29 +681,7 @@ def _cmd_scan(args: argparse.Namespace) -> int:
             return 2
         raise
 
-    # Format output
-    _elapsed = getattr(result, "_elapsed", None)
-
-    if args.format == "json":
-        output = format_json(result)
-    elif args.format == "sarif":
-        output = format_sarif(result)
-    elif args.format == "list":
-        output = format_list(result)
-    elif args.format == "html":
-        from actenon_scan.report.html_out import format_html
-        output = format_html(result, elapsed=_elapsed)
-    elif args.format == "markdown":
-        from actenon_scan.report.markdown_out import format_markdown
-        output = format_markdown(result, elapsed=_elapsed)
-    else:
-        # Default: blast-radius summary
-        output = format_pretty(result, elapsed=_elapsed)
-
-    if args.output:
-        Path(args.output).write_text(output)
-    else:
-        print(output, end="")
+    _emit_scan_output(args, result, getattr(result, "_elapsed", None))
 
     # Exit code
     # Unsupported files alone do NOT fail the build (default). Use
@@ -705,6 +693,30 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     if result.has_findings_at_or_above(args.fail_on):
         return 1
     return 0
+
+
+def _emit_scan_output(args: argparse.Namespace, result, elapsed) -> None:
+    """Render ``result`` in ``args.format`` to ``args.output`` or stdout."""
+    if args.format == "json":
+        output = format_json(result)
+    elif args.format == "sarif":
+        output = format_sarif(result)
+    elif args.format == "list":
+        output = format_list(result)
+    elif args.format == "html":
+        from actenon_scan.report.html_out import format_html
+        output = format_html(result, elapsed=elapsed)
+    elif args.format == "markdown":
+        from actenon_scan.report.markdown_out import format_markdown
+        output = format_markdown(result, elapsed=elapsed)
+    else:
+        # Default: blast-radius summary
+        output = format_pretty(result, elapsed=elapsed)
+
+    if args.output:
+        Path(args.output).write_text(output)
+    else:
+        print(output, end="")
 
 
 def _cmd_rules(args: argparse.Namespace) -> int:
@@ -985,8 +997,12 @@ def _cmd_adopt(args: argparse.Namespace) -> int:
     return 1 if result.has_findings_at_or_above("medium") else 0
 
 
-def _get_changed_files(git_ref: str, target: Path) -> list[str]:
+def _get_changed_files(git_ref: str, target: Path) -> list[str] | None:
     """Get files changed since a git ref, relative to target.
+
+    Returns ``None`` when git cannot compute the diff (unknown ref, not a
+    repository, git missing) and ``[]`` when nothing scannable changed —
+    the caller must not treat the first as the second.
 
     Returns .py, .ts, .tsx, .js, .jsx, .mjs, .cjs, and .go files. The
     previous implementation only returned .py files, which meant the
@@ -1015,7 +1031,7 @@ def _get_changed_files(git_ref: str, target: Path) -> list[str]:
             f.strip() for f in result.stdout.splitlines()
             if f.strip().endswith(scannable_exts)
         ]
-        return changed if changed else None
+        return changed
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         print(f"Warning: --changed-only requires git: {e}", file=sys.stderr)
         return None
