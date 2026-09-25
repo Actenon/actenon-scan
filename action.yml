@@ -128,9 +128,11 @@ runs:
         # Work Order 1.5: --fail-on-unsupported (Action input). Only added
         # to the JSON pass (the authoritative pass for exit code). The SARIF
         # pass uses --fail-on none and must not fail on unsupported files.
+        # Leading space: the value is concatenated straight onto
+        # "--fail-on $FAIL_ON" below (like COMMON_ARGS).
         UNSUPPORTED_ARG=""
         if [ "${{ inputs.fail-on-unsupported }}" = "true" ]; then
-          UNSUPPORTED_ARG="--fail-on-unsupported"
+          UNSUPPORTED_ARG=" --fail-on-unsupported"
         fi
 
         # --- Pass 1: JSON (authoritative for counts + fail-on) ---
@@ -329,12 +331,24 @@ runs:
             print("Created new comment")
         PYTHON
 
+    # Any non-zero scan exit fails the action. Exit 1 is the --fail-on /
+    # --fail-on-unsupported gate. Any other code (2 = usage/config error,
+    # or a crash) means the scan produced no trustworthy result — reporting
+    # a green check with 0 findings would be silence implying safety.
     - name: Fail on findings
-      if: ${{ steps.scan.outputs.exit_code == '1' }}
+      if: ${{ steps.scan.outputs.exit_code != '0' }}
       shell: bash
+      env:
+        SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit_code }}
       run: |
-        echo "Scan failed with exit code 1"
-        echo "This is either: (a) findings at or above the --fail-on threshold, or"
-        echo "(b) --fail-on-unsupported is set and unsupported source files were found."
-        echo "Check the scan output above for the specific reason."
+        if [ "$SCAN_EXIT_CODE" = "1" ]; then
+          echo "Scan failed with exit code 1"
+          echo "This is either: (a) findings at or above the --fail-on threshold, or"
+          echo "(b) --fail-on-unsupported is set and unsupported source files were found."
+          echo "Check the scan output above for the specific reason."
+        else
+          echo "::error::actenon-scan did not complete (exit code ${SCAN_EXIT_CODE:-unknown})."
+          echo "The scan result is missing or incomplete, so the findings counts above cannot be trusted."
+          echo "Check the scan output above for the usage or configuration error."
+        fi
         exit 1
