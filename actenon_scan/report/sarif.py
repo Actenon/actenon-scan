@@ -81,6 +81,32 @@ def _build_rule_entry(finding, ruleset) -> dict[str, Any]:
     return entry
 
 
+def _coverage_notifications(result: ScanResult) -> list[dict[str, Any]]:
+    """SARIF notifications for files the scan did not analyse."""
+    notes: list[dict[str, Any]] = []
+    for rel, err in result.analysis_errors:
+        note: dict[str, Any] = {
+            "level": "error",
+            "message": {
+                "text": f"File could not be analysed; it is NOT covered by these results: {err}",
+            },
+        }
+        if rel and not rel.startswith("<"):
+            note["locations"] = [
+                {"physicalLocation": {"artifactLocation": {"uri": rel}}}
+            ]
+        notes.append(note)
+    for rel, lang in result.unsupported_files:
+        notes.append({
+            "level": "warning",
+            "message": {
+                "text": f"{rel}: {lang} is not a supported language; the file was NOT scanned.",
+            },
+            "locations": [{"physicalLocation": {"artifactLocation": {"uri": rel}}}],
+        })
+    return notes
+
+
 def format_sarif(result: ScanResult) -> str:
     """Format scan results as SARIF 2.1.0 JSON."""
     ruleset = result.rules_used
@@ -154,8 +180,12 @@ def format_sarif(result: ScanResult) -> str:
                 # observational, not a defect.
                 "invocations": [
                     {
-                        "executionSuccessful": True,
-                        "toolExecutionNotifications": [
+                        # False when any supported file could not be
+                        # analysed: an empty results list then does not
+                        # cover those files (each is an error notification
+                        # below). Unsupported-language files are warnings.
+                        "executionSuccessful": not result.analysis_errors,
+                        "toolExecutionNotifications": _coverage_notifications(result) + [
                             {
                                 "level": "note",
                                 "message": {

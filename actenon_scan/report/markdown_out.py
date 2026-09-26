@@ -11,7 +11,8 @@ from collections import Counter
 from actenon_scan.engine import ScanResult
 from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_LIMITATIONS,
-    CLEAN_SCAN_STATEMENT,
+    clean_headline,
+    incomplete_scan_statement,
     consequence_label,
     group_by_consequence,
     select_most_exposed,
@@ -31,8 +32,16 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
     lines.append(f"**Findings:** {len(unsuppressed)}{timing}")
     lines.append("")
 
+    incomplete = incomplete_scan_statement(result)
+    if incomplete is not None:
+        lines.append(f"> **{incomplete}**")
+        lines.append("")
+        for rel, err in result.analysis_errors[:20]:
+            lines.append(f"- `{rel}`: {err}")
+        lines.append("")
+
     if not unsuppressed:
-        lines.append(f"> {CLEAN_SCAN_STATEMENT}")
+        lines.append("> " + clean_headline(result).replace("\n", "\n> "))
         lines.append("")
         lines.append("## What this scan verified")
         lines.append("")

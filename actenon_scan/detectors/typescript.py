@@ -340,9 +340,27 @@ def analyze_typescript_file(
     except (UnicodeDecodeError, OSError) as e:
         return ([], [(str(filepath), f"{type(e).__name__}: {e}")])
 
-    parser = Parser(lang)
-    tree = parser.parse(source.encode("utf-8"))
     source_bytes = source.encode("utf-8")
+    parser = Parser(lang)
+    tree = parser.parse(source_bytes)
+    # Plain .js files often contain JSX; retry with the TSX grammar before
+    # declaring a parse failure.
+    if tree.root_node.has_error and suffix in (".js", ".mjs", ".cjs"):
+        alt_lang = Language(tsts.language_tsx())
+        alt_tree = Parser(alt_lang).parse(source_bytes)
+        if not alt_tree.root_node.has_error:
+            lang, tree = alt_lang, alt_tree
+    # tree-sitter recovers from syntax errors, so analysis continues — but
+    # a sink inside an unparsed region can be missed, so the file must be
+    # reported as not fully analysed rather than silently clean.
+    parse_errors: list[tuple[str, str]] = []
+    if tree.root_node.has_error:
+        parse_errors.append((
+            str(filepath),
+            f"SyntaxError: could not parse the file (first error near line "
+            f"{_first_error_line(tree.root_node)}); sinks in the unparsed "
+            f"region may be missed",
+        ))
 
     # Resolve effective guard patterns: user config + built-in TS vocab.
     effective_guards = list(guard_patterns) if guard_patterns else []
@@ -521,7 +539,7 @@ def analyze_typescript_file(
                 continue  # no pattern matched — try next rule
             break  # pattern matched — stop checking rules (one finding per call)
 
-    return (findings, [])
+    return (findings, parse_errors)
 
 
 def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
@@ -1261,6 +1279,14 @@ def _ts_find_function_def(root_node, name: str, source: bytes):
                     if child_text == short_name or child_text == name:
                         return node
     return None
+
+
+def _first_error_line(root_node) -> int:
+    """1-based line of the first ERROR or MISSING node in a tree-sitter tree."""
+    for node in _ts_walk(root_node):
+        if node.type == "ERROR" or node.is_missing:
+            return node.start_point[0] + 1
+    return root_node.start_point[0] + 1
 
 
 def _resolve_import_origins(root_node, source: bytes) -> dict[str, str]:

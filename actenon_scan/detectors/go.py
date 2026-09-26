@@ -1222,6 +1222,32 @@ def _is_api_returned_url(func_node, sink_call, source: bytes) -> bool:
     return False
 
 
+def go_syntax_error(source: bytes) -> str | None:
+    """Describe a Go parse failure, or return None if the file parses.
+
+    tree-sitter recovers from syntax errors and scan_go_file keeps
+    analysing, but a sink inside an unparsed region can be missed — the
+    caller records the file as not fully analysed.
+    """
+    if not is_go_extra_available():
+        return None
+    import tree_sitter_go as tsgo
+    from tree_sitter import Language, Parser
+
+    root = Parser(Language(tsgo.language())).parse(source).root_node
+    if not root.has_error:
+        return None
+    line = root.start_point[0] + 1
+    for node in _walk(root):
+        if node.type == "ERROR" or node.is_missing:
+            line = node.start_point[0] + 1
+            break
+    return (
+        f"SyntaxError: could not parse the file (first error near line {line}); "
+        f"sinks in the unparsed region may be missed"
+    )
+
+
 def _resolve_go_import_aliases(root, source: bytes) -> dict[str, str]:
     """Map import aliases to the imported package's own name.
 
