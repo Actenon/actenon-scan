@@ -976,8 +976,11 @@ def _is_result_used(guard: ast.Call, parent_map: dict[int, ast.AST]) -> bool:
     if parent is None:
         return False
 
-    if isinstance(parent, ast.Assign):
-        return True
+    if isinstance(parent, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+        # Binding the result is only "use" if the bound name is read
+        # afterwards — `allowed = check_permission(...)` followed by the
+        # sink, with `allowed` never consulted, enforces nothing.
+        return _assigned_result_is_read(parent, parent_map)
     if isinstance(parent, (ast.If, ast.While)):
         return True
     if isinstance(parent, ast.BoolOp):
@@ -991,6 +994,38 @@ def _is_result_used(guard: ast.Call, parent_map: dict[int, ast.AST]) -> bool:
     if isinstance(parent, ast.Assert):
         return True
 
+    return False
+
+
+def _assigned_result_is_read(assign: ast.AST, parent_map: dict[int, ast.AST]) -> bool:
+    """True if a name bound by ``assign`` is read after the assignment.
+
+    Targets that are not plain names (``self.ok = guard()``,
+    ``result[k] = guard()``) cannot be tracked and are treated as read.
+    """
+    if isinstance(assign, ast.Assign):
+        targets = assign.targets
+    else:
+        targets = [assign.target]
+    names: set[str] = set()
+    for target in targets:
+        for node in ast.walk(target):
+            if isinstance(node, ast.Name):
+                names.add(node.id)
+            elif isinstance(node, (ast.Attribute, ast.Subscript)):
+                return True
+    if not names:
+        return True
+    root = assign
+    while id(root) in parent_map:
+        root = parent_map[id(root)]
+    end = (getattr(assign, "end_lineno", assign.lineno),
+           getattr(assign, "end_col_offset", 0))
+    for node in ast.walk(root):
+        if (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+                and node.id in names
+                and (node.lineno, node.col_offset) >= end):
+            return True
     return False
 
 
@@ -1133,6 +1168,9 @@ _VALIDATION_GUARD_KEYWORDS = frozenset({
 })
 
 
+_NOT_VALIDATION_GUARDS = frozenset({"check_output", "check_call"})
+
+
 def _is_validation_guard_name(name: str) -> bool:
     """Check if a call name looks like a validation guard by name pattern.
 
@@ -1150,6 +1188,10 @@ def _is_validation_guard_name(name: str) -> bool:
     """
     # Get the last segment (e.g., self._validate_query -> _validate_query)
     last_segment = name.rsplit(".", 1)[-1].lower()
+    # subprocess.check_output / check_call RUN a command — they are sinks,
+    # not validation, even though they start with "check_".
+    if last_segment in _NOT_VALIDATION_GUARDS:
+        return False
     # Strip leading underscores for matching
     stripped = last_segment.lstrip("_")
     for keyword in _VALIDATION_GUARD_KEYWORDS:

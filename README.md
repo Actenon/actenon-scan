@@ -357,7 +357,13 @@ that produced no result is never reported as a green, zero-finding check.
 |------|---------|
 | 0 | No findings at or above the `--fail-on` threshold |
 | 1 | Findings at or above the threshold (or `--fail-on-unsupported` and unsupported files found) |
-| 2 | Usage error (bad arguments, missing file) |
+| 2 | Usage error (bad arguments, missing file, `--changed-only` ref git cannot diff against) |
+| 3 | Scan incomplete: no findings at or above the threshold, but one or more supported source files could not be analysed (syntax, encoding or parser error). Not raised with `--fail-on none`. |
+
+A file in a supported language that fails to parse is never counted as clean:
+the headline reads `SCAN INCOMPLETE`, JSON carries `"scan_complete": false`,
+SARIF sets `executionSuccessful: false` with an error notification per file,
+and the exit code is 3 (see above).
 
 Unsupported files alone do **not** trigger exit 1 unless `--fail-on-unsupported`
 is passed. A scan that finds 0 supported files but N unsupported files exits 0

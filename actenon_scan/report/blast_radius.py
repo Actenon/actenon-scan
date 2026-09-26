@@ -272,6 +272,35 @@ CLEAN_SCAN_LIMITATIONS = (
 )
 
 
+def incomplete_scan_statement(result: ScanResult) -> str | None:
+    """Headline for a scan in which some supported files were not analysed.
+
+    Returned whenever ``result.analysis_errors`` is non-empty (syntax or
+    encoding errors, parser failures, a crashed detector). An absence of
+    findings says nothing about the files listed there, so the clean-scan
+    statement must never be shown on its own for such a scan.
+    """
+    if not result.analysis_errors:
+        return None
+    n = len(result.analysis_errors)
+    return (
+        f"SCAN INCOMPLETE: {n} supported source file(s) could not be analysed "
+        f"(syntax, encoding or parser errors) and are NOT covered by this result. "
+        f"Fix or exclude them and re-scan."
+    )
+
+
+def clean_headline(result: ScanResult) -> str:
+    """The headline for a result with no unsuppressed findings."""
+    incomplete = incomplete_scan_statement(result)
+    if incomplete is None:
+        return CLEAN_SCAN_STATEMENT
+    return (
+        f"{incomplete}\nNo unguarded consequential-action paths were identified "
+        f"in the files that WERE analysed."
+    )
+
+
 def transitive_disclosure_line(result: ScanResult) -> str | None:
     """Render the repository-analysis disclosure line for the clean-scan
     output (Task 5-A1).

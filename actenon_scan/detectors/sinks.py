@@ -62,6 +62,10 @@ def detect_sinks(
     #                       above are per-file, so the cache must be too.
     self_attr_origins = _build_self_attr_origins(tree)
     import_aliases = _build_import_aliases(tree)
+    # Fully-qualified origin of every imported name, so `sp.run`
+    # (import subprocess as sp), `run` (from subprocess import run) and
+    # `r` (from subprocess import run as r) all resolve to subprocess.run.
+    import_origins = _build_import_origins(tree)
     origin_cache: dict[int, ReceiverOrigin | None] = {}
 
     # Build a parent-pointer map so we can find the enclosing function
@@ -81,6 +85,7 @@ def detect_sinks(
                     self_attr_origins=self_attr_origins,
                     import_aliases=import_aliases,
                     origin_cache=origin_cache,
+                    import_origins=import_origins,
                 ):
                     severity = rule.severity
                     # Check for escalation: if the rule has an escalate_when
@@ -650,6 +655,57 @@ def _build_import_aliases(tree: ast.Module) -> dict[str, str]:
     return aliases
 
 
+def _build_import_origins(tree: ast.Module) -> dict[str, str]:
+    """Map each locally bound imported name to its fully-qualified origin.
+
+        import subprocess as sp            -> {"sp": "subprocess"}
+        import os.path as osp              -> {"osp": "os.path"}
+        from subprocess import run         -> {"run": "subprocess.run"}
+        from subprocess import run as r    -> {"r": "subprocess.run"}
+
+    Plain ``import os`` binds ``os`` to itself and needs no entry. Relative
+    imports (``from .jobs import run``) name the project's own code, not a
+    library sink, and are left out. A name bound to two different origins
+    in the same file is ambiguous and dropped rather than guessed.
+    """
+    origins: dict[str, str] = {}
+    conflicts: set[str] = set()
+
+    def bind(local: str, origin: str) -> None:
+        if local in origins and origins[local] != origin:
+            conflicts.add(local)
+        origins[local] = origin
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    bind(alias.asname, alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level or not node.module:
+                continue
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                bind(alias.asname or alias.name, f"{node.module}.{alias.name}")
+    for name in conflicts:
+        origins.pop(name, None)
+    return origins
+
+
+def _resolve_through_import_origins(
+    name: str, import_origins: dict[str, str] | None
+) -> str:
+    """Rewrite the head of a dotted call name through the import-origin map."""
+    if not import_origins or not name:
+        return name
+    head, dot, tail = name.partition(".")
+    origin = import_origins.get(head)
+    if not origin:
+        return name
+    return f"{origin}.{tail}" if dot else origin
+
+
 def _receiver_origin_is_excluded(
     receiver: ast.expr,
     excluded_receivers: list[str],
@@ -702,18 +758,20 @@ def _match_call(
     self_attr_origins: dict[str, str] | None = None,
     import_aliases: dict[str, str] | None = None,
     origin_cache: dict[int, ReceiverOrigin | None] | None = None,
+    import_origins: dict[str, str] | None = None,
 ) -> bool:
     match_type = rule.match.get("type", "")
     if match_type == "name_call":
-        return _match_name_call(node, rule)
+        return _match_name_call(node, rule, import_origins)
     elif match_type == "attr_call":
-        return _match_attr_call(node, rule, var_types)
+        return _match_attr_call(node, rule, var_types, import_origins)
     elif match_type == "qualified_call":
         return _match_qualified_call(
             node, rule, var_types,
             self_attr_origins=self_attr_origins,
             import_aliases=import_aliases,
             origin_cache=origin_cache,
+            import_origins=import_origins,
         )
     elif match_type == "subprocess_deploy":
         return _match_subprocess_deploy(node)
@@ -731,6 +789,7 @@ def _match_qualified_call(
     self_attr_origins: dict[str, str] | None = None,
     import_aliases: dict[str, str] | None = None,
     origin_cache: dict[int, ReceiverOrigin | None] | None = None,
+    import_origins: dict[str, str] | None = None,
 ) -> bool:
     """Match calls by their full qualified dotted name (e.g., subprocess.run).
 
@@ -787,16 +846,22 @@ def _match_qualified_call(
     else:
         return False
 
-    # Direct match against qualified patterns
+    # Direct match against qualified patterns. The call name is tried as
+    # written and, when its head is an imported name, as the import's
+    # fully-qualified origin (sp.run -> subprocess.run, r -> subprocess.run).
+    candidates = [call_name]
+    resolved = _resolve_through_import_origins(call_name, import_origins)
+    if resolved != call_name:
+        candidates.append(resolved)
     pattern_matched = False
-    for pattern in qualified_patterns:
-        if call_name == pattern:
-            pattern_matched = True
-            break
-        # Also match if the call name ends with the pattern (e.g., pattern is
-        # "system" and call is "os.system")
-        if call_name.endswith("." + pattern):
-            pattern_matched = True
+    for name in candidates:
+        for pattern in qualified_patterns:
+            # Also match if the call name ends with the pattern (e.g.,
+            # pattern is "system" and call is "os.system")
+            if name == pattern or name.endswith("." + pattern):
+                pattern_matched = True
+                break
+        if pattern_matched:
             break
 
     # Variable-type tracking: if p = Path(...), then p.unlink() matches "Path.unlink"
@@ -884,16 +949,30 @@ def _match_qualified_call(
     return True
 
 
-def _match_name_call(node: ast.Call, rule: SinkRule) -> bool:
-    """Match bare function calls like refund(), delete(), sendmail()."""
+def _match_name_call(
+    node: ast.Call, rule: SinkRule, import_origins: dict[str, str] | None = None
+) -> bool:
+    """Match bare function calls like refund(), delete(), sendmail().
+
+    A bare name bound by ``from m import f as g`` is also matched on the
+    imported function's own name (``g(...)`` is ``f(...)``).
+    """
     if not isinstance(node.func, ast.Name):
         return False
     func_name = node.func.id
     patterns = rule.match.get("func_patterns", [])
-    return func_name in patterns
+    if func_name in patterns:
+        return True
+    origin = (import_origins or {}).get(func_name)
+    return bool(origin) and origin.rsplit(".", 1)[-1] in patterns
 
 
-def _match_attr_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] | None = None) -> bool:
+def _match_attr_call(
+    node: ast.Call,
+    rule: SinkRule,
+    var_types: dict[str, str] | None = None,
+    import_origins: dict[str, str] | None = None,
+) -> bool:
     """Match attribute calls like stripe.Refund.create().
 
     The module_patterns are matched against SEGMENTS of the attribute chain,
@@ -920,9 +999,13 @@ def _match_attr_call(node: ast.Call, rule: SinkRule, var_types: dict[str, str] |
     if not module_patterns:
         return True  # any module matches
 
-    # Walk the attribute chain to get the full name
+    # Walk the attribute chain to get the full name. An aliased module head
+    # (import os as o) is also checked under its real name.
     full_name = _get_attr_chain(node.func)
     chain_segments = full_name.split(".")
+    resolved = _resolve_through_import_origins(full_name, import_origins)
+    if resolved != full_name:
+        chain_segments = chain_segments + resolved.split(".")
 
     # Match if any segment of the chain exactly equals a module pattern.
     for mod_pattern in module_patterns:

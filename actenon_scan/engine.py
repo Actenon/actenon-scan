@@ -1216,7 +1216,7 @@ def scan_path(
     # ── Go analysis (if the [go] extra is installed) ──
     go_scanned = 0
     go_errors: list[tuple[str, str]] = []
-    from actenon_scan.detectors.go import is_go_extra_available, scan_go_file
+    from actenon_scan.detectors.go import go_syntax_error, is_go_extra_available, scan_go_file
     if is_go_extra_available():
         # Collect Go files
         if explicit_files is not None:
@@ -1244,6 +1244,9 @@ def scan_path(
                 go_source = go_file.read_bytes()
                 rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
                 go_findings = scan_go_file(rel, go_source, guard_patterns=rules.guard_patterns)
+                go_parse_error = go_syntax_error(go_source)
+                if go_parse_error:
+                    go_errors.append((rel, go_parse_error))
                 for gf in go_findings:
                     # Work Order 2, Phase 5: record a Capability for every
                     # Go finding, including guarded ones.
@@ -1510,7 +1513,8 @@ def _scan_typescript_files(
                 guard_status=f.guard_status,
                 guard_message=f.guard_message,
             ))
-        errors.extend(file_errors)
+        # Report errors under the same target-relative path as findings.
+        errors.extend((rel, msg) for _, msg in file_errors)
 
     return (all_findings, len(ts_files), errors)
 
