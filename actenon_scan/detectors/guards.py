@@ -77,6 +77,18 @@ def check_guard(
             message=f"framework approval flag on enclosing function: {approval_flag}",
         )
 
+    # Check (b3): the sink sits in a callback (nested def or lambda) whose
+    # only use is being handed to a protecting executor — e.g.
+    # ProtectedExecutor.execute(request, handler) or
+    # ActenonGate.protect(action, proof, lambda: side_effect()). The
+    # executor verifies the proof before it invokes the callback.
+    protector = _protected_callback_guard(tree, func_node, sink_line, guard_patterns)
+    if protector:
+        return GuardCheckResult(
+            guarded=True,
+            message=f"sink runs only inside a callback handed to {protector}",
+        )
+
     # Build a parent map for dominance analysis
     parent_map = _build_parent_map(func_node)
 
@@ -86,7 +98,9 @@ def check_guard(
         if isinstance(child, ast.Call):
             if hasattr(child, "lineno") and child.lineno < sink_line:
                 call_name = _get_call_name(child.func)
-                if call_name and (_matches_guard(call_name, guard_patterns) or _is_validation_guard_name(call_name)):
+                if not call_name or _is_guard_client_constructor(call_name):
+                    continue
+                if _matches_guard(call_name, guard_patterns) or _is_validation_guard_name(call_name):
                     guard_calls.append(child)
 
     if not guard_calls:
@@ -183,6 +197,196 @@ def check_guard(
         )
 
     return GuardCheckResult(guarded=True)
+
+
+# Actenon client / verifier classes. They appear in the guard vocabulary so
+# a decorator or class-level use is recognised, but *constructing* one — or
+# calling its local()/cloud() factory — authorises nothing: the decision is
+# the verify / execute / protect call made through the object. Counting the
+# constructor let a decoy client that is never consulted suppress a sink.
+_GUARD_CLIENT_CLASSES = frozenset({
+    "pccbverifier", "protectedexecutor", "actenongate", "actenon",
+    "broker", "gateway", "boundarymiddleware", "boundaryverifier",
+})
+_GUARD_CLIENT_FACTORIES = ("actenon.local", "actenon.cloud", "actenongate.local_dev")
+
+
+def _is_guard_client_constructor(call_name: str) -> bool:
+    """True for ``Actenon.local(...)``, ``ProtectedExecutor(...)`` etc."""
+    low = call_name.lower()
+    if low.rsplit(".", 1)[-1] in _GUARD_CLIENT_CLASSES:
+        return True
+    return any(low == f or low.endswith("." + f) for f in _GUARD_CLIENT_FACTORIES)
+
+
+def _class_method_guard_patterns(guard_patterns: list[str]) -> set[tuple[str, str]]:
+    """``Class.method`` guard patterns (e.g. ProtectedExecutor.execute) as
+    lower-cased ``(class, method)`` pairs."""
+    pairs: set[tuple[str, str]] = set()
+    for pattern in guard_patterns:
+        head, _, method = pattern.rpartition(".")
+        cls = head.rsplit(".", 1)[-1]
+        if cls and method and cls[:1].isupper():
+            pairs.add((cls.lower(), method.lower()))
+    return pairs
+
+
+def _type_name_of_expr(
+    value: ast.AST | None, local_returns: dict[str, str]
+) -> str | None:
+    """Best-effort class name produced by an assignment's right-hand side."""
+    if isinstance(value, ast.Await):
+        value = value.value
+    if not isinstance(value, ast.Call):
+        return None
+    func = value.func
+    if isinstance(func, ast.Name):
+        if func.id[:1].isupper():
+            return func.id                      # Cls(...)
+        return local_returns.get(func.id)       # build_executor() -> Cls
+    if isinstance(func, ast.Attribute):
+        if func.attr[:1].isupper():
+            return func.attr                    # module.Cls(...)
+        recv = func.value
+        recv_name = recv.id if isinstance(recv, ast.Name) else (
+            recv.attr if isinstance(recv, ast.Attribute) else ""
+        )
+        if recv_name[:1].isupper():
+            return recv_name                    # Cls.factory(...)
+    return None
+
+
+def _annotation_name(ann: ast.AST | None) -> str | None:
+    if isinstance(ann, ast.Name):
+        return ann.id
+    if isinstance(ann, ast.Attribute):
+        return ann.attr
+    if isinstance(ann, ast.Constant) and isinstance(ann.value, str):
+        return ann.value.rsplit(".", 1)[-1]
+    return None
+
+
+def _receiver_types(tree: ast.Module, func_node: ast.AST) -> dict[str, str]:
+    """Map variable names visible in ``func_node`` to class names, from
+    module-level and function-level assignments, annotations and typed
+    parameters. File-local and flow-insensitive; ambiguous names are
+    dropped rather than guessed."""
+    local_returns: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            name = _annotation_name(node.returns)
+            if name:
+                local_returns[node.name] = name
+
+    types: dict[str, str] = {}
+    conflicts: set[str] = set()
+
+    def record(var: str, cls: str | None) -> None:
+        if not cls:
+            return
+        if var in types and types[var] != cls:
+            conflicts.add(var)
+        types[var] = cls
+
+    scopes: list[ast.AST] = [*tree.body]
+    scopes.extend(ast.walk(func_node))
+    for node in scopes:
+        if isinstance(node, ast.Assign):
+            cls = _type_name_of_expr(node.value, local_returns)
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    record(target.id, cls)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            record(node.target.id, _annotation_name(node.annotation)
+                   or _type_name_of_expr(node.value, local_returns))
+    if isinstance(func_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        all_args = [*func_node.args.posonlyargs, *func_node.args.args,
+                    *func_node.args.kwonlyargs]
+        for arg in all_args:
+            record(arg.arg, _annotation_name(arg.annotation))
+    for var in conflicts:
+        types.pop(var, None)
+    return types
+
+
+def _protected_callback_guard(
+    tree: ast.Module,
+    func_node: ast.AST,
+    sink_line: int,
+    guard_patterns: list[str],
+) -> str | None:
+    """Return the protecting call's name when the sink lives in a callback
+    that ``func_node`` only ever hands to a recognised protecting executor.
+
+    Requirements (all must hold, otherwise the sink is analysed normally):
+      * the sink is inside a nested ``def`` or ``lambda`` of ``func_node``;
+      * that callback is passed as an argument to ``recv.method(...)`` where
+        ``recv`` is typed (constructor, factory, annotated local factory or
+        annotated parameter) as a class whose ``Class.method`` is in the
+        guard vocabulary — e.g. ``ProtectedExecutor.execute``,
+        ``ActenonGate.protect``. A bare ``x.execute(cb)`` on an unknown
+        receiver is NOT enough: ``execute`` is also ``cursor.execute``;
+      * a nested ``def`` is never called directly (that would bypass the
+        executor) and is not used in any other way.
+    """
+    protecting = _class_method_guard_patterns(guard_patterns)
+    if not protecting:
+        return None
+
+    callback: ast.AST | None = None
+    for node in ast.walk(func_node):
+        if node is func_node or not isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+        ):
+            continue
+        if _line_in_node(node, sink_line):
+            if callback is None or _line_in_node(callback, node.lineno):
+                callback = node  # keep the innermost
+    if callback is None:
+        return None
+
+    types = _receiver_types(tree, func_node)
+
+    def protecting_call(call: ast.Call) -> str | None:
+        func = call.func
+        if not (isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)):
+            return None
+        cls = types.get(func.value.id)
+        if cls and (cls.lower(), func.attr.lower()) in protecting:
+            return f"{cls}.{func.attr}"
+        return None
+
+    parents = _build_parent_map(func_node)
+
+    if isinstance(callback, ast.Lambda):
+        parent = parents.get(id(callback))
+        if isinstance(parent, ast.keyword):
+            parent = parents.get(id(parent))
+        if isinstance(parent, ast.Call) and callback is not parent.func:
+            return protecting_call(parent)
+        return None
+
+    # Nested def: every reference to its name must be an argument of a
+    # protecting call.
+    name = callback.name
+    protector: str | None = None
+    for node in ast.walk(func_node):
+        if not (isinstance(node, ast.Name) and node.id == name):
+            continue
+        if _line_in_node(callback, getattr(node, "lineno", -1)) and node is not callback:
+            # A reference inside the callback itself (recursion) is not a
+            # bypass of the executor, but keep it simple: refuse.
+            return None
+        parent = parents.get(id(node))
+        if isinstance(parent, ast.keyword):
+            parent = parents.get(id(parent))
+        if not isinstance(parent, ast.Call) or parent.func is node:
+            return None  # called directly or used some other way
+        this = protecting_call(parent)
+        if this is None:
+            return None
+        protector = this
+    return protector
 
 
 def is_guarded(

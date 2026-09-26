@@ -55,3 +55,58 @@ def bad_refund():
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InlineSuppressionScopeTests(unittest.TestCase):
+    """An inline suppression covers the finding on its own line or the next
+    line only — never every finding of that rule in the file."""
+
+    SOURCE = (
+        "import subprocess\n"
+        "from mcp.server.fastmcp import FastMCP\n"
+        "mcp = FastMCP('x')\n"
+        "\n"
+        "@mcp.tool()\n"
+        "def safe_version() -> str:\n"
+        "    # actenon-scan: ignore[EXEC-SHELL]\n"
+        "    return subprocess.run(['git', '--version']).stdout\n"
+        "\n"
+        "@mcp.tool()\n"
+        "def run_anything(cmd: str) -> str:\n"
+        "    return subprocess.run(cmd, shell=True).stdout\n"
+    )
+
+    def _scan(self, use_cache: bool):
+        from actenon_scan.cache import FileCache
+        from actenon_scan.suppress import collect_suppressions_from_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "repo"
+            root.mkdir()
+            (root / "agent.py").write_text(self.SOURCE)
+            sups = collect_suppressions_from_file(root / "agent.py", root)
+            cache = FileCache(Path(tmp) / "cache") if use_cache else None
+            if cache is not None:
+                scan_path(root, suppressions=sups, cache=cache)  # warm it
+            result = scan_path(root, suppressions=sups, cache=cache)
+            return {
+                (f.line, f.suppressed)
+                for f in result.findings
+                if f.rule_id.startswith("EXEC-SHELL")
+            }
+
+    def test_suppression_does_not_cover_other_findings_of_the_same_rule(self):
+        self.assertEqual({(8, True), (12, False)}, self._scan(use_cache=False))
+
+    def test_suppression_scope_is_the_same_on_a_cache_hit(self):
+        self.assertEqual({(8, True), (12, False)}, self._scan(use_cache=True))
+
+    def test_trailing_comment_suppresses_its_own_line(self):
+        from actenon_scan.suppress import is_suppressed
+
+        sups = parse_suppressions(
+            "x = 1\nsubprocess.run(c)  # actenon-scan: ignore[EXEC-SHELL]\n",
+            "t.py",
+        )
+        self.assertTrue(is_suppressed(sups, "t.py", "EXEC-SHELL", 2))
+        self.assertFalse(is_suppressed(sups, "t.py", "EXEC-SHELL", 4))

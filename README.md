@@ -150,7 +150,9 @@ canonical case is `@mcp.tool() def my_tool(): helper()` where `helper`
 does `requests.post(...)`.
 
 The repository layer has been **on by default for directory targets since
-commit `25ee4f9`** (v1.4.0 release). It is **opt-out**:
+commit `25ee4f9`**, first released in **v1.5.0** — the v1.4.0 package on
+PyPI predates it, has no repository layer and does not accept
+`--no-repository-analysis`. It is **opt-out**:
 
 ```bash
 actenon-scan scan . --no-repository-analysis    # per-file scan only
@@ -312,6 +314,7 @@ That's it. The action:
 | `config` | `""` | Path to config file |
 | `baseline` | `""` | Path to baseline.json for known-findings suppression |
 | `scan-scope` | `auto` | `changed` (PR only), `full` (entire repo), or `auto` |
+| `fail-on-unsupported` | `false` | Fail when unsupported source files (e.g. `.rb`, `.java`) were found and not scanned |
 | `comment-on-pr` | `true` | Post sticky blast-radius comment on PRs |
 | `upload-sarif` | `true` | Upload SARIF to Security tab |
 | `version` | `""` | Pin scanner version (default: action's own version) |
@@ -344,6 +347,9 @@ repos:
 
 The default workflow does **not** block merging solely because findings exist
 unless you explicitly configure `fail-on: high`.
+It **does** fail if the scan itself does not complete (a usage/config error,
+a crash, or a `--changed-only` base ref git cannot diff against): a scan
+that produced no result is never reported as a green, zero-finding check.
 
 ### Exit codes
 
@@ -566,10 +572,17 @@ Recognised when you are using the Actenon ecosystem:
 
 - `verify_pccb`, `PCCBVerifier`, `PCCBVerifier.verify`
 - `ProtectedExecutor`, `ProtectedExecutor.execute`
+- `ActenonGate`, `ActenonGate.protect`, `ActenonGate.protect_action`, `@protected_mcp_tool`
 - `Actenon`, `Actenon.local`, `Actenon.cloud`
 - `Broker`, `Broker.execute`, `Broker.execute_via_adapter`
 - `Gateway`, `Gateway.execute`
 - `BoundaryMiddleware`, `BoundaryVerifier`, `BoundaryVerifier.verify_boundary`
+
+Constructing one of these clients (`Actenon.local(...)`, `ProtectedExecutor(...)`)
+is not itself a guard — the verify/execute/protect call made through it is.
+A side effect inside a callback that is only ever handed to a typed
+`ProtectedExecutor.execute` / `ActenonGate.protect` (etc.) call counts as
+guarded; the same callback passed to an untyped `x.execute(...)` does not.
 
 ### Custom guards
 

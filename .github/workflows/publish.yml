@@ -40,6 +40,10 @@ jobs:
           /tmp/test-install/bin/pip install --upgrade pip
           /tmp/test-install/bin/pip install dist/actenon_scan-*.whl
           /tmp/test-install/bin/actenon-scan --version
+          # --version never imports the repository layer. A directory scan
+          # does: a wheel missing actenon_scan.repository crashed here with
+          # ModuleNotFoundError while --version still passed.
+          /tmp/test-install/bin/actenon-scan scan tests/benchmark/recall --fail-on none --no-cache > /dev/null
 
       - name: Run regression tests before publishing
         run: |

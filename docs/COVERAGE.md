@@ -289,8 +289,8 @@ per-function. A guard in a caller does not protect a sink in a callee, and
 scan will report the callee's sink as unguarded. This produces false
 positives on codebases that centralise authorization at a dispatch layer.
 
-**Repository-level augmentation (ON by default since commit `25ee4f9` / v1.4.0
-release; opt out with `--no-repository-analysis`):**
+**Repository-level augmentation (ON by default since commit `25ee4f9`,
+first released in v1.5.0 — PyPI v1.4.0 does not have it; opt out with `--no-repository-analysis`):**
 When enabled, scan builds a repository symbol index, an interprocedural call
 graph with explicit `RESOLVED`/`HEURISTIC`/`UNRESOLVED` edge certainty, and
 propagates function effect summaries through SCCs to a fixed point. This

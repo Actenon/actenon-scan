@@ -13,6 +13,7 @@ from actenon_scan.detectors.reachability import detect_reachability, Reachabilit
 from actenon_scan.detectors.sinks import detect_sinks
 from actenon_scan.capability import Capability, CapabilitySummary, guard_status_to_capability_state
 from actenon_scan.rules.loader import Ruleset, load_rules
+from actenon_scan.suppress import is_suppressed
 
 if TYPE_CHECKING:
     from actenon_scan.cache import FileCache
@@ -907,7 +908,7 @@ def scan_path(
                     if not _was_declarative:
                         cf.suppressed = False
                         cf.suppression_reason = ""
-                    if suppressions and (rel, cf.rule_id) in suppressions:
+                    if is_suppressed(suppressions, rel, cf.rule_id, cf.line):
                         cf.suppressed = True
                         cf.suppression_reason = "inline_suppression"
                     if baseline_findings:
@@ -1113,7 +1114,7 @@ def scan_path(
                     finding.suppression_reason = f"declarative_guard:{declarative_suppressed}"
 
                 # Check inline suppression
-                if suppressions and (rel, sf.rule_id) in suppressions:
+                if is_suppressed(suppressions, rel, rule_id, sf.line):
                     finding.suppressed = True
                     finding.suppression_reason = "inline_suppression"
 

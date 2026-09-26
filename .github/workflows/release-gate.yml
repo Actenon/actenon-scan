@@ -6,9 +6,14 @@
 # v1-tag-advance. A broken release would propagate to @v1 users with no
 # blocking test — drift was caught only by the daily schedule (≤24h later).
 #
-# This workflow triggers on `release: published` and consumes the JUST-
-# PUBLISHED immutable tag (`uses: Actenon/actenon-scan@${{ github.event.release.tag_name }}`)
-# against the same fixture used by the daily external-v1-test. The
+# This workflow triggers on `release: published` and exercises the JUST-
+# PUBLISHED immutable tag against the same fixture used by the daily
+# external-v1-test. GitHub does not evaluate expressions in `uses:`, so
+# the tag cannot be interpolated into `uses: Actenon/actenon-scan@<tag>`
+# (the previous form made this file an invalid workflow that failed on
+# every push). Instead the repository is checked out at the tag and the
+# Action is consumed with `uses: ./` — the same approach (i) used by
+# release-v1-tag.yml. The
 # release-v1-tag workflow now `needs:` this gate — v1 does not advance
 # until this gate passes.
 #
@@ -53,7 +58,7 @@ jobs:
     name: Resolve tag to test
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ needs.resolve-tag.outputs.tag }}
+      tag: ${{ steps.resolve.outputs.tag }}
     steps:
       - name: Resolve tag
         id: resolve
@@ -173,8 +178,13 @@ jobs:
           git add .
           git commit -m "fixture for release gate"
 
+      - name: Checkout the Action at ${{ needs.resolve-tag.outputs.tag }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve-tag.outputs.tag }}
+
       - name: Run actenon-scan@${{ needs.resolve-tag.outputs.tag }} on fixture
-        uses: Actenon/actenon-scan@${{ needs.resolve-tag.outputs.tag }}
+        uses: ./
         with:
           path: /tmp/fixture-repo
           fail-on: none
