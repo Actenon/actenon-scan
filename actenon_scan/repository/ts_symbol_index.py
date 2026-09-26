@@ -284,6 +284,12 @@ class TSRepositoryIndex:
         self._pending_imports: list[tuple[TSImport, _TSModuleInfo]] = []
         self._finalized: bool = False
 
+        # file_rel → (source_text, source_bytes, root_node). Populated
+        # by add_file(); consumed by get_ast() so downstream consumers
+        # (the cross-language reachability layer) can re-walk a file's
+        # AST without re-parsing.
+        self._asts: dict[str, tuple[str, bytes, object]] = {}
+
     # ── properties ───────────────────────────────────────────────────
 
     @property
@@ -318,6 +324,10 @@ class TSRepositoryIndex:
         resolution is deferred to :meth:`finalize` so that cross-file
         imports (e.g. ``main.ts`` importing from ``./mod``) resolve
         correctly regardless of the order files were added.
+
+        The parsed tree and source bytes are cached so downstream
+        consumers (cross-language reachability layer) can re-walk the
+        AST via :meth:`get_ast` without re-parsing.
         """
         parser = _parser_for(file_rel)
         source_bytes = source.encode("utf-8")
@@ -327,6 +337,8 @@ class TSRepositoryIndex:
         module_qname = self._module_qualified_name(file_rel)
         info = _TSModuleInfo(path=file_rel, qualified_name=module_qname)
         self._modules[file_rel] = info
+        # Cache the parsed tree + source for downstream consumers.
+        self._asts[file_rel] = (source, source_bytes, tree.root_node)
 
         # Walk the CST once, extracting symbols, imports, and call sites.
         # We track the enclosing class context via parent pointers (TS
@@ -334,6 +346,19 @@ class TSRepositoryIndex:
         self._index_symbols(tree.root_node, file_rel, module_qname, info, source_bytes)
         self._index_imports(tree.root_node, file_rel, module_qname, info, source_bytes)
         self._index_call_sites(tree.root_node, file_rel, module_qname, info, source_bytes)
+
+    def get_ast(self, file_rel: str) -> tuple[str, object] | None:
+        """Return ``(source_text, root_node)`` for a file in the index.
+
+        Used by downstream consumers (cross-language reachability layer)
+        that need to walk a file's AST without re-parsing it. Returns
+        ``None`` for files not in the index.
+        """
+        cached = self._asts.get(file_rel)
+        if cached is None:
+            return None
+        source, _source_bytes, root_node = cached
+        return (source, root_node)
 
     def finalize(self) -> None:
         """Resolve all deferred imports.
@@ -822,6 +847,14 @@ class TSRepositoryIndex:
         if rel.startswith("./"):
             rel = rel[2:]
         # Look up by module_qname (file_rel → qname strips the extension).
+        # Strip TS/JS extensions from the relative path before computing
+        # the candidate qname — module specifiers like './lib.js' or
+        # './lib' should both resolve to the same module qname 'lib'
+        # (mirrors the file_rel → qname logic in _module_qualified_name).
+        for ext in (".tsx", ".ts", ".mts", ".cts", ".jsx", ".js", ".mjs", ".cjs"):
+            if rel.endswith(ext):
+                rel = rel[: -len(ext)]
+                break
         candidate_qname = rel.replace("/", ".")
         # Direct lookup: does a module with this qname exist?
         for info in self._modules.values():

@@ -1284,3 +1284,82 @@ def _walk(node):
     yield node
     for child in node.children:
         yield from _walk(child)
+
+
+# ---------------------------------------------------------------------------
+# Sink discovery (cross-file reachability layer)
+# ---------------------------------------------------------------------------
+
+
+def discover_all_go_sinks(
+    filepath: str,
+    source: bytes,
+) -> list[dict]:
+    """Discover ALL sink matches in a Go file, regardless of reachability.
+
+    This function is used by the cross-file reachability layer
+    (``actenon_scan.repository.cross_language_reach``) to find sinks
+    in functions that the per-file scan skipped because the enclosing
+    function wasn't directly agent-reachable (no agent-import and not
+    a registered handler). The cross-file layer then promotes these
+    sinks to transitively-reachable findings when it can prove the
+    enclosing function is reachable from a registered model handler.
+
+    Returns a list of dicts, each with keys:
+      - ``file`` (str)
+      - ``line`` (int)
+      - ``col`` (int)
+      - ``rule_id`` (str)
+      - ``category`` (str)
+      - ``severity`` (str)
+      - ``description`` (str)
+      - ``call_text`` (str)
+      - ``function_name`` (str — enclosing function/method name)
+
+    This function does NOT run the reachability filter (``has_agent_import``
+    or ``is_reachable_handler``), the guard check, or the temp-file /
+    log-file / API-URL suppressions. Those are per-file-scan concerns;
+    the cross-file layer does its own reachability reasoning and the
+    per-file scan still runs alongside (so the per-file suppressions
+    apply to the per-file findings, not to these discovered sinks).
+
+    Only the sink-matching primitives (``_match_go_rule``) are reused
+    so the rule list and matching semantics stay in lockstep with the
+    per-file detector.
+    """
+    if not is_go_extra_available():
+        return []
+
+    try:
+        import tree_sitter_go as tsgo
+        from tree_sitter import Language, Parser
+    except ImportError:
+        return []
+
+    lang = Language(tsgo.language())
+    parser = Parser(lang)
+    tree = parser.parse(source)
+
+    results: list[dict] = []
+    for func_node in _iter_functions(tree.root_node):
+        func_name = _get_func_name(func_node, source)
+        for call_node in _iter_calls(func_node):
+            call_name = _get_call_name(call_node, source)
+            if not call_name:
+                continue
+            for rule in _GO_SINK_RULES:
+                if not _match_go_rule(rule, call_node, call_name, source):
+                    continue
+                results.append({
+                    "file": filepath,
+                    "line": call_node.start_point[0] + 1,
+                    "col": call_node.start_point[1],
+                    "rule_id": rule["id"],
+                    "category": rule["category"],
+                    "severity": rule["severity"],
+                    "description": rule["description"],
+                    "call_text": _get_call_text(call_node, source),
+                    "function_name": func_name,
+                })
+                break  # one finding per call
+    return results
