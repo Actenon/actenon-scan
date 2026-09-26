@@ -1106,6 +1106,7 @@ def scan_path(
                     remediation=_remediation_hint(sf.category),
                     snippet_hash=snippet_hash,
                     tier=_assign_tier(rel),
+                    reachability_reason=", ".join(reach.signals),
                 )
 
                 # Apply declarative guard suppression
