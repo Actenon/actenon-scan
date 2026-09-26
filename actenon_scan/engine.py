@@ -1513,11 +1513,15 @@ def _scan_typescript_files(
     exclude_globs: list[str] | None,
     explicit_files: list[Path] | None = None,
     guard_patterns: list[str] | None = None,
-) -> tuple[list, int, list[tuple[str, str]]]:
+) -> tuple[list, int, list[tuple[str, str]], list[Path]]:
     """Scan TypeScript/JavaScript files if the [typescript] extra is installed.
 
-    Returns (findings, files_scanned, errors). If the extra is not installed,
-    returns ([], 0, []).
+    Returns ``(findings, files_scanned_count, errors, files_list)`` — a
+    4-tuple on EVERY return path. The fourth element is the list of TS/JS
+    file Paths that were scanned (passed to the cross-language reachability
+    layer). On every fallback path (extra not installed, ImportError,
+    target is a file with the wrong suffix, no TS files in tree), the
+    fourth element is the empty list ``[]`` — never fabricated data.
 
     ``guard_patterns`` is the user-configured guard name list from
     .actenon-scan.json. Work Order 1.5: passed through to the TS detector
@@ -1530,10 +1534,19 @@ def _scan_typescript_files(
             TSFinding,
         )
     except ImportError:
-        return ([], 0, [])
+        # [typescript] extra not installed (base install / built wheel
+        # without extras). Must return a 4-tuple — unpacking callers
+        # expect exactly four values. The empty file list is the
+        # correct value here: there are no TS files to feed to the
+        # cross-language reachability layer.
+        return ([], 0, [], [])
 
     if not is_typescript_extra_available():
-        return ([], 0, [])
+        # Same contract as the ImportError branch above. The TS parser
+        # is unavailable; we cannot scan any TS files. The empty file
+        # list prevents the cross-language layer from fabricating a
+        # TS analysis on files we couldn't parse.
+        return ([], 0, [], [])
 
     # Collect TS/JS files
     ts_suffixes = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
