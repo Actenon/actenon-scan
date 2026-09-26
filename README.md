@@ -570,10 +570,17 @@ Recognised when you are using the Actenon ecosystem:
 
 - `verify_pccb`, `PCCBVerifier`, `PCCBVerifier.verify`
 - `ProtectedExecutor`, `ProtectedExecutor.execute`
+- `ActenonGate`, `ActenonGate.protect`, `ActenonGate.protect_action`, `@protected_mcp_tool`
 - `Actenon`, `Actenon.local`, `Actenon.cloud`
 - `Broker`, `Broker.execute`, `Broker.execute_via_adapter`
 - `Gateway`, `Gateway.execute`
 - `BoundaryMiddleware`, `BoundaryVerifier`, `BoundaryVerifier.verify_boundary`
+
+Constructing one of these clients (`Actenon.local(...)`, `ProtectedExecutor(...)`)
+is not itself a guard — the verify/execute/protect call made through it is.
+A side effect inside a callback that is only ever handed to a typed
+`ProtectedExecutor.execute` / `ActenonGate.protect` (etc.) call counts as
+guarded; the same callback passed to an untyped `x.execute(...)` does not.
 
 ### Custom guards
 
