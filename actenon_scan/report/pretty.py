@@ -369,6 +369,18 @@ def _decorator_or_function(f: Finding) -> str:
             return "tool registration (AddTool/RegisterTool)"
         if "agent_framework_import" in reason:
             return "agent framework import"
+        # Phase 4: distinguish resource_boundary (HTTP route) from
+        # model-callable entry points. A resource_boundary signal means
+        # the function is an externally-callable HTTP endpoint, NOT a
+        # model-callable entry point. Saying "agent entry point" for
+        # an HTTP route is false — the model may or may not be the
+        # caller.
+        if "resource_boundary" in reason:
+            return "HTTP route handler (resource boundary)"
+        if "same_class_method" in reason or "local_call" in reason:
+            return "transitive local call"
+        if "dynamic_registration" in reason:
+            return "dynamic tool registration"
         return reason
 
     # Python findings: path-based guess (only for .py files).
@@ -387,6 +399,11 @@ def _extract_params(f: Finding) -> list[str]:
 
     This is a best-effort extraction for the summary. The full
     caller-controlled-parameter analysis lives in the brief/explain IR.
+
+    Phase 4: only report identifiers that look like function parameters
+    (simple names), NOT string literals or complex expressions. A SQL
+    string literal like "UPDATE runs SET status = ?" must NOT appear
+    as a "Model-controlled input".
     """
     # Extract arguments from the call text
     if "(" not in f.call_text:
@@ -411,11 +428,17 @@ def _extract_params(f: Finding) -> list[str]:
         if not arg:
             continue
         # Handle keyword args: name=value
-        if "=" in arg:
+        if "=" in arg and not arg.startswith(("'", '"', "[")):
             name = arg.split("=")[0].strip()
+            # Only report if the kwarg name looks like it could carry
+            # model-controlled data (not 'api_key', 'max_results', etc.)
+            # But we don't know which are constants without deeper analysis.
+            # Report the kwarg name — it's better than the literal value.
             params.append(name)
         else:
-            # Positional arg — use the variable name if it's a simple Name
-            if arg.isidentifier():
+            # Positional arg — only report if it's a simple identifier
+            # (a variable name), NOT a string literal or expression.
+            # String literals start with quotes; expressions have operators.
+            if arg.isidentifier() and not arg.startswith(("'", '"')):
                 params.append(arg)
     return params[:6]  # cap at 6 for width

@@ -241,11 +241,14 @@ def _is_tainted(node: ast.expr, param_names: set[str]) -> bool:
       - A BinOp string concat containing a parameter: "https://" + host
       - An attribute access rooted at a parameter: req.url
       - A method call on a parameter: url.strip()
+      - A Tuple/List containing a tainted element: (run_id,), [query]
+      - A Dict containing a tainted value: {"query": query}
 
     Not tainted:
       - String literals: "https://api.vendor.com/..."
       - Module-level constants (Name nodes not in param_names)
       - self.attr (unless self is a param AND attr is tainted — rare)
+      - Tuples/Dicts/Lists of constants: (5, 'hello'), {"k": "v"}
     """
     if isinstance(node, ast.Name):
         return node.id in param_names
@@ -275,6 +278,21 @@ def _is_tainted(node: ast.expr, param_names: set[str]) -> bool:
         if isinstance(node.func, ast.Attribute):
             return _is_tainted(node.func.value, param_names)
         return False
+
+    # Phase 4: container propagation — check inside Tuples, Lists, Dicts
+    # This is the fix for the DeepAgents precision failures where taint
+    # inside (run_id,) or {"query": query} was invisible.
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return any(_is_tainted(elt, param_names) for elt in node.elts)
+
+    if isinstance(node, ast.Dict):
+        # Check values (keys are typically constants — checking values
+        # catches {"query": query, "api_key": "secret"})
+        return any(_is_tainted(v, param_names) for v in node.values)
+
+    if isinstance(node, ast.Starred):
+        # *args expansion — check the starred value
+        return _is_tainted(node.value, param_names)
 
     return False
 
