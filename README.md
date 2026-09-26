@@ -150,7 +150,9 @@ canonical case is `@mcp.tool() def my_tool(): helper()` where `helper`
 does `requests.post(...)`.
 
 The repository layer has been **on by default for directory targets since
-commit `25ee4f9`** (v1.4.0 release). It is **opt-out**:
+commit `25ee4f9`**, first released in **v1.5.0** — the v1.4.0 package on
+PyPI predates it, has no repository layer and does not accept
+`--no-repository-analysis`. It is **opt-out**:
 
 ```bash
 actenon-scan scan . --no-repository-analysis    # per-file scan only
