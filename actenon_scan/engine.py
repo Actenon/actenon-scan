@@ -660,7 +660,7 @@ def scan_path_parallel(
     # guard_patterns to the TS scan (parity with Python/Go paths, which
     # run inside workers where the ruleset is already loaded).
     _ts_rules = load_rules(config)
-    ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
+    ts_findings, ts_scanned, ts_errors, _ts_files_scanned = _scan_typescript_files(
         target, include_globs, exclude_globs,
         guard_patterns=_ts_rules.guard_patterns,
     )
@@ -800,6 +800,18 @@ def scan_path(
     transitive_followed_count = 0
     transitive_unfollowed_count = 0
     repository_analysis_enabled = False
+    # Cross-language reachability (TS+Go) — initialised here so the
+    # final ScanResult assembly never sees an unbound name even if
+    # the xlang block below doesn't run (Python-only target, opt-out
+    # flag, etc.).
+    ts_files_scanned: list[Path] = []
+    go_files_scanned: list[Path] = []
+    repo_result_local_call_edges: list[dict] = []
+    repo_result_local_calls_followed = 0
+    repo_result_local_calls_unfollowed = 0
+    xlang_local_call_edges: list[dict] = []
+    xlang_local_calls_followed = 0
+    xlang_local_calls_unfollowed = 0
     # --changed-only supplies the exact file list from the git diff. Walking
     # the whole tree and then glob-filtering it down to 1-3 files was the fixed
     # cost that dominated the pre-commit path.
@@ -1155,14 +1167,14 @@ def scan_path(
     if explicit_files is not None:
         ts_explicit = [f for f in explicit_files if f.suffix.lower() in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}]
         if ts_explicit:
-            ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
+            ts_findings, ts_scanned, ts_errors, ts_files_scanned = _scan_typescript_files(
                 target, include_globs, exclude_globs, explicit_files=ts_explicit,
                 guard_patterns=rules.guard_patterns,
             )
         else:
-            ts_findings, ts_scanned, ts_errors = [], 0, []
+            ts_findings, ts_scanned, ts_errors, ts_files_scanned = [], 0, [], []
     else:
-        ts_findings, ts_scanned, ts_errors = _scan_typescript_files(
+        ts_findings, ts_scanned, ts_errors, ts_files_scanned = _scan_typescript_files(
             target, include_globs, exclude_globs,
             guard_patterns=rules.guard_patterns,
         )
@@ -1240,6 +1252,7 @@ def scan_path(
                             break
                     if not excluded:
                         go_files.append(filepath)
+        go_files_scanned = list(go_files)
         for go_file in go_files:
             try:
                 go_source = go_file.read_bytes()
@@ -1358,7 +1371,108 @@ def scan_path(
         # clean-scan output discloses that the layer ran.
         transitive_followed_count = repo_result.transitive_followed_count
         transitive_unfollowed_count = repo_result.transitive_unfollowed_count
+        repo_result_local_call_edges = list(repo_result.local_call_edges)
+        repo_result_local_calls_followed = repo_result.local_calls_followed
+        repo_result_local_calls_unfollowed = repo_result.local_calls_unfollowed
         repository_analysis_enabled = True
+
+    # ── Cross-language reachability (TS + Go) ───────────────────────
+    # Phase 2 of the cross-file reachability slice. This layer runs for
+    # non-Python targets (TS-only, Go-only, or mixed) where the Python
+    # repo layer above is gated off (its gating condition is on the
+    # Python file list). The cross-language layer:
+    #   1. Builds a TSRepositoryIndex / GoRepositoryIndex from the
+    #      engine's already-filtered file lists.
+    #   2. Discovers registered model-callable handlers (arrows passed
+    #      to registerTool / tool / setRequestHandler for TS; func_literals
+    #      passed to mcp.AddTool / server.AddTool for Go).
+    #   3. Discovers ALL sinks in every indexed file (regardless of
+    #      per-file reachability) — so sinks the per-file scan skipped
+    #      become visible to this layer.
+    #   4. BFS from each handler through cross-file call sites, bounded
+    #      by max_depth=32, cycle-safe via visited set.
+    #   5. When traversal reaches a function whose body contains a sink
+    #      NOT already in the per-file findings, emits a NEW transitive
+    #      finding with reachability_reason describing the chain.
+    #
+    # Conservative invariants (Phase 3):
+    #   - never suppress an existing direct finding.
+    #   - never make an unreachable helper reachable (negative-control
+    #     test pins this).
+    #   - avoid duplicate direct + transitive findings (per-file finding
+    #     is augmented, not duplicated).
+    #   - bound traversal depth (max_depth=32).
+    #   - handle recursion/cycles safely (visited set in BFS).
+    #   - disclose unresolved dynamic calls (counted but not silently
+    #     resolved).
+    #
+    # Honest reporting: transitive findings state
+    # "Model-controlled sink argument: NOT ESTABLISHED" — we do not
+    # claim model-controlled argument provenance (taint propagation
+    # across Go/TS is out of scope for this slice).
+    go_files_for_xlang = go_files_scanned  # populated by the Go section above
+    if (repository_analysis and target.is_dir()
+            and (ts_files_scanned or go_files_for_xlang)):
+        from actenon_scan.repository.cross_language_reach import (
+            analyze_cross_language_reach,
+        )
+        xlang_result = analyze_cross_language_reach(
+            target,
+            findings=findings,
+            capabilities=capabilities,
+            ts_files=ts_files_scanned,
+            go_files=go_files_for_xlang,
+            max_depth=32,
+        )
+        # Augment existing findings with chain evidence.
+        for finding_idx, chain_text in xlang_result.augmented_findings:
+            if finding_idx < len(findings):
+                f = findings[finding_idx]
+                if chain_text and chain_text not in (f.reachability_reason or ""):
+                    suffix = (
+                        f" [transitive path: {chain_text}]"
+                        if f.reachability_reason
+                        else f"transitive path: {chain_text}"
+                    )
+                    f.reachability_reason = (f.reachability_reason or "") + suffix
+        # Add new findings.
+        findings.extend(xlang_result.new_findings)
+        # Also register a Capability for each new transitive finding so
+        # the JSON/SARIF capability surface shows the reachability_reason
+        # chain (mirrors the per-file detectors' capability+finding pattern
+        # for TS and Go). The new findings are REVIEW_REQUIRED (not guarded).
+        for nf in xlang_result.new_findings:
+            # Detect language from the file extension.
+            lang = "typescript" if nf.file.endswith((".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")) else (
+                "go" if nf.file.endswith(".go") else "unknown"
+            )
+            capabilities.append(Capability(
+                file=nf.file,
+                line=nf.line,
+                col=nf.col,
+                rule_id=nf.rule_id,
+                category=nf.category,
+                severity=nf.severity,
+                call_text=nf.call_text,
+                state="REVIEW_REQUIRED",
+                guard_status="",
+                guard_message="",
+                confidence=nf.confidence,
+                reachability_reason=nf.reachability_reason,
+                reachability_source="transitive",
+                tier=nf.tier,
+                language=lang,
+            ))
+        # Record analysis error if any.
+        if xlang_result.analysis_error:
+            analysis_errors.append(("<cross-language-reach>", xlang_result.analysis_error))
+        # Merge disclosure counts.
+        transitive_followed_count += xlang_result.transitive_followed_count
+        transitive_unfollowed_count += xlang_result.transitive_unfollowed_count
+        repository_analysis_enabled = True
+        xlang_local_call_edges = list(xlang_result.local_call_edges)
+        xlang_local_calls_followed = xlang_result.local_calls_followed
+        xlang_local_calls_unfollowed = xlang_result.local_calls_unfollowed
 
     return ScanResult(
         findings=findings,
@@ -1371,9 +1485,9 @@ def scan_path(
         transitive_unfollowed_count=transitive_unfollowed_count,
         repository_analysis_enabled=repository_analysis_enabled,
         default_excluded_count=_default_excluded_count,
-        local_call_edges=getattr(repo_result, "local_call_edges", []) if repository_analysis_enabled else [],
-        local_calls_followed=getattr(repo_result, "local_calls_followed", 0) if repository_analysis_enabled else 0,
-        local_calls_unfollowed=getattr(repo_result, "local_calls_unfollowed", 0) if repository_analysis_enabled else 0,
+        local_call_edges=repo_result_local_call_edges + xlang_local_call_edges,
+        local_calls_followed=repo_result_local_calls_followed + xlang_local_calls_followed,
+        local_calls_unfollowed=repo_result_local_calls_unfollowed + xlang_local_calls_unfollowed,
     )
 
 
@@ -1399,11 +1513,15 @@ def _scan_typescript_files(
     exclude_globs: list[str] | None,
     explicit_files: list[Path] | None = None,
     guard_patterns: list[str] | None = None,
-) -> tuple[list, int, list[tuple[str, str]]]:
+) -> tuple[list, int, list[tuple[str, str]], list[Path]]:
     """Scan TypeScript/JavaScript files if the [typescript] extra is installed.
 
-    Returns (findings, files_scanned, errors). If the extra is not installed,
-    returns ([], 0, []).
+    Returns ``(findings, files_scanned_count, errors, files_list)`` — a
+    4-tuple on EVERY return path. The fourth element is the list of TS/JS
+    file Paths that were scanned (passed to the cross-language reachability
+    layer). On every fallback path (extra not installed, ImportError,
+    target is a file with the wrong suffix, no TS files in tree), the
+    fourth element is the empty list ``[]`` — never fabricated data.
 
     ``guard_patterns`` is the user-configured guard name list from
     .actenon-scan.json. Work Order 1.5: passed through to the TS detector
@@ -1416,10 +1534,19 @@ def _scan_typescript_files(
             TSFinding,
         )
     except ImportError:
-        return ([], 0, [])
+        # [typescript] extra not installed (base install / built wheel
+        # without extras). Must return a 4-tuple — unpacking callers
+        # expect exactly four values. The empty file list is the
+        # correct value here: there are no TS files to feed to the
+        # cross-language reachability layer.
+        return ([], 0, [], [])
 
     if not is_typescript_extra_available():
-        return ([], 0, [])
+        # Same contract as the ImportError branch above. The TS parser
+        # is unavailable; we cannot scan any TS files. The empty file
+        # list prevents the cross-language layer from fabricating a
+        # TS analysis on files we couldn't parse.
+        return ([], 0, [], [])
 
     # Collect TS/JS files
     ts_suffixes = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
@@ -1513,7 +1640,7 @@ def _scan_typescript_files(
             ))
         errors.extend(file_errors)
 
-    return (all_findings, len(ts_files), errors)
+    return (all_findings, len(ts_files), errors, list(ts_files))
 
 
 

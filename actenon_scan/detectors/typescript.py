@@ -1649,4 +1649,156 @@ __all__ = [
     "TS_SINK_RULES",
     "TS_REACHABILITY_SIGNALS",
     "TS_GUARD_PATTERNS",
+    "discover_all_ts_sinks",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Sink discovery (cross-file reachability layer)
+# ---------------------------------------------------------------------------
+
+
+def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
+    """Discover ALL sink matches in a TS/JS file, regardless of reachability.
+
+    This function is used by the cross-file reachability layer
+    (``actenon_scan.repository.cross_language_reach``) to find sinks in
+    functions that the per-file scan skipped because the enclosing
+    function wasn't directly recognised as a tool handler. The
+    cross-file layer then promotes these sinks to transitively-reachable
+    findings when it can prove the enclosing function is reachable from
+    a registered model handler.
+
+    Returns a list of dicts, each with keys:
+      - ``file`` (str)
+      - ``line`` (int)
+      - ``col`` (int)
+      - ``rule_id`` (str)
+      - ``category`` (str)
+      - ``severity`` (str)
+      - ``description`` (str)
+      - ``call_text`` (str — short text of the call expression)
+
+    This function does NOT run the per-function reachability filter
+    (``_is_call_reachable``) or the guard soundness check. Those are
+    per-file-scan concerns; the cross-file layer does its own
+    reachability reasoning and the per-file scan still runs alongside.
+
+    Only the sink-matching primitives are reused so the rule list and
+    matching semantics stay in lockstep with the per-file detector.
+    """
+    if not is_typescript_extra_available():
+        return []
+
+    from tree_sitter import Language, Parser, Query, QueryCursor
+    import tree_sitter_typescript as tsts
+
+    filepath = Path(filepath)
+    suffix = filepath.suffix.lower()
+    if suffix == ".tsx":
+        lang = Language(tsts.language_tsx())
+    elif suffix in (".ts", ".mts", ".cts"):
+        lang = Language(tsts.language_typescript())
+    elif suffix in (".js", ".jsx", ".mjs", ".cjs"):
+        lang = Language(tsts.language_tsx() if suffix == ".jsx" else tsts.language_typescript())
+    else:
+        return []
+
+    try:
+        source = filepath.read_text(encoding="utf-8-sig")
+    except (UnicodeDecodeError, OSError):
+        return []
+    source_bytes = source.encode("utf-8")
+    parser = Parser(lang)
+    tree = parser.parse(source_bytes)
+
+    calls = _extract_calls(tree, lang)
+
+    # Build a map from (call_name, line, col) → call_expression node for
+    # call_text extraction. We re-walk the tree to find call_expression
+    # nodes; cheaper than re-querying per match.
+    call_nodes_by_pos: dict[tuple[str, int, int], object] = {}
+    for node in _ts_walk(tree.root_node):
+        if node.type != "call_expression":
+            continue
+        func = node.child_by_field_name("function")
+        if func is None:
+            continue
+        call_name = _ts_node_text(func, source_bytes)
+        if not call_name:
+            continue
+        call_nodes_by_pos[(call_name, node.start_point[0] + 1, node.start_point[1])] = node
+
+    # Re-resolve imports for bare-only pattern matching (exec/spawn
+    # from child_process). The bare_only logic in analyze_typescript_file
+    # checks child_process_bindings; we replicate the same here.
+    child_process_bindings = _resolve_child_process_imports(tree.root_node, source_bytes)
+
+    results: list[dict] = []
+    for call_name, line, col in calls:
+        # Find the call node for this position.
+        call_node = call_nodes_by_pos.get((call_name, line, col))
+        is_member_expr = False
+        actual_receiver = ""
+        if call_node is not None:
+            func_node_at_pos = call_node.child_by_field_name("function")
+            if func_node_at_pos is not None and func_node_at_pos.type == "member_expression":
+                is_member_expr = True
+                obj = func_node_at_pos.child_by_field_name("object")
+                if obj is not None:
+                    actual_receiver = _ts_node_text(obj, source_bytes)
+
+        for rule in TS_SINK_RULES:
+            bare_only = set(rule.get("bare_only_patterns", []))
+            global_receivers = set(rule.get("global_receivers", []))
+            matched = False
+            for pattern in rule["patterns"]:
+                if pattern in bare_only:
+                    if call_name == pattern and not is_member_expr:
+                        matched = True
+                        break
+                    if is_member_expr and call_name == pattern:
+                        if actual_receiver in global_receivers:
+                            matched = True
+                            break
+                        if actual_receiver in child_process_bindings and pattern in ("exec", "spawn"):
+                            matched = True
+                            break
+                        continue
+                    if is_member_expr and call_name != pattern:
+                        last_seg = call_name.rsplit(".", 1)[-1]
+                        if last_seg == pattern:
+                            if actual_receiver in global_receivers:
+                                matched = True
+                                break
+                            if actual_receiver in child_process_bindings and pattern in ("exec", "spawn"):
+                                matched = True
+                                break
+                            if "." in call_name and call_name.startswith(tuple(global_receivers)):
+                                receiver_from_name = call_name.rsplit(".", 1)[0]
+                                if receiver_from_name in global_receivers or receiver_from_name in child_process_bindings:
+                                    matched = True
+                                    break
+                            continue
+                        continue
+                    continue
+                if _matches_pattern(call_name, pattern):
+                    matched = True
+                    break
+            if matched:
+                call_text = ""
+                if call_node is not None:
+                    call_text = _ts_node_text(call_node, source_bytes)[:120]
+                results.append({
+                    "file": str(filepath),
+                    "line": line,
+                    "col": col,
+                    "rule_id": rule["id"],
+                    "category": rule["category"],
+                    "severity": rule["severity"],
+                    "description": rule["description"],
+                    "call_text": call_text,
+                })
+                break  # one finding per call
+    return results
+
