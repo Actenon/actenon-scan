@@ -12,14 +12,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from actenon_scan.effects import _codec as c
+from actenon_scan.effects._assertions import PROBATIVE_ASSERTIONS
 from actenon_scan.effects.vocabulary import (
-    DIRECTIONAL_PREDICATES,
     HYPOTHESIS_ONLY_KINDS,
-    PREDICATE_OBLIGATION,
     PROBE_REGISTRY,
     RULE_MATCH_ADMISSIBILITY,
     RULE_PACKET_KINDS,
-    TIER_CAN_SETTLE,
     TIERS_REQUIRING_PACKAGE,
     Admissibility,
     AssertionPredicate,
@@ -171,16 +169,21 @@ class AcquisitionCost:
 
 @dataclass(frozen=True)
 class EvidenceAssertion:
-    predicate: AssertionPredicate
+    predicate: AssertionPredicate | str
     detail: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "predicate", c.enum_value(
-            AssertionPredicate, self.predicate, "assertion.predicate"))
+        if type(self.predicate) is str:
+            c.text(self.predicate, "assertion.predicate", min_length=1)
+            if self.predicate in {p.value for p in AssertionPredicate}:
+                object.__setattr__(self, "predicate", AssertionPredicate(self.predicate))
+        else:
+            object.__setattr__(self, "predicate", c.enum_value(
+                AssertionPredicate, self.predicate, "assertion.predicate"))
         c.optional_text(self.detail, "assertion.detail")
 
     def to_dict(self) -> dict:
-        out: dict[str, Any] = {"predicate": self.predicate.value}
+        out: dict[str, Any] = {"predicate": self.predicate.value if isinstance(self.predicate, AssertionPredicate) else self.predicate}
         c.put(out, "detail", self.detail)
         return out
 
@@ -188,6 +191,35 @@ class EvidenceAssertion:
     def from_dict(cls, data: Any, where: str = "assertion") -> "EvidenceAssertion":
         r = c.Reader(data, where, ("predicate",), ("detail",))
         return cls(predicate=r.get("predicate"), detail=r.get("detail"))
+
+
+@dataclass(frozen=True)
+class BindingWitness:
+    """Supplied binding provenance; M0 validates links, not source truth."""
+
+    relation: str
+    invocation_id: str
+    source: SourceLocator
+    target: SourceLocator
+
+    def __post_init__(self) -> None:
+        c.text(self.relation, "binding.relation")
+        if self.relation not in {"SELECTED_TARGET", "POSSIBLE_TARGET", "RESOLVED_CALL"}:
+            raise c.fail("binding.relation", "unknown binding relation")
+        c.identifier(self.invocation_id, "binding.invocation_id")
+        c.instance(SourceLocator, self.source, "binding.from")
+        c.instance(SourceLocator, self.target, "binding.to")
+
+    def to_dict(self) -> dict:
+        return {"relation": self.relation, "invocation_id": self.invocation_id,
+                "from": self.source.to_dict(), "to": self.target.to_dict()}
+
+    @classmethod
+    def from_dict(cls, data: Any, where: str = "binding") -> "BindingWitness":
+        r = c.Reader(data, where, ("relation", "invocation_id", "from", "to"))
+        return cls(r.get("relation"), r.get("invocation_id"),
+                   SourceLocator.from_dict(r.get("from"), r.at("from")),
+                   SourceLocator.from_dict(r.get("to"), r.at("to")))
 
 
 @dataclass(frozen=True)
@@ -209,6 +241,7 @@ class EvidencePacket:
     derived_from_rule_id: str | None = None
     rule_match_type: RuleMatchType | None = None
     notes: str | None = None
+    binding: BindingWitness | None = None
 
     def __post_init__(self) -> None:
         w = f"packet {self.packet_id!r}"
@@ -226,6 +259,7 @@ class EvidencePacket:
         c.instance(VerbatimExtract, self.extract, f"{w}.extract")
         c.optional_text(self.derived_from_rule_id, f"{w}.derived_from_rule_id", min_length=1)
         c.optional_text(self.notes, f"{w}.notes")
+        c.optional_instance(BindingWitness, self.binding, f"{w}.binding")
 
         if self.tier is LadderTier.L8:
             raise c.fail(w, "L8 is the terminal ABSTAIN state, not an evidence tier")
@@ -237,8 +271,8 @@ class EvidencePacket:
                             "can only be HYPOTHESIS_ONLY")
         self._check_rule_provenance(w)
         self._check_predicate(w)
-        if self.is_probative and self.obligation not in TIER_CAN_SETTLE[self.tier]:
-            raise c.fail(w, f"tier {self.tier.value} cannot settle {self.obligation.value}")
+        if self.is_probative and self.kind is PacketKind.DEPENDENCY_SOURCE_BODY and self.locator.version_resolution in (None, VersionResolution.UNPINNED):
+            raise c.fail(w, "PROBATIVE dependency body requires pinned version provenance")
 
     def _check_rule_provenance(self, w: str) -> None:
         is_rule_kind = self.kind in RULE_PACKET_KINDS
@@ -266,15 +300,16 @@ class EvidencePacket:
                             f"{self.obligation.value}")
 
     def _check_predicate(self, w: str) -> None:
-        predicate = self.assertion.predicate
-        if predicate in DIRECTIONAL_PREDICATES:
-            obligation, polarity = DIRECTIONAL_PREDICATES[predicate]
-            if (obligation, polarity) != (self.obligation, self.polarity):
-                raise c.fail(w, f"predicate {predicate.value} asserts {polarity.value} "
-                                f"{obligation.value}, not {self.polarity.value} {self.obligation.value}")
-        elif predicate in PREDICATE_OBLIGATION and PREDICATE_OBLIGATION[predicate] is not self.obligation:
-            raise c.fail(w, f"predicate {predicate.value} bears on "
-                            f"{PREDICATE_OBLIGATION[predicate].value} only")
+        predicate = self.assertion.to_dict()["predicate"]
+        key = (predicate, self.obligation.value, self.polarity.value, self.kind.value, self.tier.value)
+        if self.is_probative and key not in PROBATIVE_ASSERTIONS:
+            raise c.fail(w, "unregistered predicate/obligation/polarity/source combination cannot settle proof")
+        if self.binding is not None and not (self.is_probative and predicate == "implementation_is"
+                and self.obligation is Obligation.IMPLEMENTATION and self.polarity is Polarity.POSITIVE
+                and self.kind in {PacketKind.LOCAL_BINDING, PacketKind.TYPE_DECLARATION, PacketKind.INTERFACE_DECLARATION}):
+            raise c.fail(w, "binding requires a PROBATIVE implementation_is binding assertion")
+        if self.is_probative and predicate == "implementation_is" and self.binding is None:
+            raise c.fail(w, "implementation_is requires binding provenance")
 
     @property
     def is_probative(self) -> bool:
@@ -302,6 +337,7 @@ class EvidencePacket:
         c.put(out, "derived_from_rule_id", self.derived_from_rule_id)
         c.put(out, "rule_match_type", self.rule_match_type and self.rule_match_type.value)
         c.put(out, "notes", self.notes)
+        c.put(out, "binding", self.binding and self.binding.to_dict())
         return out
 
     @classmethod
@@ -309,7 +345,7 @@ class EvidencePacket:
         r = c.Reader(data, where, (
             "packet_id", "tier", "kind", "locator", "assertion", "polarity", "obligation",
             "implementation_candidate_id", "admissibility", "strength", "acquisition_cost",
-            "extract"), ("derived_from_rule_id", "rule_match_type", "notes"))
+            "extract"), ("derived_from_rule_id", "rule_match_type", "notes", "binding"))
         return cls(
             packet_id=r.get("packet_id"),
             tier=r.get("tier"),
@@ -326,6 +362,7 @@ class EvidencePacket:
             derived_from_rule_id=r.get("derived_from_rule_id"),
             rule_match_type=r.get("rule_match_type"),
             notes=r.get("notes"),
+            binding=None if "binding" not in r else BindingWitness.from_dict(r.get("binding"), r.at("binding")),
         )
 
 
@@ -421,5 +458,9 @@ def check_probe_set(outcomes: tuple, packets_by_id: dict, where: str) -> dict:
                 raise c.fail(where, f"probe {o.probe_id!r} cites unknown packet {pid!r}")
             if packet.obligation is not o.obligation:
                 raise c.fail(where, f"probe {o.probe_id!r} cites packet {pid!r} for another obligation")
+            if packet.is_probative and packet.polarity is not Polarity.NEGATIVE:
+                raise c.fail(where, "a positive settling packet is not found counter-evidence")
+            if o.probe_id == "CP-PER-05" and packet.assertion.predicate is not AssertionPredicate.COMMIT_OUTCOME_UNDETERMINED:
+                raise c.fail(where, "commit-uncertainty probe requires its typed uncertainty assertion")
         by_id[o.probe_id] = o
     return by_id

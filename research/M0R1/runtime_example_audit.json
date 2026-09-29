@@ -1,0 +1,512 @@
+[
+  {
+    "id": "valid_proven",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_no_effect",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_opaque_abstain",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_analysis_error",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "H1_error_erased",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': claim-level IMPLEMENTATION is SUPPORTED but candidates aggregate to ERROR",
+    "intended_reason": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "H1_error_bad_selection",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': selection requires SELECTION_ERROR, not SINGLE_ESTABLISHED; labels are not evidence",
+    "intended_reason": {
+      "code": "SELECTION_STATE"
+    }
+  },
+  {
+    "id": "H2_positive_state_is_ephemeral",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_state_is_guaranteed_rolled_back",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_dry_run_in_force",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_test_double_in_force",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_noop",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-operation': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/3",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_transport_persistence",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_transport_operation",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-operation': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/3",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_unregistered_probative",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "valid_unregistered_hypothesis",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_precedence_found",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "H3_tier_not_selection_proof",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': precedence requires selected-body binding provenance",
+    "intended_reason": {
+      "code": "PRECEDENCE_SELECTION"
+    }
+  },
+  {
+    "id": "H3_unlinked_body",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': winning evidence is outside the selected/linked body source",
+    "intended_reason": {
+      "code": "PRECEDENCE_LINK"
+    }
+  },
+  {
+    "id": "H3_package_not_body",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "packet 'c1-operation': unregistered predicate/obligation/polarity/source combination cannot settle proof",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/3",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H3_no_recorded_provenance",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "contradiction.precedence: expected ImplementationPrecedence, got NoneType",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/contradictions/0",
+      "validator": "required"
+    }
+  },
+  {
+    "id": "valid_helper_precedence",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_uncertainty_preserves_conflict",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "H4_uncertainty_erases_conflict",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': PERSISTENCE for 'c1': PROBATIVE evidence requires CONFLICTING, recorded UNKNOWN",
+    "intended_reason": {
+      "code": "PROOF_STATE"
+    }
+  },
+  {
+    "id": "H4_conflict_negative_closure",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': C3 fails: a necessary obligation is CONFLICTING",
+    "intended_reason": {
+      "code": "CLOSURE_C3"
+    }
+  },
+  {
+    "id": "valid_hypothesis_found",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "M1_blanket_found_veto",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': every PROVEN_EFFECT condition holds, so ABSTAIN is not the verdict",
+    "intended_reason": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "M1_missing_positive",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': PROVEN_EFFECT is not established: BLOCKING probe CP-IMPL-01 was not executed",
+    "intended_reason": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "valid_missing_probe_abstain",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "M1_incomplete_positive",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': PROVEN_EFFECT is not established: BLOCKING probe CP-IMPL-01 is INCOMPLETE",
+    "intended_reason": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "valid_incomplete_probe_abstain",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "M3_opaque_false_establishment",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': selection requires UNRESOLVED_IDENTITY, not SINGLE_ESTABLISHED; labels are not evidence",
+    "intended_reason": {
+      "code": "SELECTION_STATE"
+    }
+  },
+  {
+    "id": "M4_missing_closure",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': NO_EFFECT requires an established closure C1 to C6",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/",
+      "validator": "required"
+    }
+  },
+  {
+    "id": "M4_false_closure_flag",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "closure.C4_no_budget_exhausted_on_contributing_path: must be true; if any closure condition fails the verdict is ABSTAIN",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/closure/C4_no_budget_exhausted_on_contributing_path",
+      "validator": "const"
+    }
+  },
+  {
+    "id": "valid_open_frontier_abstain",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "H5_claim_open_negative",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': C5 fails: an unopened edge might settle PERSISTENCE",
+    "intended_reason": {
+      "code": "CLOSURE_C5"
+    }
+  },
+  {
+    "id": "valid_receipt_proven",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_receipt_no_effect",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_receipt_abstain",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_receipt_analysis_error",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_receipt_found_precedence",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "H5_receipt_strengthened",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "receipt 'receipt1': receipt verdict disagrees with underlying claim",
+    "intended_reason": {
+      "code": "RECEIPT_PROJECTION"
+    }
+  },
+  {
+    "id": "H5_receipt_and_snapshot_open_negative",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': C5 fails: an unopened edge might settle PERSISTENCE",
+    "intended_reason": {
+      "code": "CLOSURE_C5"
+    }
+  },
+  {
+    "id": "valid_agreement",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_divergent",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "M2_divergence_not_contradiction",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': claim-level OPERATION is CONFLICTING but candidates aggregate to UNKNOWN",
+    "intended_reason": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "H1_agreement_hides_error",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': claim-level IMPLEMENTATION is SUPPORTED but candidates aggregate to ERROR",
+    "intended_reason": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "valid_multi_error",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_ledger",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "H6_impossible_settled_population",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "ledger: BOUNDARY ERROR and CONFLICTING are disjoint and neither is PROVEN_EFFECT or NO_EFFECT",
+    "intended_reason": {
+      "code": "LEDGER_DISJOINT"
+    }
+  },
+  {
+    "id": "H6_error_total",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "ledger: analysis_errors.total counts exactly ANALYSIS_ERROR claims",
+    "intended_reason": {
+      "code": "LEDGER_ERROR_TOTAL"
+    }
+  },
+  {
+    "id": "H6_error_breakdown",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "ledger: analysis error obligation breakdown must equal ERROR marginals",
+    "intended_reason": {
+      "code": "LEDGER_ERROR_BREAKDOWN"
+    }
+  },
+  {
+    "id": "H6_cause_partition",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "ledger: primary analysis-error causes must partition errored claims",
+    "intended_reason": {
+      "code": "LEDGER_ERROR_BREAKDOWN"
+    }
+  },
+  {
+    "id": "valid_single_established_shorthand",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "M3_opaque_omitted_states",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': every candidate carries its own obligation states except the unique established shorthand",
+    "intended_reason": {
+      "code": "CANDIDATE_STATES"
+    }
+  },
+  {
+    "id": "M3_opaque_supported_identity",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "candidate 'c1': opaque/unresolved identity cannot be implementation-supported",
+    "intended_reason": {
+      "code": "OPAQUE_IDENTITY"
+    }
+  },
+  {
+    "id": "H3_other_source_identity",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': winning evidence is outside the selected/linked body source",
+    "intended_reason": {
+      "code": "PRECEDENCE_LINK"
+    }
+  },
+  {
+    "id": "valid_unrelated_frontier_negative",
+    "expected_valid": true,
+    "accepted": false,
+    "reason": "frontier entry: a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED",
+    "intended_reason": null
+  },
+  {
+    "id": "H5_receipt_missing_closure",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "receipt 'receipt1': receipt closure disagrees with underlying claim",
+    "intended_reason": {
+      "code": "SCHEMA",
+      "path": "/",
+      "validator": "required"
+    }
+  },
+  {
+    "id": "valid_multi_conflict",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "M2_conflict_erased",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': claim-level OPERATION is UNKNOWN but candidates aggregate to CONFLICTING",
+    "intended_reason": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "valid_error_over_conflict",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "M2_error_erased",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': claim-level OPERATION is CONFLICTING but candidates aggregate to ERROR",
+    "intended_reason": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "H1_error_as_abstain",
+    "expected_valid": false,
+    "accepted": false,
+    "reason": "claim 'claim1': an ERROR on a necessary obligation is ANALYSIS_ERROR, never ABSTAIN",
+    "intended_reason": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "valid_ledger_overlapping_errors",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_negative_precedence",
+    "expected_valid": true,
+    "accepted": true
+  },
+  {
+    "id": "valid_receipt_negative_precedence",
+    "expected_valid": true,
+    "accepted": true
+  }
+]

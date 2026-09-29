@@ -1,6 +1,6 @@
 """The EffectClaim and everything it owns.
 
-Frozen by ``specs/AREF-002/AREF-002.md`` sections 4 to 9,
+Frozen by AREF-002 as amended by ``specs/AREF-002A/``; sections 4 to 9 of
 ``specs/AREF-002/proof_obligations.md`` and ``effect_claim.schema.json``.
 
 An ``EffectClaim`` exists because inertness was not established for an
@@ -15,6 +15,8 @@ and offers no positional access; a selected candidate exists only under
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -28,18 +30,15 @@ from actenon_scan.effects.evidence import (
 )
 from actenon_scan.effects.vocabulary import (
     BLOCKING_PROBE_IDS,
-    CONTRACT_TIERS,
     ESTABLISHED_SELECTIONS,
     EVIDENCE_OBLIGATIONS,
     FRONTIER_REASONS,
     GENESIS_BASIS,
-    IMPLEMENTATION_STATE_FOR_SELECTION,
     NECESSARY_OBLIGATIONS,
     OPAQUE_CANDIDATE_KINDS,
     RESOLVED_CANDIDATE_KINDS,
     SCHEMA_VERSION,
     UNCERTAINTY_PREDICATES,
-    UNDETERMINED_COMMIT_PROBE,
     BudgetName,
     CandidateKind,
     ConditionKind,
@@ -49,8 +48,8 @@ from actenon_scan.effects.vocabulary import (
     LadderTier,
     Language,
     Obligation,
+    PacketKind,
     Polarity,
-    ProbeResult,
     ProofState,
     SelectionState,
     StopReason,
@@ -128,8 +127,8 @@ def aggregate_claim_states(selection_state: SelectionState,
                            candidate_states: Iterable[ObligationStates]) -> ObligationStates:
     selection_state = c.enum_value(SelectionState, selection_state, "selection_state")
     per_candidate = tuple(candidate_states)
-    states = {Obligation.IMPLEMENTATION: IMPLEMENTATION_STATE_FOR_SELECTION[selection_state]}
-    for o in EVIDENCE_OBLIGATIONS:
+    states = {}
+    for o in Obligation:
         states[o] = aggregate_obligation(s[o] for s in per_candidate)
     return ObligationStates.from_mapping(states)
 
@@ -156,6 +155,8 @@ class ImplementationCandidate:
             raise c.fail(w, "L8 is not a tier at which anything resolves")
         if self.obligations is not None and self.obligations.implementation is _R:
             raise c.fail(w, "IMPLEMENTATION is never REFUTED")
+        if self.obligations is not None and self.kind in OPAQUE_CANDIDATE_KINDS and self.obligations.implementation not in (_U, _E):
+            raise c.fail(w, "opaque/unresolved identity cannot be implementation-supported")
 
     def to_dict(self) -> dict:
         out: dict[str, Any] = {"candidate_id": self.candidate_id, "kind": self.kind.value}
@@ -670,6 +671,49 @@ class Closure:
 
 
 @dataclass(frozen=True)
+class PrecedencePath:
+    packet_id: str
+    binding_packet_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        c.identifier(self.packet_id, "precedence.packet_id")
+        object.__setattr__(self, "binding_packet_ids", tuple(c.identifier(x, "precedence.binding_packet_ids")
+                           for x in c.sequence(self.binding_packet_ids, "precedence.binding_packet_ids")))
+
+    def to_dict(self) -> dict:
+        return {"packet_id": self.packet_id, "binding_packet_ids": list(self.binding_packet_ids)}
+
+    @classmethod
+    def from_dict(cls, data: Any, where: str = "precedence path") -> "PrecedencePath":
+        r = c.Reader(data, where, ("packet_id", "binding_packet_ids"))
+        return cls(r.get("packet_id"), r.get("binding_packet_ids"))
+
+
+@dataclass(frozen=True)
+class ImplementationPrecedence:
+    selection_packet_id: str
+    winning_paths: tuple[PrecedencePath, ...]
+
+    def __post_init__(self) -> None:
+        c.identifier(self.selection_packet_id, "precedence.selection_packet_id")
+        paths = c.typed_tuple(PrecedencePath, self.winning_paths, "precedence.winning_paths")
+        if not paths:
+            raise c.fail("precedence", "every winner requires a body derivation")
+        c.unique(paths, "precedence.winning_paths", key=lambda p: p.packet_id)
+        object.__setattr__(self, "winning_paths", paths)
+
+    def to_dict(self) -> dict:
+        return {"selection_packet_id": self.selection_packet_id,
+                "winning_paths": [p.to_dict() for p in self.winning_paths]}
+
+    @classmethod
+    def from_dict(cls, data: Any, where: str = "precedence") -> "ImplementationPrecedence":
+        r = c.Reader(data, where, ("selection_packet_id", "winning_paths"))
+        return cls(r.get("selection_packet_id"), tuple(PrecedencePath.from_dict(p)
+                   for p in c.sequence(r.get("winning_paths"), r.at("winning_paths"))))
+
+
+@dataclass(frozen=True)
 class Contradiction:
     """Opposing PROBATIVE packets on one obligation for one candidate."""
 
@@ -679,6 +723,7 @@ class Contradiction:
     negative_packet_ids: tuple[str, ...]
     resolution: ContradictionResolution
     overridden_packet_ids: tuple[str, ...] = ()
+    precedence: ImplementationPrecedence | None = None
 
     def __post_init__(self) -> None:
         w = "contradiction"
@@ -696,8 +741,12 @@ class Contradiction:
         if self.resolution is ContradictionResolution.UNRESOLVED:
             if overridden:
                 raise c.fail(w, "an unresolved contradiction overrides nothing")
+            if self.precedence is not None:
+                raise c.fail(w, "an unresolved contradiction has no precedence resolution")
         elif overridden not in (set(self.positive_packet_ids), set(self.negative_packet_ids)):
             raise c.fail(w, "a resolution overrides exactly one whole side, and says which")
+        else:
+            c.instance(ImplementationPrecedence, self.precedence, "contradiction.precedence")
 
     @property
     def winning_polarity(self) -> Polarity | None:
@@ -717,22 +766,25 @@ class Contradiction:
         }
         if self.overridden_packet_ids:
             out["overridden_packet_ids"] = list(self.overridden_packet_ids)
+        c.put(out, "precedence", self.precedence and self.precedence.to_dict())
         return out
 
     @classmethod
     def from_dict(cls, data: Any, where: str = "contradiction") -> "Contradiction":
         r = c.Reader(data, where, ("obligation", "implementation_candidate_id", "positive_packet_ids",
-                                   "negative_packet_ids", "resolution"), ("overridden_packet_ids",))
+                                   "negative_packet_ids", "resolution"), ("overridden_packet_ids", "precedence"))
         return cls(obligation=r.get("obligation"),
                    implementation_candidate_id=r.get("implementation_candidate_id"),
                    positive_packet_ids=r.get("positive_packet_ids"),
                    negative_packet_ids=r.get("negative_packet_ids"),
                    resolution=r.get("resolution"),
-                   overridden_packet_ids=r.get("overridden_packet_ids", ()))
+                   overridden_packet_ids=r.get("overridden_packet_ids", ()),
+                   precedence=None if "precedence" not in r else ImplementationPrecedence.from_dict(r.get("precedence")))
 
 
 def check_contradictions(contradictions: tuple, packets_by_id: dict, candidates: frozenset,
-                         selection: SelectionState, where: str) -> dict:
+                         selection: SelectionState, where: str, *, invocation_id: str,
+                         invocation_locator: SourceLocator) -> dict:
     """Structural checks shared by claims and receipts. Returns (obligation, candidate) -> record."""
     by_candidate = {cand.candidate_id: cand for cand in candidates}
     by_key: dict = {}
@@ -753,32 +805,62 @@ def check_contradictions(contradictions: tuple, packets_by_id: dict, candidates:
                     raise c.fail(where, f"packet {pid!r} is not {polarity.value} PROBATIVE evidence on "
                                         f"{k.obligation.value} for {key[1]!r}")
         if k.resolution is ContradictionResolution.RESOLVED_IMPLEMENTATION_PRECEDENCE:
-            _check_precedence(k, cand, selection, packets_by_id, where)
+            _check_precedence(k, cand, selection, packets_by_id, where, invocation_id, invocation_locator)
         by_key[key] = k
     return by_key
 
 
-_RESOLVED_BODY_TIER = {
-    CandidateKind.RESOLVED_LOCAL: LadderTier.L1,
-    CandidateKind.RESOLVED_DEPENDENCY_SOURCE: LadderTier.L5,
-}
+_BODY_KINDS = frozenset({PacketKind.LOCAL_FUNCTION_BODY, PacketKind.WRAPPER_CHAIN_BODY, PacketKind.DEPENDENCY_SOURCE_BODY})
+_CONTRACT_KINDS = frozenset({PacketKind.OPENAPI_OPERATION, PacketKind.PROTOBUF_SERVICE_METHOD,
+    PacketKind.GRAPHQL_SCHEMA_FIELD, PacketKind.JSON_SCHEMA_NODE, PacketKind.SDK_OPERATION_METADATA,
+    PacketKind.COMMAND_SPECIFICATION})
+
+
+def _binding_matches(packet, candidate_id, invocation_id, relation, source, target=None):
+    b = packet.binding if packet is not None else None
+    return (b is not None and packet.is_probative and packet.obligation is Obligation.IMPLEMENTATION
+            and packet.implementation_candidate_id == candidate_id and b.invocation_id == invocation_id
+            and b.relation == relation and b.source == source and (target is None or b.target == target))
+
+
+def _contains(body: SourceLocator, evidence: SourceLocator) -> bool:
+    return (all(getattr(body, k) == getattr(evidence, k) for k in ("path", "package", "version", "version_resolution"))
+            and body.start_line <= evidence.start_line <= evidence.end_line <= body.end_line
+            and (body.start_column is None or evidence.start_line != body.start_line
+                 or (evidence.start_column is not None and evidence.start_column >= body.start_column))
+            and (body.end_column is None or evidence.end_line != body.end_line
+                 or (evidence.end_column is not None and evidence.end_column <= body.end_column)))
 
 
 def _check_precedence(k: Contradiction, cand: ImplementationCandidate, selection: SelectionState,
-                      packets_by_id: dict, where: str) -> None:
+                      packets_by_id: dict, where: str, invocation_id: str,
+                      invocation_locator: SourceLocator) -> None:
     if selection is not SelectionState.SINGLE_ESTABLISHED:
         raise c.fail(where, "resolved-implementation precedence applies only under SINGLE_ESTABLISHED")
-    if cand.kind not in RESOLVED_CANDIDATE_KINDS:
+    if cand.kind not in RESOLVED_CANDIDATE_KINDS or cand.locator is None:
         raise c.fail(where, f"precedence needs a resolved body; candidate is {cand.kind.value}")
+    proof = k.precedence
+    if not _binding_matches(packets_by_id.get(proof.selection_packet_id), cand.candidate_id,
+                            invocation_id, "SELECTED_TARGET", invocation_locator, cand.locator):
+        raise c.fail(where, "precedence requires selected-body binding provenance")
     overridden = set(k.overridden_packet_ids)
     winners = [pid for pid in k.positive_packet_ids + k.negative_packet_ids if pid not in overridden]
-    body_tier = _RESOLVED_BODY_TIER[cand.kind]
-    for pid in winners:
-        if packets_by_id[pid].tier is not body_tier:
-            raise c.fail(where, f"packet {pid!r} is not from the selected candidate's resolved body "
-                                f"({body_tier.value})")
+    if {p.packet_id for p in proof.winning_paths} != set(winners):
+        raise c.fail(where, "precedence requires a path for every winning packet")
+    for path in proof.winning_paths:
+        winner = packets_by_id[path.packet_id]
+        if winner.kind not in _BODY_KINDS:
+            raise c.fail(where, "tier/package provenance is not selected-body evidence")
+        body = cand.locator
+        for pid in path.binding_packet_ids:
+            edge = packets_by_id.get(pid)
+            if not _binding_matches(edge, cand.candidate_id, invocation_id, "RESOLVED_CALL", body):
+                raise c.fail(where, "precedence body derivation requires resolved-call binding provenance")
+            body = edge.binding.target
+        if not _contains(body, winner.locator):
+            raise c.fail(where, "winning evidence is outside the selected/linked body source")
     for pid in k.overridden_packet_ids:
-        if packets_by_id[pid].tier not in CONTRACT_TIERS:
+        if packets_by_id[pid].tier is not LadderTier.L6 or packets_by_id[pid].kind not in _CONTRACT_KINDS:
             raise c.fail(where, f"only contract-declared evidence can be overridden; {pid!r} is "
                                 f"{packets_by_id[pid].tier.value}")
 
@@ -940,6 +1022,8 @@ class EffectClaim:
 
     @classmethod
     def from_dict(cls, data: Any, where: str = "claim") -> "EffectClaim":
+        if isinstance(data, Mapping) and "schema_version" in data and data["schema_version"] != SCHEMA_VERSION:
+            raise c.fail(where, f"schema_version must be {SCHEMA_VERSION}; historical records are not migrated")
         r = c.Reader(data, where, (
             "schema_version", "claim_id", "capability_id", "invocation_id", "effect_class",
             "invocation", "genesis", "implementation_candidates", "selection_state", "obligations",
@@ -980,99 +1064,89 @@ class EffectClaim:
 def _validate_claim(claim: EffectClaim, w: str) -> None:
     candidates = claim.implementation_candidates
     selection = claim.selection_state
-    states = claim.obligations
-
     check_selection_cardinality(selection, candidates, w)
-    if len(candidates) > 1 and any(cand.obligations is None for cand in candidates):
-        raise c.fail(w, "with several candidates, every candidate carries its own obligation states")
-    if states.implementation is not IMPLEMENTATION_STATE_FOR_SELECTION[selection]:
-        raise c.fail(w, f"IMPLEMENTATION must be {IMPLEMENTATION_STATE_FOR_SELECTION[selection].value} "
-                        f"under {selection.value}")
-
+    if any(cand.obligations is None for cand in candidates) and not (
+            len(candidates) == 1 and selection is SelectionState.SINGLE_ESTABLISHED):
+        raise c.fail(w, "every candidate carries its own obligation states except the unique established shorthand")
     effective = {cand.candidate_id: claim.candidate_states(cand.candidate_id) for cand in candidates}
-    check_candidate_states(selection, effective, states, w)
-
+    check_candidate_states(selection, effective, claim.obligations, w)
     packets = check_packet_set(claim.evidence_packets, claim.candidate_ids, w)
     probes = check_probe_set(claim.probe_outcomes, packets, w)
-    records = check_contradictions(claim.contradictions, packets, candidates, selection, w)
-    check_states_against_packets(claim.evidence_packets, effective, records, w)
-    check_undetermined_commit(probes, states.persistence, w)
-
+    records = check_contradictions(claim.contradictions, packets, candidates, selection, w,
+                                  invocation_id=claim.invocation_id, invocation_locator=claim.invocation.locator)
+    check_states_against_packets(claim.evidence_packets, effective, records, w,
+                                candidates=candidates, invocation_id=claim.invocation_id,
+                                invocation_locator=claim.invocation.locator)
+    impl = [states.implementation for states in effective.values()]
+    if _E in impl:
+        expected = SelectionState.SELECTION_ERROR
+    elif any(state is not _S for state in impl):
+        expected = SelectionState.UNRESOLVED_IDENTITY
+    elif len(candidates) == 1:
+        (only,) = candidates
+        selected = any(_binding_matches(p, only.candidate_id, claim.invocation_id,
+                       "SELECTED_TARGET", claim.invocation.locator, only.locator) for p in claim.evidence_packets)
+        expected = SelectionState.SINGLE_ESTABLISHED if selected else SelectionState.UNRESOLVED_IDENTITY
+    elif all(len({states[o] for states in effective.values()}) == 1 for o in EVIDENCE_OBLIGATIONS):
+        expected = SelectionState.AGREEMENT_INVARIANT
+    else:
+        expected = SelectionState.UNRESOLVED_DIVERGENT
+    if selection is not expected:
+        raise c.fail(w, f"selection requires {expected.value}, not {selection.value}; labels are not evidence")
     _check_acquisition(claim, packets, w)
     _check_verdict(claim, effective, probes, w)
 
 
 def check_candidate_states(selection: SelectionState, effective: dict, states: ObligationStates, w: str) -> None:
-    """The claim-level states are the selection-aware aggregate of the per-candidate states."""
-    if selection is SelectionState.SINGLE_ESTABLISHED:
-        (only,) = effective.values()
-        if only != states:
-            raise c.fail(w, "under SINGLE_ESTABLISHED the candidate's states are the claim's states")
-    if selection is SelectionState.AGREEMENT_INVARIANT or selection is SelectionState.UNRESOLVED_DIVERGENT:
-        agree = all(len({s[o] for s in effective.values()}) == 1 for o in EVIDENCE_OBLIGATIONS)
-        if selection is SelectionState.AGREEMENT_INVARIANT and not agree:
-            raise c.fail(w, "AGREEMENT_INVARIANT requires identical candidate states on every obligation")
-        if selection is SelectionState.UNRESOLVED_DIVERGENT and agree:
-            raise c.fail(w, "UNRESOLVED_DIVERGENT requires candidates that disagree")
-    expected = aggregate_claim_states(selection, frozenset(effective.values()))
-    for o in EVIDENCE_OBLIGATIONS:
+    expected = aggregate_claim_states(selection, effective.values())
+    for o in Obligation:
         if states[o] is not expected[o]:
-            raise c.fail(w, f"claim-level {o.value} is {states[o].value} but the candidates aggregate "
-                            f"to {expected[o].value}")
+            raise c.fail(w, f"claim-level {o.value} is {states[o].value} but candidates aggregate to {expected[o].value}")
 
 
-def check_undetermined_commit(probes: dict, persistence: ProofState, w: str) -> None:
-    undetermined = probes.get(UNDETERMINED_COMMIT_PROBE)
-    if undetermined is not None and undetermined.outcome is ProbeResult.FOUND and persistence not in (_U, _E):
-        raise c.fail(w, "an undetermined commit outcome preserves uncertainty: PERSISTENCE must be UNKNOWN")
-
-
-def check_states_against_packets(packets: tuple, effective: dict, records: dict, w: str) -> None:
-    """Every settled per-candidate state rests on PROBATIVE packets; nothing else does.
-
-    Shared by claims and receipts. ``effective`` maps candidate id to that
-    candidate's ``ObligationStates``; ``records`` is the result of
-    ``check_contradictions``.
-    """
+def check_states_against_packets(packets: tuple, effective: dict, records: dict, w: str, *,
+                                candidates: frozenset, invocation_id: str, invocation_locator: SourceLocator) -> None:
+    """Typed facts, not selection labels, determine every candidate obligation."""
+    by_candidate = {cand.candidate_id: cand for cand in candidates}
     for cand_id, cand_states in effective.items():
-        for o in EVIDENCE_OBLIGATIONS:
+        cand = by_candidate[cand_id]
+        if cand.kind in OPAQUE_CANDIDATE_KINDS and cand_states.implementation not in (_U, _E):
+            raise c.fail(w, "opaque/unresolved identity cannot be implementation-supported")
+        for o in Obligation:
             state = cand_states[o]
-            where = f"{w}: {o.value} for {cand_id!r} is {state.value}"
-            probative = [p for p in packets if p.obligation is o and p.implementation_candidate_id == cand_id
-                         and p.is_probative]
-            if state is _E:
-                continue
-            if any(p.assertion.predicate in UNCERTAINTY_PREDICATES for p in probative):
-                if state is not _U:
-                    raise c.EffectModelError(f"{where}, but an undetermined commit outcome keeps it UNKNOWN")
-                continue
-            pos = {p.packet_id for p in probative if p.polarity is Polarity.POSITIVE}
-            neg = {p.packet_id for p in probative if p.polarity is Polarity.NEGATIVE}
+            where = f"{w}: {o.value} for {cand_id!r}"
+            probative = [p for p in packets if p.obligation is o and p.implementation_candidate_id == cand_id and p.is_probative]
+            uncertain = any(p.assertion.predicate in UNCERTAINTY_PREDICATES for p in probative)
+            directional = [p for p in probative if p.assertion.predicate not in UNCERTAINTY_PREDICATES]
+            if o is Obligation.IMPLEMENTATION:
+                directional = [p for p in directional if cand.locator is not None and any(
+                    _binding_matches(p, cand_id, invocation_id, rel, invocation_locator, cand.locator)
+                    for rel in ("SELECTED_TARGET", "POSSIBLE_TARGET"))]
+            pos = {p.packet_id for p in directional if p.polarity is Polarity.POSITIVE}
+            neg = {p.packet_id for p in directional if p.polarity is Polarity.NEGATIVE}
             record = records.get((o, cand_id))
-            if record is not None and (set(record.positive_packet_ids), set(record.negative_packet_ids)) != (pos, neg):
-                raise c.EffectModelError(f"{where}, and its contradiction record does not cite every "
-                                         "opposing PROBATIVE packet")
-            if state is _U:
-                if pos or neg:
-                    raise c.EffectModelError(f"{where} despite PROBATIVE evidence; evidence is never "
-                                             "discarded to simplify a state")
-            elif state is _C:
-                if not (pos and neg):
-                    raise c.EffectModelError(f"{where} without PROBATIVE packets on both sides")
-                if record is None or record.resolution is not ContradictionResolution.UNRESOLVED:
-                    raise c.EffectModelError(f"{where} without an UNRESOLVED contradiction record")
+            if pos and neg:
+                if record is None or (set(record.positive_packet_ids), set(record.negative_packet_ids)) != (pos, neg):
+                    raise c.fail(where, "contradiction must cite every opposing PROBATIVE packet")
+            elif record is not None:
+                raise c.fail(where, "a contradiction record needs opposing evidence")
+            winner = record.winning_polarity if record is not None else None
+            if state is _E:
+                expected = _E
+            elif pos and neg and winner is None:
+                expected = _C
+            elif uncertain:
+                expected = _U
+            elif winner is not None:
+                expected = _S if winner is Polarity.POSITIVE else _R
+            elif pos:
+                expected = _S
+            elif neg:
+                expected = _R
             else:
-                agree, oppose = (pos, neg) if state is _S else (neg, pos)
-                want = Polarity.POSITIVE if state is _S else Polarity.NEGATIVE
-                if not agree:
-                    raise c.EffectModelError(f"{where} with no PROBATIVE {want.value} packet; "
-                                             "a settled state requires evidence provenance")
-                if oppose:
-                    if record is None or record.winning_polarity is not want:
-                        raise c.EffectModelError(f"{where} although opposing PROBATIVE evidence exists and "
-                                                 "no admissible precedence resolves it")
-                elif record is not None:
-                    raise c.EffectModelError(f"{where}; a contradiction record needs opposing evidence")
+                expected = _U
+            if state is not expected:
+                raise c.fail(where, f"PROBATIVE evidence requires {expected.value}, recorded {state.value}")
 
 
 def _check_acquisition(claim: EffectClaim, packets: dict, w: str) -> None:
@@ -1085,7 +1159,7 @@ def _check_acquisition(claim: EffectClaim, packets: dict, w: str) -> None:
         if states[o] in (_S, _R):
             raise c.fail(w, f"{o.value} is {states[o].value} and cannot be listed as unresolved")
     for o in necessary:
-        if states[o] is _U and o not in acq.unresolved_obligations:
+        if states[o] in (_U, _C) and o not in acq.unresolved_obligations:
             raise c.fail(w, f"{o.value} is UNKNOWN and must be listed as unresolved")
     if acq.stop_reason is StopReason.SETTLED and any(states[o] in (_U, _E) for o in necessary):
         raise c.fail(w, "SETTLED means every necessary obligation is SUPPORTED, REFUTED or CONFLICTING")
@@ -1138,8 +1212,7 @@ def _proven_effect_blockers(claim: EffectClaim, probes: dict) -> list[str]:
             reasons.append(f"BLOCKING probe {pid} was not executed")
         elif not outcome.completed:
             reasons.append(f"BLOCKING probe {pid} is INCOMPLETE")
-        elif outcome.outcome is ProbeResult.FOUND:
-            reasons.append(f"BLOCKING probe {pid} found counter-evidence")
+
     return reasons
 
 
@@ -1156,7 +1229,8 @@ def _check_closure(claim: EffectClaim, effective: dict, w: str) -> None:
         raise c.fail(w, "C1 fails: a negative cannot be proved about code that was never obtained")
     if any(states[o] is not _R for states in effective.values()):
         raise c.fail(w, "C2 fails: the refutation must hold for every candidate")
-    if any(claim.obligations[x] is _C for x in claim.necessary_obligations):
+    if any(claim.obligations[x] is _C for x in claim.necessary_obligations) or any(
+            k.resolution is ContradictionResolution.UNRESOLVED for k in claim.contradictions):
         raise c.fail(w, "C3 fails: a necessary obligation is CONFLICTING")
     acq = claim.acquisition
     if not acq.frontier_enumerated_completely:

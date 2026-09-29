@@ -66,6 +66,7 @@ class SelectionState(_ClosedVocabulary):
     AGREEMENT_INVARIANT = "AGREEMENT_INVARIANT"
     UNRESOLVED_DIVERGENT = "UNRESOLVED_DIVERGENT"
     SELECTION_ERROR = "SELECTION_ERROR"
+    UNRESOLVED_IDENTITY = "UNRESOLVED_IDENTITY"
 
 
 class Admissibility(_ClosedVocabulary):
@@ -245,7 +246,7 @@ class ConditionKind(_ClosedVocabulary):
     EXCEPTION_HANDLER = "exception_handler"
 
 
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.1.1"
 GENESIS_BASIS = "NON_REFUTATION_OF_INERTNESS"
 
 NECESSARY_OBLIGATIONS: "MappingProxyType[EffectClass, tuple[Obligation, ...]]" = MappingProxyType({
@@ -255,18 +256,11 @@ NECESSARY_OBLIGATIONS: "MappingProxyType[EffectClass, tuple[Obligation, ...]]" =
 EVIDENCE_OBLIGATIONS: tuple[Obligation, ...] = tuple(
     o for o in Obligation if o is not Obligation.IMPLEMENTATION
 )
-"""Obligations settled by evidence packets. IMPLEMENTATION is settled by selection."""
+"""The four non-implementation receipt answers; IMPLEMENTATION uses binding evidence."""
 
 ESTABLISHED_SELECTIONS = frozenset({
     SelectionState.SINGLE_ESTABLISHED,
     SelectionState.AGREEMENT_INVARIANT,
-})
-
-IMPLEMENTATION_STATE_FOR_SELECTION: "MappingProxyType[SelectionState, ProofState]" = MappingProxyType({
-    SelectionState.SINGLE_ESTABLISHED: ProofState.SUPPORTED,
-    SelectionState.AGREEMENT_INVARIANT: ProofState.SUPPORTED,
-    SelectionState.UNRESOLVED_DIVERGENT: ProofState.UNKNOWN,
-    SelectionState.SELECTION_ERROR: ProofState.ERROR,
 })
 
 OPAQUE_CANDIDATE_KINDS = frozenset({CandidateKind.OPAQUE_EXTERNAL, CandidateKind.DYNAMIC_UNRESOLVED})

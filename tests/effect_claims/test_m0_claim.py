@@ -25,6 +25,8 @@ from actenon_scan.effects import (
     Closure,
     Contradiction,
     ContradictionResolution,
+    ImplementationPrecedence,
+    PrecedencePath,
     Control,
     Descriptors,
     EffectClaim,
@@ -77,7 +79,7 @@ from ._builders import (
     states,
     unfamiliar_sdk_claim,
 )
-from ._spec import example
+from ._spec import example, amended_example
 
 ALL_STATES = tuple(ProofState)
 
@@ -110,8 +112,8 @@ def test_1_zero_rule_claim_can_reach_every_verdict():
 
 
 def test_1_frozen_rule_free_examples_load():
-    for name in ("effect_claim.valid.abstain", "effect_claim.valid.proven"):
-        claim = EffectClaim.from_dict(example(name))
+    for name in ("valid_opaque_abstain", "valid_proven"):
+        claim = EffectClaim.from_dict(amended_example(name))
         assert claim.invocation.matched_rule_ids == ()
 
 
@@ -165,11 +167,11 @@ def test_2_agreeing_candidates_support_a_proven_effect_without_selecting_one():
                         probes=all_blocking_probes_complete(), verdict=Verdict.PROVEN_EFFECT)
     assert len(claim.implementation_candidates) == 3
     assert claim.selected_candidate() is None
-    assert len(claim.evidence_packets) == 12
+    assert len(claim.evidence_packets) == 15
 
 
 def test_2_an_opaque_candidate_is_a_first_class_candidate():
-    claim = multi_claim(SelectionState.UNRESOLVED_DIVERGENT, [{Obligation.OPERATION: S}, {}],
+    claim = multi_claim(SelectionState.UNRESOLVED_IDENTITY, [{Obligation.OPERATION: S}, {}],
                         kinds=[CandidateKind.RESOLVED_LOCAL, CandidateKind.OPAQUE_EXTERNAL])
     assert {c_.kind for c_ in claim.implementation_candidates} == {CandidateKind.RESOLVED_LOCAL,
                                                                    CandidateKind.OPAQUE_EXTERNAL}
@@ -241,10 +243,10 @@ def test_3_single_established_means_exactly_one_candidate():
 
 
 def test_3_agreement_and_divergence_are_checked_not_asserted():
-    with pytest.raises(EffectModelError, match="AGREEMENT_INVARIANT requires identical"):
+    with pytest.raises(EffectModelError, match="selection requires UNRESOLVED_DIVERGENT"):
         multi_claim(SelectionState.AGREEMENT_INVARIANT, [{Obligation.OPERATION: S}, {Obligation.OPERATION: R}],
                     claim_states=states(S, U, U, U, U))
-    with pytest.raises(EffectModelError, match="disagree"):
+    with pytest.raises(EffectModelError, match="selection requires AGREEMENT_INVARIANT"):
         multi_claim(SelectionState.UNRESOLVED_DIVERGENT, [{Obligation.OPERATION: S}, {Obligation.OPERATION: S}])
     with pytest.raises(EffectModelError, match="several candidates"):
         unfamiliar_sdk_claim(selection_state=SelectionState.AGREEMENT_INVARIANT)
@@ -308,11 +310,11 @@ def test_4_aggregation_never_produces_refuted_from_unknown():
 
 def test_4_refuted_requires_probative_negative_evidence():
     base = no_effect_claim()
-    with pytest.raises(EffectModelError, match="no PROBATIVE NEGATIVE"):
+    with pytest.raises(EffectModelError, match="evidence requires UNKNOWN, recorded REFUTED"):
         replace(base, evidence_packets=tuple(p for p in base.evidence_packets
                                              if p.obligation is not Obligation.PERSISTENCE))
     hypothesis = dataclasses.replace(rolled_back_packet(), admissibility=Admissibility.HYPOTHESIS_ONLY)
-    with pytest.raises(EffectModelError, match="no PROBATIVE NEGATIVE"):
+    with pytest.raises(EffectModelError, match="evidence requires UNKNOWN, recorded REFUTED"):
         replace(base, evidence_packets=tuple(p for p in base.evidence_packets
                                              if p.obligation is not Obligation.PERSISTENCE) + (hypothesis,))
 
@@ -382,7 +384,7 @@ def test_5_conflicting_cannot_be_rewritten_without_a_precedence_rule(state):
 
 
 def test_5_conflicting_requires_its_contradiction_record():
-    with pytest.raises(EffectModelError, match="UNRESOLVED contradiction record"):
+    with pytest.raises(EffectModelError, match="contradiction must cite every opposing"):
         replace(conflicting_claim(), contradictions=())
 
 
@@ -413,7 +415,8 @@ def test_5_precedence_requires_single_established_resolved_body():
     base = conflicting_claim()
     record = dataclasses.replace(base.contradictions[0],
                                  resolution=ContradictionResolution.RESOLVED_IMPLEMENTATION_PRECEDENCE,
-                                 overridden_packet_ids=("pkt-body",))
+                                 overridden_packet_ids=("pkt-body",),
+                                 precedence=ImplementationPrecedence("pkt-implementation", (PrecedencePath("pkt-contract"),)))
     with pytest.raises(EffectModelError):
         replace(base, obligations=states(S, U, U, R, U), contradictions=(record,))
 
@@ -426,7 +429,9 @@ def test_5_precedence_does_not_apply_under_agreement():
                       locator=SourceLocator(path="api.json", start_line=1, end_line=1, package="svc",
                                             version="1", version_resolution="LOCKFILE"))
     record = Contradiction(Obligation.OPERATION, "cand-1", ("p-cand-1-operation-pos",), ("pkt-c",),
-                           ContradictionResolution.RESOLVED_IMPLEMENTATION_PRECEDENCE, ("pkt-c",))
+                           ContradictionResolution.RESOLVED_IMPLEMENTATION_PRECEDENCE, ("pkt-c",),
+                           ImplementationPrecedence("p-cand-1-implementation-pos",
+                                                    (PrecedencePath("p-cand-1-operation-pos"),)))
     with pytest.raises(EffectModelError, match="only under SINGLE_ESTABLISHED"):
         replace(claim, evidence_packets=claim.evidence_packets + (contract,), contradictions=(record,),
                 acquisition=dataclasses.replace(claim.acquisition, tiers_attempted=(
@@ -461,12 +466,13 @@ def test_6_error_survives_round_trip():
 
 
 def test_6_selection_error_is_an_analysis_error():
-    claim = unfamiliar_sdk_claim(selection_state=SelectionState.SELECTION_ERROR, obligations=states(E),
+    claim = unfamiliar_sdk_claim(implementation_candidates=[candidate(obligations=states(E))],
+                                 selection_state=SelectionState.SELECTION_ERROR, obligations=states(E),
                                  verdict=Verdict.ANALYSIS_ERROR)
     assert claim.obligations.implementation is E
     with pytest.raises(EffectModelError, match="ANALYSIS_ERROR"):
         replace(claim, verdict=Verdict.ABSTAIN)
-    with pytest.raises(EffectModelError, match="IMPLEMENTATION must be ERROR"):
+    with pytest.raises(EffectModelError, match="IMPLEMENTATION is UNKNOWN but candidates aggregate to ERROR"):
         replace(claim, obligations=states(U))
 
 
@@ -489,7 +495,7 @@ def test_6_implementation_is_never_refuted():
 @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
 def test_7_supported_without_any_packet_is_rejected(obligation):
     base = proven_claim()
-    with pytest.raises(EffectModelError, match="evidence provenance"):
+    with pytest.raises(EffectModelError, match="evidence requires UNKNOWN, recorded SUPPORTED"):
         replace(base, evidence_packets=tuple(p for p in base.evidence_packets if p.obligation is not obligation))
 
 
@@ -498,7 +504,7 @@ def test_7_hypothesis_only_evidence_cannot_support(obligation):
     base = proven_claim()
     weakened = tuple(dataclasses.replace(p, admissibility=Admissibility.HYPOTHESIS_ONLY)
                      if p.obligation is obligation else p for p in base.evidence_packets)
-    with pytest.raises(EffectModelError, match="evidence provenance"):
+    with pytest.raises(EffectModelError, match="evidence requires UNKNOWN, recorded SUPPORTED"):
         replace(base, evidence_packets=weakened)
 
 
@@ -535,7 +541,7 @@ def test_7_evidence_cannot_come_from_a_tier_that_was_not_attempted():
 
 def test_7_unknown_with_probative_evidence_discards_evidence_and_is_rejected():
     base = unfamiliar_sdk_claim()
-    with pytest.raises(EffectModelError, match="never discarded"):
+    with pytest.raises(EffectModelError, match="evidence requires SUPPORTED, recorded UNKNOWN"):
         replace(base, evidence_packets=(packet("pkt-1", Obligation.BOUNDARY),))
 
 
@@ -543,11 +549,12 @@ def test_7_an_undetermined_commit_never_supports_persistence():
     base = proven_claim()
     undetermined = dataclasses.replace(
         packet("pkt-undetermined", Obligation.PERSISTENCE),
-        assertion=EvidenceAssertion(AssertionPredicate.COMMIT_OUTCOME_UNDETERMINED))
+        assertion=EvidenceAssertion(AssertionPredicate.COMMIT_OUTCOME_UNDETERMINED),
+        polarity=Polarity.NEGATIVE)
     only_undetermined = tuple(p for p in base.evidence_packets if p.obligation is not Obligation.PERSISTENCE)
-    with pytest.raises(EffectModelError, match="undetermined"):
+    with pytest.raises(EffectModelError, match="evidence requires UNKNOWN, recorded SUPPORTED"):
         replace(base, evidence_packets=only_undetermined + (undetermined,))
-    with pytest.raises(EffectModelError, match="undetermined"):
+    with pytest.raises(EffectModelError, match="evidence requires UNKNOWN, recorded SUPPORTED"):
         replace(base, evidence_packets=base.evidence_packets + (undetermined,))
 
 
@@ -557,7 +564,7 @@ def test_7_cp_per_05_found_keeps_persistence_unknown():
                      admissibility=Admissibility.HYPOTHESIS_ONLY, kind=PacketKind.COUNTER_EVIDENCE_PROBE)
     probes = tuple(ProbeOutcome(o.probe_id, o.obligation, o.probe_class, ProbeResult.FOUND, packet_ids=("pkt-per05",))
                    if o.probe_id == "CP-PER-05" else o for o in base.probe_outcomes)
-    with pytest.raises(EffectModelError, match="undetermined commit"):
+    with pytest.raises(EffectModelError, match="typed uncertainty assertion"):
         replace(base, evidence_packets=base.evidence_packets + (finding,), probe_outcomes=probes)
 
 
@@ -590,13 +597,21 @@ def test_proven_effect_requires_every_blocking_probe_to_complete():
 
 
 def test_proven_effect_requires_that_no_blocking_probe_found_counter_evidence():
+    # A found PROBATIVE refutation vetoes through contradiction, never by FOUND alone.
     base = proven_claim()
+    negative = packet("boundary-local", Obligation.BOUNDARY, polarity=Polarity.NEGATIVE)
     found = tuple(ProbeOutcome(o.probe_id, o.obligation, o.probe_class, ProbeResult.FOUND,
-                               packet_ids=("pkt-boundary",))
-                  if o.probe_id == "CP-BND-01" else o for o in base.probe_outcomes)
-    with pytest.raises(EffectModelError, match="CP-BND-01 found counter-evidence"):
-        replace(base, probe_outcomes=found)
-    assert replace(base, probe_outcomes=found, verdict=Verdict.ABSTAIN).verdict is Verdict.ABSTAIN
+                              packet_ids=(negative.packet_id,)) if o.probe_id == "CP-BND-01" else o
+                  for o in base.probe_outcomes)
+    with pytest.raises(EffectModelError, match="contradiction must cite every opposing"):
+        replace(base, probe_outcomes=found, evidence_packets=base.evidence_packets+(negative,))
+    record = Contradiction(Obligation.BOUNDARY, "cand-1", ("pkt-boundary",), (negative.packet_id,),
+                           ContradictionResolution.UNRESOLVED)
+    claim = replace(base, probe_outcomes=found, evidence_packets=base.evidence_packets+(negative,),
+                    contradictions=(record,), obligations=states(S,S,C,S,S), verdict=Verdict.ABSTAIN,
+                    acquisition=dataclasses.replace(base.acquisition, unresolved_obligations=(Obligation.BOUNDARY,)))
+    assert claim.obligations.boundary is C
+    assert claim.verdict is Verdict.ABSTAIN
 
 
 def test_advisory_probes_do_not_gate_proven_effect():
@@ -604,9 +619,10 @@ def test_advisory_probes_do_not_gate_proven_effect():
     advisory = ProbeOutcome("CP-ACT-03", Obligation.ACTIVATION, ProbeClass.ADVISORY, ProbeResult.INCOMPLETE,
                             incomplete_reason=StopReason.TIER_UNAVAILABLE)
     assert replace(base, probe_outcomes=base.probe_outcomes + (advisory,)).verdict is Verdict.PROVEN_EFFECT
+    hypothesis = packet("advisory-hyp", Obligation.ACTIVATION, admissibility=Admissibility.HYPOTHESIS_ONLY)
     advisory_found = ProbeOutcome("CP-ACT-03", Obligation.ACTIVATION, ProbeClass.ADVISORY, ProbeResult.FOUND,
-                                  packet_ids=("pkt-activation",))
-    assert replace(base, probe_outcomes=base.probe_outcomes + (advisory_found,)).verdict is Verdict.PROVEN_EFFECT
+                                  packet_ids=("advisory-hyp",))
+    assert replace(base, evidence_packets=base.evidence_packets+(hypothesis,), probe_outcomes=base.probe_outcomes + (advisory_found,)).verdict is Verdict.PROVEN_EFFECT
 
 
 def test_the_verdict_function_leaves_no_freedom_to_under_claim():
@@ -637,39 +653,24 @@ def test_no_effect_requires_closure():
 
 
 def test_frozen_invalid_claim_is_rejected_at_every_layer_it_violates():
-    data = example("effect_claim.invalid")
-    with pytest.raises(EffectModelError, match="PERSISTENCE is REFUTED but the candidates aggregate to UNKNOWN"):
-        EffectClaim.from_dict(data)
-
-    data["obligations"]["PERSISTENCE"] = "UNKNOWN"
-    data["acquisition"]["unresolved_obligations"].append("PERSISTENCE")
-    with pytest.raises(EffectModelError, match="requires evidence provenance"):
-        EffectClaim.from_dict(data)
-
-    for cand in data["implementation_candidates"]:
-        for key in ("ACTIVATION", "BOUNDARY", "OPERATION", "PERSISTENCE"):
-            cand["obligations"][key] = "UNKNOWN"
-    data["implementation_candidates"][0]["obligations"]["PERSISTENCE"] = "ERROR"
-    data["obligations"].update(ACTIVATION="UNKNOWN", PERSISTENCE="ERROR")
-    data["acquisition"]["unresolved_obligations"] = ["IMPLEMENTATION", "ACTIVATION", "BOUNDARY", "OPERATION"]
+    # Historical 0.1.0 remains immutable and is explicitly not migrated.
+    with pytest.raises(EffectModelError, match="schema_version"):
+        EffectClaim.from_dict(example("effect_claim.invalid"))
+    with pytest.raises(EffectModelError, match="aggregate to UNKNOWN"):
+        EffectClaim.from_dict(amended_example("M2_divergence_not_contradiction"))
+    with pytest.raises(EffectModelError, match="evidence requires CONFLICTING, recorded UNKNOWN"):
+        EffectClaim.from_dict(amended_example("H4_uncertainty_erases_conflict"))
     with pytest.raises(EffectModelError, match="ANALYSIS_ERROR"):
-        EffectClaim.from_dict(data)
-
-    data["implementation_candidates"][0]["obligations"]["PERSISTENCE"] = "REFUTED"
-    data["evidence_packets"] = [rolled_back_packet().to_dict()]
-    data["obligations"]["PERSISTENCE"] = "UNKNOWN"
-    data["acquisition"]["unresolved_obligations"].append("PERSISTENCE")
+        EffectClaim.from_dict(amended_example("H1_error_as_abstain"))
     with pytest.raises(EffectModelError, match="requires an established closure"):
-        EffectClaim.from_dict(data)
-
-    data["verdict"] = "ABSTAIN"
-    assert EffectClaim.from_dict(data).verdict is Verdict.ABSTAIN
+        EffectClaim.from_dict(amended_example("M4_missing_closure"))
+    assert EffectClaim.from_dict(amended_example("valid_open_frontier_abstain")).verdict is Verdict.ABSTAIN
 
 
 def test_no_effect_c1_opaque_candidate():
-    with pytest.raises(EffectModelError, match="C1"):
+    with pytest.raises(EffectModelError, match="opaque/unresolved identity"):
         no_effect_claim(implementation_candidates=[candidate(kind=CandidateKind.OPAQUE_EXTERNAL)])
-    with pytest.raises(EffectModelError, match="C1"):
+    with pytest.raises(EffectModelError, match="opaque/unresolved identity"):
         no_effect_claim(implementation_candidates=[candidate(kind=CandidateKind.DYNAMIC_UNRESOLVED)])
 
 
@@ -731,7 +732,7 @@ def test_unresolved_obligations_are_exactly_accounted_for():
     with pytest.raises(EffectModelError, match="must be listed as unresolved"):
         unfamiliar_sdk_claim(acquisition=abstain_acquisition(unresolved=(Obligation.ACTIVATION,)))
     with pytest.raises(EffectModelError, match="cannot be listed as unresolved"):
-        unfamiliar_sdk_claim(acquisition=abstain_acquisition(unresolved=tuple(Obligation)))
+        proven_claim(acquisition=abstain_acquisition(unresolved=(Obligation.IMPLEMENTATION,)))
 
 
 def test_settled_means_nothing_is_unknown():
@@ -802,8 +803,8 @@ def test_from_dict_rejects_malformed_claims(mutate):
 
 
 def test_frozen_examples_round_trip_losslessly():
-    for name in ("effect_claim.valid.abstain", "effect_claim.valid.proven"):
-        claim = EffectClaim.from_dict(example(name))
+    for name in ("valid_opaque_abstain", "valid_proven"):
+        claim = EffectClaim.from_dict(amended_example(name))
         assert EffectClaim.from_dict(json.loads(json.dumps(claim.to_dict()))) == claim
 
 

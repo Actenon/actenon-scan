@@ -1,0 +1,19 @@
+F.....                                                                   [100%]
+=================================== FAILURES ===================================
+________ test_H6_impossible_error_conflict_negative_population_rejected ________
+
+    def test_H6_impossible_error_conflict_negative_population_rejected():
+        data = fixture('H6_impossible_settled_population')
+        # On unrepaired M0, test the semantic defect rather than version rejection.
+        from actenon_scan.effects import SCHEMA_VERSION
+        data['schema_version'] = SCHEMA_VERSION
+>       with pytest.raises(EffectModelError, match='BOUNDARY ERROR and CONFLICTING are disjoint'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'BOUNDARY ERROR and CONFLICTING are disjoint'
+E         Actual message: 'ledger: analysis error obligation breakdown must equal ERROR marginals'
+
+tests/effect_claims/test_m0r1_regressions.py:102: AssertionError
+=========================== short test summary info ============================
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_H6_impossible_error_conflict_negative_population_rejected
+1 failed, 5 passed, 101 deselected in 0.18s

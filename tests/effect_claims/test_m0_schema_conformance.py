@@ -33,11 +33,12 @@ from ._builders import (
     proven_claim,
     resolved_claim,
     unfamiliar_sdk_claim,
+    reidentify,
 )
-from ._spec import example, schema
+from ._spec import example, schema, historical_schema, amended_example
 
-jsonschema = pytest.importorskip("jsonschema")
-referencing = pytest.importorskip("referencing")
+import jsonschema
+import referencing
 from referencing.jsonschema import DRAFT202012  # noqa: E402
 
 SCHEMAS = ("evidence", "effect_claim", "effect_receipt", "coverage_ledger")
@@ -92,15 +93,15 @@ def test_emitted_claim_conforms(name):
     "but does not declare 'closure' under the top-level properties while additionalProperties is "
     "false, so no NO_EFFECT claim can satisfy the schema. AREF-002 is frozen; reported, not fixed."))
 def test_emitted_no_effect_claim_conforms():
-    assert_valid("effect_claim", no_effect_claim().to_dict())
+    historical_validator("effect_claim").validate(historical_negative())
 
 
 def test_no_effect_schema_defect_is_exactly_the_closure_key():
-    data = no_effect_claim().to_dict()
-    messages = [e.message for e in validator("effect_claim").iter_errors(data)]
+    data = historical_negative()
+    messages = [e.message for e in historical_validator("effect_claim").iter_errors(data)]
     assert messages and all("closure" in m for m in messages), messages
     without = {k: v for k, v in data.items() if k != "closure"}
-    messages = [e.message for e in validator("effect_claim").iter_errors(without)]
+    messages = [e.message for e in historical_validator("effect_claim").iter_errors(without)]
     assert messages and all("closure" in m for m in messages), messages
 
 
@@ -121,13 +122,30 @@ def test_emitted_packets_and_probes_conform():
 
 
 def test_emitted_ledger_conforms():
-    claims = [dataclasses.replace(build(), claim_id=f"claim-{i}", invocation_id=f"inv-{i}")
+    claims = [reidentify(build(), claim_id=f"claim-{i}", invocation_id=f"inv-{i}")
               for i, build in enumerate(list(CLAIMS.values()) + [no_effect_claim])]
     ledger = CoverageLedger.from_claims(claims, capabilities_discovered=2, invocations_enumerated=len(claims))
     assert_valid("coverage_ledger", ledger.to_dict())
     empty = CoverageLedger.from_claims([], capabilities_discovered=0, invocations_enumerated=0)
     assert_valid("coverage_ledger", empty.to_dict())
 
+
+
+def historical_validator(name):
+    registry = referencing.Registry().with_resources(
+        (historical_schema(n)["$id"], referencing.Resource.from_contents(historical_schema(n))) for n in SCHEMAS)
+    return jsonschema.Draft202012Validator(historical_schema(name), registry=registry)
+
+
+def historical_negative():
+    data = no_effect_claim().to_dict()
+    data["schema_version"] = "0.1.0"
+    for p in data["evidence_packets"]:p.pop("binding", None)
+    return data
+
+
+def test_amended_no_effect_schema_really_passes():
+    assert_valid("effect_claim", no_effect_claim().to_dict())
 
 VALID_EXAMPLES = {
     "evidence.valid": ("evidence", EvidencePacket.from_dict),
@@ -148,9 +166,17 @@ INVALID_EXAMPLES = {
 def test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant(name):
     schema_name, load = VALID_EXAMPLES[name]
     data = example(name)
-    assert_valid(schema_name, data)
-    loaded = load(data)
-    assert_valid(schema_name, loaded.to_dict())
+    historical_validator(schema_name).validate(data)
+    if schema_name == "evidence":
+        assert_valid(schema_name, load(data).to_dict())
+    else:
+        # Old wire records remain historical and cannot acquire missing new provenance.
+        with pytest.raises(EffectModelError, match="schema_version"):
+            load(data)
+        replacement = {"effect_claim.valid.abstain":"valid_opaque_abstain", "effect_claim.valid.proven":"valid_proven",
+                       "effect_receipt.valid":"valid_receipt_proven", "coverage_ledger.valid":"valid_ledger"}[name]
+        loaded = load(amended_example(replacement))
+        assert_valid(schema_name, loaded.to_dict())
 
 
 @pytest.mark.parametrize("name", sorted(INVALID_EXAMPLES))

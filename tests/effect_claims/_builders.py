@@ -11,6 +11,9 @@ import dataclasses
 from actenon_scan.effects import (
     Acquisition,
     AcquisitionCost,
+    BindingWitness,
+    ImplementationPrecedence,
+    PrecedencePath,
     Admissibility,
     AssertionPredicate,
     Authority,
@@ -60,6 +63,9 @@ E = ProofState.ERROR
 
 SITE = SourceLocator(path="src/tools/zones.ts", start_line=57, end_line=57)
 
+BODY = SourceLocator(path="src/store.py", start_line=10, end_line=20)
+INVOCATION_ID = "inv-src-tools-zones.ts-L57C11"
+
 POSITIVE_PREDICATE = {
     Obligation.IMPLEMENTATION: AssertionPredicate.IMPLEMENTATION_IS,
     Obligation.ACTIVATION: AssertionPredicate.INVOCATION_EXECUTES,
@@ -102,6 +108,10 @@ def packet(
         predicate = POSITIVE_PREDICATE[obligation]
     else:
         predicate = NEGATIVE_PREDICATE[obligation]
+    if obligation is Obligation.IMPLEMENTATION and admissibility is Admissibility.PROBATIVE:
+        if tier is LadderTier.L1 and kind is PacketKind.LOCAL_FUNCTION_BODY:
+            tier, kind = LadderTier.L0, PacketKind.LOCAL_BINDING
+        extra.setdefault("binding", BindingWitness("SELECTED_TARGET", INVOCATION_ID, SITE, BODY))
     return EvidencePacket(
         packet_id=packet_id,
         tier=tier,
@@ -120,7 +130,8 @@ def packet(
 
 
 def candidate(candidate_id="cand-1", kind=CandidateKind.OPAQUE_EXTERNAL, obligations=None):
-    return ImplementationCandidate(candidate_id=candidate_id, kind=kind, obligations=obligations)
+    return ImplementationCandidate(candidate_id=candidate_id, kind=kind, obligations=obligations,
+                                   locator=None if kind in (CandidateKind.OPAQUE_EXTERNAL, CandidateKind.DYNAMIC_UNRESOLVED) else BODY)
 
 
 def descriptors() -> Descriptors:
@@ -141,7 +152,7 @@ def invocation(matched_rule_ids=()) -> Invocation:
     )
 
 
-def abstain_acquisition(unresolved=(Obligation.ACTIVATION, Obligation.BOUNDARY,
+def abstain_acquisition(unresolved=(Obligation.IMPLEMENTATION, Obligation.ACTIVATION, Obligation.BOUNDARY,
                                     Obligation.OPERATION, Obligation.PERSISTENCE)):
     return Acquisition(
         highest_tier_reached=LadderTier.L4,
@@ -185,9 +196,9 @@ def unfamiliar_sdk_claim(**overrides) -> EffectClaim:
         effect_class=EffectClass.EXTERNAL_PERSISTENT_STATE_EFFECT,
         invocation=invocation(),
         genesis=Genesis(inertness_blockers=(InertnessBlocker.OPAQUE_EXTERNAL_CANDIDATE,)),
-        implementation_candidates=[candidate()],
-        selection_state=SelectionState.SINGLE_ESTABLISHED,
-        obligations=states(),
+        implementation_candidates=[candidate(obligations=states(U))],
+        selection_state=SelectionState.UNRESOLVED_IDENTITY,
+        obligations=states(U),
         descriptors=descriptors(),
         acquisition=abstain_acquisition(),
         verdict=Verdict.ABSTAIN,
@@ -208,8 +219,7 @@ def all_blocking_probes_complete(result=ProbeResult.NOT_FOUND):
 def supporting_packets(candidate_id="cand-1", prefix="pkt", skip=()):
     return tuple(
         packet(f"{prefix}-{o.value.lower()}", o, candidate_id=candidate_id)
-        for o in (Obligation.ACTIVATION, Obligation.BOUNDARY,
-                  Obligation.OPERATION, Obligation.PERSISTENCE)
+        for o in Obligation
         if o not in skip
     )
 
@@ -217,8 +227,9 @@ def supporting_packets(candidate_id="cand-1", prefix="pkt", skip=()):
 def proven_claim(**overrides) -> EffectClaim:
     fields = dict(
         implementation_candidates=[
-            candidate(kind=CandidateKind.RESOLVED_DEPENDENCY_SOURCE)
+            candidate(kind=CandidateKind.RESOLVED_LOCAL)
         ],
+        selection_state=SelectionState.SINGLE_ESTABLISHED,
         obligations=states(S, S, S, S, S),
         evidence_packets=supporting_packets(),
         probe_outcomes=all_blocking_probes_complete(),
@@ -242,6 +253,7 @@ def full_closure(refuted=Obligation.PERSISTENCE) -> Closure:
 def no_effect_claim(**overrides) -> EffectClaim:
     fields = dict(
         implementation_candidates=[candidate(kind=CandidateKind.RESOLVED_LOCAL)],
+        selection_state=SelectionState.SINGLE_ESTABLISHED,
         obligations=states(S, S, S, S, R),
         evidence_packets=supporting_packets(skip=(Obligation.PERSISTENCE,))
         + (rolled_back_packet(),),
@@ -268,8 +280,9 @@ def conflicting_claim(**overrides) -> EffectClaim:
                          text="    cur.execute('UPDATE t SET v = 1')")
     fields = dict(
         implementation_candidates=[candidate(kind=CandidateKind.RESOLVED_LOCAL)],
+        selection_state=SelectionState.SINGLE_ESTABLISHED,
         obligations=states(S, U, U, C, U),
-        evidence_packets=(contract_read, body_mutate),
+        evidence_packets=(packet("pkt-implementation", Obligation.IMPLEMENTATION), contract_read, body_mutate),
         contradictions=(
             Contradiction(
                 obligation=Obligation.OPERATION,
@@ -283,7 +296,7 @@ def conflicting_claim(**overrides) -> EffectClaim:
             highest_tier_reached=LadderTier.L6,
             stop_reason=StopReason.NO_FURTHER_TIER,
             tiers_attempted=(LadderTier.L0, LadderTier.L1, LadderTier.L6),
-            unresolved_obligations=(Obligation.ACTIVATION, Obligation.BOUNDARY,
+            unresolved_obligations=(Obligation.ACTIVATION, Obligation.BOUNDARY, Obligation.OPERATION,
                                     Obligation.PERSISTENCE),
             frontier_size=0,
             frontier=(),
@@ -296,6 +309,9 @@ def conflicting_claim(**overrides) -> EffectClaim:
 
 def error_claim(**overrides) -> EffectClaim:
     fields = dict(
+        implementation_candidates=[candidate(kind=CandidateKind.RESOLVED_LOCAL)],
+        selection_state=SelectionState.SINGLE_ESTABLISHED,
+        evidence_packets=(packet("pkt-implementation", Obligation.IMPLEMENTATION),),
         obligations=states(S, U, E, U, U),
         acquisition=Acquisition(
             highest_tier_reached=LadderTier.L1,
@@ -320,8 +336,7 @@ def not_investigated_claim(claim_id="claim-ni", invocation_id="inv-ni") -> Effec
             highest_tier_reached=LadderTier.L0,
             stop_reason=StopReason.CLAIM_NOT_INVESTIGATED,
             tiers_attempted=(),
-            unresolved_obligations=(Obligation.ACTIVATION, Obligation.BOUNDARY,
-                                    Obligation.OPERATION, Obligation.PERSISTENCE),
+            unresolved_obligations=tuple(Obligation),
             frontier_size=0,
             frontier=(),
         ),
@@ -331,6 +346,8 @@ def not_investigated_claim(claim_id="claim-ni", invocation_id="inv-ni") -> Effec
 def evidence_for(cid: str, o: Obligation, state: ProofState):
     stem = f"p-{cid}-{o.value.lower()}"
     pos = packet(f"{stem}-pos", o, candidate_id=cid)
+    if o is Obligation.IMPLEMENTATION:
+        return ([pos] if state is S else []), []
     neg = packet(f"{stem}-neg", o, candidate_id=cid, polarity=Polarity.NEGATIVE)
     if state is S:
         return [pos], []
@@ -348,11 +365,14 @@ def multi_claim(selection, per_candidate, *, kinds=None, claim_states=None, verd
     cands, packets, records = [], [], []
     for i, cand_states in enumerate(per_candidate):
         cid = f"cand-{i + 1}"
-        full = states(S, **{o.value.lower(): cand_states.get(o, U) for o in EVIDENCE_OBLIGATIONS})
         kind = kinds[i] if kinds else CandidateKind.RESOLVED_LOCAL
+        full = states(cand_states.get(Obligation.IMPLEMENTATION, U if kind is CandidateKind.OPAQUE_EXTERNAL else S),
+                      **{o.value.lower(): cand_states.get(o, U) for o in EVIDENCE_OBLIGATIONS})
         cands.append(candidate(cid, kind, full))
-        for o in EVIDENCE_OBLIGATIONS:
+        for o in Obligation:
             ps, ks = evidence_for(cid, o, full[o])
+            ps = [dataclasses.replace(p, binding=dataclasses.replace(p.binding, relation="POSSIBLE_TARGET"))
+                  if p.binding else p for p in ps]
             packets += ps
             records += ks
     if claim_states is None:
@@ -361,7 +381,7 @@ def multi_claim(selection, per_candidate, *, kinds=None, claim_states=None, verd
         acquisition = Acquisition(
             highest_tier_reached=LadderTier.L1, stop_reason=StopReason.NO_FURTHER_TIER,
             tiers_attempted=(LadderTier.L0, LadderTier.L1),
-            unresolved_obligations=tuple(o for o, s in claim_states.items() if s is U),
+            unresolved_obligations=tuple(o for o, s in claim_states.items() if s in (U, C)),
             frontier_size=0, frontier=())
     if verdict is None:
         verdict = Verdict.ANALYSIS_ERROR if E in dict(claim_states.items()).values() else Verdict.ABSTAIN
@@ -375,8 +395,11 @@ def resolved_claim(**overrides):
     base = conflicting_claim()
     record = dataclasses.replace(base.contradictions[0],
                                  resolution=ContradictionResolution.RESOLVED_IMPLEMENTATION_PRECEDENCE,
-                                 overridden_packet_ids=("pkt-contract",))
-    fields = dict(obligations=states(S, U, U, S, U), contradictions=(record,))
+                                 overridden_packet_ids=("pkt-contract",),
+                                 precedence=ImplementationPrecedence("pkt-implementation", (PrecedencePath("pkt-body"),)))
+    fields = dict(obligations=states(S, U, U, S, U), contradictions=(record,),
+                  acquisition=dataclasses.replace(base.acquisition, unresolved_obligations=tuple(
+                      o for o in base.acquisition.unresolved_obligations if o is not Obligation.OPERATION)))
     fields.update(overrides)
     return dataclasses.replace(base, **fields)
 
@@ -384,3 +407,11 @@ def resolved_claim(**overrides):
 def _lockfile():
     from actenon_scan.effects import VersionResolution
     return VersionResolution.LOCKFILE
+
+
+def reidentify(claim, **changes):
+    """Change test claim identity while explicitly updating binding witnesses."""
+    invocation_id = changes.get("invocation_id", claim.invocation_id)
+    packets = tuple(dataclasses.replace(p, binding=dataclasses.replace(p.binding, invocation_id=invocation_id))
+                    if p.binding else p for p in claim.evidence_packets)
+    return dataclasses.replace(claim, evidence_packets=packets, **changes)

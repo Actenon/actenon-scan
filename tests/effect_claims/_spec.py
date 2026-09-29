@@ -18,7 +18,15 @@ def manifest() -> dict:
 
 
 def schema(name: str) -> dict:
+    return json.loads((SPEC_DIR.parent / "AREF-002A" / f"{name}.schema.json").read_text())
+
+
+def historical_schema(name: str) -> dict:
     return load_json(f"{name}.schema.json")
+
+
+def amended_example(name: str) -> dict:
+    return json.loads((SPEC_DIR.parent / "AREF-002A" / "examples" / f"{name}.json").read_text())
 
 
 def example(name: str) -> dict:

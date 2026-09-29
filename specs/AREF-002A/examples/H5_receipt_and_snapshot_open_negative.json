@@ -1,0 +1,723 @@
+{
+  "schema_version": "0.1.1",
+  "claim_id": "claim1",
+  "capability_id": "cap1",
+  "invocation_id": "inv1",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "verdict": "NO_EFFECT",
+  "evidence_packets": [
+    {
+      "packet_id": "c1-implementation",
+      "tier": "L0",
+      "kind": "local_binding",
+      "locator": {
+        "path": "synthetic/subject.py",
+        "start_line": 10,
+        "end_line": 10
+      },
+      "assertion": {
+        "predicate": "implementation_is"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "IMPLEMENTATION",
+      "implementation_candidate_id": "c1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 0,
+        "bytes_read": 1
+      },
+      "extract": {
+        "text": "Authored witness for IMPLEMENTATION",
+        "verbatim": true
+      },
+      "binding": {
+        "relation": "SELECTED_TARGET",
+        "invocation_id": "inv1",
+        "from": {
+          "path": "synthetic/subject.py",
+          "start_line": 10,
+          "end_line": 10
+        },
+        "to": {
+          "path": "synthetic/subject.py",
+          "start_line": 20,
+          "end_line": 29
+        }
+      }
+    },
+    {
+      "packet_id": "c1-activation",
+      "tier": "L1",
+      "kind": "local_function_body",
+      "locator": {
+        "path": "synthetic/subject.py",
+        "start_line": 22,
+        "end_line": 22
+      },
+      "assertion": {
+        "predicate": "invocation_executes"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "ACTIVATION",
+      "implementation_candidate_id": "c1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 0,
+        "bytes_read": 1
+      },
+      "extract": {
+        "text": "Authored witness for ACTIVATION",
+        "verbatim": true
+      }
+    },
+    {
+      "packet_id": "c1-boundary",
+      "tier": "L1",
+      "kind": "local_function_body",
+      "locator": {
+        "path": "synthetic/subject.py",
+        "start_line": 23,
+        "end_line": 23
+      },
+      "assertion": {
+        "predicate": "egress_mechanism_is"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "BOUNDARY",
+      "implementation_candidate_id": "c1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 0,
+        "bytes_read": 1
+      },
+      "extract": {
+        "text": "Authored witness for BOUNDARY",
+        "verbatim": true
+      }
+    },
+    {
+      "packet_id": "c1-operation",
+      "tier": "L1",
+      "kind": "local_function_body",
+      "locator": {
+        "path": "synthetic/subject.py",
+        "start_line": 24,
+        "end_line": 24
+      },
+      "assertion": {
+        "predicate": "operation_is_mutation"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "OPERATION",
+      "implementation_candidate_id": "c1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 0,
+        "bytes_read": 1
+      },
+      "extract": {
+        "text": "Authored witness for OPERATION",
+        "verbatim": true
+      }
+    },
+    {
+      "packet_id": "c1-persistence",
+      "tier": "L1",
+      "kind": "local_function_body",
+      "locator": {
+        "path": "synthetic/subject.py",
+        "start_line": 25,
+        "end_line": 25
+      },
+      "assertion": {
+        "predicate": "state_is_guaranteed_rolled_back"
+      },
+      "polarity": "NEGATIVE",
+      "obligation": "PERSISTENCE",
+      "implementation_candidate_id": "c1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 0,
+        "bytes_read": 1
+      },
+      "extract": {
+        "text": "Authored witness for PERSISTENCE",
+        "verbatim": true
+      }
+    }
+  ],
+  "probe_outcomes": [
+    {
+      "probe_id": "CP-IMPL-01",
+      "obligation": "IMPLEMENTATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-IMPL-02",
+      "obligation": "IMPLEMENTATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-IMPL-04",
+      "obligation": "IMPLEMENTATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-ACT-01",
+      "obligation": "ACTIVATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-ACT-02",
+      "obligation": "ACTIVATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-BND-01",
+      "obligation": "BOUNDARY",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-BND-02",
+      "obligation": "BOUNDARY",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-BND-03",
+      "obligation": "BOUNDARY",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-OPR-01",
+      "obligation": "OPERATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-OPR-02",
+      "obligation": "OPERATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-OPR-03",
+      "obligation": "OPERATION",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-PER-01",
+      "obligation": "PERSISTENCE",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-PER-02",
+      "obligation": "PERSISTENCE",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-PER-03",
+      "obligation": "PERSISTENCE",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-PER-04",
+      "obligation": "PERSISTENCE",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    },
+    {
+      "probe_id": "CP-PER-05",
+      "obligation": "PERSISTENCE",
+      "probe_class": "BLOCKING",
+      "outcome": "NOT_FOUND"
+    }
+  ],
+  "acquisition": {
+    "highest_tier_reached": "L1",
+    "stop_reason": "TIER_UNAVAILABLE",
+    "tiers_attempted": [
+      "L0",
+      "L1"
+    ],
+    "unresolved_obligations": [],
+    "frontier_size": 1,
+    "frontier": [
+      {
+        "origin": {
+          "path": "synthetic/subject.py",
+          "start_line": 10,
+          "end_line": 10
+        },
+        "would_reach_tier": "L5",
+        "reason": "TIER_UNAVAILABLE",
+        "might_settle": [
+          "PERSISTENCE"
+        ]
+      }
+    ],
+    "frontier_truncated": false
+  },
+  "receipt_id": "receipt1",
+  "answers": {
+    "effect": {
+      "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+      "verdict": "NO_EFFECT",
+      "statement": "Illustrative ABSTAIN proof record; no source acquisition performed."
+    },
+    "implementation": {
+      "selection_state": "SINGLE_ESTABLISHED",
+      "candidates": [
+        {
+          "candidate_id": "c1",
+          "kind": "RESOLVED_LOCAL",
+          "locator": {
+            "path": "synthetic/subject.py",
+            "start_line": 20,
+            "end_line": 29
+          },
+          "obligations": {
+            "IMPLEMENTATION": "SUPPORTED",
+            "ACTIVATION": "SUPPORTED",
+            "BOUNDARY": "SUPPORTED",
+            "OPERATION": "SUPPORTED",
+            "PERSISTENCE": "REFUTED"
+          }
+        }
+      ],
+      "selected_candidate_id": "c1"
+    },
+    "resource": {
+      "coordinates": [],
+      "scope": "unknown"
+    },
+    "control": {
+      "TRIGGER_CONTROL": "UNKNOWN",
+      "TARGET_CONTROL": "UNKNOWN",
+      "CONTENT_CONTROL": "UNKNOWN"
+    },
+    "authority": {
+      "state": "UNKNOWN"
+    },
+    "activation": {
+      "state": "SUPPORTED",
+      "settled_by_packet_ids": [
+        "c1-activation"
+      ]
+    },
+    "boundary": {
+      "state": "SUPPORTED",
+      "settled_by_packet_ids": [
+        "c1-boundary"
+      ]
+    },
+    "operation": {
+      "state": "SUPPORTED",
+      "settled_by_packet_ids": [
+        "c1-operation"
+      ]
+    },
+    "persistence": {
+      "state": "REFUTED",
+      "settled_by_packet_ids": [
+        "c1-persistence"
+      ]
+    },
+    "contradictions": {
+      "contradictions": [],
+      "counter_evidence_found": [],
+      "blocking_probes_incomplete": []
+    },
+    "unknowns": {
+      "unresolved_obligations": [],
+      "highest_tier_reached": "L1",
+      "stop_reason": "TIER_UNAVAILABLE",
+      "frontier_size": 1,
+      "frontier": [
+        {
+          "origin": {
+            "path": "synthetic/subject.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "would_reach_tier": "L5",
+          "reason": "TIER_UNAVAILABLE",
+          "might_settle": [
+            "PERSISTENCE"
+          ]
+        }
+      ]
+    }
+  },
+  "claim_snapshot": {
+    "schema_version": "0.1.1",
+    "claim_id": "claim1",
+    "capability_id": "cap1",
+    "invocation_id": "inv1",
+    "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+    "invocation": {
+      "locator": {
+        "path": "synthetic/subject.py",
+        "start_line": 10,
+        "end_line": 10
+      },
+      "callee_expression": "x.f",
+      "language": "python",
+      "matched_rule_ids": []
+    },
+    "genesis": {
+      "basis": "NON_REFUTATION_OF_INERTNESS",
+      "inertness_established": false
+    },
+    "implementation_candidates": [
+      {
+        "candidate_id": "c1",
+        "kind": "RESOLVED_LOCAL",
+        "locator": {
+          "path": "synthetic/subject.py",
+          "start_line": 20,
+          "end_line": 29
+        },
+        "obligations": {
+          "IMPLEMENTATION": "SUPPORTED",
+          "ACTIVATION": "SUPPORTED",
+          "BOUNDARY": "SUPPORTED",
+          "OPERATION": "SUPPORTED",
+          "PERSISTENCE": "REFUTED"
+        }
+      }
+    ],
+    "selection_state": "SINGLE_ESTABLISHED",
+    "obligations": {
+      "IMPLEMENTATION": "SUPPORTED",
+      "ACTIVATION": "SUPPORTED",
+      "BOUNDARY": "SUPPORTED",
+      "OPERATION": "SUPPORTED",
+      "PERSISTENCE": "REFUTED"
+    },
+    "descriptors": {
+      "target": {
+        "coordinates": [],
+        "scope": "unknown"
+      },
+      "control": {
+        "TRIGGER_CONTROL": "UNKNOWN",
+        "TARGET_CONTROL": "UNKNOWN",
+        "CONTENT_CONTROL": "UNKNOWN"
+      },
+      "authority": {
+        "state": "UNKNOWN"
+      },
+      "conditions": []
+    },
+    "evidence_packets": [
+      {
+        "packet_id": "c1-implementation",
+        "tier": "L0",
+        "kind": "local_binding",
+        "locator": {
+          "path": "synthetic/subject.py",
+          "start_line": 10,
+          "end_line": 10
+        },
+        "assertion": {
+          "predicate": "implementation_is"
+        },
+        "polarity": "POSITIVE",
+        "obligation": "IMPLEMENTATION",
+        "implementation_candidate_id": "c1",
+        "admissibility": "PROBATIVE",
+        "strength": "STRONG",
+        "acquisition_cost": {
+          "hops": 0,
+          "bytes_read": 1
+        },
+        "extract": {
+          "text": "Authored witness for IMPLEMENTATION",
+          "verbatim": true
+        },
+        "binding": {
+          "relation": "SELECTED_TARGET",
+          "invocation_id": "inv1",
+          "from": {
+            "path": "synthetic/subject.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "to": {
+            "path": "synthetic/subject.py",
+            "start_line": 20,
+            "end_line": 29
+          }
+        }
+      },
+      {
+        "packet_id": "c1-activation",
+        "tier": "L1",
+        "kind": "local_function_body",
+        "locator": {
+          "path": "synthetic/subject.py",
+          "start_line": 22,
+          "end_line": 22
+        },
+        "assertion": {
+          "predicate": "invocation_executes"
+        },
+        "polarity": "POSITIVE",
+        "obligation": "ACTIVATION",
+        "implementation_candidate_id": "c1",
+        "admissibility": "PROBATIVE",
+        "strength": "STRONG",
+        "acquisition_cost": {
+          "hops": 0,
+          "bytes_read": 1
+        },
+        "extract": {
+          "text": "Authored witness for ACTIVATION",
+          "verbatim": true
+        }
+      },
+      {
+        "packet_id": "c1-boundary",
+        "tier": "L1",
+        "kind": "local_function_body",
+        "locator": {
+          "path": "synthetic/subject.py",
+          "start_line": 23,
+          "end_line": 23
+        },
+        "assertion": {
+          "predicate": "egress_mechanism_is"
+        },
+        "polarity": "POSITIVE",
+        "obligation": "BOUNDARY",
+        "implementation_candidate_id": "c1",
+        "admissibility": "PROBATIVE",
+        "strength": "STRONG",
+        "acquisition_cost": {
+          "hops": 0,
+          "bytes_read": 1
+        },
+        "extract": {
+          "text": "Authored witness for BOUNDARY",
+          "verbatim": true
+        }
+      },
+      {
+        "packet_id": "c1-operation",
+        "tier": "L1",
+        "kind": "local_function_body",
+        "locator": {
+          "path": "synthetic/subject.py",
+          "start_line": 24,
+          "end_line": 24
+        },
+        "assertion": {
+          "predicate": "operation_is_mutation"
+        },
+        "polarity": "POSITIVE",
+        "obligation": "OPERATION",
+        "implementation_candidate_id": "c1",
+        "admissibility": "PROBATIVE",
+        "strength": "STRONG",
+        "acquisition_cost": {
+          "hops": 0,
+          "bytes_read": 1
+        },
+        "extract": {
+          "text": "Authored witness for OPERATION",
+          "verbatim": true
+        }
+      },
+      {
+        "packet_id": "c1-persistence",
+        "tier": "L1",
+        "kind": "local_function_body",
+        "locator": {
+          "path": "synthetic/subject.py",
+          "start_line": 25,
+          "end_line": 25
+        },
+        "assertion": {
+          "predicate": "state_is_guaranteed_rolled_back"
+        },
+        "polarity": "NEGATIVE",
+        "obligation": "PERSISTENCE",
+        "implementation_candidate_id": "c1",
+        "admissibility": "PROBATIVE",
+        "strength": "STRONG",
+        "acquisition_cost": {
+          "hops": 0,
+          "bytes_read": 1
+        },
+        "extract": {
+          "text": "Authored witness for PERSISTENCE",
+          "verbatim": true
+        }
+      }
+    ],
+    "probe_outcomes": [
+      {
+        "probe_id": "CP-IMPL-01",
+        "obligation": "IMPLEMENTATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-IMPL-02",
+        "obligation": "IMPLEMENTATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-IMPL-04",
+        "obligation": "IMPLEMENTATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-ACT-01",
+        "obligation": "ACTIVATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-ACT-02",
+        "obligation": "ACTIVATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-BND-01",
+        "obligation": "BOUNDARY",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-BND-02",
+        "obligation": "BOUNDARY",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-BND-03",
+        "obligation": "BOUNDARY",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-OPR-01",
+        "obligation": "OPERATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-OPR-02",
+        "obligation": "OPERATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-OPR-03",
+        "obligation": "OPERATION",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-PER-01",
+        "obligation": "PERSISTENCE",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-PER-02",
+        "obligation": "PERSISTENCE",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-PER-03",
+        "obligation": "PERSISTENCE",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-PER-04",
+        "obligation": "PERSISTENCE",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      },
+      {
+        "probe_id": "CP-PER-05",
+        "obligation": "PERSISTENCE",
+        "probe_class": "BLOCKING",
+        "outcome": "NOT_FOUND"
+      }
+    ],
+    "contradictions": [],
+    "acquisition": {
+      "highest_tier_reached": "L1",
+      "stop_reason": "TIER_UNAVAILABLE",
+      "tiers_attempted": [
+        "L0",
+        "L1"
+      ],
+      "unresolved_obligations": [],
+      "frontier_size": 1,
+      "frontier": [
+        {
+          "origin": {
+            "path": "synthetic/subject.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "would_reach_tier": "L5",
+          "reason": "TIER_UNAVAILABLE",
+          "might_settle": [
+            "PERSISTENCE"
+          ]
+        }
+      ],
+      "frontier_truncated": false
+    },
+    "verdict": "NO_EFFECT",
+    "closure": {
+      "refuted_obligation": "PERSISTENCE",
+      "C1_no_opaque_or_dynamic_candidate": true,
+      "C2_refuted_for_every_candidate": true,
+      "C3_no_conflicting_obligation": true,
+      "C4_no_budget_exhausted_on_contributing_path": true,
+      "C5_relevant_frontier_empty": true,
+      "C6_no_error_on_necessary_obligation": true
+    }
+  },
+  "rendering_constraints": {
+    "is_negative_result": false,
+    "may_render_as_safe": false
+  },
+  "closure": {
+    "refuted_obligation": "PERSISTENCE",
+    "C1_no_opaque_or_dynamic_candidate": true,
+    "C2_refuted_for_every_candidate": true,
+    "C3_no_conflicting_obligation": true,
+    "C4_no_budget_exhausted_on_contributing_path": true,
+    "C5_relevant_frontier_empty": true,
+    "C6_no_error_on_necessary_obligation": true
+  }
+}

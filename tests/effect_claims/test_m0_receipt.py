@@ -18,6 +18,7 @@ from actenon_scan.effects import (
     BLOCKING_PROBE_IDS,
     Admissibility,
     EffectModelError,
+    EffectClaim,
     EffectReceipt,
     Obligation,
     ProbeClass,
@@ -46,7 +47,7 @@ from ._builders import (
     resolved_claim,
     unfamiliar_sdk_claim,
 )
-from ._spec import example
+from ._spec import example, amended_example
 
 
 def receipt_of(claim):
@@ -135,25 +136,25 @@ def test_8_conflicting_receipt_cannot_be_downgraded_to_unknown():
     def downgrade(data):
         data["answers"]["operation"] = {"state": "UNKNOWN", "settled_by_packet_ids": []}
         for section in (data["answers"]["unknowns"], data["acquisition"]):
-            section["unresolved_obligations"].append("OPERATION")
+            if "OPERATION" not in section["unresolved_obligations"]:
+                section["unresolved_obligations"].append("OPERATION")
 
-    with pytest.raises(EffectModelError, match="never discarded"):
+    with pytest.raises(EffectModelError, match="OPERATION answer/settling packets disagree with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, downgrade))
 
     def downgrade_and_drop_record(data):
         downgrade(data)
         data["answers"]["contradictions"]["contradictions"] = []
 
-    with pytest.raises(EffectModelError, match="never discarded"):
+    with pytest.raises(EffectModelError, match="OPERATION answer/settling packets disagree with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, downgrade_and_drop_record))
 
 
-def test_8_wholesale_erasure_is_only_detectable_by_rederiving_from_the_claim():
-    """AREF-002 defines no receipt digest: a receipt is self-consistent, not tamper-evident.
+def test_8_wholesale_erasure_disagrees_with_required_claim_snapshot():
+    """The amended snapshot enforces self-consistency, without claiming tamper evidence.
 
-    Removing every packet, record and settled answer together yields a
-    coherent but different receipt. It is caught by comparing with the
-    receipt derived from the claim, never by the receipt alone.
+    A party replacing both the entire snapshot and its projections with a new
+    valid claim is outside stateless validation's guarantees.
     """
     claim = dataclasses.replace(conflicting_claim(), receipt_id="rcpt-1")
     genuine = EffectReceipt.from_claim(claim)
@@ -161,14 +162,13 @@ def test_8_wholesale_erasure_is_only_detectable_by_rederiving_from_the_claim():
     def erase(data):
         data["answers"]["operation"] = {"state": "UNKNOWN", "settled_by_packet_ids": []}
         for section in (data["answers"]["unknowns"], data["acquisition"]):
-            section["unresolved_obligations"].append("OPERATION")
+            if "OPERATION" not in section["unresolved_obligations"]:
+                section["unresolved_obligations"].append("OPERATION")
         data["answers"]["contradictions"]["contradictions"] = []
         data["evidence_packets"] = []
 
-    forged = EffectReceipt.from_dict(tampered(genuine, erase))
-    assert forged != genuine
-    assert forged != EffectReceipt.from_claim(claim)
-    assert forged.verdict is Verdict.ABSTAIN and not forged.is_negative_result
+    with pytest.raises(EffectModelError, match="receipt evidence_packets disagrees with underlying claim"):
+        EffectReceipt.from_dict(tampered(genuine, erase))
 
 
 def test_8_resolved_receipt_keeps_the_overridden_packet_but_cites_only_the_winner():
@@ -182,13 +182,13 @@ def test_8_resolved_receipt_keeps_the_overridden_packet_but_cites_only_the_winne
 
 def test_8_overridden_packet_cannot_be_dropped_from_a_receipt():
     receipt = receipt_of(resolved_claim())
-    with pytest.raises(EffectModelError, match="evidence is never discarded"):
+    with pytest.raises(EffectModelError, match="receipt evidence_packets disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, drop_packet("pkt-contract")))
 
 
 def test_8_cited_packet_cannot_be_dropped_from_a_receipt():
     receipt = receipt_of(proven_claim())
-    with pytest.raises(EffectModelError, match="does not carry"):
+    with pytest.raises(EffectModelError, match="receipt evidence_packets disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, drop_packet("pkt-operation")))
 
 
@@ -219,7 +219,7 @@ def test_8_counter_evidence_cannot_be_suppressed():
     with pytest.raises(EffectModelError, match="counter_evidence_found"):
         EffectReceipt.from_dict(tampered(receipt, hide_report))
 
-    with pytest.raises(EffectModelError, match="unknown packet|does not carry"):
+    with pytest.raises(EffectModelError, match="receipt evidence_packets disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, drop_packet("pkt-rollback")))
 
     def flip_outcome(data):
@@ -261,12 +261,12 @@ def set_answer(obligation, **fields):
 
 def test_supported_answer_cannot_cite_a_hypothesis_only_packet():
     base = proven_claim()
-    hyp = dataclasses.replace(base.evidence_packets[0], packet_id="pkt-hyp",
+    hyp = dataclasses.replace(next(p for p in base.evidence_packets if p.obligation is Obligation.OPERATION), packet_id="pkt-hyp",
                               admissibility=Admissibility.HYPOTHESIS_ONLY)
     claim = dataclasses.replace(base, evidence_packets=base.evidence_packets + (hyp,))
     receipt = receipt_of(claim)
     obligation = hyp.obligation
-    with pytest.raises(EffectModelError, match="not PROBATIVE"):
+    with pytest.raises(EffectModelError, match="OPERATION answer/settling packets disagree with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, set_answer(obligation, settled_by_packet_ids=["pkt-hyp"])))
 
 
@@ -278,10 +278,10 @@ def test_supported_answer_must_cite_something():
 
 def test_supported_answer_cannot_cite_opposing_polarity():
     receipt = receipt_of(resolved_claim())
-    with pytest.raises(EffectModelError, match="POSITIVE packets only"):
+    with pytest.raises(EffectModelError, match="OPERATION answer/settling packets disagree with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, set_answer(Obligation.OPERATION,
                                                              settled_by_packet_ids=["pkt-body", "pkt-contract"])))
-    with pytest.raises(EffectModelError, match="not PROBATIVE settling evidence on BOUNDARY"):
+    with pytest.raises(EffectModelError, match="BOUNDARY answer/settling packets disagree with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt_of(no_effect_claim()),
                                          set_answer(Obligation.BOUNDARY, settled_by_packet_ids=["pkt-rollback"])))
 
@@ -320,7 +320,7 @@ def test_answer_cannot_be_upgraded_from_unknown_to_supported_without_evidence():
     def upgrade(data):
         data["answers"]["boundary"] = {"state": "SUPPORTED", "settled_by_packet_ids": ["pkt-x"]}
 
-    with pytest.raises(EffectModelError, match="does not carry"):
+    with pytest.raises(EffectModelError, match="BOUNDARY answer/settling packets disagree with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, upgrade))
 
 
@@ -343,7 +343,7 @@ def test_unknown_obligation_must_appear_in_unknowns():
         for section in (data["answers"]["unknowns"], data["acquisition"]):
             section["unresolved_obligations"].remove("BOUNDARY")
 
-    with pytest.raises(EffectModelError, match="must be listed as unresolved"):
+    with pytest.raises(EffectModelError, match="receipt acquisition disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, hide))
 
 
@@ -353,7 +353,7 @@ def test_unknowns_answer_must_agree_with_acquisition():
     def disagree(data):
         data["answers"]["unknowns"]["stop_reason"] = StopReason.SETTLED.value
 
-    with pytest.raises(EffectModelError, match="unknowns answer disagrees"):
+    with pytest.raises(EffectModelError, match="unknowns stop_reason disagrees with acquisition record"):
         EffectReceipt.from_dict(tampered(receipt, disagree))
 
 
@@ -381,7 +381,7 @@ def test_divergent_receipt_keeps_both_candidates_and_selects_none():
         for cand in data["answers"]["implementation"]["candidates"]:
             del cand["obligations"]
 
-    with pytest.raises(EffectModelError, match="carries its own obligation states"):
+    with pytest.raises(EffectModelError, match="implementation answer disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, strip_states))
 
 
@@ -393,7 +393,7 @@ def test_divergent_receipt_cannot_adopt_one_candidates_answer():
         for section in (data["answers"]["unknowns"], data["acquisition"]):
             section["unresolved_obligations"].remove("OPERATION")
 
-    with pytest.raises(EffectModelError, match="aggregate to UNKNOWN"):
+    with pytest.raises(EffectModelError, match="receipt acquisition disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, adopt_first))
 
 
@@ -408,7 +408,7 @@ def test_error_receipt_cannot_become_abstain():
     def abstain(data):
         data["verdict"] = data["answers"]["effect"]["verdict"] = "ABSTAIN"
 
-    with pytest.raises(EffectModelError, match="ANALYSIS_ERROR"):
+    with pytest.raises(EffectModelError, match="receipt verdict disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, abstain))
 
 
@@ -482,7 +482,7 @@ def test_incomplete_probe_must_be_listed_and_completed_probe_must_not():
     def unlist(data):
         data["answers"]["contradictions"]["blocking_probes_incomplete"].remove("CP-BND-01")
 
-    with pytest.raises(EffectModelError, match="must be reported as such"):
+    with pytest.raises(EffectModelError, match="missing/incomplete BLOCKING probes must be reported"):
         EffectReceipt.from_dict(tampered(receipt, unlist))
 
     completed = receipt_of(proven_claim())
@@ -490,7 +490,7 @@ def test_incomplete_probe_must_be_listed_and_completed_probe_must_not():
     def list_completed(data):
         data["answers"]["contradictions"]["blocking_probes_incomplete"] = ["CP-BND-01"]
 
-    with pytest.raises(EffectModelError, match="completed but is reported incomplete"):
+    with pytest.raises(EffectModelError, match="missing/incomplete BLOCKING probes must be reported"):
         EffectReceipt.from_dict(tampered(completed, list_completed))
 
 
@@ -503,7 +503,7 @@ def test_only_registered_blocking_probes_can_be_listed_incomplete():
             EffectReceipt.from_dict(tampered(receipt, add))
 
 
-def test_proven_receipt_cannot_carry_found_blocking_counter_evidence():
+def test_proven_receipt_cannot_falsify_its_claim_probe_outcomes():
     receipt = receipt_of(proven_claim())
 
     def found(data):
@@ -513,7 +513,7 @@ def test_proven_receipt_cannot_carry_found_blocking_counter_evidence():
                 o["packet_ids"] = ["pkt-operation"]
                 data["answers"]["contradictions"]["counter_evidence_found"] = [o]
 
-    with pytest.raises(EffectModelError, match="no BLOCKING probe found counter-evidence"):
+    with pytest.raises(EffectModelError, match="receipt probe_outcomes disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, found))
 
 
@@ -527,7 +527,7 @@ def test_proven_receipt_cannot_hide_an_incomplete_blocking_probe():
                 o["incomplete_reason"] = "TIER_UNAVAILABLE"
         data["answers"]["contradictions"]["blocking_probes_incomplete"] = ["CP-PER-02"]
 
-    with pytest.raises(EffectModelError, match="every BLOCKING probe"):
+    with pytest.raises(EffectModelError, match="receipt probe_outcomes disagrees with underlying claim"):
         EffectReceipt.from_dict(tampered(receipt, make_incomplete))
 
 
@@ -577,15 +577,27 @@ def test_statements_name_no_provider_and_never_say_safe():
 
 
 def test_frozen_valid_receipt_loads_and_roundtrips():
-    receipt = EffectReceipt.from_dict(example("effect_receipt.valid"))
+    receipt = EffectReceipt.from_dict(amended_example("valid_receipt_proven"))
     assert roundtrip(receipt) == receipt
 
 
 def test_frozen_invalid_receipt_is_rejected_for_each_stated_reason():
-    data = example("effect_receipt.invalid")
-    with pytest.raises(EffectModelError, match="unknowns"):
+    with pytest.raises(EffectModelError, match="schema_version must be 0.1.1"):
+        EffectReceipt.from_dict(example("effect_receipt.invalid"))
+    # Recreate both historical attacks on the amended wire contract.
+    data = amended_example("valid_receipt_proven")
+    del data["answers"]["unknowns"]
+    with pytest.raises(EffectModelError, match="missing required key.*unknowns"):
         EffectReceipt.from_dict(data)
+    data = amended_example("valid_receipt_proven")
+    data["answers"]["boundary"]["settled_by_packet_ids"] = []
     with pytest.raises(EffectModelError, match="must name the PROBATIVE packets"):
-        EffectReceipt.from_dict(data | {"answers": data["answers"] | {"unknowns": {
-            "unresolved_obligations": [], "highest_tier_reached": "L0",
-            "stop_reason": "CLAIM_NOT_INVESTIGATED", "frontier_size": 0}}})
+        EffectReceipt.from_dict(data)
+
+
+def test_completed_hypothesis_found_is_retained_in_proven_receipt():
+    claim = EffectClaim.from_dict(amended_example("valid_hypothesis_found"))
+    receipt = EffectReceipt.from_claim(claim, "found-receipt")
+    assert receipt.verdict is Verdict.PROVEN_EFFECT
+    assert receipt.answers.contradictions.counter_evidence_found
+    assert roundtrip(receipt) == receipt

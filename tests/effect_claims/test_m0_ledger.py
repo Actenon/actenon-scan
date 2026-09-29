@@ -37,14 +37,14 @@ from ._builders import (
     proven_claim,
     resolved_claim,
     unfamiliar_sdk_claim,
+    reidentify,
 )
-from ._spec import example
+from ._spec import example, amended_example
 
 
 def distinct(claim, n):
     """The same claim at a different invocation, so identities do not collide."""
-    return type(claim)(**{**{f: getattr(claim, f) for f in claim.__dataclass_fields__},
-                          "claim_id": f"claim-{n:04d}", "invocation_id": f"inv-{n:04d}"})
+    return reidentify(claim, claim_id=f"claim-{n:04d}", invocation_id=f"inv-{n:04d}")
 
 
 def one_of_each():
@@ -135,7 +135,7 @@ def test_9_divergent_unknown_is_not_counted_as_refuted():
     ledger = ledger_of([claim])
     assert ledger.obligation_state_distribution[Obligation.OPERATION][ProofState.UNKNOWN] == 1
     assert ledger.obligation_state_distribution[Obligation.OPERATION][ProofState.REFUTED] == 0
-    assert ledger.obligation_state_distribution[Obligation.IMPLEMENTATION][ProofState.UNKNOWN] == 1
+    assert ledger.obligation_state_distribution[Obligation.IMPLEMENTATION][ProofState.SUPPORTED] == 1
     assert ledger.negative_results == 0
 
 
@@ -245,7 +245,7 @@ def test_analysis_errors_cannot_be_hidden():
     def hide(data):
         data["analysis_errors"]["total"] = 0
 
-    with pytest.raises(EffectModelError, match="analysis error"):
+    with pytest.raises(EffectModelError, match="analysis_errors.total counts exactly"):
         CoverageLedger.from_dict(tampered(ledger, hide))
 
 
@@ -416,7 +416,7 @@ def test_ledger_roundtrips_through_json():
 
 
 def test_frozen_valid_ledger_loads_and_roundtrips():
-    ledger = CoverageLedger.from_dict(example("coverage_ledger.valid"))
+    ledger = CoverageLedger.from_dict(amended_example("valid_ledger"))
     assert CoverageLedger.from_dict(ledger.to_dict()) == ledger
     assert ledger.unresolved == ledger.abstained + ledger.not_investigated
 

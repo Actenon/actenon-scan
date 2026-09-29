@@ -1,0 +1,827 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002a/effect-claim-0.1.1.json",
+  "title": "AREF-002A EffectClaim",
+  "description": "The AREF-002 central domain object as amended by AREF-002A. Claim genesis is independent of sink rules. All candidate proof states are preserved and aggregated before verdict validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim_id",
+    "capability_id",
+    "invocation_id",
+    "effect_class",
+    "invocation",
+    "genesis",
+    "implementation_candidates",
+    "selection_state",
+    "obligations",
+    "descriptors",
+    "evidence_packets",
+    "probe_outcomes",
+    "acquisition",
+    "verdict"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.1"
+    },
+    "claim_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+    },
+    "capability_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier",
+      "description": "The model-reachable entry surface from which this invocation is reachable."
+    },
+    "invocation_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier",
+      "description": "The call site. Deliberately does not contain a rule id: identity is (capability_id, invocation_id, effect_class)."
+    },
+    "effect_class": {
+      "$ref": "#/$defs/effectClass"
+    },
+    "invocation": {
+      "$ref": "#/$defs/invocation"
+    },
+    "genesis": {
+      "$ref": "#/$defs/genesis"
+    },
+    "implementation_candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/implementationCandidate"
+      },
+      "description": "Set-valued by requirement 3. At least one candidate always exists; an unresolvable callee yields OPAQUE_EXTERNAL or DYNAMIC_UNRESOLVED, which are first-class candidates and not errors."
+    },
+    "selection_state": {
+      "$ref": "#/$defs/selectionState"
+    },
+    "obligations": {
+      "$ref": "#/$defs/obligationStates"
+    },
+    "descriptors": {
+      "$ref": "#/$defs/descriptors"
+    },
+    "evidence_packets": {
+      "type": "array",
+      "items": {
+        "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json"
+      },
+      "description": "May be empty. An empty packet set is the normal initial state of a claim and yields five UNKNOWN obligations with verdict ABSTAIN."
+    },
+    "probe_outcomes": {
+      "type": "array",
+      "items": {
+        "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/probeOutcome"
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contradiction"
+      }
+    },
+    "acquisition": {
+      "$ref": "#/$defs/acquisition"
+    },
+    "verdict": {
+      "$ref": "#/$defs/verdict"
+    },
+    "verdict_rationale": {
+      "type": "string",
+      "description": "Why this verdict and not another, in terms of obligation states and closure conditions."
+    },
+    "priority": {
+      "$ref": "#/$defs/priority"
+    },
+    "receipt_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+    },
+    "closure": {
+      "$ref": "#/$defs/closure"
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "NO_EFFECT requires a REFUTED necessary obligation and established closure C1 to C6.",
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "NO_EFFECT"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "required": [
+          "closure"
+        ],
+        "properties": {
+          "closure": {
+            "$ref": "#/$defs/closure"
+          }
+        }
+      }
+    },
+    {
+      "$comment": "Every ABSTAIN must carry its highest tier reached, stop reason, unresolved obligations and frontier (AREF-002-T17).",
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "ABSTAIN"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "acquisition": {
+            "required": [
+              "highest_tier_reached",
+              "stop_reason",
+              "unresolved_obligations",
+              "frontier_size"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "$comment": "PROVEN_EFFECT requires a sufficiently established implementation selection.",
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PROVEN_EFFECT"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "selection_state": {
+            "enum": [
+              "SINGLE_ESTABLISHED",
+              "AGREEMENT_INVARIANT"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "not": {
+              "const": "NO_EFFECT"
+            }
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "closure"
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "effectClass": {
+      "description": "v1 populates exactly one effect class. Nine further classes are declared but unpopulated in architecture_manifest.json and none of their obligations may be read by the v1 verdict function.",
+      "type": "string",
+      "enum": [
+        "EXTERNAL_PERSISTENT_STATE_EFFECT"
+      ]
+    },
+    "proofState": {
+      "description": "Frozen by requirement 5. ERROR is separate from UNKNOWN because 'we did not find out' and 'our analysis broke' require different responses. CONFLICTING never silently collapses to UNKNOWN.",
+      "type": "string",
+      "enum": [
+        "SUPPORTED",
+        "REFUTED",
+        "UNKNOWN",
+        "CONFLICTING",
+        "ERROR"
+      ]
+    },
+    "verdict": {
+      "description": "Frozen by requirement 6.",
+      "type": "string",
+      "enum": [
+        "PROVEN_EFFECT",
+        "NO_EFFECT",
+        "ABSTAIN",
+        "ANALYSIS_ERROR"
+      ]
+    },
+    "invocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locator",
+        "callee_expression",
+        "language"
+      ],
+      "properties": {
+        "locator": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/locator"
+        },
+        "callee_expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The callee as written. Recorded for auditability. An identifier is never probative evidence."
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "python",
+            "typescript",
+            "javascript",
+            "go",
+            "other"
+          ]
+        },
+        "argument_shape": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "position"
+            ],
+            "properties": {
+              "position": {
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "literal": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "taint": {
+                "$ref": "#/$defs/taintState"
+              }
+            }
+          }
+        },
+        "matched_rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Provenance only, and may be empty. An empty array is the case the whole architecture exists to handle: the claim exists regardless."
+        }
+      }
+    },
+    "genesis": {
+      "description": "Why this claim exists. The only legal basis in v1 is non-refutation of inertness; a rule match is never a basis.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "inertness_established"
+      ],
+      "properties": {
+        "basis": {
+          "const": "NON_REFUTATION_OF_INERTNESS",
+          "description": "Requirement 2: EffectClaim existence MUST NOT require a known sink hit."
+        },
+        "inertness_established": {
+          "const": false,
+          "description": "If inertness were established the claim would not exist. Always false on an emitted claim."
+        },
+        "inertness_blockers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "OPAQUE_EXTERNAL_CANDIDATE",
+              "DYNAMIC_UNRESOLVED_CANDIDATE",
+              "UNRESOLVED_CALLEE",
+              "BUDGET_EXHAUSTED",
+              "NON_EMPTY_FRONTIER",
+              "NO_PROBATIVE_REFUTATION",
+              "CONFLICTING_OBLIGATION",
+              "ACQUISITION_ERROR"
+            ]
+          },
+          "description": "Which conditions prevented PROVEN INERT."
+        }
+      }
+    },
+    "implementationCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "kind"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+        },
+        "kind": {
+          "$ref": "#/$defs/candidateKind"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "locator": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/locator"
+        },
+        "obligations": {
+          "$ref": "#/$defs/obligationStates",
+          "description": "Per-candidate obligation states. Aggregate all five with AREF-002A aggregation.md; selection labels never replace these states. Omission is legal only for the unique established shorthand in selection.md."
+        },
+        "resolved_at_tier": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/tier"
+        }
+      }
+    },
+    "candidateKind": {
+      "description": "OPAQUE_EXTERNAL is a first-class candidate, not an error. That single decision is what allows a claim to exist for an SDK Actenon has never seen.",
+      "type": "string",
+      "enum": [
+        "RESOLVED_LOCAL",
+        "RESOLVED_DEPENDENCY_SOURCE",
+        "CONTRACT_DECLARED",
+        "OPAQUE_EXTERNAL",
+        "DYNAMIC_UNRESOLVED",
+        "TEST_DOUBLE"
+      ]
+    },
+    "selectionState": {
+      "description": "AREF-002A selection.md; labels never overwrite per-candidate states.",
+      "type": "string",
+      "enum": [
+        "SINGLE_ESTABLISHED",
+        "AGREEMENT_INVARIANT",
+        "UNRESOLVED_DIVERGENT",
+        "SELECTION_ERROR",
+        "UNRESOLVED_IDENTITY"
+      ]
+    },
+    "obligationStates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "PERSISTENCE"
+      ],
+      "properties": {
+        "IMPLEMENTATION": {
+          "$ref": "#/$defs/proofState"
+        },
+        "ACTIVATION": {
+          "$ref": "#/$defs/proofState"
+        },
+        "BOUNDARY": {
+          "$ref": "#/$defs/proofState"
+        },
+        "OPERATION": {
+          "$ref": "#/$defs/proofState"
+        },
+        "PERSISTENCE": {
+          "$ref": "#/$defs/proofState"
+        }
+      }
+    },
+    "descriptors": {
+      "description": "Retained separately and never obligations (requirement 8). REI-002 measured a fixed-target effect at PROVEN_EFFECT with TRIGGER_CONTROL SUPPORTED and TARGET_CONTROL REFUTED, so folding any of these into the conjunction would contradict a measured result.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "control",
+        "authority",
+        "conditions"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "control": {
+          "$ref": "#/$defs/control"
+        },
+        "authority": {
+          "$ref": "#/$defs/authority"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition"
+          }
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinates",
+        "scope"
+      ],
+      "properties": {
+        "coordinates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "resolution"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "Free-form in v1. No closed resource vocabulary is frozen; AREF-001 D-05 is DEFERRED."
+              },
+              "value": {
+                "type": "string"
+              },
+              "resolution": {
+                "$ref": "#/$defs/resolutionState"
+              }
+            }
+          }
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "single",
+            "set",
+            "all",
+            "unknown"
+          ],
+          "description": "Retained from AREF-001 D-03 because it is the component that changes a reader's decision. Never an obligation, and no severity input in v1."
+        }
+      }
+    },
+    "control": {
+      "description": "Three independent sub-descriptors, each a proof state, because REI-002 measured a case where they disagreed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "TRIGGER_CONTROL",
+        "TARGET_CONTROL",
+        "CONTENT_CONTROL"
+      ],
+      "properties": {
+        "TRIGGER_CONTROL": {
+          "$ref": "#/$defs/proofState"
+        },
+        "TARGET_CONTROL": {
+          "$ref": "#/$defs/proofState"
+        },
+        "CONTENT_CONTROL": {
+          "$ref": "#/$defs/proofState"
+        },
+        "taint": {
+          "$ref": "#/$defs/taintState"
+        }
+      }
+    },
+    "authority": {
+      "description": "Authority is not an obligation of effect (REI-002). Present or absent, it never changes a verdict.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/proofState"
+        },
+        "mechanism": {
+          "type": "string"
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "expression"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "guard",
+            "feature_flag",
+            "environment_predicate",
+            "branch_condition",
+            "exception_handler"
+          ]
+        },
+        "expression": {
+          "type": "string"
+        },
+        "locator": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/locator"
+        }
+      }
+    },
+    "resolutionState": {
+      "type": "string",
+      "enum": [
+        "resolved",
+        "heuristic",
+        "unresolved"
+      ]
+    },
+    "taintState": {
+      "description": "Reuses the existing TaintLattice vocabulary rather than inventing a parallel notion of model control.",
+      "type": "string",
+      "enum": [
+        "untainted",
+        "constrained",
+        "external",
+        "model_derived",
+        "model_controlled",
+        "unknown"
+      ]
+    },
+    "contradiction": {
+      "description": "Opposing PROBATIVE packets on the same obligation for the same candidate. The default is CONFLICTING and it persists; the only admissible resolution is RESOLVED_IMPLEMENTATION_PRECEDENCE, and only under SINGLE_ESTABLISHED selection. Inter-candidate divergence is not a contradiction.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obligation",
+        "implementation_candidate_id",
+        "positive_packet_ids",
+        "negative_packet_ids",
+        "resolution"
+      ],
+      "properties": {
+        "obligation": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/obligation"
+        },
+        "implementation_candidate_id": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+        },
+        "positive_packet_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+          }
+        },
+        "negative_packet_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+          }
+        },
+        "resolution": {
+          "type": "string",
+          "enum": [
+            "UNRESOLVED",
+            "RESOLVED_IMPLEMENTATION_PRECEDENCE"
+          ]
+        },
+        "overridden_packet_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+          },
+          "description": "Overridden packets remain in the receipt. A resolution is never silent."
+        },
+        "precedence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selection_packet_id",
+            "winning_paths"
+          ],
+          "properties": {
+            "selection_packet_id": {
+              "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+            },
+            "winning_paths": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "packet_id",
+                  "binding_packet_ids"
+                ],
+                "properties": {
+                  "packet_id": {
+                    "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+                  },
+                  "binding_packet_ids": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "resolution": {
+                "const": "RESOLVED_IMPLEMENTATION_PRECEDENCE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "precedence"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "precedence"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "acquisition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "highest_tier_reached",
+        "stop_reason",
+        "tiers_attempted"
+      ],
+      "properties": {
+        "highest_tier_reached": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/tierOrAbstain"
+        },
+        "stop_reason": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/stopReason"
+        },
+        "tiers_attempted": {
+          "type": "array",
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/tier"
+          }
+        },
+        "unresolved_obligations": {
+          "type": "array",
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/obligation"
+          }
+        },
+        "budget_exhausted": {
+          "type": "array",
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/budgetName"
+          }
+        },
+        "hops_followed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hops_declined": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "frontier_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "frontier": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frontierEntry"
+          },
+          "description": "Enumerated up to a configured cap. A count alone is not auditable, which is why frontier_size and this list are both reported."
+        },
+        "frontier_truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "frontierEntry": {
+      "description": "A descent edge identified as relevant and not opened: the architecture's record of its own ignorance.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "would_reach_tier",
+        "reason"
+      ],
+      "properties": {
+        "origin": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/locator"
+        },
+        "target_symbol": {
+          "type": "string"
+        },
+        "target_package": {
+          "type": "string"
+        },
+        "would_reach_tier": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/tier"
+        },
+        "might_settle": {
+          "type": "array",
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/obligation"
+          }
+        },
+        "reason": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/stopReason"
+        },
+        "budget_name": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/budgetName"
+        }
+      }
+    },
+    "closure": {
+      "description": "C1-C6 for NO_EFFECT. C4 is a represented assertion at M0, not verified contributing-path completeness.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "refuted_obligation",
+        "C1_no_opaque_or_dynamic_candidate",
+        "C2_refuted_for_every_candidate",
+        "C3_no_conflicting_obligation",
+        "C4_no_budget_exhausted_on_contributing_path",
+        "C5_relevant_frontier_empty",
+        "C6_no_error_on_necessary_obligation"
+      ],
+      "properties": {
+        "refuted_obligation": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/obligation"
+        },
+        "C1_no_opaque_or_dynamic_candidate": {
+          "const": true
+        },
+        "C2_refuted_for_every_candidate": {
+          "const": true
+        },
+        "C3_no_conflicting_obligation": {
+          "const": true
+        },
+        "C4_no_budget_exhausted_on_contributing_path": {
+          "const": true
+        },
+        "C5_relevant_frontier_empty": {
+          "const": true
+        },
+        "C6_no_error_on_necessary_obligation": {
+          "const": true
+        }
+      }
+    },
+    "priority": {
+      "description": "Investigation priority. HYPOTHESIS_ONLY evidence, including sink-rule hypotheses, may raise this. Priority never changes a verdict, only the order in which verdicts are attempted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank",
+        "policy_id"
+      ],
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "policy_id": {
+          "type": "string"
+        },
+        "hypothesis_signals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$comment": "AREF-002 as amended by AREF-002A. Shape validity is necessary, not sufficient: validate.py normative semantic checks are mandatory."
+}

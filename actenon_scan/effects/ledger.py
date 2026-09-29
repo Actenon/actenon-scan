@@ -10,6 +10,8 @@ Only NO_EFFECT is ever a negative result.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping
@@ -515,9 +517,17 @@ class CoverageLedger:
         _check_partition(self.stop_reason_histogram, claims.instantiated, f"{w}.stop_reason_histogram")
         if self.stop_reason_histogram.get(StopReason.CLAIM_NOT_INVESTIGATED, 0) != claims.not_investigated:
             raise c.fail(w, "every uninvestigated claim, and only those, stop with CLAIM_NOT_INVESTIGATED")
-        if self.analysis_errors.total < self.verdict_distribution[Verdict.ANALYSIS_ERROR]:
-            raise c.fail(w, "every ANALYSIS_ERROR claim is counted as an analysis error")
+        # Check population feasibility before optional breakdown consistency,
+        # so the reviewed H6 counterexample fails on its load-bearing bound.
         self._check_verdicts_against_states(w)
+        if self.analysis_errors.total != self.verdict_distribution[Verdict.ANALYSIS_ERROR]:
+            raise c.fail(w, "analysis_errors.total counts exactly ANALYSIS_ERROR claims")
+        if self.analysis_errors.by_obligation is not None and any(
+                self.analysis_errors.by_obligation.get(o, 0) != self.obligation_state_distribution[o][ProofState.ERROR]
+                for o in Obligation):
+            raise c.fail(w, "analysis error obligation breakdown must equal ERROR marginals")
+        if self.analysis_errors.by_cause is not None and _total(self.analysis_errors.by_cause) != self.analysis_errors.total:
+            raise c.fail(w, "primary analysis-error causes must partition errored claims")
         if claims.instantiated_without_any_rule_match is not None \
                 and self.invocations.without_matching_sink_rule is not None \
                 and claims.instantiated_without_any_rule_match > \
@@ -534,6 +544,8 @@ class CoverageLedger:
         if not necessary:
             return
         errors = [dist[o][ProofState.ERROR] for o in necessary]
+        if dist[Obligation.IMPLEMENTATION][ProofState.REFUTED]:
+            raise c.fail(w, "IMPLEMENTATION is never REFUTED")
         if max(errors) > verdicts[Verdict.ANALYSIS_ERROR]:
             raise c.fail(w, "an ERROR on a necessary obligation makes the claim ANALYSIS_ERROR, never another verdict")
         if len(necessary) == len(Obligation) and verdicts[Verdict.ANALYSIS_ERROR] > sum(errors):
@@ -545,8 +557,8 @@ class CoverageLedger:
             raise c.fail(w, "a NO_EFFECT claim has a REFUTED obligation")
         settled = verdicts[Verdict.PROVEN_EFFECT] + verdicts[Verdict.NO_EFFECT]
         for o in necessary:
-            if dist[o][ProofState.CONFLICTING] + settled > self.claims.investigated:
-                raise c.fail(w, f"a claim with {o.value} CONFLICTING is neither PROVEN_EFFECT nor NO_EFFECT")
+            if dist[o][ProofState.CONFLICTING] + dist[o][ProofState.ERROR] + settled > self.claims.investigated:
+                raise c.fail(w, f"{o.value} ERROR and CONFLICTING are disjoint and neither is PROVEN_EFFECT or NO_EFFECT")
 
     # -- the distinctions the ledger exists to keep
 
@@ -710,6 +722,8 @@ class CoverageLedger:
 
     @classmethod
     def from_dict(cls, data: Any, where: str = "ledger") -> "CoverageLedger":
+        if isinstance(data, Mapping) and "schema_version" in data and data["schema_version"] != SCHEMA_VERSION:
+            raise c.fail(where, f"schema_version must be {SCHEMA_VERSION}; historical records are not migrated")
         required = ("schema_version", "enabled_effect_classes", "budgets", "capabilities", "invocations", "claims",
                     "verdict_distribution", "obligation_state_distribution", "highest_tier_reached_histogram",
                     "stop_reason_histogram", "budget_exhaustion", "frontier", "analysis_errors", "interpretation")

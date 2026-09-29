@@ -44,7 +44,7 @@ from actenon_scan.effects import (
 from actenon_scan.repository.symbol_index import ResolutionCertainty
 from actenon_scan.repository.taint import TaintLattice
 
-from ._spec import manifest, schema
+from ._spec import manifest, schema, historical_schema
 
 
 def members(enum_cls) -> list[str]:
@@ -73,7 +73,10 @@ def test_verdicts_are_exactly_the_frozen_four():
     (ContradictionResolution, "contradiction_resolutions"),
 ])
 def test_manifest_vocabularies(enum_cls, key):
-    assert members(enum_cls) == manifest()["vocabularies"][key]["members"]
+    if key == "selection_states":
+        assert members(enum_cls) == schema("effect_claim")["$defs"]["selectionState"]["enum"]
+    else:
+        assert members(enum_cls) == manifest()["vocabularies"][key]["members"]
 
 
 def _defs(name):
@@ -82,7 +85,7 @@ def _defs(name):
 
 @pytest.mark.parametrize("enum_cls, values", [
     (PacketKind, lambda: _defs("evidence")["packetKind"]["enum"]),
-    (AssertionPredicate, lambda: _defs("evidence")["assertion"]["properties"]["predicate"]["enum"]),
+    (AssertionPredicate, lambda: historical_schema("evidence")["$defs"]["assertion"]["properties"]["predicate"]["enum"]),
     (RuleMatchType, lambda: _defs("evidence")["ruleMatchType"]["enum"]),
     (VersionResolution, lambda: _defs("evidence")["versionResolution"]["enum"]),
     (Strength, lambda: _defs("evidence")["strength"]["enum"]),

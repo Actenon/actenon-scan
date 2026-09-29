@@ -1,0 +1,14 @@
+{
+  "new_provider_terms": [],
+  "changed_production_files": [
+    "actenon_scan/effects/__init__.py",
+    "actenon_scan/effects/claim.py",
+    "actenon_scan/effects/evidence.py",
+    "actenon_scan/effects/ledger.py",
+    "actenon_scan/effects/receipt.py",
+    "actenon_scan/effects/vocabulary.py"
+  ],
+  "new_registry_provider_agnostic": true,
+  "new_verb_only_sinks": false,
+  "held_out_repositories_accessed": false
+}

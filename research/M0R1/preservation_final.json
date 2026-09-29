@@ -1,0 +1,14 @@
+{
+  "AREF-001": {
+    "manifest_sha256": "ac413f5434409fd3d096aec4e753dc7ed21eadefeec415b73293c11444ae37d9",
+    "files_verified": 24
+  },
+  "AREF-002": {
+    "manifest_sha256": "e1c7b4f4410ddd8b69aeaab9d6cdb566bd0e0ed123bd8a0952540f907943369b",
+    "files_verified": 26
+  },
+  "AREF-002A": {
+    "manifest_sha256": "00ef6dd054b0f4a8ca14876147a2f5b82fecc6f4475d883bd7b49f23b60549ac",
+    "files_verified": 90
+  }
+}

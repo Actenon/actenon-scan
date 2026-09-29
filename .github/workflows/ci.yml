@@ -66,9 +66,30 @@ jobs:
           echo "OK: zero third-party runtime deps"
       - name: Verify import works without extra
         run: /tmp/base/bin/python -c "import actenon_scan; print('OK')"
+      - name: Install mandatory test-only schema verifier after checking runtime isolation
+        run: /tmp/base/bin/pip install -r specs/AREF-002A/requirements-validation.txt
       - name: Run tests (skipping TS-specific and dev-dep tests)
         run: /tmp/base/bin/python -m pytest tests/ -v --ignore=tests/test_protocol_drift.py
 
+
+  architecture-conformance:
+    name: Required AREF-002A proof-model conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install mandatory verifier and test dependencies
+        run: |
+          python -m pip install -r specs/AREF-002A/requirements-validation.txt
+          python -m pip install -e ".[dev]"
+      - name: Validate unchanged normative package in its frozen preservation context
+        run: python -B scripts/validate_aref002a.py
+      - name: Validate current runtime against every frozen amended example
+        run: python -B -m pytest tests/effect_claims -q
 
   # The verify-claims job moved to verify-claims.yml so the README
   # badge can link to a dedicated gate.

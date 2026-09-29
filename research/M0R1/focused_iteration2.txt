@@ -1,0 +1,1205 @@
+..F........FF............F..........F..............F...FF......F..FFFFFF [ 15%]
+FF....FFF..FF......FF.......F................F..........F.FF............ [ 30%]
+...................................................F...........F........ [ 45%]
+............................FF.FF..F..F.F....F.FFFFF..............F.FF.. [ 60%]
+...F.........x..............FFF......................................... [ 75%]
+........................................................................ [ 90%]
+...................................F..........                           [100%]
+=================================== FAILURES ===================================
+____________________ test_1_frozen_rule_free_examples_load _____________________
+
+    def test_1_frozen_rule_free_examples_load():
+        for name in ("effect_claim.valid.abstain", "effect_claim.valid.proven"):
+>           claim = EffectClaim.from_dict(example(name))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0_claim.py:114: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1044: in from_dict
+    implementation_candidates=many("implementation_candidates", ImplementationCandidate.from_dict),
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:1034: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:1034: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:174: in from_dict
+    return cls(
+<string>:9: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ImplementationCandidate(candidate_id='cand-1', kind=<CandidateKind.OPAQUE_EXTERNAL: 'OPAQUE_EXTERNAL'>, obligations=Ob...e=<ProofState.UNKNOWN: 'UNKNOWN'>), symbol='zones.settings.edit', locator=None, resolved_at_tier=<LadderTier.L3: 'L3'>)
+
+    def __post_init__(self) -> None:
+        w = f"candidate {self.candidate_id!r}"
+        c.identifier(self.candidate_id, f"{w}.candidate_id")
+        object.__setattr__(self, "kind", c.enum_value(CandidateKind, self.kind, f"{w}.kind"))
+        c.optional_instance(ObligationStates, self.obligations, f"{w}.obligations")
+        c.optional_text(self.symbol, f"{w}.symbol")
+        c.optional_instance(SourceLocator, self.locator, f"{w}.locator")
+        object.__setattr__(self, "resolved_at_tier", c.optional_enum(
+            LadderTier, self.resolved_at_tier, f"{w}.resolved_at_tier"))
+        if self.resolved_at_tier is LadderTier.L8:
+            raise c.fail(w, "L8 is not a tier at which anything resolves")
+        if self.obligations is not None and self.obligations.implementation is _R:
+            raise c.fail(w, "IMPLEMENTATION is never REFUTED")
+        if self.obligations is not None and self.kind in OPAQUE_CANDIDATE_KINDS and self.obligations.implementation not in (_U, _E):
+>           raise c.fail(w, "opaque/unresolved identity cannot be implementation-supported")
+E           actenon_scan.effects._codec.EffectModelError: candidate 'cand-1': opaque/unresolved identity cannot be implementation-supported
+
+actenon_scan/effects/claim.py:160: EffectModelError
+___ test_2_agreeing_candidates_support_a_proven_effect_without_selecting_one ___
+
+    def test_2_agreeing_candidates_support_a_proven_effect_without_selecting_one():
+        full = {o: S for o in EVIDENCE_OBLIGATIONS}
+        claim = multi_claim(SelectionState.AGREEMENT_INVARIANT, [full, full, full],
+                            probes=all_blocking_probes_complete(), verdict=Verdict.PROVEN_EFFECT)
+        assert len(claim.implementation_candidates) == 3
+        assert claim.selected_candidate() is None
+>       assert len(claim.evidence_packets) == 12
+E       AssertionError: assert 15 == 12
+E        +  where 15 = len((EvidencePacket(packet_id='p-cand-1-implementation-pos', tier=<LadderTier.L0: 'L0'>, kind=<PacketKind.LOCAL_BINDING: '...None, end_column=None, symbol=None, package=None, version=None, version_resolution=None, document_pointer=None))), ...))
+E        +    where (EvidencePacket(packet_id='p-cand-1-implementation-pos', tier=<LadderTier.L0: 'L0'>, kind=<PacketKind.LOCAL_BINDING: '...None, end_column=None, symbol=None, package=None, version=None, version_resolution=None, document_pointer=None))), ...) = EffectClaim(claim_id='claim-0001', capability_id='cap-zones-settings-tool', invocation_id='inv-src-tools-zones.ts-L57C...=())), contradictions=(), closure=None, verdict_rationale=None, priority=None, receipt_id=None, schema_version='0.1.1').evidence_packets
+
+tests/effect_claims/test_m0_claim.py:168: AssertionError
+____________ test_2_an_opaque_candidate_is_a_first_class_candidate _____________
+
+    def test_2_an_opaque_candidate_is_a_first_class_candidate():
+>       claim = multi_claim(SelectionState.UNRESOLVED_DIVERGENT, [{Obligation.OPERATION: S}, {}],
+                            kinds=[CandidateKind.RESOLVED_LOCAL, CandidateKind.OPAQUE_EXTERNAL])
+
+tests/effect_claims/test_m0_claim.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/effect_claims/_builders.py:387: in multi_claim
+    return unfamiliar_sdk_claim(
+tests/effect_claims/_builders.py:206: in unfamiliar_sdk_claim
+    return EffectClaim(**fields)
+           ^^^^^^^^^^^^^^^^^^^^^
+<string>:23: in __init__
+    ???
+actenon_scan/effects/claim.py:952: in __post_init__
+    _validate_claim(self, w)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+claim = EffectClaim(claim_id='claim-0001', capability_id='cap-zones-settings-tool', invocation_id='inv-src-tools-zones.ts-L57C...es=(), contradictions=(), closure=None, verdict_rationale=None, priority=None, receipt_id=None, schema_version='0.1.1')
+w = "claim 'claim-0001'"
+
+    def _validate_claim(claim: EffectClaim, w: str) -> None:
+        candidates = claim.implementation_candidates
+        selection = claim.selection_state
+        check_selection_cardinality(selection, candidates, w)
+        if any(cand.obligations is None for cand in candidates) and not (
+                len(candidates) == 1 and selection is SelectionState.SINGLE_ESTABLISHED):
+            raise c.fail(w, "every candidate carries its own obligation states except the unique established shorthand")
+        effective = {cand.candidate_id: claim.candidate_states(cand.candidate_id) for cand in candidates}
+        check_candidate_states(selection, effective, claim.obligations, w)
+        packets = check_packet_set(claim.evidence_packets, claim.candidate_ids, w)
+        probes = check_probe_set(claim.probe_outcomes, packets, w)
+        records = check_contradictions(claim.contradictions, packets, candidates, selection, w,
+                                      invocation_id=claim.invocation_id, invocation_locator=claim.invocation.locator)
+        check_states_against_packets(claim.evidence_packets, effective, records, w,
+                                    candidates=candidates, invocation_id=claim.invocation_id,
+                                    invocation_locator=claim.invocation.locator)
+        impl = [states.implementation for states in effective.values()]
+        if _E in impl:
+            expected = SelectionState.SELECTION_ERROR
+        elif any(state is not _S for state in impl):
+            expected = SelectionState.UNRESOLVED_IDENTITY
+        elif len(candidates) == 1:
+            (only,) = candidates
+            selected = any(_binding_matches(p, only.candidate_id, claim.invocation_id,
+                           "SELECTED_TARGET", claim.invocation.locator, only.locator) for p in claim.evidence_packets)
+            expected = SelectionState.SINGLE_ESTABLISHED if selected else SelectionState.UNRESOLVED_IDENTITY
+        elif all(len({states[o] for states in effective.values()}) == 1 for o in EVIDENCE_OBLIGATIONS):
+            expected = SelectionState.AGREEMENT_INVARIANT
+        else:
+            expected = SelectionState.UNRESOLVED_DIVERGENT
+        if selection is not expected:
+>           raise c.fail(w, f"selection requires {expected.value}, not {selection.value}; labels are not evidence")
+E           actenon_scan.effects._codec.EffectModelError: claim 'claim-0001': selection requires UNRESOLVED_IDENTITY, not UNRESOLVED_DIVERGENT; labels are not evidence
+
+actenon_scan/effects/claim.py:1094: EffectModelError
+___________ test_3_agreement_and_divergence_are_checked_not_asserted ___________
+
+    def test_3_agreement_and_divergence_are_checked_not_asserted():
+>       with pytest.raises(EffectModelError, match="AGREEMENT_INVARIANT requires identical"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'AGREEMENT_INVARIANT requires identical'
+E         Actual message: "claim 'claim-0001': selection requires UNRESOLVED_DIVERGENT, not AGREEMENT_INVARIANT; labels are not evidence"
+
+tests/effect_claims/test_m0_claim.py:244: AssertionError
+_____________ test_4_refuted_requires_probative_negative_evidence ______________
+
+    def test_4_refuted_requires_probative_negative_evidence():
+        base = no_effect_claim()
+>       with pytest.raises(EffectModelError, match="no PROBATIVE NEGATIVE"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'no PROBATIVE NEGATIVE'
+E         Actual message: "claim 'claim-0001': PERSISTENCE for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded REFUTED"
+
+tests/effect_claims/test_m0_claim.py:311: AssertionError
+_____________ test_5_conflicting_requires_its_contradiction_record _____________
+
+    def test_5_conflicting_requires_its_contradiction_record():
+>       with pytest.raises(EffectModelError, match="UNRESOLVED contradiction record"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'UNRESOLVED contradiction record'
+E         Actual message: "claim 'claim-0001': OPERATION for 'cand-1': contradiction must cite every opposing PROBATIVE packet"
+
+tests/effect_claims/test_m0_claim.py:385: AssertionError
+_________ test_5_precedence_requires_single_established_resolved_body __________
+
+    def test_5_precedence_requires_single_established_resolved_body():
+        with pytest.raises(EffectModelError, match="resolved body"):
+            resolved_claim(implementation_candidates=[candidate(kind=CandidateKind.CONTRACT_DECLARED)])
+        base = conflicting_claim()
+>       record = dataclasses.replace(base.contradictions[0],
+                                     resolution=ContradictionResolution.RESOLVED_IMPLEMENTATION_PRECEDENCE,
+                                     overridden_packet_ids=("pkt-body",))
+
+tests/effect_claims/test_m0_claim.py:414: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1778: in replace
+    return _replace(obj, **changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1812: in _replace
+    return self.__class__(**changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:10: in __init__
+    ???
+actenon_scan/effects/claim.py:750: in __post_init__
+    c.instance(ImplementationPrecedence, self.precedence, "contradiction.precedence")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'actenon_scan.effects.claim.ImplementationPrecedence'>
+value = None, where = 'contradiction.precedence'
+
+    def instance(cls: type, value: Any, where: str):
+        if not isinstance(value, cls):
+>           raise fail(where, f"expected {cls.__name__}, got {type(value).__name__}")
+E           actenon_scan.effects._codec.EffectModelError: contradiction.precedence: expected ImplementationPrecedence, got NoneType
+
+actenon_scan/effects/_codec.py:133: EffectModelError
+_______________ test_5_precedence_does_not_apply_under_agreement _______________
+
+    def test_5_precedence_does_not_apply_under_agreement():
+        full = {o: S for o in EVIDENCE_OBLIGATIONS}
+        claim = multi_claim(SelectionState.AGREEMENT_INVARIANT, [full, full])
+        contract = packet("pkt-c", Obligation.OPERATION, polarity=Polarity.NEGATIVE, candidate_id="cand-1",
+                          tier=LadderTier.L6, kind=PacketKind.OPENAPI_OPERATION,
+                          locator=SourceLocator(path="api.json", start_line=1, end_line=1, package="svc",
+                                                version="1", version_resolution="LOCKFILE"))
+>       record = Contradiction(Obligation.OPERATION, "cand-1", ("p-cand-1-operation-pos",), ("pkt-c",),
+                               ContradictionResolution.RESOLVED_IMPLEMENTATION_PRECEDENCE, ("pkt-c",))
+
+tests/effect_claims/test_m0_claim.py:428: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+<string>:10: in __init__
+    ???
+actenon_scan/effects/claim.py:750: in __post_init__
+    c.instance(ImplementationPrecedence, self.precedence, "contradiction.precedence")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'actenon_scan.effects.claim.ImplementationPrecedence'>
+value = None, where = 'contradiction.precedence'
+
+    def instance(cls: type, value: Any, where: str):
+        if not isinstance(value, cls):
+>           raise fail(where, f"expected {cls.__name__}, got {type(value).__name__}")
+E           actenon_scan.effects._codec.EffectModelError: contradiction.precedence: expected ImplementationPrecedence, got NoneType
+
+actenon_scan/effects/_codec.py:133: EffectModelError
+_________________ test_6_selection_error_is_an_analysis_error __________________
+
+    def test_6_selection_error_is_an_analysis_error():
+>       claim = unfamiliar_sdk_claim(selection_state=SelectionState.SELECTION_ERROR, obligations=states(E),
+                                     verdict=Verdict.ANALYSIS_ERROR)
+
+tests/effect_claims/test_m0_claim.py:464: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/effect_claims/_builders.py:206: in unfamiliar_sdk_claim
+    return EffectClaim(**fields)
+           ^^^^^^^^^^^^^^^^^^^^^
+<string>:23: in __init__
+    ???
+actenon_scan/effects/claim.py:952: in __post_init__
+    _validate_claim(self, w)
+actenon_scan/effects/claim.py:1071: in _validate_claim
+    check_candidate_states(selection, effective, claim.obligations, w)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+selection = <SelectionState.SELECTION_ERROR: 'SELECTION_ERROR'>
+effective = {'cand-1': ObligationStates(implementation=<ProofState.UNKNOWN: 'UNKNOWN'>, activation=<ProofState.UNKNOWN: 'UNKNOWN'>...roofState.UNKNOWN: 'UNKNOWN'>, operation=<ProofState.UNKNOWN: 'UNKNOWN'>, persistence=<ProofState.UNKNOWN: 'UNKNOWN'>)}
+states = ObligationStates(implementation=<ProofState.ERROR: 'ERROR'>, activation=<ProofState.UNKNOWN: 'UNKNOWN'>, boundary=<ProofState.UNKNOWN: 'UNKNOWN'>, operation=<ProofState.UNKNOWN: 'UNKNOWN'>, persistence=<ProofState.UNKNOWN: 'UNKNOWN'>)
+w = "claim 'claim-0001'"
+
+    def check_candidate_states(selection: SelectionState, effective: dict, states: ObligationStates, w: str) -> None:
+        expected = aggregate_claim_states(selection, effective.values())
+        for o in Obligation:
+            if states[o] is not expected[o]:
+>               raise c.fail(w, f"claim-level {o.value} is {states[o].value} but candidates aggregate to {expected[o].value}")
+E               actenon_scan.effects._codec.EffectModelError: claim 'claim-0001': claim-level IMPLEMENTATION is ERROR but candidates aggregate to UNKNOWN
+
+actenon_scan/effects/claim.py:1103: EffectModelError
+_________ test_7_supported_without_any_packet_is_rejected[ACTIVATION] __________
+
+obligation = <Obligation.ACTIVATION: 'ACTIVATION'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_supported_without_any_packet_is_rejected(obligation):
+        base = proven_claim()
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': ACTIVATION for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:492: AssertionError
+__________ test_7_supported_without_any_packet_is_rejected[BOUNDARY] ___________
+
+obligation = <Obligation.BOUNDARY: 'BOUNDARY'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_supported_without_any_packet_is_rejected(obligation):
+        base = proven_claim()
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': BOUNDARY for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:492: AssertionError
+__________ test_7_supported_without_any_packet_is_rejected[OPERATION] __________
+
+obligation = <Obligation.OPERATION: 'OPERATION'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_supported_without_any_packet_is_rejected(obligation):
+        base = proven_claim()
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': OPERATION for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:492: AssertionError
+_________ test_7_supported_without_any_packet_is_rejected[PERSISTENCE] _________
+
+obligation = <Obligation.PERSISTENCE: 'PERSISTENCE'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_supported_without_any_packet_is_rejected(obligation):
+        base = proven_claim()
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': PERSISTENCE for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:492: AssertionError
+__________ test_7_hypothesis_only_evidence_cannot_support[ACTIVATION] __________
+
+obligation = <Obligation.ACTIVATION: 'ACTIVATION'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_hypothesis_only_evidence_cannot_support(obligation):
+        base = proven_claim()
+        weakened = tuple(dataclasses.replace(p, admissibility=Admissibility.HYPOTHESIS_ONLY)
+                         if p.obligation is obligation else p for p in base.evidence_packets)
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': ACTIVATION for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:501: AssertionError
+___________ test_7_hypothesis_only_evidence_cannot_support[BOUNDARY] ___________
+
+obligation = <Obligation.BOUNDARY: 'BOUNDARY'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_hypothesis_only_evidence_cannot_support(obligation):
+        base = proven_claim()
+        weakened = tuple(dataclasses.replace(p, admissibility=Admissibility.HYPOTHESIS_ONLY)
+                         if p.obligation is obligation else p for p in base.evidence_packets)
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': BOUNDARY for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:501: AssertionError
+__________ test_7_hypothesis_only_evidence_cannot_support[OPERATION] ___________
+
+obligation = <Obligation.OPERATION: 'OPERATION'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_hypothesis_only_evidence_cannot_support(obligation):
+        base = proven_claim()
+        weakened = tuple(dataclasses.replace(p, admissibility=Admissibility.HYPOTHESIS_ONLY)
+                         if p.obligation is obligation else p for p in base.evidence_packets)
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': OPERATION for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:501: AssertionError
+_________ test_7_hypothesis_only_evidence_cannot_support[PERSISTENCE] __________
+
+obligation = <Obligation.PERSISTENCE: 'PERSISTENCE'>
+
+    @pytest.mark.parametrize("obligation", EVIDENCE_OBLIGATIONS)
+    def test_7_hypothesis_only_evidence_cannot_support(obligation):
+        base = proven_claim()
+        weakened = tuple(dataclasses.replace(p, admissibility=Admissibility.HYPOTHESIS_ONLY)
+                         if p.obligation is obligation else p for p in base.evidence_packets)
+>       with pytest.raises(EffectModelError, match="evidence provenance"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence provenance'
+E         Actual message: "claim 'claim-0001': PERSISTENCE for 'cand-1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+
+tests/effect_claims/test_m0_claim.py:501: AssertionError
+___ test_7_unknown_with_probative_evidence_discards_evidence_and_is_rejected ___
+
+    def test_7_unknown_with_probative_evidence_discards_evidence_and_is_rejected():
+        base = unfamiliar_sdk_claim()
+>       with pytest.raises(EffectModelError, match="never discarded"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'never discarded'
+E         Actual message: "claim 'claim-0001': BOUNDARY for 'cand-1': PROBATIVE evidence requires SUPPORTED, recorded UNKNOWN"
+
+tests/effect_claims/test_m0_claim.py:538: AssertionError
+___________ test_7_an_undetermined_commit_never_supports_persistence ___________
+
+    def test_7_an_undetermined_commit_never_supports_persistence():
+        base = proven_claim()
+>       undetermined = dataclasses.replace(
+            packet("pkt-undetermined", Obligation.PERSISTENCE),
+            assertion=EvidenceAssertion(AssertionPredicate.COMMIT_OUTCOME_UNDETERMINED))
+
+tests/effect_claims/test_m0_claim.py:544: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1778: in replace
+    return _replace(obj, **changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1812: in _replace
+    return self.__class__(**changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:19: in __init__
+    ???
+actenon_scan/effects/evidence.py:276: in __post_init__
+    self._check_predicate(w)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = EvidencePacket(packet_id='pkt-undetermined', tier=<LadderTier.L1: 'L1'>, kind=<PacketKind.LOCAL_FUNCTION_BODY: 'local_...)', truncated=None, truncation_marker=None), derived_from_rule_id=None, rule_match_type=None, notes=None, binding=None)
+w = "packet 'pkt-undetermined'"
+
+    def _check_predicate(self, w: str) -> None:
+        predicate = self.assertion.to_dict()["predicate"]
+        key = (predicate, self.obligation.value, self.polarity.value, self.kind.value, self.tier.value)
+        if self.is_probative and key not in PROBATIVE_ASSERTIONS:
+>           raise c.fail(w, "unregistered predicate/obligation/polarity/source combination cannot settle proof")
+E           actenon_scan.effects._codec.EffectModelError: packet 'pkt-undetermined': unregistered predicate/obligation/polarity/source combination cannot settle proof
+
+actenon_scan/effects/evidence.py:309: EffectModelError
+_______________ test_7_cp_per_05_found_keeps_persistence_unknown _______________
+
+    def test_7_cp_per_05_found_keeps_persistence_unknown():
+        base = proven_claim()
+        finding = packet("pkt-per05", Obligation.PERSISTENCE, polarity=Polarity.NEGATIVE,
+                         admissibility=Admissibility.HYPOTHESIS_ONLY, kind=PacketKind.COUNTER_EVIDENCE_PROBE)
+        probes = tuple(ProbeOutcome(o.probe_id, o.obligation, o.probe_class, ProbeResult.FOUND, packet_ids=("pkt-per05",))
+                       if o.probe_id == "CP-PER-05" else o for o in base.probe_outcomes)
+>       with pytest.raises(EffectModelError, match="undetermined commit"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'undetermined commit'
+E         Actual message: "claim 'claim-0001': commit-uncertainty probe requires its typed uncertainty assertion"
+
+tests/effect_claims/test_m0_claim.py:560: AssertionError
+__ test_proven_effect_requires_that_no_blocking_probe_found_counter_evidence ___
+
+    def test_proven_effect_requires_that_no_blocking_probe_found_counter_evidence():
+        base = proven_claim()
+        found = tuple(ProbeOutcome(o.probe_id, o.obligation, o.probe_class, ProbeResult.FOUND,
+                                   packet_ids=("pkt-boundary",))
+                      if o.probe_id == "CP-BND-01" else o for o in base.probe_outcomes)
+>       with pytest.raises(EffectModelError, match="CP-BND-01 found counter-evidence"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'CP-BND-01 found counter-evidence'
+E         Actual message: "claim 'claim-0001': a positive settling packet is not found counter-evidence"
+
+tests/effect_claims/test_m0_claim.py:597: AssertionError
+________________ test_advisory_probes_do_not_gate_proven_effect ________________
+
+    def test_advisory_probes_do_not_gate_proven_effect():
+        base = proven_claim()
+        advisory = ProbeOutcome("CP-ACT-03", Obligation.ACTIVATION, ProbeClass.ADVISORY, ProbeResult.INCOMPLETE,
+                                incomplete_reason=StopReason.TIER_UNAVAILABLE)
+        assert replace(base, probe_outcomes=base.probe_outcomes + (advisory,)).verdict is Verdict.PROVEN_EFFECT
+        advisory_found = ProbeOutcome("CP-ACT-03", Obligation.ACTIVATION, ProbeClass.ADVISORY, ProbeResult.FOUND,
+                                      packet_ids=("pkt-activation",))
+>       assert replace(base, probe_outcomes=base.probe_outcomes + (advisory_found,)).verdict is Verdict.PROVEN_EFFECT
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0_claim.py:609: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/effect_claims/test_m0_claim.py:86: in replace
+    return dataclasses.replace(claim, **changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1778: in replace
+    return _replace(obj, **changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1812: in _replace
+    return self.__class__(**changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:23: in __init__
+    ???
+actenon_scan/effects/claim.py:952: in __post_init__
+    _validate_claim(self, w)
+actenon_scan/effects/claim.py:1073: in _validate_claim
+    probes = check_probe_set(claim.probe_outcomes, packets, w)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+outcomes = (ProbeOutcome(probe_id='CP-ACT-01', obligation=<Obligation.ACTIVATION: 'ACTIVATION'>, probe_class=<ProbeClass.BLOCKING...Class.BLOCKING: 'BLOCKING'>, outcome=<ProbeResult.NOT_FOUND: 'NOT_FOUND'>, incomplete_reason=None, packet_ids=()), ...)
+packets_by_id = {'pkt-implementation': EvidencePacket(packet_id='pkt-implementation', tier=<LadderTier.L0: 'L0'>, kind=<PacketKind.LOC...uncated=None, truncation_marker=None), derived_from_rule_id=None, rule_match_type=None, notes=None, binding=None), ...}
+where = "claim 'claim-0001'"
+
+    def check_probe_set(outcomes: tuple, packets_by_id: dict, where: str) -> dict:
+        """Shared by claims and receipts: unique probes, cited packets exist and match."""
+        by_id: dict[str, ProbeOutcome] = {}
+        for o in outcomes:
+            if o.probe_id in by_id:
+                raise c.fail(where, f"probe {o.probe_id!r} recorded twice")
+            for pid in o.packet_ids:
+                packet = packets_by_id.get(pid)
+                if packet is None:
+                    raise c.fail(where, f"probe {o.probe_id!r} cites unknown packet {pid!r}")
+                if packet.obligation is not o.obligation:
+                    raise c.fail(where, f"probe {o.probe_id!r} cites packet {pid!r} for another obligation")
+                if packet.is_probative and packet.polarity is not Polarity.NEGATIVE:
+>                   raise c.fail(where, "a positive settling packet is not found counter-evidence")
+E                   actenon_scan.effects._codec.EffectModelError: claim 'claim-0001': a positive settling packet is not found counter-evidence
+
+actenon_scan/effects/evidence.py:465: EffectModelError
+_______ test_frozen_invalid_claim_is_rejected_at_every_layer_it_violates _______
+
+    def test_frozen_invalid_claim_is_rejected_at_every_layer_it_violates():
+        data = example("effect_claim.invalid")
+>       with pytest.raises(EffectModelError, match="PERSISTENCE is REFUTED but the candidates aggregate to UNKNOWN"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'PERSISTENCE is REFUTED but the candidates aggregate to UNKNOWN'
+E         Actual message: "claim 'claim-bad-01': schema_version must be 0.1.1"
+
+tests/effect_claims/test_m0_claim.py:641: AssertionError
+______________________ test_no_effect_c1_opaque_candidate ______________________
+
+    def test_no_effect_c1_opaque_candidate():
+>       with pytest.raises(EffectModelError, match="C1"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'C1'
+E         Actual message: "claim 'claim-0001': opaque/unresolved identity cannot be implementation-supported"
+
+tests/effect_claims/test_m0_claim.py:670: AssertionError
+____________ test_unresolved_obligations_are_exactly_accounted_for _____________
+
+    def test_unresolved_obligations_are_exactly_accounted_for():
+        with pytest.raises(EffectModelError, match="must be listed as unresolved"):
+            unfamiliar_sdk_claim(acquisition=abstain_acquisition(unresolved=(Obligation.ACTIVATION,)))
+>       with pytest.raises(EffectModelError, match="cannot be listed as unresolved"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0_claim.py:733: Failed
+__________________ test_frozen_examples_round_trip_losslessly __________________
+
+    def test_frozen_examples_round_trip_losslessly():
+        for name in ("effect_claim.valid.abstain", "effect_claim.valid.proven"):
+>           claim = EffectClaim.from_dict(example(name))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0_claim.py:806: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1044: in from_dict
+    implementation_candidates=many("implementation_candidates", ImplementationCandidate.from_dict),
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:1034: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:1034: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:174: in from_dict
+    return cls(
+<string>:9: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ImplementationCandidate(candidate_id='cand-1', kind=<CandidateKind.OPAQUE_EXTERNAL: 'OPAQUE_EXTERNAL'>, obligations=Ob...e=<ProofState.UNKNOWN: 'UNKNOWN'>), symbol='zones.settings.edit', locator=None, resolved_at_tier=<LadderTier.L3: 'L3'>)
+
+    def __post_init__(self) -> None:
+        w = f"candidate {self.candidate_id!r}"
+        c.identifier(self.candidate_id, f"{w}.candidate_id")
+        object.__setattr__(self, "kind", c.enum_value(CandidateKind, self.kind, f"{w}.kind"))
+        c.optional_instance(ObligationStates, self.obligations, f"{w}.obligations")
+        c.optional_text(self.symbol, f"{w}.symbol")
+        c.optional_instance(SourceLocator, self.locator, f"{w}.locator")
+        object.__setattr__(self, "resolved_at_tier", c.optional_enum(
+            LadderTier, self.resolved_at_tier, f"{w}.resolved_at_tier"))
+        if self.resolved_at_tier is LadderTier.L8:
+            raise c.fail(w, "L8 is not a tier at which anything resolves")
+        if self.obligations is not None and self.obligations.implementation is _R:
+            raise c.fail(w, "IMPLEMENTATION is never REFUTED")
+        if self.obligations is not None and self.kind in OPAQUE_CANDIDATE_KINDS and self.obligations.implementation not in (_U, _E):
+>           raise c.fail(w, "opaque/unresolved identity cannot be implementation-supported")
+E           actenon_scan.effects._codec.EffectModelError: candidate 'cand-1': opaque/unresolved identity cannot be implementation-supported
+
+actenon_scan/effects/claim.py:160: EffectModelError
+_____ test_dependency_and_contract_evidence_names_package_and_version[L4] ______
+
+tier = <LadderTier.L4: 'L4'>
+
+    @pytest.mark.parametrize("tier", [LadderTier.L4, LadderTier.L5, LadderTier.L6])
+    def test_dependency_and_contract_evidence_names_package_and_version(tier):
+        kind = PacketKind.DEPENDENCY_SOURCE_BODY
+        obligation = Obligation.IMPLEMENTATION if tier is LadderTier.L4 else Obligation.BOUNDARY
+>       with pytest.raises(EffectModelError, match="package and version resolution"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0_evidence.py:76: Failed
+_____ test_dependency_and_contract_evidence_names_package_and_version[L6] ______
+
+tier = <LadderTier.L6: 'L6'>
+
+    @pytest.mark.parametrize("tier", [LadderTier.L4, LadderTier.L5, LadderTier.L6])
+    def test_dependency_and_contract_evidence_names_package_and_version(tier):
+        kind = PacketKind.DEPENDENCY_SOURCE_BODY
+        obligation = Obligation.IMPLEMENTATION if tier is LadderTier.L4 else Obligation.BOUNDARY
+        with pytest.raises(EffectModelError, match="package and version resolution"):
+            packet("p", obligation, tier=tier, kind=kind)
+        with pytest.raises(EffectModelError, match="package and version resolution"):
+            packet("p", obligation, tier=tier, kind=kind,
+                   locator=SourceLocator(path="x.js", start_line=1, end_line=1, package="pkg"))
+>       packet("p", obligation, tier=tier, kind=kind, locator=pinned())
+
+tests/effect_claims/test_m0_evidence.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/effect_claims/_builders.py:114: in packet
+    return EvidencePacket(
+<string>:19: in __init__
+    ???
+actenon_scan/effects/evidence.py:276: in __post_init__
+    self._check_predicate(w)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = EvidencePacket(packet_id='p', tier=<LadderTier.L6: 'L6'>, kind=<PacketKind.DEPENDENCY_SOURCE_BODY: 'dependency_source_...)', truncated=None, truncation_marker=None), derived_from_rule_id=None, rule_match_type=None, notes=None, binding=None)
+w = "packet 'p'"
+
+    def _check_predicate(self, w: str) -> None:
+        predicate = self.assertion.to_dict()["predicate"]
+        key = (predicate, self.obligation.value, self.polarity.value, self.kind.value, self.tier.value)
+        if self.is_probative and key not in PROBATIVE_ASSERTIONS:
+>           raise c.fail(w, "unregistered predicate/obligation/polarity/source combination cannot settle proof")
+E           actenon_scan.effects._codec.EffectModelError: packet 'p': unregistered predicate/obligation/polarity/source combination cannot settle proof
+
+actenon_scan/effects/evidence.py:309: EffectModelError
+________ test_unpinned_source_is_recorded_as_unpinned_never_substituted ________
+
+    def test_unpinned_source_is_recorded_as_unpinned_never_substituted():
+>       packet("p", Obligation.BOUNDARY, tier=LadderTier.L5, kind=PacketKind.DEPENDENCY_SOURCE_BODY,
+               locator=SourceLocator(path="vendor/pkg/a.py", start_line=1, end_line=1, package="pkg",
+                                     version_resolution=VersionResolution.UNPINNED))
+
+tests/effect_claims/test_m0_evidence.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/effect_claims/_builders.py:114: in packet
+    return EvidencePacket(
+<string>:19: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = EvidencePacket(packet_id='p', tier=<LadderTier.L5: 'L5'>, kind=<PacketKind.DEPENDENCY_SOURCE_BODY: 'dependency_source_...)', truncated=None, truncation_marker=None), derived_from_rule_id=None, rule_match_type=None, notes=None, binding=None)
+
+    def __post_init__(self) -> None:
+        w = f"packet {self.packet_id!r}"
+        c.identifier(self.packet_id, f"{w}.packet_id")
+        c.identifier(self.implementation_candidate_id, f"{w}.implementation_candidate_id")
+        for name, cls in (("tier", LadderTier), ("kind", PacketKind), ("polarity", Polarity),
+                          ("obligation", Obligation), ("admissibility", Admissibility),
+                          ("strength", Strength)):
+            object.__setattr__(self, name, c.enum_value(cls, getattr(self, name), f"{w}.{name}"))
+        object.__setattr__(self, "rule_match_type", c.optional_enum(
+            RuleMatchType, self.rule_match_type, f"{w}.rule_match_type"))
+        c.instance(SourceLocator, self.locator, f"{w}.locator")
+        c.instance(EvidenceAssertion, self.assertion, f"{w}.assertion")
+        c.instance(AcquisitionCost, self.acquisition_cost, f"{w}.acquisition_cost")
+        c.instance(VerbatimExtract, self.extract, f"{w}.extract")
+        c.optional_text(self.derived_from_rule_id, f"{w}.derived_from_rule_id", min_length=1)
+        c.optional_text(self.notes, f"{w}.notes")
+        c.optional_instance(BindingWitness, self.binding, f"{w}.binding")
+    
+        if self.tier is LadderTier.L8:
+            raise c.fail(w, "L8 is the terminal ABSTAIN state, not an evidence tier")
+        if self.tier in TIERS_REQUIRING_PACKAGE and (
+                self.locator.package is None or self.locator.version_resolution is None):
+            raise c.fail(w, f"{self.tier.value} evidence must name its package and version resolution")
+        if self.kind in HYPOTHESIS_ONLY_KINDS and self.admissibility is not Admissibility.HYPOTHESIS_ONLY:
+            raise c.fail(w, f"{self.kind.value} evidence is identifier- or text-anchored and "
+                            "can only be HYPOTHESIS_ONLY")
+        self._check_rule_provenance(w)
+        self._check_predicate(w)
+        if self.is_probative and self.kind is PacketKind.DEPENDENCY_SOURCE_BODY and self.locator.version_resolution in (None, VersionResolution.UNPINNED):
+>           raise c.fail(w, "PROBATIVE dependency body requires pinned version provenance")
+E           actenon_scan.effects._codec.EffectModelError: packet 'p': PROBATIVE dependency body requires pinned version provenance
+
+actenon_scan/effects/evidence.py:278: EffectModelError
+______________ test_9_divergent_unknown_is_not_counted_as_refuted ______________
+
+    def test_9_divergent_unknown_is_not_counted_as_refuted():
+        claim = multi_claim(SelectionState.UNRESOLVED_DIVERGENT, [{Obligation.OPERATION: S}, {Obligation.OPERATION: R}])
+        ledger = ledger_of([claim])
+        assert ledger.obligation_state_distribution[Obligation.OPERATION][ProofState.UNKNOWN] == 1
+        assert ledger.obligation_state_distribution[Obligation.OPERATION][ProofState.REFUTED] == 0
+>       assert ledger.obligation_state_distribution[Obligation.IMPLEMENTATION][ProofState.UNKNOWN] == 1
+E       assert 0 == 1
+
+tests/effect_claims/test_m0_ledger.py:138: AssertionError
+____________________ test_analysis_errors_cannot_be_hidden _____________________
+
+    def test_analysis_errors_cannot_be_hidden():
+        ledger = ledger_of(one_of_each())
+    
+        def hide(data):
+            data["analysis_errors"]["total"] = 0
+    
+>       with pytest.raises(EffectModelError, match="analysis error"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'analysis error'
+E         Actual message: 'ledger: analysis_errors.total counts exactly ANALYSIS_ERROR claims'
+
+tests/effect_claims/test_m0_ledger.py:248: AssertionError
+__________ test_8_conflicting_receipt_cannot_be_downgraded_to_unknown __________
+
+    def test_8_conflicting_receipt_cannot_be_downgraded_to_unknown():
+        receipt = receipt_of(conflicting_claim())
+    
+        def downgrade(data):
+            data["answers"]["operation"] = {"state": "UNKNOWN", "settled_by_packet_ids": []}
+            for section in (data["answers"]["unknowns"], data["acquisition"]):
+                section["unresolved_obligations"].append("OPERATION")
+    
+>       with pytest.raises(EffectModelError, match="never discarded"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'never discarded'
+E         Actual message: "answers.unknowns.unresolved_obligations: duplicate entry <Obligation.OPERATION: 'OPERATION'>"
+
+tests/effect_claims/test_m0_receipt.py:140: AssertionError
+___ test_8_wholesale_erasure_is_only_detectable_by_rederiving_from_the_claim ___
+
+    def test_8_wholesale_erasure_is_only_detectable_by_rederiving_from_the_claim():
+        """AREF-002 defines no receipt digest: a receipt is self-consistent, not tamper-evident.
+    
+        Removing every packet, record and settled answer together yields a
+        coherent but different receipt. It is caught by comparing with the
+        receipt derived from the claim, never by the receipt alone.
+        """
+        claim = dataclasses.replace(conflicting_claim(), receipt_id="rcpt-1")
+        genuine = EffectReceipt.from_claim(claim)
+    
+        def erase(data):
+            data["answers"]["operation"] = {"state": "UNKNOWN", "settled_by_packet_ids": []}
+            for section in (data["answers"]["unknowns"], data["acquisition"]):
+                section["unresolved_obligations"].append("OPERATION")
+            data["answers"]["contradictions"]["contradictions"] = []
+            data["evidence_packets"] = []
+    
+>       forged = EffectReceipt.from_dict(tampered(genuine, erase))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0_receipt.py:168: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/receipt.py:456: in from_dict
+    answers=Answers.from_dict(r.get("answers"), r.at("answers")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/receipt.py:294: in from_dict
+    return cls(**{key: cls._TYPES[key].from_dict(r.get(key), r.at(key)) for key in RECEIPT_ANSWER_KEYS})
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/receipt.py:250: in from_dict
+    return cls(unresolved_obligations=r.get("unresolved_obligations"),
+<string>:9: in __init__
+    ???
+actenon_scan/effects/receipt.py:212: in __post_init__
+    object.__setattr__(self, "unresolved_obligations", c.enum_tuple(
+actenon_scan/effects/_codec.py:120: in enum_tuple
+    return unique(items, where)
+           ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+items = (<Obligation.ACTIVATION: 'ACTIVATION'>, <Obligation.BOUNDARY: 'BOUNDARY'>, <Obligation.OPERATION: 'OPERATION'>, <Obligation.PERSISTENCE: 'PERSISTENCE'>, <Obligation.OPERATION: 'OPERATION'>)
+where = 'answers.unknowns.unresolved_obligations'
+key = <function <lambda> at 0x1069eac40>
+
+    def unique(items: tuple, where: str, key=lambda item: item) -> tuple:
+        seen = set()
+        for item in items:
+            k = key(item)
+            if k in seen:
+>               raise fail(where, f"duplicate entry {k!r}")
+E               actenon_scan.effects._codec.EffectModelError: answers.unknowns.unresolved_obligations: duplicate entry <Obligation.OPERATION: 'OPERATION'>
+
+actenon_scan/effects/_codec.py:110: EffectModelError
+__________ test_8_overridden_packet_cannot_be_dropped_from_a_receipt ___________
+
+    def test_8_overridden_packet_cannot_be_dropped_from_a_receipt():
+        receipt = receipt_of(resolved_claim())
+>       with pytest.raises(EffectModelError, match="evidence is never discarded"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'evidence is never discarded'
+E         Actual message: "receipt 'rcpt-1': receipt evidence_packets disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:185: AssertionError
+_____________ test_8_cited_packet_cannot_be_dropped_from_a_receipt _____________
+
+    def test_8_cited_packet_cannot_be_dropped_from_a_receipt():
+        receipt = receipt_of(proven_claim())
+>       with pytest.raises(EffectModelError, match="does not carry"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'does not carry'
+E         Actual message: "receipt 'rcpt-1': receipt evidence_packets disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:191: AssertionError
+_________________ test_8_counter_evidence_cannot_be_suppressed _________________
+
+    def test_8_counter_evidence_cannot_be_suppressed():
+        receipt = receipt_of(counter_evidence_claim())
+    
+        def hide_report(data):
+            data["answers"]["contradictions"]["counter_evidence_found"] = []
+    
+        with pytest.raises(EffectModelError, match="counter_evidence_found"):
+            EffectReceipt.from_dict(tampered(receipt, hide_report))
+    
+>       with pytest.raises(EffectModelError, match="unknown packet|does not carry"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'unknown packet|does not carry'
+E         Actual message: "receipt 'rcpt-1': receipt evidence_packets disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:222: AssertionError
+__________ test_supported_answer_cannot_cite_a_hypothesis_only_packet __________
+
+    def test_supported_answer_cannot_cite_a_hypothesis_only_packet():
+        base = proven_claim()
+>       hyp = dataclasses.replace(base.evidence_packets[0], packet_id="pkt-hyp",
+                                  admissibility=Admissibility.HYPOTHESIS_ONLY)
+
+tests/effect_claims/test_m0_receipt.py:264: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1778: in replace
+    return _replace(obj, **changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1812: in _replace
+    return self.__class__(**changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:19: in __init__
+    ???
+actenon_scan/effects/evidence.py:276: in __post_init__
+    self._check_predicate(w)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = EvidencePacket(packet_id='pkt-hyp', tier=<LadderTier.L0: 'L0'>, kind=<PacketKind.LOCAL_BINDING: 'local_binding'>, loca...olumn=None, end_column=None, symbol=None, package=None, version=None, version_resolution=None, document_pointer=None)))
+w = "packet 'pkt-hyp'"
+
+    def _check_predicate(self, w: str) -> None:
+        predicate = self.assertion.to_dict()["predicate"]
+        key = (predicate, self.obligation.value, self.polarity.value, self.kind.value, self.tier.value)
+        if self.is_probative and key not in PROBATIVE_ASSERTIONS:
+            raise c.fail(w, "unregistered predicate/obligation/polarity/source combination cannot settle proof")
+        if self.binding is not None and not (self.is_probative and predicate == "implementation_is"
+                and self.obligation is Obligation.IMPLEMENTATION and self.polarity is Polarity.POSITIVE
+                and self.kind in {PacketKind.LOCAL_BINDING, PacketKind.TYPE_DECLARATION, PacketKind.INTERFACE_DECLARATION}):
+>           raise c.fail(w, "binding requires a PROBATIVE implementation_is binding assertion")
+E           actenon_scan.effects._codec.EffectModelError: packet 'pkt-hyp': binding requires a PROBATIVE implementation_is binding assertion
+
+actenon_scan/effects/evidence.py:313: EffectModelError
+_____________ test_supported_answer_cannot_cite_opposing_polarity ______________
+
+    def test_supported_answer_cannot_cite_opposing_polarity():
+        receipt = receipt_of(resolved_claim())
+>       with pytest.raises(EffectModelError, match="POSITIVE packets only"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'POSITIVE packets only'
+E         Actual message: "receipt 'rcpt-1': OPERATION answer/settling packets disagree with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:281: AssertionError
+__ test_answer_cannot_be_upgraded_from_unknown_to_supported_without_evidence ___
+
+    def test_answer_cannot_be_upgraded_from_unknown_to_supported_without_evidence():
+        receipt = receipt_of(unfamiliar_sdk_claim())
+    
+        def upgrade(data):
+            data["answers"]["boundary"] = {"state": "SUPPORTED", "settled_by_packet_ids": ["pkt-x"]}
+    
+>       with pytest.raises(EffectModelError, match="does not carry"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'does not carry'
+E         Actual message: "receipt 'rcpt-1': BOUNDARY answer/settling packets disagree with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:323: AssertionError
+_______________ test_unknown_obligation_must_appear_in_unknowns ________________
+
+    def test_unknown_obligation_must_appear_in_unknowns():
+        receipt = receipt_of(unfamiliar_sdk_claim())
+    
+        def hide(data):
+            for section in (data["answers"]["unknowns"], data["acquisition"]):
+                section["unresolved_obligations"].remove("BOUNDARY")
+    
+>       with pytest.raises(EffectModelError, match="must be listed as unresolved"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'must be listed as unresolved'
+E         Actual message: "receipt 'rcpt-1': receipt acquisition disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:346: AssertionError
+_______________ test_unknowns_answer_must_agree_with_acquisition _______________
+
+    def test_unknowns_answer_must_agree_with_acquisition():
+        receipt = receipt_of(unfamiliar_sdk_claim())
+    
+        def disagree(data):
+            data["answers"]["unknowns"]["stop_reason"] = StopReason.SETTLED.value
+    
+>       with pytest.raises(EffectModelError, match="unknowns answer disagrees"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'unknowns answer disagrees'
+E         Actual message: "receipt 'rcpt-1': unknowns stop_reason disagrees with acquisition record"
+
+tests/effect_claims/test_m0_receipt.py:356: AssertionError
+________ test_divergent_receipt_keeps_both_candidates_and_selects_none _________
+
+    def test_divergent_receipt_keeps_both_candidates_and_selects_none():
+        receipt = receipt_of(ALL_CLAIMS["divergent"]())
+        impl = receipt.answers.implementation
+        assert impl.selection_state is SelectionState.UNRESOLVED_DIVERGENT
+        assert {c.candidate_id for c in impl.candidates} == {"cand-1", "cand-2"}
+        assert impl.selected_candidate_id is None
+        assert receipt.answers.operation.state is U
+    
+        def select_first(data):
+            data["answers"]["implementation"]["selected_candidate_id"] = "cand-1"
+    
+        with pytest.raises(EffectModelError, match="no candidate is selected"):
+            EffectReceipt.from_dict(tampered(receipt, select_first))
+    
+        def drop_second(data):
+            data["answers"]["implementation"]["candidates"] = data["answers"]["implementation"]["candidates"][:1]
+    
+        with pytest.raises(EffectModelError):
+            EffectReceipt.from_dict(tampered(receipt, drop_second))
+    
+        def strip_states(data):
+            for cand in data["answers"]["implementation"]["candidates"]:
+                del cand["obligations"]
+    
+>       with pytest.raises(EffectModelError, match="carries its own obligation states"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'carries its own obligation states'
+E         Actual message: "receipt 'rcpt-1': implementation answer disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:384: AssertionError
+__________ test_divergent_receipt_cannot_adopt_one_candidates_answer ___________
+
+    def test_divergent_receipt_cannot_adopt_one_candidates_answer():
+        receipt = receipt_of(ALL_CLAIMS["divergent"]())
+    
+        def adopt_first(data):
+            data["answers"]["operation"] = {"state": "SUPPORTED", "settled_by_packet_ids": ["p-cand-1-operation-pos"]}
+            for section in (data["answers"]["unknowns"], data["acquisition"]):
+                section["unresolved_obligations"].remove("OPERATION")
+    
+>       with pytest.raises(EffectModelError, match="aggregate to UNKNOWN"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'aggregate to UNKNOWN'
+E         Actual message: "receipt 'rcpt-1': receipt acquisition disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:396: AssertionError
+___________________ test_error_receipt_cannot_become_abstain ___________________
+
+    def test_error_receipt_cannot_become_abstain():
+        receipt = receipt_of(error_claim())
+        assert receipt.verdict is Verdict.ANALYSIS_ERROR
+        assert receipt.answers.boundary.state is ProofState.ERROR
+    
+        def abstain(data):
+            data["verdict"] = data["answers"]["effect"]["verdict"] = "ABSTAIN"
+    
+>       with pytest.raises(EffectModelError, match="ANALYSIS_ERROR"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'ANALYSIS_ERROR'
+E         Actual message: "receipt 'rcpt-1': receipt verdict disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:411: AssertionError
+______ test_incomplete_probe_must_be_listed_and_completed_probe_must_not _______
+
+    def test_incomplete_probe_must_be_listed_and_completed_probe_must_not():
+        base = unfamiliar_sdk_claim()
+        incomplete = ProbeOutcome("CP-BND-01", Obligation.BOUNDARY, ProbeClass.BLOCKING, ProbeResult.INCOMPLETE,
+                                  incomplete_reason=StopReason.TIER_UNAVAILABLE)
+        receipt = receipt_of(dataclasses.replace(base, probe_outcomes=(incomplete,)))
+        assert "CP-BND-01" in receipt.answers.contradictions.blocking_probes_incomplete
+    
+        def unlist(data):
+            data["answers"]["contradictions"]["blocking_probes_incomplete"].remove("CP-BND-01")
+    
+>       with pytest.raises(EffectModelError, match="must be reported as such"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'must be reported as such'
+E         Actual message: "receipt 'rcpt-1': missing/incomplete BLOCKING probes must be reported"
+
+tests/effect_claims/test_m0_receipt.py:485: AssertionError
+_______ test_proven_receipt_cannot_carry_found_blocking_counter_evidence _______
+
+    def test_proven_receipt_cannot_carry_found_blocking_counter_evidence():
+        receipt = receipt_of(proven_claim())
+    
+        def found(data):
+            for o in data["probe_outcomes"]:
+                if o["probe_id"] == "CP-OPR-02":
+                    o["outcome"] = "FOUND"
+                    o["packet_ids"] = ["pkt-operation"]
+                    data["answers"]["contradictions"]["counter_evidence_found"] = [o]
+    
+>       with pytest.raises(EffectModelError, match="no BLOCKING probe found counter-evidence"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'no BLOCKING probe found counter-evidence'
+E         Actual message: "receipt 'rcpt-1': receipt probe_outcomes disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:516: AssertionError
+_________ test_proven_receipt_cannot_hide_an_incomplete_blocking_probe _________
+
+    def test_proven_receipt_cannot_hide_an_incomplete_blocking_probe():
+        receipt = receipt_of(proven_claim())
+    
+        def make_incomplete(data):
+            for o in data["probe_outcomes"]:
+                if o["probe_id"] == "CP-PER-02":
+                    o["outcome"] = "INCOMPLETE"
+                    o["incomplete_reason"] = "TIER_UNAVAILABLE"
+            data["answers"]["contradictions"]["blocking_probes_incomplete"] = ["CP-PER-02"]
+    
+>       with pytest.raises(EffectModelError, match="every BLOCKING probe"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'every BLOCKING probe'
+E         Actual message: "receipt 'rcpt-1': receipt probe_outcomes disagrees with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:530: AssertionError
+________ test_frozen_invalid_receipt_is_rejected_for_each_stated_reason ________
+
+    def test_frozen_invalid_receipt_is_rejected_for_each_stated_reason():
+        data = example("effect_receipt.invalid")
+>       with pytest.raises(EffectModelError, match="unknowns"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'unknowns'
+E         Actual message: "receipt: missing required key(s) ['claim_snapshot']"
+
+tests/effect_claims/test_m0_receipt.py:586: AssertionError
+_ test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant[effect_claim.valid.abstain] _
+
+name = 'effect_claim.valid.abstain'
+
+    @pytest.mark.parametrize("name", sorted(VALID_EXAMPLES))
+    def test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant(name):
+        schema_name, load = VALID_EXAMPLES[name]
+        data = example(name)
+        historical_validator(schema_name).validate(data)
+        if schema_name == "evidence":
+            assert_valid(schema_name, load(data).to_dict())
+        else:
+            # Old wire records remain historical and cannot acquire missing new provenance.
+>           with pytest.raises(EffectModelError, match="schema_version"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: Regex pattern did not match.
+E             Expected regex: 'schema_version'
+E             Actual message: "candidate 'cand-1': opaque/unresolved identity cannot be implementation-supported"
+
+tests/effect_claims/test_m0_schema_conformance.py:174: AssertionError
+_ test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant[effect_claim.valid.proven] _
+
+name = 'effect_claim.valid.proven'
+
+    @pytest.mark.parametrize("name", sorted(VALID_EXAMPLES))
+    def test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant(name):
+        schema_name, load = VALID_EXAMPLES[name]
+        data = example(name)
+        historical_validator(schema_name).validate(data)
+        if schema_name == "evidence":
+            assert_valid(schema_name, load(data).to_dict())
+        else:
+            # Old wire records remain historical and cannot acquire missing new provenance.
+>           with pytest.raises(EffectModelError, match="schema_version"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: Regex pattern did not match.
+E             Expected regex: 'schema_version'
+E             Actual message: "packet 'pkt-0006': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+
+tests/effect_claims/test_m0_schema_conformance.py:174: AssertionError
+_ test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant[effect_receipt.valid] _
+
+name = 'effect_receipt.valid'
+
+    @pytest.mark.parametrize("name", sorted(VALID_EXAMPLES))
+    def test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant(name):
+        schema_name, load = VALID_EXAMPLES[name]
+        data = example(name)
+        historical_validator(schema_name).validate(data)
+        if schema_name == "evidence":
+            assert_valid(schema_name, load(data).to_dict())
+        else:
+            # Old wire records remain historical and cannot acquire missing new provenance.
+>           with pytest.raises(EffectModelError, match="schema_version"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: Regex pattern did not match.
+E             Expected regex: 'schema_version'
+E             Actual message: "receipt: missing required key(s) ['claim_snapshot']"
+
+tests/effect_claims/test_m0_schema_conformance.py:174: AssertionError
+______ test_sealed_amendment_examples[valid_unrelated_frontier_negative] _______
+
+case = {'id': 'valid_unrelated_frontier_negative', 'kind': 'claim', 'file': 'examples/valid_unrelated_frontier_negative.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1052: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:623: in from_dict
+    frontier = tuple(FrontierEntry.from_dict(e, f"{r.at('frontier')}[{i}]") for i, e in enumerate(entries))
+               ^^^^^
+actenon_scan/effects/claim.py:623: in <genexpr>
+    frontier = tuple(FrontierEntry.from_dict(e, f"{r.at('frontier')}[{i}]") for i, e in enumerate(entries))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:517: in from_dict
+    return cls(origin=SourceLocator.from_dict(r.get("origin"), r.at("origin")),
+<string>:10: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = FrontierEntry(origin=SourceLocator(path='synthetic/subject.py', start_line=10, end_line=10, start_column=None, end_col...STED'>, target_symbol=None, target_package=None, might_settle=(<Obligation.OPERATION: 'OPERATION'>,), budget_name=None)
+
+    def __post_init__(self) -> None:
+        w = "frontier entry"
+        c.instance(SourceLocator, self.origin, f"{w}.origin")
+        object.__setattr__(self, "would_reach_tier", c.enum_value(LadderTier, self.would_reach_tier, f"{w}.would_reach_tier"))
+        object.__setattr__(self, "reason", c.enum_value(StopReason, self.reason, f"{w}.reason"))
+        c.optional_text(self.target_symbol, f"{w}.target_symbol")
+        c.optional_text(self.target_package, f"{w}.target_package")
+        object.__setattr__(self, "might_settle", c.enum_tuple(Obligation, self.might_settle, f"{w}.might_settle"))
+        object.__setattr__(self, "budget_name", c.optional_enum(BudgetName, self.budget_name, f"{w}.budget_name"))
+        if self.would_reach_tier is LadderTier.L8:
+            raise c.fail(w, "L8 is not a tier an edge can reach")
+        if self.reason not in FRONTIER_REASONS:
+            raise c.fail(w, f"{self.reason.value} is not a reason an edge is left unopened")
+        if (self.reason is StopReason.BUDGET_EXHAUSTED) != (self.budget_name is not None):
+>           raise c.fail(w, "a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED")
+E           actenon_scan.effects._codec.EffectModelError: frontier entry: a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED
+
+actenon_scan/effects/claim.py:496: EffectModelError
+=============================== warnings summary ===============================
+../m0_review_env/lib/python3.14/site-packages/_pytest/python.py:124
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/python.py:124: PytestRemovedIn10Warning: Passing a non-Collection iterable to parametrize is deprecated.
+  Test: tests/effect_claims/test_m0r1_regressions.py::test_M2_every_ordered_pair, argvalues type: product
+  Please convert to a list or tuple.
+  See https://docs.pytest.org/en/stable/deprecations.html#parametrize-iterators
+    metafunc.parametrize(*marker.args, **marker.kwargs, _param_mark=marker)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/effect_claims/test_m0_claim.py::test_1_frozen_rule_free_examples_load
+FAILED tests/effect_claims/test_m0_claim.py::test_2_agreeing_candidates_support_a_proven_effect_without_selecting_one
+FAILED tests/effect_claims/test_m0_claim.py::test_2_an_opaque_candidate_is_a_first_class_candidate
+FAILED tests/effect_claims/test_m0_claim.py::test_3_agreement_and_divergence_are_checked_not_asserted
+FAILED tests/effect_claims/test_m0_claim.py::test_4_refuted_requires_probative_negative_evidence
+FAILED tests/effect_claims/test_m0_claim.py::test_5_conflicting_requires_its_contradiction_record
+FAILED tests/effect_claims/test_m0_claim.py::test_5_precedence_requires_single_established_resolved_body
+FAILED tests/effect_claims/test_m0_claim.py::test_5_precedence_does_not_apply_under_agreement
+FAILED tests/effect_claims/test_m0_claim.py::test_6_selection_error_is_an_analysis_error
+FAILED tests/effect_claims/test_m0_claim.py::test_7_supported_without_any_packet_is_rejected[ACTIVATION]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_supported_without_any_packet_is_rejected[BOUNDARY]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_supported_without_any_packet_is_rejected[OPERATION]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_supported_without_any_packet_is_rejected[PERSISTENCE]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_hypothesis_only_evidence_cannot_support[ACTIVATION]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_hypothesis_only_evidence_cannot_support[BOUNDARY]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_hypothesis_only_evidence_cannot_support[OPERATION]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_hypothesis_only_evidence_cannot_support[PERSISTENCE]
+FAILED tests/effect_claims/test_m0_claim.py::test_7_unknown_with_probative_evidence_discards_evidence_and_is_rejected
+FAILED tests/effect_claims/test_m0_claim.py::test_7_an_undetermined_commit_never_supports_persistence
+FAILED tests/effect_claims/test_m0_claim.py::test_7_cp_per_05_found_keeps_persistence_unknown
+FAILED tests/effect_claims/test_m0_claim.py::test_proven_effect_requires_that_no_blocking_probe_found_counter_evidence
+FAILED tests/effect_claims/test_m0_claim.py::test_advisory_probes_do_not_gate_proven_effect
+FAILED tests/effect_claims/test_m0_claim.py::test_frozen_invalid_claim_is_rejected_at_every_layer_it_violates
+FAILED tests/effect_claims/test_m0_claim.py::test_no_effect_c1_opaque_candidate
+FAILED tests/effect_claims/test_m0_claim.py::test_unresolved_obligations_are_exactly_accounted_for
+FAILED tests/effect_claims/test_m0_claim.py::test_frozen_examples_round_trip_losslessly
+FAILED tests/effect_claims/test_m0_evidence.py::test_dependency_and_contract_evidence_names_package_and_version[L4]
+FAILED tests/effect_claims/test_m0_evidence.py::test_dependency_and_contract_evidence_names_package_and_version[L6]
+FAILED tests/effect_claims/test_m0_evidence.py::test_unpinned_source_is_recorded_as_unpinned_never_substituted
+FAILED tests/effect_claims/test_m0_ledger.py::test_9_divergent_unknown_is_not_counted_as_refuted
+FAILED tests/effect_claims/test_m0_ledger.py::test_analysis_errors_cannot_be_hidden
+FAILED tests/effect_claims/test_m0_receipt.py::test_8_conflicting_receipt_cannot_be_downgraded_to_unknown
+FAILED tests/effect_claims/test_m0_receipt.py::test_8_wholesale_erasure_is_only_detectable_by_rederiving_from_the_claim
+FAILED tests/effect_claims/test_m0_receipt.py::test_8_overridden_packet_cannot_be_dropped_from_a_receipt
+FAILED tests/effect_claims/test_m0_receipt.py::test_8_cited_packet_cannot_be_dropped_from_a_receipt
+FAILED tests/effect_claims/test_m0_receipt.py::test_8_counter_evidence_cannot_be_suppressed
+FAILED tests/effect_claims/test_m0_receipt.py::test_supported_answer_cannot_cite_a_hypothesis_only_packet
+FAILED tests/effect_claims/test_m0_receipt.py::test_supported_answer_cannot_cite_opposing_polarity
+FAILED tests/effect_claims/test_m0_receipt.py::test_answer_cannot_be_upgraded_from_unknown_to_supported_without_evidence
+FAILED tests/effect_claims/test_m0_receipt.py::test_unknown_obligation_must_appear_in_unknowns
+FAILED tests/effect_claims/test_m0_receipt.py::test_unknowns_answer_must_agree_with_acquisition
+FAILED tests/effect_claims/test_m0_receipt.py::test_divergent_receipt_keeps_both_candidates_and_selects_none
+FAILED tests/effect_claims/test_m0_receipt.py::test_divergent_receipt_cannot_adopt_one_candidates_answer
+FAILED tests/effect_claims/test_m0_receipt.py::test_error_receipt_cannot_become_abstain
+FAILED tests/effect_claims/test_m0_receipt.py::test_incomplete_probe_must_be_listed_and_completed_probe_must_not
+FAILED tests/effect_claims/test_m0_receipt.py::test_proven_receipt_cannot_carry_found_blocking_counter_evidence
+FAILED tests/effect_claims/test_m0_receipt.py::test_proven_receipt_cannot_hide_an_incomplete_blocking_probe
+FAILED tests/effect_claims/test_m0_receipt.py::test_frozen_invalid_receipt_is_rejected_for_each_stated_reason
+FAILED tests/effect_claims/test_m0_schema_conformance.py::test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant[effect_claim.valid.abstain]
+FAILED tests/effect_claims/test_m0_schema_conformance.py::test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant[effect_claim.valid.proven]
+FAILED tests/effect_claims/test_m0_schema_conformance.py::test_valid_example_accepted_by_schema_and_model_and_reemitted_conformant[effect_receipt.valid]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_unrelated_frontier_negative]
+52 failed, 425 passed, 1 xfailed, 1 warning in 1.91s

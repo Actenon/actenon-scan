@@ -1,0 +1,641 @@
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 20%]
+........................................................................ [ 27%]
+.......................................................x................ [ 33%]
+........................................................................ [ 40%]
+........................................................................ [ 47%]
+......................................................... [ 52%]
+.....................FFF.F............................................ [ 59%]
+..............................F............FFFFF......................s. [ 66%]
+...................................FFFFFFFFFFFFF.s...................... [ 73%]
+............................................................xx.x........ [ 79%]
+........................................................................ [ 86%]
+..........sssssss...sss..............................F.................. [ 93%]
+......................................................................   [100%]
+=================================== FAILURES ===================================
+______________ test_unresolvable_ref_is_an_error_not_a_clean_scan ______________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_unresolvable_ref_is_an_er0')
+
+    def test_unresolvable_ref_is_an_error_not_a_clean_scan(tmp_path: Path) -> None:
+        repo = _repo(tmp_path)
+        (repo / "tool.py").write_text(
+            "import subprocess\nfrom mcp.server.fastmcp import FastMCP\n"
+            "mcp = FastMCP('x')\n\n@mcp.tool()\ndef f(cmd: str):\n"
+            "    subprocess.run(cmd, shell=True)\n"
+        )
+        result = _scan(repo, "--changed-only", "origin/does-not-exist", "--fail-on", "none")
+>       assert result.returncode == 2, (result.returncode, result.stdout, result.stderr)
+E       AssertionError: (1, '', '/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan
+E         ')
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_changed_only_integrity.py:52: AssertionError
+______________ test_empty_diff_still_writes_the_requested_output _______________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_empty_diff_still_writes_t0')
+
+    def test_empty_diff_still_writes_the_requested_output(tmp_path: Path) -> None:
+        repo = _repo(tmp_path)
+        out = tmp_path / "results.json"
+        result = _scan(repo, "--changed-only", "HEAD", "--format", "json", "--output", str(out))
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_changed_only_integrity.py:61: AssertionError
+___________________ test_empty_diff_sarif_output_is_written ____________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_empty_diff_sarif_output_i0')
+
+    def test_empty_diff_sarif_output_is_written(tmp_path: Path) -> None:
+        repo = _repo(tmp_path)
+        out = tmp_path / "results.sarif"
+        result = _scan(repo, "--changed-only", "HEAD", "--format", "sarif", "--output", str(out))
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_changed_only_integrity.py:71: AssertionError
+______________________________ CliTests.test_init ______________________________
+
+self = <test_cli.CliTests testMethod=test_init>
+
+    def test_init(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            old_cwd = os.getcwd()
+            os.chdir(tmpdir)
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-m", "actenon_scan", "init"],
+                    capture_output=True, text=True,
+                )
+>               self.assertEqual(0, result.returncode)
+E               AssertionError: 0 != 1
+
+tests/test_cli.py:82: AssertionError
+____ ExcludeExplicitPathTests.test_excluded_file_named_directly_is_scanned _____
+
+self = <test_exclude_explicit_path.ExcludeExplicitPathTests testMethod=test_excluded_file_named_directly_is_scanned>
+
+    def test_excluded_file_named_directly_is_scanned(self) -> None:
+        """The same file named directly on the command line IS scanned."""
+        result = subprocess.run(
+            [sys.executable, SCAN_BIN, "scan",
+             str(self.excluded_file), "--fail-on", "none"],
+            capture_output=True, text=True, cwd=self.tmpdir,
+        )
+        # The file should be scanned — at least one finding
+>       self.assertIn("consequential action", result.stdout,
+                      "User-named file was NOT scanned — exclude globs over-applied")
+E       AssertionError: 'consequential action' not found in '' : User-named file was NOT scanned — exclude globs over-applied
+
+tests/test_exclude_explicit_path.py:76: AssertionError
+______ GoSupportTests.test_go_file_with_exec_in_mcp_tool_produces_finding ______
+
+self = <test_go_support.GoSupportTests testMethod=test_go_file_with_exec_in_mcp_tool_produces_finding>
+
+        def test_go_file_with_exec_in_mcp_tool_produces_finding(self) -> None:
+            """exec.Command in an MCP tool handler should produce a finding."""
+            go_file = Path(self.tmpdir) / "tool.go"
+            go_file.write_text("""package main
+    
+    import (
+        "context"
+        "os/exec"
+        "github.com/modelcontextprotocol/go-sdk/mcp"
+    )
+    
+    func runCommand(ctx context.Context, req *mcp.CallToolRequest, args struct{ Command string }) (*mcp.CallToolResult, struct{}, error) {
+        out, err := exec.Command("bash", "-c", args.Command).Output()
+        if err != nil {
+            return mcp.NewToolResultError(err.Error()), struct{}{}, nil
+        }
+        return mcp.NewToolResultText(string(out)), struct{}{}, nil
+    }
+    
+    func main() {
+        server := mcp.NewServer("test", "1.0")
+        mcp.AddTool(server, &mcp.Tool{Name: "run_command"}, runCommand)
+    }
+    """)
+            result = self._scan(str(go_file))
+            import json
+>           d = json.loads(result.stdout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_go_support.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:352: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x1087cba10>, s = '', idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+            obj, end = self.scan_once(s, idx)
+        except StopIteration as err:
+>           raise JSONDecodeError("Expecting value", s, err.value) from None
+E           json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:363: JSONDecodeError
+___ GoSupportTests.test_go_file_with_http_post_in_mcp_tool_produces_finding ____
+
+self = <test_go_support.GoSupportTests testMethod=test_go_file_with_http_post_in_mcp_tool_produces_finding>
+
+        def test_go_file_with_http_post_in_mcp_tool_produces_finding(self) -> None:
+            """http.NewRequest in an MCP tool handler should produce a finding."""
+            go_file = Path(self.tmpdir) / "http.go"
+            go_file.write_text("""package main
+    
+    import (
+        "context"
+        "net/http"
+        "github.com/modelcontextprotocol/go-sdk/mcp"
+    )
+    
+    func sendRequest(ctx context.Context, req *mcp.CallToolRequest, args struct{ URL string }) (*mcp.CallToolResult, struct{}, error) {
+        httpReq, err := http.NewRequest("POST", args.URL, nil)
+        if err != nil {
+            return mcp.NewToolResultError(err.Error()), struct{}{}, nil
+        }
+        client := &http.Client{}
+        resp, err := client.Do(httpReq)
+        _ = resp
+        return mcp.NewToolResultText("sent"), struct{}{}, nil
+    }
+    
+    func main() {
+        server := mcp.NewServer("test", "1.0")
+        mcp.AddTool(server, &mcp.Tool{Name: "send_request"}, sendRequest)
+    }
+    """)
+            result = self._scan(str(go_file))
+            import json
+>           d = json.loads(result.stdout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_go_support.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:352: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x1087cba10>, s = '', idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+            obj, end = self.scan_once(s, idx)
+        except StopIteration as err:
+>           raise JSONDecodeError("Expecting value", s, err.value) from None
+E           json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:363: JSONDecodeError
+___ GoSupportTests.test_go_file_with_os_remove_in_mcp_tool_produces_finding ____
+
+self = <test_go_support.GoSupportTests testMethod=test_go_file_with_os_remove_in_mcp_tool_produces_finding>
+
+        def test_go_file_with_os_remove_in_mcp_tool_produces_finding(self) -> None:
+            """os.Remove in an MCP tool handler should produce a finding."""
+            go_file = Path(self.tmpdir) / "delete.go"
+            go_file.write_text("""package main
+    
+    import (
+        "context"
+        "os"
+        "github.com/modelcontextprotocol/go-sdk/mcp"
+    )
+    
+    func deleteFile(ctx context.Context, req *mcp.CallToolRequest, args struct{ Path string }) (*mcp.CallToolResult, struct{}, error) {
+        err := os.Remove(args.Path)
+        if err != nil {
+            return mcp.NewToolResultError(err.Error()), struct{}{}, nil
+        }
+        return mcp.NewToolResultText("deleted"), struct{}{}, nil
+    }
+    
+    func main() {
+        server := mcp.NewServer("test", "1.0")
+        mcp.AddTool(server, &mcp.Tool{Name: "delete_file"}, deleteFile)
+    }
+    """)
+            result = self._scan(str(go_file))
+            import json
+>           d = json.loads(result.stdout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_go_support.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:352: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x1087cba10>, s = '', idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+            obj, end = self.scan_once(s, idx)
+        except StopIteration as err:
+>           raise JSONDecodeError("Expecting value", s, err.value) from None
+E           json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:363: JSONDecodeError
+__________ GoSupportTests.test_go_file_without_mcp_import_no_finding ___________
+
+self = <test_go_support.GoSupportTests testMethod=test_go_file_without_mcp_import_no_finding>
+
+        def test_go_file_without_mcp_import_no_finding(self) -> None:
+            """exec.Command in a non-agent function should NOT produce a finding."""
+            go_file = Path(self.tmpdir) / "main.go"
+            go_file.write_text("""package main
+    
+    import (
+        "os/exec"
+    )
+    
+    func buildBinary() error {
+        cmd := exec.Command("go", "build", "-o", "binary")
+        return cmd.Run()
+    }
+    """)
+            result = self._scan(str(go_file))
+            import json
+>           d = json.loads(result.stdout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_go_support.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:352: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x1087cba10>, s = '', idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+            obj, end = self.scan_once(s, idx)
+        except StopIteration as err:
+>           raise JSONDecodeError("Expecting value", s, err.value) from None
+E           json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:363: JSONDecodeError
+________________ GoSupportTests.test_go_test_files_are_skipped _________________
+
+self = <test_go_support.GoSupportTests testMethod=test_go_test_files_are_skipped>
+
+        def test_go_test_files_are_skipped(self) -> None:
+            """Go test files (_test.go) should be skipped by default."""
+            test_file = Path(self.tmpdir) / "main_test.go"
+            test_file.write_text("""package main
+    
+    import (
+        "os/exec"
+        "testing"
+    )
+    
+    func TestExec(t *testing.T) {
+        out, err := exec.Command("echo", "hello").Output()
+        if err != nil {
+            t.Fatal(err)
+        }
+        _ = out
+    }
+    """)
+            result = self._scan(str(self.tmpdir))
+            import json
+>           d = json.loads(result.stdout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_go_support.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:352: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x1087cba10>, s = '', idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+            obj, end = self.scan_once(s, idx)
+        except StopIteration as err:
+>           raise JSONDecodeError("Expecting value", s, err.value) from None
+E           json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:363: JSONDecodeError
+_________________________ test_install_github_dry_run __________________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_dry_run0')
+
+    def test_install_github_dry_run(tmp_path: Path) -> None:
+        """--dry-run prints the workflow without writing to disk."""
+        # Init a git repo so _find_git_root works
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install(["--dry-run"], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:27: AssertionError
+_____________________ test_install_github_creates_workflow _____________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_creates_wo0')
+
+    def test_install_github_creates_workflow(tmp_path: Path) -> None:
+        """Default invocation creates .github/workflows/actenon-scan.yml."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install([], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:38: AssertionError
+__________________ test_install_github_existing_file_refused ___________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_existing_f0')
+
+    def test_install_github_existing_file_refused(tmp_path: Path) -> None:
+        """Existing workflow is not overwritten without --force."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        # Create an existing workflow
+        workflow_dir = tmp_path / ".github" / "workflows"
+        workflow_dir.mkdir(parents=True)
+        (workflow_dir / "actenon-scan.yml").write_text("# existing\n")
+        result = _run_install([], tmp_path)
+        assert result.returncode == 1
+>       assert "already exists" in result.stderr
+E       AssertionError: assert 'already exists' in '/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n'
+E        +  where '/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n' = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').stderr
+
+tests/test_install_github.py:58: AssertionError
+_____________________ test_install_github_force_overwrites _____________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_force_over0')
+
+    def test_install_github_force_overwrites(tmp_path: Path) -> None:
+        """--force overwrites and creates a backup."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        workflow_dir = tmp_path / ".github" / "workflows"
+        workflow_dir.mkdir(parents=True)
+        original = "# existing workflow\n"
+        (workflow_dir / "actenon-scan.yml").write_text(original)
+        result = _run_install(["--force"], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:69: AssertionError
+_________________________ test_install_github_blocking _________________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_blocking0')
+
+    def test_install_github_blocking(tmp_path: Path) -> None:
+        """--blocking sets fail-on: high."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install(["--blocking"], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:82: AssertionError
+___________________ test_install_github_default_non_blocking ___________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_default_no0')
+
+    def test_install_github_default_non_blocking(tmp_path: Path) -> None:
+        """Default is non-blocking (fail-on: none)."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install([], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:91: AssertionError
+_________________________ test_install_github_baseline _________________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_baseline0')
+
+    def test_install_github_baseline(tmp_path: Path) -> None:
+        """--baseline references the baseline file in the workflow."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install(["--baseline", "baseline.json"], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:101: AssertionError
+__________________________ test_install_github_config __________________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_config0')
+
+    def test_install_github_config(tmp_path: Path) -> None:
+        """--config references the config file in the workflow."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install(["--config", ".actenon-scan.json"], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:111: AssertionError
+_______________________ test_install_github_not_git_repo _______________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_not_git_re0')
+
+    def test_install_github_not_git_repo(tmp_path: Path) -> None:
+        """Running outside a git repo exits with code 2."""
+        result = _run_install([], tmp_path)
+>       assert result.returncode == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:120: AssertionError
+_____________________ test_install_github_nested_directory _____________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_nested_dir0')
+
+    def test_install_github_nested_directory(tmp_path: Path) -> None:
+        """Running from a subdirectory finds the git root."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        nested = tmp_path / "src" / "deep"
+        nested.mkdir(parents=True)
+        result = _run_install([], nested)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:130: AssertionError
+________________________ test_install_github_stable_tag ________________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_stable_tag0')
+
+    def test_install_github_stable_tag(tmp_path: Path) -> None:
+        """Generated workflow uses @v1, not a specific patch version."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install([], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:138: AssertionError
+_________________ test_install_github_no_write_all_permissions _________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_no_write_a0')
+
+    def test_install_github_no_write_all_permissions(tmp_path: Path) -> None:
+        """Generated workflow must not use permissions: write-all."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install([], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:149: AssertionError
+________________________ test_install_github_no_secrets ________________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_install_github_no_secrets0')
+
+    def test_install_github_no_secrets(tmp_path: Path) -> None:
+        """Generated workflow must not reference any secrets."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        result = _run_install([], tmp_path)
+>       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_install_github.py:162: AssertionError
+___________________ test_changed_only_empty_diff_exits_zero ____________________
+
+tmp_path = PosixPath('/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/pytest-3711/test_changed_only_empty_diff_e0')
+
+    def test_changed_only_empty_diff_exits_zero(tmp_path: Path) -> None:
+        """P1-5 regression: --changed-only on an empty git diff silently
+        fell through to a full scan. Now it warns and exits 0."""
+        import subprocess as sp
+        sp.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        sp.run(["git", "config", "user.email", "test@test.com"], cwd=tmp_path, capture_output=True)
+        sp.run(["git", "config", "user.name", "test"], cwd=tmp_path, capture_output=True)
+        (tmp_path / "tool.py").write_text("def f(): pass\n")
+        sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        sp.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        # No changes since HEAD — empty diff.
+    
+        result = subprocess.run(
+            [sys.executable, "-m", "actenon_scan", "scan", str(tmp_path),
+             "--changed-only", "HEAD", "--format", "json"],
+            capture_output=True, text=True, cwd=tmp_path,
+        )
+>       assert result.returncode == 0, (
+            f"--changed-only on empty diff should exit 0, got {result.returncode}. "
+            f"stderr: {result.stderr[:300]}"
+        )
+E       AssertionError: --changed-only on empty diff should exit 0, got 1. stderr: /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_en.../Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/bin/python: No module named actenon_scan\n').returncode
+
+tests/test_v1_three_persona_fixes.py:348: AssertionError
+=============================== warnings summary ===============================
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-d69a717b-dc71-4320-8d81-131b9763c719
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-d69a717b-dc71-4320-8d81-131b9763c719'
+    warnings.warn(
+
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-a8e2a1ec-ef7b-4e4e-a401-23ea72deb1be
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-a8e2a1ec-ef7b-4e4e-a401-23ea72deb1be'
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_changed_only_integrity.py::test_unresolvable_ref_is_an_error_not_a_clean_scan
+FAILED tests/test_changed_only_integrity.py::test_empty_diff_still_writes_the_requested_output
+FAILED tests/test_changed_only_integrity.py::test_empty_diff_sarif_output_is_written
+FAILED tests/test_cli.py::CliTests::test_init - AssertionError: 0 != 1
+FAILED tests/test_exclude_explicit_path.py::ExcludeExplicitPathTests::test_excluded_file_named_directly_is_scanned
+FAILED tests/test_go_support.py::GoSupportTests::test_go_file_with_exec_in_mcp_tool_produces_finding
+FAILED tests/test_go_support.py::GoSupportTests::test_go_file_with_http_post_in_mcp_tool_produces_finding
+FAILED tests/test_go_support.py::GoSupportTests::test_go_file_with_os_remove_in_mcp_tool_produces_finding
+FAILED tests/test_go_support.py::GoSupportTests::test_go_file_without_mcp_import_no_finding
+FAILED tests/test_go_support.py::GoSupportTests::test_go_test_files_are_skipped
+FAILED tests/test_install_github.py::test_install_github_dry_run - AssertionE...
+FAILED tests/test_install_github.py::test_install_github_creates_workflow - A...
+FAILED tests/test_install_github.py::test_install_github_existing_file_refused
+FAILED tests/test_install_github.py::test_install_github_force_overwrites - A...
+FAILED tests/test_install_github.py::test_install_github_blocking - Assertion...
+FAILED tests/test_install_github.py::test_install_github_default_non_blocking
+FAILED tests/test_install_github.py::test_install_github_baseline - Assertion...
+FAILED tests/test_install_github.py::test_install_github_config - AssertionEr...
+FAILED tests/test_install_github.py::test_install_github_not_git_repo - Asser...
+FAILED tests/test_install_github.py::test_install_github_nested_directory - A...
+FAILED tests/test_install_github.py::test_install_github_stable_tag - Asserti...
+FAILED tests/test_install_github.py::test_install_github_no_write_all_permissions
+FAILED tests/test_install_github.py::test_install_github_no_secrets - Asserti...
+FAILED tests/test_v1_three_persona_fixes.py::test_changed_only_empty_diff_exits_zero
+24 failed, 1021 passed, 12 skipped, 4 xfailed, 2 warnings, 89 subtests passed in 7.49s

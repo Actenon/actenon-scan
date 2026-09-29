@@ -71,20 +71,26 @@ def test_identifier_and_text_anchored_evidence_is_never_probative(kind):
 
 @pytest.mark.parametrize("tier", [LadderTier.L4, LadderTier.L5, LadderTier.L6])
 def test_dependency_and_contract_evidence_names_package_and_version(tier):
-    kind = PacketKind.DEPENDENCY_SOURCE_BODY
+    kind = PacketKind.OPENAPI_OPERATION if tier is LadderTier.L6 else PacketKind.DEPENDENCY_SOURCE_BODY
     obligation = Obligation.IMPLEMENTATION if tier is LadderTier.L4 else Obligation.BOUNDARY
     with pytest.raises(EffectModelError, match="package and version resolution"):
         packet("p", obligation, tier=tier, kind=kind)
     with pytest.raises(EffectModelError, match="package and version resolution"):
         packet("p", obligation, tier=tier, kind=kind,
                locator=SourceLocator(path="x.js", start_line=1, end_line=1, package="pkg"))
-    packet("p", obligation, tier=tier, kind=kind, locator=pinned())
+    # At L4 obtaining source is a hypothesis; top-level identity needs a binding witness.
+    packet("p", obligation, tier=tier, kind=kind, locator=pinned(),
+           admissibility=Admissibility.HYPOTHESIS_ONLY if tier is LadderTier.L4 else Admissibility.PROBATIVE)
 
 
 def test_unpinned_source_is_recorded_as_unpinned_never_substituted():
+    locator = SourceLocator(path="vendor/pkg/a.py", start_line=1, end_line=1, package="pkg",
+                            version_resolution=VersionResolution.UNPINNED)
     packet("p", Obligation.BOUNDARY, tier=LadderTier.L5, kind=PacketKind.DEPENDENCY_SOURCE_BODY,
-           locator=SourceLocator(path="vendor/pkg/a.py", start_line=1, end_line=1, package="pkg",
-                                 version_resolution=VersionResolution.UNPINNED))
+           locator=locator, admissibility=Admissibility.HYPOTHESIS_ONLY)
+    with pytest.raises(EffectModelError, match="PROBATIVE dependency body requires pinned version provenance"):
+        packet("p", Obligation.BOUNDARY, tier=LadderTier.L5, kind=PacketKind.DEPENDENCY_SOURCE_BODY,
+               locator=locator)
     with pytest.raises(EffectModelError, match="UNPINNED"):
         SourceLocator(path="a.py", start_line=1, end_line=1, package="pkg", version="latest",
                       version_resolution=VersionResolution.UNPINNED)

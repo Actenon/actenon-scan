@@ -1,0 +1,39 @@
+{
+  "architecture_id": "AREF-002A",
+  "schema_version": "0.1.1",
+  "amends": "AREF-002",
+  "m0_reviewed_commit": "a93b013383ce773b10708d3f30b2a1660e141527",
+  "proof_states": [
+    "SUPPORTED",
+    "REFUTED",
+    "UNKNOWN",
+    "CONFLICTING",
+    "ERROR"
+  ],
+  "verdicts": [
+    "PROVEN_EFFECT",
+    "NO_EFFECT",
+    "ABSTAIN",
+    "ANALYSIS_ERROR"
+  ],
+  "obligations": [
+    "IMPLEMENTATION",
+    "ACTIVATION",
+    "BOUNDARY",
+    "OPERATION",
+    "PERSISTENCE"
+  ],
+  "selection_states": [
+    "SINGLE_ESTABLISHED",
+    "AGREEMENT_INVARIANT",
+    "UNRESOLVED_DIVERGENT",
+    "SELECTION_ERROR",
+    "UNRESOLVED_IDENTITY"
+  ],
+  "effect_classes": [
+    "EXTERNAL_PERSISTENT_STATE_EFFECT"
+  ],
+  "conformance_dependency_missing_exit": 2,
+  "runtime_repairs_performed": false,
+  "schema_verifier_required": true
+}

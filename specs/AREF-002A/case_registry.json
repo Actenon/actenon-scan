@@ -1,0 +1,624 @@
+[
+  {
+    "id": "valid_proven",
+    "kind": "claim",
+    "file": "examples/valid_proven.json",
+    "valid": true,
+    "reason": "Four-verdict satisfiability; empty matched_rule_ids retained.",
+    "verdict": "PROVEN_EFFECT"
+  },
+  {
+    "id": "valid_no_effect",
+    "kind": "claim",
+    "file": "examples/valid_no_effect.json",
+    "valid": true,
+    "reason": "Four-verdict satisfiability; empty matched_rule_ids retained.",
+    "verdict": "NO_EFFECT"
+  },
+  {
+    "id": "valid_opaque_abstain",
+    "kind": "claim",
+    "file": "examples/valid_opaque_abstain.json",
+    "valid": true,
+    "reason": "Four-verdict satisfiability; empty matched_rule_ids retained.",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "valid_analysis_error",
+    "kind": "claim",
+    "file": "examples/valid_analysis_error.json",
+    "valid": true,
+    "reason": "Four-verdict satisfiability; empty matched_rule_ids retained.",
+    "verdict": "ANALYSIS_ERROR"
+  },
+  {
+    "id": "H1_error_erased",
+    "kind": "claim",
+    "file": "examples/H1_error_erased.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "H1_error_bad_selection",
+    "kind": "claim",
+    "file": "examples/H1_error_bad_selection.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SELECTION_STATE"
+    }
+  },
+  {
+    "id": "H2_positive_state_is_ephemeral",
+    "kind": "claim",
+    "file": "examples/H2_positive_state_is_ephemeral.json",
+    "valid": false,
+    "reason": "Positive persistence incompatible with typed assertion/source registry.",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_state_is_guaranteed_rolled_back",
+    "kind": "claim",
+    "file": "examples/H2_positive_state_is_guaranteed_rolled_back.json",
+    "valid": false,
+    "reason": "Positive persistence incompatible with typed assertion/source registry.",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_dry_run_in_force",
+    "kind": "claim",
+    "file": "examples/H2_positive_dry_run_in_force.json",
+    "valid": false,
+    "reason": "Positive persistence incompatible with typed assertion/source registry.",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_test_double_in_force",
+    "kind": "claim",
+    "file": "examples/H2_positive_test_double_in_force.json",
+    "valid": false,
+    "reason": "Positive persistence incompatible with typed assertion/source registry.",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_positive_noop",
+    "kind": "claim",
+    "file": "examples/H2_positive_noop.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/3",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_transport_persistence",
+    "kind": "claim",
+    "file": "examples/H2_transport_persistence.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_transport_operation",
+    "kind": "claim",
+    "file": "examples/H2_transport_operation.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/3",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H2_unregistered_probative",
+    "kind": "claim",
+    "file": "examples/H2_unregistered_probative.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/4",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "valid_unregistered_hypothesis",
+    "kind": "claim",
+    "file": "examples/valid_unregistered_hypothesis.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "valid_precedence_found",
+    "kind": "claim",
+    "file": "examples/valid_precedence_found.json",
+    "valid": true,
+    "reason": "Completed FOUND contract counter-evidence is resolved with selected-body provenance.",
+    "verdict": "PROVEN_EFFECT"
+  },
+  {
+    "id": "H3_tier_not_selection_proof",
+    "kind": "claim",
+    "file": "examples/H3_tier_not_selection_proof.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "PRECEDENCE_SELECTION"
+    }
+  },
+  {
+    "id": "H3_unlinked_body",
+    "kind": "claim",
+    "file": "examples/H3_unlinked_body.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "PRECEDENCE_LINK"
+    }
+  },
+  {
+    "id": "H3_package_not_body",
+    "kind": "claim",
+    "file": "examples/H3_package_not_body.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/evidence_packets/3",
+      "validator": "anyOf"
+    }
+  },
+  {
+    "id": "H3_no_recorded_provenance",
+    "kind": "claim",
+    "file": "examples/H3_no_recorded_provenance.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/contradictions/0",
+      "validator": "required"
+    }
+  },
+  {
+    "id": "valid_helper_precedence",
+    "kind": "claim",
+    "file": "examples/valid_helper_precedence.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "PROVEN_EFFECT"
+  },
+  {
+    "id": "valid_uncertainty_preserves_conflict",
+    "kind": "claim",
+    "file": "examples/valid_uncertainty_preserves_conflict.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "H4_uncertainty_erases_conflict",
+    "kind": "claim",
+    "file": "examples/H4_uncertainty_erases_conflict.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "PROOF_STATE"
+    }
+  },
+  {
+    "id": "H4_conflict_negative_closure",
+    "kind": "claim",
+    "file": "examples/H4_conflict_negative_closure.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CLOSURE_C3"
+    }
+  },
+  {
+    "id": "valid_hypothesis_found",
+    "kind": "claim",
+    "file": "examples/valid_hypothesis_found.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "PROVEN_EFFECT"
+  },
+  {
+    "id": "M1_blanket_found_veto",
+    "kind": "claim",
+    "file": "examples/M1_blanket_found_veto.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "M1_missing_positive",
+    "kind": "claim",
+    "file": "examples/M1_missing_positive.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "valid_missing_probe_abstain",
+    "kind": "claim",
+    "file": "examples/valid_missing_probe_abstain.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "M1_incomplete_positive",
+    "kind": "claim",
+    "file": "examples/M1_incomplete_positive.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "valid_incomplete_probe_abstain",
+    "kind": "claim",
+    "file": "examples/valid_incomplete_probe_abstain.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "M3_opaque_false_establishment",
+    "kind": "claim",
+    "file": "examples/M3_opaque_false_establishment.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SELECTION_STATE"
+    }
+  },
+  {
+    "id": "M4_missing_closure",
+    "kind": "claim",
+    "file": "examples/M4_missing_closure.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/",
+      "validator": "required"
+    }
+  },
+  {
+    "id": "M4_false_closure_flag",
+    "kind": "claim",
+    "file": "examples/M4_false_closure_flag.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/closure/C4_no_budget_exhausted_on_contributing_path",
+      "validator": "const"
+    }
+  },
+  {
+    "id": "valid_open_frontier_abstain",
+    "kind": "claim",
+    "file": "examples/valid_open_frontier_abstain.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "H5_claim_open_negative",
+    "kind": "claim",
+    "file": "examples/H5_claim_open_negative.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CLOSURE_C5"
+    }
+  },
+  {
+    "id": "valid_receipt_proven",
+    "kind": "receipt",
+    "file": "examples/valid_receipt_proven.json",
+    "valid": true,
+    "reason": ""
+  },
+  {
+    "id": "valid_receipt_no_effect",
+    "kind": "receipt",
+    "file": "examples/valid_receipt_no_effect.json",
+    "valid": true,
+    "reason": ""
+  },
+  {
+    "id": "valid_receipt_abstain",
+    "kind": "receipt",
+    "file": "examples/valid_receipt_abstain.json",
+    "valid": true,
+    "reason": ""
+  },
+  {
+    "id": "valid_receipt_analysis_error",
+    "kind": "receipt",
+    "file": "examples/valid_receipt_analysis_error.json",
+    "valid": true,
+    "reason": ""
+  },
+  {
+    "id": "valid_receipt_found_precedence",
+    "kind": "receipt",
+    "file": "examples/valid_receipt_found_precedence.json",
+    "valid": true,
+    "reason": ""
+  },
+  {
+    "id": "H5_receipt_strengthened",
+    "kind": "receipt",
+    "file": "examples/H5_receipt_strengthened.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "RECEIPT_PROJECTION"
+    }
+  },
+  {
+    "id": "H5_receipt_and_snapshot_open_negative",
+    "kind": "receipt",
+    "file": "examples/H5_receipt_and_snapshot_open_negative.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CLOSURE_C5"
+    }
+  },
+  {
+    "id": "valid_agreement",
+    "kind": "claim",
+    "file": "examples/valid_agreement.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "PROVEN_EFFECT"
+  },
+  {
+    "id": "valid_divergent",
+    "kind": "claim",
+    "file": "examples/valid_divergent.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "M2_divergence_not_contradiction",
+    "kind": "claim",
+    "file": "examples/M2_divergence_not_contradiction.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "H1_agreement_hides_error",
+    "kind": "claim",
+    "file": "examples/H1_agreement_hides_error.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "valid_multi_error",
+    "kind": "claim",
+    "file": "examples/valid_multi_error.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ANALYSIS_ERROR"
+  },
+  {
+    "id": "valid_ledger",
+    "kind": "ledger",
+    "file": "examples/valid_ledger.json",
+    "valid": true,
+    "reason": ""
+  },
+  {
+    "id": "H6_impossible_settled_population",
+    "kind": "ledger",
+    "file": "examples/H6_impossible_settled_population.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "LEDGER_DISJOINT"
+    }
+  },
+  {
+    "id": "H6_error_total",
+    "kind": "ledger",
+    "file": "examples/H6_error_total.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "LEDGER_ERROR_TOTAL"
+    }
+  },
+  {
+    "id": "H6_error_breakdown",
+    "kind": "ledger",
+    "file": "examples/H6_error_breakdown.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "LEDGER_ERROR_BREAKDOWN"
+    }
+  },
+  {
+    "id": "H6_cause_partition",
+    "kind": "ledger",
+    "file": "examples/H6_cause_partition.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "LEDGER_ERROR_BREAKDOWN"
+    }
+  },
+  {
+    "id": "valid_single_established_shorthand",
+    "kind": "claim",
+    "file": "examples/valid_single_established_shorthand.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "PROVEN_EFFECT"
+  },
+  {
+    "id": "M3_opaque_omitted_states",
+    "kind": "claim",
+    "file": "examples/M3_opaque_omitted_states.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CANDIDATE_STATES"
+    }
+  },
+  {
+    "id": "M3_opaque_supported_identity",
+    "kind": "claim",
+    "file": "examples/M3_opaque_supported_identity.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "OPAQUE_IDENTITY"
+    }
+  },
+  {
+    "id": "H3_other_source_identity",
+    "kind": "claim",
+    "file": "examples/H3_other_source_identity.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "PRECEDENCE_LINK"
+    }
+  },
+  {
+    "id": "valid_unrelated_frontier_negative",
+    "kind": "claim",
+    "file": "examples/valid_unrelated_frontier_negative.json",
+    "valid": true,
+    "reason": "C4 is asserted for the contributing refutation path, not all work; C5 relevance is obligation-specific.",
+    "verdict": "NO_EFFECT"
+  },
+  {
+    "id": "H5_receipt_missing_closure",
+    "kind": "receipt",
+    "file": "examples/H5_receipt_missing_closure.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "SCHEMA",
+      "path": "/",
+      "validator": "required"
+    }
+  },
+  {
+    "id": "valid_multi_conflict",
+    "kind": "claim",
+    "file": "examples/valid_multi_conflict.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ABSTAIN"
+  },
+  {
+    "id": "M2_conflict_erased",
+    "kind": "claim",
+    "file": "examples/M2_conflict_erased.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "valid_error_over_conflict",
+    "kind": "claim",
+    "file": "examples/valid_error_over_conflict.json",
+    "valid": true,
+    "reason": "",
+    "verdict": "ANALYSIS_ERROR"
+  },
+  {
+    "id": "M2_error_erased",
+    "kind": "claim",
+    "file": "examples/M2_error_erased.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "CANDIDATE_AGGREGATION"
+    }
+  },
+  {
+    "id": "H1_error_as_abstain",
+    "kind": "claim",
+    "file": "examples/H1_error_as_abstain.json",
+    "valid": false,
+    "reason": "",
+    "expected": {
+      "code": "VERDICT"
+    }
+  },
+  {
+    "id": "valid_ledger_overlapping_errors",
+    "kind": "ledger",
+    "file": "examples/valid_ledger_overlapping_errors.json",
+    "valid": true,
+    "reason": ""
+  },
+  {
+    "id": "valid_negative_precedence",
+    "kind": "claim",
+    "file": "examples/valid_negative_precedence.json",
+    "valid": true,
+    "reason": "Selected-body precedence is symmetric; guaranteed rollback can override a contrary contract.",
+    "verdict": "NO_EFFECT"
+  },
+  {
+    "id": "valid_receipt_negative_precedence",
+    "kind": "receipt",
+    "file": "examples/valid_receipt_negative_precedence.json",
+    "valid": true,
+    "reason": ""
+  }
+]

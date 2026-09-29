@@ -8,6 +8,8 @@ rendering the result as "safe".
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,26 +19,20 @@ from actenon_scan.effects.claim import (
     Authority,
     Contradiction,
     Control,
+    Closure,
     EffectClaim,
     FrontierEntry,
     ImplementationCandidate,
-    ObligationStates,
     Target,
     candidate_set,
-    check_candidate_states,
-    check_contradictions,
     check_selection_cardinality,
-    check_states_against_packets,
-    check_undetermined_commit,
+    _validate_claim,
     sorted_candidates,
 )
-from actenon_scan.effects.evidence import EvidencePacket, ProbeOutcome, check_packet_set, check_probe_set
+from actenon_scan.effects.evidence import EvidencePacket, ProbeOutcome
 from actenon_scan.effects.vocabulary import (
     BLOCKING_PROBE_IDS,
-    ESTABLISHED_SELECTIONS,
     EVIDENCE_OBLIGATIONS,
-    IMPLEMENTATION_STATE_FOR_SELECTION,
-    OPAQUE_CANDIDATE_KINDS,
     PROBE_REGISTRY,
     RECEIPT_ANSWER_KEYS,
     SCHEMA_VERSION,
@@ -225,7 +221,7 @@ class UnknownsAnswer:
     def from_acquisition(cls, acq: Acquisition) -> "UnknownsAnswer":
         return cls(unresolved_obligations=acq.unresolved_obligations,
                    highest_tier_reached=acq.highest_tier_reached, stop_reason=acq.stop_reason,
-                   frontier_size=acq.frontier_size, budget_exhausted=acq.budget_exhausted,
+                   frontier_size=acq.frontier_size, budget_exhausted=acq.budget_exhausted or None,
                    frontier=acq.frontier)
 
     def to_dict(self) -> dict:
@@ -364,6 +360,8 @@ class EffectReceipt:
     evidence_packets: tuple[EvidencePacket, ...]
     probe_outcomes: tuple[ProbeOutcome, ...]
     acquisition: Acquisition
+    claim_snapshot: EffectClaim
+    closure: Closure | None = None
     rendering_constraints: RenderingConstraints | None = None
     schema_version: str = SCHEMA_VERSION
 
@@ -377,6 +375,8 @@ class EffectReceipt:
         object.__setattr__(self, "verdict", c.enum_value(Verdict, self.verdict, f"{w}.verdict"))
         c.instance(Answers, self.answers, f"{w}.answers")
         c.instance(Acquisition, self.acquisition, f"{w}.acquisition")
+        c.instance(EffectClaim, self.claim_snapshot, f"{w}.claim_snapshot")
+        c.optional_instance(Closure, self.closure, f"{w}.closure")
         c.optional_instance(RenderingConstraints, self.rendering_constraints, f"{w}.rendering_constraints")
         object.__setattr__(self, "evidence_packets", c.typed_tuple(EvidencePacket, self.evidence_packets, f"{w}.evidence_packets"))
         object.__setattr__(self, "probe_outcomes", c.typed_tuple(ProbeOutcome, self.probe_outcomes, f"{w}.probe_outcomes"))
@@ -412,6 +412,7 @@ class EffectReceipt:
                    invocation_id=claim.invocation_id, effect_class=claim.effect_class, verdict=claim.verdict,
                    answers=answers, evidence_packets=claim.evidence_packets,
                    probe_outcomes=claim.probe_outcomes, acquisition=claim.acquisition,
+                   claim_snapshot=claim, closure=claim.closure,
                    rendering_constraints=RenderingConstraints(claim.verdict is Verdict.NO_EFFECT))
 
     @property
@@ -431,15 +432,19 @@ class EffectReceipt:
             "evidence_packets": [p.to_dict() for p in self.evidence_packets],
             "probe_outcomes": [o.to_dict() for o in self.probe_outcomes],
             "acquisition": self.acquisition.to_dict(),
+            "claim_snapshot": self.claim_snapshot.to_dict(),
         }
+        c.put(out, "closure", self.closure and self.closure.to_dict())
         c.put(out, "rendering_constraints", self.rendering_constraints and self.rendering_constraints.to_dict())
         return out
 
     @classmethod
     def from_dict(cls, data: Any, where: str = "receipt") -> "EffectReceipt":
+        if isinstance(data, Mapping) and "schema_version" in data and data["schema_version"] != SCHEMA_VERSION:
+            raise c.fail(where, f"schema_version must be {SCHEMA_VERSION}; historical records are not migrated")
         r = c.Reader(data, where, ("schema_version", "receipt_id", "claim_id", "capability_id", "invocation_id",
                                    "effect_class", "verdict", "answers", "evidence_packets", "probe_outcomes",
-                                   "acquisition"), ("rendering_constraints",))
+                                   "acquisition", "claim_snapshot"), ("rendering_constraints", "closure"))
         packets = c.sequence(r.get("evidence_packets"), r.at("evidence_packets"))
         outcomes = c.sequence(r.get("probe_outcomes"), r.at("probe_outcomes"))
         return cls(
@@ -450,91 +455,51 @@ class EffectReceipt:
             evidence_packets=tuple(EvidencePacket.from_dict(p, f"{r.at('evidence_packets')}[{i}]") for i, p in enumerate(packets)),
             probe_outcomes=tuple(ProbeOutcome.from_dict(o, f"{r.at('probe_outcomes')}[{i}]") for i, o in enumerate(outcomes)),
             acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+            claim_snapshot=EffectClaim.from_dict(r.get("claim_snapshot"), r.at("claim_snapshot")),
+            closure=None if "closure" not in r else Closure.from_dict(r.get("closure"), r.at("closure")),
             rendering_constraints=None if "rendering_constraints" not in r else RenderingConstraints.from_dict(
                 r.get("rendering_constraints"), r.at("rendering_constraints")),
         )
 
 
 def _validate_receipt(receipt: EffectReceipt, w: str) -> None:
+    claim = receipt.claim_snapshot
+    _validate_claim(claim, w + ".claim_snapshot")
+    for field in ("claim_id", "capability_id", "invocation_id", "effect_class", "verdict",
+                  "evidence_packets", "probe_outcomes", "acquisition", "closure"):
+        if getattr(receipt, field) != getattr(claim, field):
+            raise c.fail(w, f"receipt {field} disagrees with underlying claim")
     answers = receipt.answers
+    if (answers.effect.effect_class, answers.effect.verdict) != (claim.effect_class, claim.verdict):
+        raise c.fail(w, "effect answer disagrees with underlying claim")
     impl = answers.implementation
-    verdict = receipt.verdict
-    if (answers.effect.effect_class, answers.effect.verdict) != (receipt.effect_class, verdict):
-        raise c.fail(w, "the effect answer disagrees with the receipt's effect class or verdict")
-
-    candidate_ids = frozenset(cand.candidate_id for cand in impl.candidates)
-    packets = check_packet_set(receipt.evidence_packets, candidate_ids, w)
-    probes = check_probe_set(receipt.probe_outcomes, packets, w)
-    records = check_contradictions(answers.contradictions.contradictions, packets, impl.candidates,
-                                   impl.selection_state, w)
-
+    selected = claim.selected_candidate()
+    if (impl.selection_state, impl.candidates, impl.selected_candidate_id) != (
+            claim.selection_state, claim.implementation_candidates, selected.candidate_id if selected else None):
+        raise c.fail(w, "implementation answer disagrees with underlying claim")
+    for field, descriptor in (("resource", "target"), ("control", "control"), ("authority", "authority")):
+        if getattr(answers, field) != getattr(claim.descriptors, descriptor):
+            raise c.fail(w, f"{field} answer disagrees with underlying claim")
+    packets = {p.packet_id: p for p in claim.evidence_packets}
     for o in EVIDENCE_OBLIGATIONS:
-        _check_answer_packets(answers.obligation(o), o, packets, f"{w}: answers.{o.value.lower()}")
-
-    states = {o: answers.obligation(o).state for o in EVIDENCE_OBLIGATIONS}
-    answer_states = ObligationStates.from_mapping(
-        {Obligation.IMPLEMENTATION: IMPLEMENTATION_STATE_FOR_SELECTION[impl.selection_state], **states})
-    if impl.selection_state is SelectionState.SINGLE_ESTABLISHED:
-        (only,) = impl.candidates
-        effective = {only.candidate_id: only.obligations or answer_states}
-    else:
-        if any(cand.obligations is None for cand in impl.candidates):
-            raise c.fail(w, "with several candidates, every candidate carries its own obligation states")
-        effective = {cand.candidate_id: cand.obligations for cand in impl.candidates}
-    check_candidate_states(impl.selection_state, effective, answer_states, w)
-    check_states_against_packets(receipt.evidence_packets, effective, records, w)
-    check_undetermined_commit(probes, answer_states.persistence, w)
-    errored = any(s is _E for s in states.values()) or impl.selection_state is SelectionState.SELECTION_ERROR
-    if errored != (verdict is Verdict.ANALYSIS_ERROR):
-        raise c.fail(w, "ANALYSIS_ERROR is the verdict exactly when a necessary obligation is ERROR")
-
-    incomplete_listed = set(answers.contradictions.blocking_probes_incomplete or ())
-    for pid in BLOCKING_PROBE_IDS:
-        outcome = probes.get(pid)
-        if outcome is not None and not outcome.completed and pid not in incomplete_listed:
-            raise c.fail(w, f"BLOCKING probe {pid} is INCOMPLETE and must be reported as such")
-        if outcome is not None and outcome.completed and pid in incomplete_listed:
-            raise c.fail(w, f"BLOCKING probe {pid} completed but is reported incomplete")
-
-    if verdict is Verdict.PROVEN_EFFECT:
-        if impl.selection_state not in ESTABLISHED_SELECTIONS:
-            raise c.fail(w, "PROVEN_EFFECT requires an established implementation selection")
-        if any(s is not _S for s in states.values()):
-            raise c.fail(w, "PROVEN_EFFECT requires every obligation SUPPORTED")
-        if _incomplete_blocking(receipt.probe_outcomes):
-            raise c.fail(w, "PROVEN_EFFECT requires every BLOCKING probe to have completed")
-        if any(o.probe_class is ProbeClass.BLOCKING and o.outcome is ProbeResult.FOUND
-               for o in receipt.probe_outcomes):
-            raise c.fail(w, "PROVEN_EFFECT requires that no BLOCKING probe found counter-evidence")
-    if verdict is Verdict.NO_EFFECT:
-        if not any(s is _R for s in states.values()) or any(s is _C for s in states.values()):
-            raise c.fail(w, "NO_EFFECT requires a REFUTED obligation and no CONFLICTING one")
-        if any(cand.kind in OPAQUE_CANDIDATE_KINDS for cand in impl.candidates):
-            raise c.fail(w, "NO_EFFECT is impossible with an opaque or dynamic candidate (C1)")
-
-    found = {o.probe_id: o for o in receipt.probe_outcomes if o.outcome is ProbeResult.FOUND}
-    reported = {o.probe_id: o for o in answers.contradictions.counter_evidence_found}
-    if found != reported:
-        raise c.fail(w, "counter_evidence_found must report exactly the probes that found counter-evidence")
-
-    unknowns = answers.unknowns
-    acq = receipt.acquisition
-    if (set(unknowns.unresolved_obligations), unknowns.highest_tier_reached, unknowns.stop_reason,
-            unknowns.frontier_size) != (set(acq.unresolved_obligations), acq.highest_tier_reached,
-                                        acq.stop_reason, acq.frontier_size):
-        raise c.fail(w, "the unknowns answer disagrees with the acquisition record")
-    if unknowns.budget_exhausted is not None and set(unknowns.budget_exhausted) != set(acq.budget_exhausted):
-        raise c.fail(w, "the unknowns answer disagrees with the exhausted budgets")
-    if unknowns.frontier is not None and acq.frontier is not None and unknowns.frontier != acq.frontier:
-        raise c.fail(w, "the unknowns answer lists a different frontier from the acquisition record")
-    for o, s in states.items():
-        if s is _U and o not in unknowns.unresolved_obligations:
-            raise c.fail(w, f"{o.value} is UNKNOWN and must be listed as unresolved")
-        if s in (_S, _R) and o in unknowns.unresolved_obligations:
-            raise c.fail(w, f"{o.value} is {s.value} and cannot be listed as unresolved")
-
+        answer = answers.obligation(o)
+        if answer.state is not claim.obligations[o] or set(answer.settled_by_packet_ids) != set(_settling_ids(claim, o)):
+            raise c.fail(w, f"{o.value} answer/settling packets disagree with underlying claim")
+        _check_answer_packets(answer, o, packets, w)
+    contradictions = answers.contradictions
+    if contradictions.contradictions != claim.contradictions:
+        raise c.fail(w, "contradictions differ from underlying claim")
+    if contradictions.counter_evidence_found != tuple(o for o in claim.probe_outcomes if o.outcome is ProbeResult.FOUND):
+        raise c.fail(w, "counter_evidence_found must report exactly the found probes")
+    if set(contradictions.blocking_probes_incomplete or ()) != set(_incomplete_blocking(claim.probe_outcomes)):
+        raise c.fail(w, "missing/incomplete BLOCKING probes must be reported")
+    unknowns = answers.unknowns.to_dict()
+    acquisition = claim.acquisition.to_dict()
+    for key, value in unknowns.items():
+        if value != acquisition.get(key):
+            raise c.fail(w, f"unknowns {key} disagrees with acquisition record")
     rc = receipt.rendering_constraints
-    if rc is not None and rc.is_negative_result != (verdict is Verdict.NO_EFFECT):
+    if rc is not None and rc.is_negative_result != (claim.verdict is Verdict.NO_EFFECT):
         raise c.fail(w, "only NO_EFFECT is a negative result")
 
 

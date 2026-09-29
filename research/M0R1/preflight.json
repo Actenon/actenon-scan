@@ -1,0 +1,13 @@
+{
+  "starting_m0": "a93b013383ce773b10708d3f30b2a1660e141527",
+  "baseline": "b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16",
+  "aref002a_manifest_sha256": "00ef6dd054b0f4a8ca14876147a2f5b82fecc6f4475d883bd7b49f23b60549ac",
+  "aref001_manifest_files_verified": 24,
+  "aref002_manifest_files_verified": 26,
+  "aref002a_manifest_files_verified": 90,
+  "aref002_validator": "298 passed",
+  "aref002a_validator": "86 passed",
+  "test_first": "38 failed, 65 passed; before production edits",
+  "m0_full": "1045 passed, 12 skipped, 4 xfailed",
+  "baseline_full": "672 passed, 12 skipped, 3 xfailed"
+}

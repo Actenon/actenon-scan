@@ -1,0 +1,100 @@
+{
+  "schema_version": "0.1.1",
+  "enabled_effect_classes": [
+    "EXTERNAL_PERSISTENT_STATE_EFFECT"
+  ],
+  "budgets": {
+    "max_ladder_tier": "L7",
+    "max_dependency_hops": 6,
+    "max_files_opened": 4000,
+    "max_bytes_read": 268435456,
+    "max_wall_ms_per_claim": 2000,
+    "max_claims_investigated": 900,
+    "max_implementation_candidates": 8
+  },
+  "priority_policy_id": "priority-v1",
+  "capabilities": {
+    "discovered": 1
+  },
+  "invocations": {
+    "enumerated": 4
+  },
+  "claims": {
+    "instantiated": 4,
+    "investigated": 4,
+    "not_investigated": 0
+  },
+  "verdict_distribution": {
+    "PROVEN_EFFECT": 1,
+    "NO_EFFECT": 1,
+    "ABSTAIN": 1,
+    "ANALYSIS_ERROR": 1
+  },
+  "obligation_state_distribution": {
+    "IMPLEMENTATION": {
+      "SUPPORTED": 3,
+      "REFUTED": 0,
+      "UNKNOWN": 0,
+      "CONFLICTING": 0,
+      "ERROR": 1
+    },
+    "ACTIVATION": {
+      "SUPPORTED": 4,
+      "REFUTED": 0,
+      "UNKNOWN": 0,
+      "CONFLICTING": 0,
+      "ERROR": 0
+    },
+    "BOUNDARY": {
+      "SUPPORTED": 4,
+      "REFUTED": 0,
+      "UNKNOWN": 0,
+      "CONFLICTING": 0,
+      "ERROR": 0
+    },
+    "OPERATION": {
+      "SUPPORTED": 4,
+      "REFUTED": 0,
+      "UNKNOWN": 0,
+      "CONFLICTING": 0,
+      "ERROR": 0
+    },
+    "PERSISTENCE": {
+      "SUPPORTED": 2,
+      "REFUTED": 1,
+      "UNKNOWN": 0,
+      "CONFLICTING": 1,
+      "ERROR": 0
+    }
+  },
+  "highest_tier_reached_histogram": {
+    "L1": 4
+  },
+  "stop_reason_histogram": {
+    "SETTLED": 2,
+    "ACQUISITION_ERROR": 1,
+    "NO_FURTHER_TIER": 1
+  },
+  "budget_exhaustion": {},
+  "frontier": {
+    "total": 0,
+    "by_tier": {},
+    "by_reason": {}
+  },
+  "analysis_errors": {
+    "total": 0,
+    "by_obligation": {
+      "IMPLEMENTATION": 1,
+      "ACTIVATION": 0,
+      "BOUNDARY": 0,
+      "OPERATION": 0,
+      "PERSISTENCE": 0
+    }
+  },
+  "interpretation": {
+    "abstained_claims_are_not_negative_results": true,
+    "uninvestigated_claims_are_not_negative_results": true,
+    "zero_proven_effect_does_not_mean_safe": true,
+    "statement": "Authored normative ledger with 4 investigated claims; counts do not measure a real repository. Unresolved claims are not negative results."
+  }
+}

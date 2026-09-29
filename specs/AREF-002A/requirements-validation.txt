@@ -1,0 +1,3 @@
+# Mandatory for the architecture-conformance job, not a scanner runtime dependency.
+jsonschema==4.26.0
+referencing==0.37.0

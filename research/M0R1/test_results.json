@@ -1,0 +1,72 @@
+{
+  "python": "3.14.6",
+  "test_first": {
+    "failed": 38,
+    "passed": 65
+  },
+  "pre_M0_baseline": {
+    "passed": 672,
+    "skipped": 12,
+    "xfailed": 3,
+    "subtests_passed": 89
+  },
+  "failed_M0_before_repair": {
+    "passed": 1045,
+    "skipped": 12,
+    "xfailed": 4,
+    "subtests_passed": 89
+  },
+  "focused": {
+    "passed": 481,
+    "failed": 1,
+    "xfailed": 1
+  },
+  "legacy": {
+    "passed": 672,
+    "skipped": 12,
+    "xfailed": 3,
+    "subtests_passed": 89
+  },
+  "full": {
+    "passed": 1153,
+    "failed": 1,
+    "skipped": 12,
+    "xfailed": 4,
+    "subtests_passed": 89
+  },
+  "sole_final_failure": "test_sealed_amendment_examples[valid_unrelated_frontier_negative]",
+  "runtime_amended_examples": {
+    "total": 66,
+    "valid_accepted": 27,
+    "valid_rejected": 1,
+    "invalid_rejected": 38
+  },
+  "AREF002_validator": {
+    "passed": 298,
+    "failed": 0
+  },
+  "AREF002A_validator_frozen_context": {
+    "passed": 86,
+    "failed": 0
+  },
+  "AREF002A_validator_repaired_context": {
+    "passed": 84,
+    "failed": 2,
+    "failures": [
+      "frozen inputs byte-identical",
+      "frozen input inventory unchanged"
+    ]
+  },
+  "falsification": {
+    "attempts": 35,
+    "passed": 35,
+    "failed": 0
+  },
+  "typed_assertion_registry_tuples": 142,
+  "environment_notes": [
+    "Initial baseline/M0 runs lacked PYTHONPATH and shared 24 import failures; corrected runs are recorded separately.",
+    "Four existing pytest temporary-directory cleanup warnings in final full/legacy runs.",
+    "Initial research falsifier used a nonexistent fixture name; raw error retained and research harness corrected without production/spec edits."
+  ],
+  "readiness": false
+}
