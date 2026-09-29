@@ -1,6 +1,7 @@
 """The EffectClaim and everything it owns.
 
-Frozen by AREF-002 as amended by ``specs/AREF-002A/``; sections 4 to 9 of
+Frozen by AREF-002 as amended by ``specs/AREF-002A/`` and the budget-only
+``specs/AREF-002B/`` profile; sections 4 to 9 of
 ``specs/AREF-002/proof_obligations.md`` and ``effect_claim.schema.json``.
 
 An ``EffectClaim`` exists because inertness was not established for an
@@ -25,6 +26,7 @@ from actenon_scan.effects.evidence import (
     EvidencePacket,
     ProbeOutcome,
     SourceLocator,
+    VerbatimExtract,
     check_packet_set,
     check_probe_set,
 )
@@ -520,6 +522,74 @@ class FrontierEntry:
 
 
 @dataclass(frozen=True)
+class BudgetExclusion:
+    """Supplied scoped exclusion witness; M0 does not verify its source truth."""
+
+    budget_name: BudgetName
+    frontier_indices: tuple[int, ...]
+    locator: SourceLocator
+    extract: VerbatimExtract
+
+    def __post_init__(self) -> None:
+        w = "budget exclusion"
+        object.__setattr__(self, "budget_name", c.enum_value(BudgetName, self.budget_name, f"{w}.budget_name"))
+        indices = tuple(c.integer(i, f"{w}.frontier_indices")
+                        for i in c.sequence(self.frontier_indices, f"{w}.frontier_indices"))
+        object.__setattr__(self, "frontier_indices", c.unique(indices, f"{w}.frontier_indices"))
+        c.instance(SourceLocator, self.locator, f"{w}.locator")
+        c.instance(VerbatimExtract, self.extract, f"{w}.extract")
+        if not self.extract.text.strip() or self.extract.truncated:
+            raise c.fail(w, "source extract must be nonempty and untruncated")
+
+    def to_dict(self) -> dict:
+        return {"budget_name": self.budget_name.value, "frontier_indices": list(self.frontier_indices),
+                "locator": self.locator.to_dict(), "extract": self.extract.to_dict()}
+
+    @classmethod
+    def from_dict(cls, data: Any, where: str = "budget exclusion") -> "BudgetExclusion":
+        r = c.Reader(data, where, ("budget_name", "frontier_indices", "locator", "extract"))
+        return cls(budget_name=r.get("budget_name"), frontier_indices=r.get("frontier_indices"),
+                   locator=SourceLocator.from_dict(r.get("locator"), r.at("locator")),
+                   extract=VerbatimExtract.from_dict(r.get("extract"), r.at("extract")))
+
+
+@dataclass(frozen=True)
+class BudgetProvenance:
+    """Source/edge/refutation links backing exclusion of recorded exhaustion."""
+
+    refuted_obligation: Obligation
+    refutation_packet_ids: tuple[str, ...]
+    exclusions: tuple[BudgetExclusion, ...]
+
+    def __post_init__(self) -> None:
+        w = "budget provenance"
+        object.__setattr__(self, "refuted_obligation", c.enum_value(
+            Obligation, self.refuted_obligation, f"{w}.refuted_obligation"))
+        if self.refuted_obligation is Obligation.IMPLEMENTATION:
+            raise c.fail(w, "IMPLEMENTATION cannot be the refutation")
+        object.__setattr__(self, "refutation_packet_ids", _ids(
+            self.refutation_packet_ids, f"{w}.refutation_packet_ids", non_empty=True))
+        exclusions = c.typed_tuple(BudgetExclusion, self.exclusions, f"{w}.exclusions")
+        if not exclusions:
+            raise c.fail(w, "exclusions must cover every exhausted budget")
+        object.__setattr__(self, "exclusions", c.unique(
+            exclusions, f"{w}.exclusions", key=lambda x: x.budget_name))
+
+    def to_dict(self) -> dict:
+        return {"refuted_obligation": self.refuted_obligation.value,
+                "refutation_packet_ids": list(self.refutation_packet_ids),
+                "exclusions": [x.to_dict() for x in self.exclusions]}
+
+    @classmethod
+    def from_dict(cls, data: Any, where: str = "budget provenance") -> "BudgetProvenance":
+        r = c.Reader(data, where, ("refuted_obligation", "refutation_packet_ids", "exclusions"))
+        exclusions = tuple(BudgetExclusion.from_dict(x, f"{r.at('exclusions')}[{i}]")
+                           for i, x in enumerate(c.sequence(r.get("exclusions"), r.at("exclusions"))))
+        return cls(refuted_obligation=r.get("refuted_obligation"),
+                   refutation_packet_ids=r.get("refutation_packet_ids"), exclusions=exclusions)
+
+
+@dataclass(frozen=True)
 class Acquisition:
     """How far acquisition got and why it stopped.
 
@@ -537,6 +607,7 @@ class Acquisition:
     budget_exhausted: tuple[BudgetName, ...] = ()
     hops_followed: int | None = None
     hops_declined: int | None = None
+    budget_provenance: BudgetProvenance | None = None
 
     def __post_init__(self) -> None:
         w = "acquisition"
@@ -557,6 +628,17 @@ class Acquisition:
             BudgetName, self.budget_exhausted, f"{w}.budget_exhausted"))
         c.optional_integer(self.hops_followed, f"{w}.hops_followed")
         c.optional_integer(self.hops_declined, f"{w}.hops_declined")
+        c.optional_instance(BudgetProvenance, self.budget_provenance, f"{w}.budget_provenance")
+        if self.budget_provenance is not None:
+            if not self.budget_exhausted:
+                raise c.fail(w, "budget provenance without recorded exhaustion")
+            if {x.budget_name for x in self.budget_provenance.exclusions} != set(self.budget_exhausted):
+                raise c.fail(w, "budget exclusions must cover exactly every exhausted budget")
+            for x in self.budget_provenance.exclusions:
+                expected = {i for i, edge in enumerate(self.frontier or ())
+                            if edge.reason is StopReason.BUDGET_EXHAUSTED and edge.budget_name is x.budget_name}
+                if set(x.frontier_indices) != expected:
+                    raise c.fail(w, "budget exclusion must cover exactly its exhausted frontier indices")
 
         if self.frontier is None:
             if self.frontier_truncated is not None:
@@ -602,6 +684,8 @@ class Acquisition:
         }
         if self.budget_exhausted:
             out["budget_exhausted"] = [b.value for b in self.budget_exhausted]
+        if self.budget_provenance is not None:
+            out["budget_provenance"] = self.budget_provenance.to_dict()
         c.put(out, "hops_followed", self.hops_followed)
         c.put(out, "hops_declined", self.hops_declined)
         out["frontier_size"] = self.frontier_size
@@ -615,7 +699,7 @@ class Acquisition:
         r = c.Reader(data, where, (
             "highest_tier_reached", "stop_reason", "tiers_attempted",
             "unresolved_obligations", "frontier_size"),
-            ("budget_exhausted", "hops_followed", "hops_declined", "frontier", "frontier_truncated"))
+            ("budget_exhausted", "hops_followed", "hops_declined", "frontier", "frontier_truncated", "budget_provenance"))
         frontier = None
         if "frontier" in r:
             entries = c.sequence(r.get("frontier"), r.at("frontier"))
@@ -626,6 +710,8 @@ class Acquisition:
                    frontier_size=r.get("frontier_size"), frontier=frontier,
                    frontier_truncated=r.get("frontier_truncated"),
                    budget_exhausted=r.get("budget_exhausted", ()),
+                   budget_provenance=None if "budget_provenance" not in r else BudgetProvenance.from_dict(
+                       r.get("budget_provenance"), r.at("budget_provenance")),
                    hops_followed=r.get("hops_followed"), hops_declined=r.get("hops_declined"))
 
 
@@ -1094,6 +1180,7 @@ def _validate_claim(claim: EffectClaim, w: str) -> None:
     if selection is not expected:
         raise c.fail(w, f"selection requires {expected.value}, not {selection.value}; labels are not evidence")
     _check_acquisition(claim, packets, w)
+    _check_budget_provenance(claim, w)
     _check_verdict(claim, effective, probes, w)
 
 
@@ -1174,6 +1261,23 @@ def _check_acquisition(claim: EffectClaim, packets: dict, w: str) -> None:
             raise c.fail(w, "an uninvestigated claim can only ABSTAIN; it is never a negative result")
 
 
+def _check_budget_provenance(claim: EffectClaim, w: str) -> None:
+    """Validate supplied provenance links on any verdict; never infer witness truth."""
+    proof = claim.acquisition.budget_provenance
+    if proof is None:
+        return
+    o = proof.refuted_obligation
+    if claim.closure is not None and claim.closure.refuted_obligation is not o:
+        raise c.fail(w, "budget provenance must link to the same closure refutation")
+    settling = [p for p in claim.packets_for(o) if p.polarity is Polarity.NEGATIVE
+                and p.is_probative and p.packet_id not in claim.overridden_packet_ids
+                and p.assertion.predicate not in UNCERTAINTY_PREDICATES]
+    if set(proof.refutation_packet_ids) != {p.packet_id for p in settling}:
+        raise c.fail(w, "budget provenance must cite exactly the retained settling-negative refutation packets")
+    if {p.implementation_candidate_id for p in settling} != claim.candidate_ids:
+        raise c.fail(w, "budget provenance must cover the refutation for every candidate")
+
+
 def _check_verdict(claim: EffectClaim, effective: dict, probes: dict, w: str) -> None:
     """The recorded verdict must be the one the frozen verdict function yields."""
     states = claim.obligations
@@ -1233,6 +1337,8 @@ def _check_closure(claim: EffectClaim, effective: dict, w: str) -> None:
             k.resolution is ContradictionResolution.UNRESOLVED for k in claim.contradictions):
         raise c.fail(w, "C3 fails: a necessary obligation is CONFLICTING")
     acq = claim.acquisition
+    if acq.budget_exhausted and acq.budget_provenance is None:
+        raise c.fail(w, "C4 requires budget exclusion provenance for recorded exhaustion")
     if not acq.frontier_enumerated_completely:
         raise c.fail(w, "C5 cannot be established without the complete frontier")
     if any(entry.is_relevant_to(o) for entry in acq.frontier):

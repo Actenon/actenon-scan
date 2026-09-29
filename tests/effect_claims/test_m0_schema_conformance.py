@@ -35,7 +35,7 @@ from ._builders import (
     unfamiliar_sdk_claim,
     reidentify,
 )
-from ._spec import example, schema, historical_schema, amended_example
+from ._spec import example, schema, schema_resources, historical_schema, amended_example
 
 import jsonschema
 import referencing
@@ -43,8 +43,8 @@ from referencing.jsonschema import DRAFT202012  # noqa: E402
 
 SCHEMAS = ("evidence", "effect_claim", "effect_receipt", "coverage_ledger")
 REGISTRY = referencing.Registry().with_resources(
-    (schema(name)["$id"], referencing.Resource.from_contents(schema(name), default_specification=DRAFT202012))
-    for name in SCHEMAS
+    (s["$id"], referencing.Resource.from_contents(s, default_specification=DRAFT202012))
+    for s in schema_resources()
 )
 
 
@@ -79,8 +79,8 @@ CLAIMS = {
 
 
 def test_schemas_are_themselves_valid_draft_2020_12():
-    for name in SCHEMAS:
-        jsonschema.Draft202012Validator.check_schema(schema(name))
+    for s in schema_resources():
+        jsonschema.Draft202012Validator.check_schema(s)
 
 
 @pytest.mark.parametrize("name", sorted(CLAIMS))

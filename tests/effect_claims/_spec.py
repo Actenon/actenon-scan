@@ -1,4 +1,4 @@
-"""Access to the frozen AREF-002 artefacts the M0 model is checked against."""
+"""Frozen historical artefacts and the explicitly superseding current profiles."""
 
 from __future__ import annotations
 
@@ -18,7 +18,14 @@ def manifest() -> dict:
 
 
 def schema(name: str) -> dict:
-    return json.loads((SPEC_DIR.parent / "AREF-002A" / f"{name}.schema.json").read_text())
+    profile = "AREF-002B" if name in ("effect_claim", "effect_receipt", "budget_provenance") else "AREF-002A"
+    return json.loads((SPEC_DIR.parent / profile / f"{name}.schema.json").read_text())
+
+
+def schema_resources() -> tuple[dict, ...]:
+    # Keep inherited IDs available: B only supersedes the claim/receipt budget clauses.
+    return tuple(json.loads(p.read_text()) for profile in ("AREF-002A", "AREF-002B")
+                 for p in sorted((SPEC_DIR.parent / profile).glob("*.schema.json")))
 
 
 def historical_schema(name: str) -> dict:

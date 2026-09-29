@@ -73,7 +73,7 @@ jobs:
 
 
   architecture-conformance:
-    name: Required AREF-002A proof-model conformance
+    name: Required AREF-002A/002B proof-model conformance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -88,7 +88,9 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: Validate unchanged normative package in its frozen preservation context
         run: python -B scripts/validate_aref002a.py
-      - name: Validate current runtime against every frozen amended example
+      - name: Validate unchanged budget amendment and its sealed examples
+        run: python -B specs/AREF-002B/validate.py
+      - name: Validate current runtime against the superseding frozen contracts
         run: python -B -m pytest tests/effect_claims -q
 
   # The verify-claims job moved to verify-claims.yml so the README

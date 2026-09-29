@@ -1,0 +1,138 @@
+{
+  "milestone": "M0R1-B",
+  "parent": "ec4db0c2ab61c6d5b1c5d8537a9617f2d2534b30",
+  "aref002b_manifest_sha256": "1ca543937178db80f455ce2a10bb65a49948bc24a0c8be49a58067efe30bdaec",
+  "python": "3.14.6",
+  "cases": {
+    "A": {
+      "expected": "NO_EFFECT",
+      "result": "NO_EFFECT",
+      "reason": null
+    },
+    "B": {
+      "expected": "ABSTAIN",
+      "result": "ABSTAIN",
+      "reason": null
+    },
+    "C": {
+      "expected": "NO_EFFECT",
+      "result": "NO_EFFECT",
+      "reason": null
+    },
+    "D": {
+      "expected": "ABSTAIN",
+      "result": "ABSTAIN",
+      "reason": null
+    },
+    "E": {
+      "expected": "ABSTAIN",
+      "result": "ABSTAIN",
+      "reason": null
+    },
+    "F": {
+      "expected": "INVALID",
+      "result": "INVALID",
+      "reason": "acquisition: frontier entry blames budget max_dependency_hops, which is not recorded as exhausted"
+    }
+  },
+  "repairs": {
+    "H1": "PASS",
+    "H2": "PASS",
+    "H3": "PASS",
+    "H4": "PASS",
+    "H5": "PASS",
+    "H6": "PASS",
+    "M1": "PASS",
+    "M2": "PASS",
+    "M3": "PASS",
+    "M4": "PASS",
+    "M5": "PASS"
+  },
+  "invariants": {
+    "BUDGET IDENTITY": "PASS",
+    "EXCLUSION PROVENANCE": "PASS",
+    "EDGE COVERAGE": "PASS",
+    "C4": "PASS",
+    "C5 INDEPENDENCE": "PASS",
+    "SINK-INDEPENDENT GENESIS": "PASS",
+    "OPAQUE SINGLETON": "PASS"
+  },
+  "validators": {
+    "AREF-002": {
+      "checks": 298,
+      "passed": 298,
+      "failed": 0
+    },
+    "AREF-002A historical": {
+      "checks": 86,
+      "passed": 86,
+      "failed": 0,
+      "context": "a93b013383ce773b10708d3f30b2a1660e141527"
+    },
+    "AREF-002B": {
+      "checks": 39,
+      "passed": 39,
+      "failed": 0
+    }
+  },
+  "tests": {
+    "budget": {
+      "passed": 46,
+      "failed": 0
+    },
+    "current_conformance": {
+      "passed": 528,
+      "failed": 0,
+      "historical_xfailed": 1
+    },
+    "legacy": {
+      "passed": 672,
+      "failed": 0,
+      "preexisting_skipped": 12,
+      "preexisting_xfailed": 3,
+      "subtests_passed": 89
+    },
+    "full": {
+      "passed": 1200,
+      "failed": 0,
+      "preexisting_skipped": 12,
+      "preexisting_xfailed": 4,
+      "subtests_passed": 89
+    }
+  },
+  "historical_legacy_comparison": {
+    "baseline": {
+      "sha": "b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16",
+      "returncode": 0,
+      "summary": "672 passed, 12 skipped, 3 xfailed, 89 subtests passed in 8.27s"
+    },
+    "failed_M0": {
+      "sha": "a93b013383ce773b10708d3f30b2a1660e141527",
+      "returncode": 0,
+      "summary": "672 passed, 12 skipped, 3 xfailed, 89 subtests passed in 7.65s"
+    },
+    "M0R1": {
+      "sha": "ec4db0c2ab61c6d5b1c5d8537a9617f2d2534b30",
+      "returncode": 0,
+      "summary": "672 passed, 12 skipped, 3 xfailed, 89 subtests passed in 8.11s"
+    }
+  },
+  "falsification": {
+    "attempts": 58,
+    "passed": 58,
+    "failed": 0,
+    "claim_boundary": "Supplied proof-record validation only; C4 is represented, not acquired or verified."
+  },
+  "unexpected_final_failures": 0,
+  "provider_knowledge_introduced": false,
+  "held_out_accessed": false,
+  "protected_specs_modified": false,
+  "deviations": [],
+  "unresolved": [],
+  "ready_for_independent_review": true,
+  "limitations": [
+    "Witness source truth and path completeness are supplied, not acquired/verified.",
+    "C4 remains a represented assertion; C5 is checked independently.",
+    "Local Python 3.14.6 validation only; independent review and remote CI have not run."
+  ]
+}

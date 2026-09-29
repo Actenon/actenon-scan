@@ -1,4 +1,4 @@
-"""AREF-002A M0R1: the effect-claim data model.
+"""AREF-002A M0R1 with the AREF-002B budget-provenance delta.
 
 This package is the foundational data model of AREF-002
 as amended by AREF-002A (``specs/AREF-002A/``): ``EffectClaim``, ``EvidencePacket``, ``EffectReceipt``,
@@ -18,6 +18,8 @@ from actenon_scan.effects.claim import (
     Acquisition,
     ArgumentShape,
     Authority,
+    BudgetExclusion,
+    BudgetProvenance,
     Closure,
     Condition,
     Contradiction,

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002b/budget-provenance-1.json",
+  "title": "AREF-002B supplied budget-exclusion provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "refuted_obligation",
+    "refutation_packet_ids",
+    "exclusions"
+  ],
+  "properties": {
+    "refuted_obligation": {
+      "enum": [
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "PERSISTENCE"
+      ]
+    },
+    "refutation_packet_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "budget_name",
+          "frontier_indices",
+          "locator",
+          "extract"
+        ],
+        "properties": {
+          "budget_name": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/budgetName"
+          },
+          "frontier_indices": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "locator": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/locator"
+          },
+          "extract": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/extract"
+          }
+        },
+        "description": "One witness per exhausted budget, attesting all affected paths are non-contributing and the exact referenced frontier entries cannot settle the named refutation. Truth is supplied; M0 checks structure and identity links."
+      }
+    }
+  }
+}

@@ -24,6 +24,7 @@ from ._builders import (
     C, E, R, S, U, full_closure, no_effect_claim, packet, proven_claim,
     resolved_claim, rolled_back_packet, states,
 )
+from ._spec import schema, schema_resources
 
 ROOT = Path(__file__).resolve().parents[2]
 AMENDMENT = ROOT / 'specs' / 'AREF-002A'
@@ -149,10 +150,8 @@ def test_M3_opaque_unknown_singleton_without_sink():
 
 
 def schema_validator(name):
-    schemas = [json.loads(p.read_text()) for p in AMENDMENT.glob('*.schema.json')]
-    registry = Registry().with_resources((s['$id'],Resource.from_contents(s)) for s in schemas)
-    schema = json.loads((AMENDMENT/(name+'.schema.json')).read_text())
-    return jsonschema.Draft202012Validator(schema,registry=registry)
+    registry = Registry().with_resources((s['$id'],Resource.from_contents(s)) for s in schema_resources())
+    return jsonschema.Draft202012Validator(schema(name),registry=registry)
 
 
 def test_M4_runtime_negative_conforms_and_missing_closure_fails():
@@ -213,7 +212,12 @@ def test_unknown_predicate_is_retained_without_settling_an_obligation():
 
 @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
 def test_sealed_amendment_examples(case):
-    data = json.loads((AMENDMENT/case['file']).read_text())
+    source = AMENDMENT/case['file']
+    if case['id'] == 'valid_unrelated_frontier_negative':
+        # AREF-002B explicitly supersedes only this malformed historical VALID entry.
+        # Its exact original bytes are separately required to fail in test_m0r1b_budget.
+        source = ROOT/'specs'/'AREF-002B'/case['file']
+    data = json.loads(source.read_text())
     cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
     if case['valid']:
         loaded = cls.from_dict(data)

@@ -1,0 +1,3 @@
+baseline {'sha': 'b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16', 'returncode': 0, 'summary': '672 passed, 12 skipped, 3 xfailed, 89 subtests passed in 8.27s'}
+failed_M0 {'sha': 'a93b013383ce773b10708d3f30b2a1660e141527', 'returncode': 0, 'summary': '672 passed, 12 skipped, 3 xfailed, 89 subtests passed in 7.65s'}
+M0R1 {'sha': 'ec4db0c2ab61c6d5b1c5d8537a9617f2d2534b30', 'returncode': 0, 'summary': '672 passed, 12 skipped, 3 xfailed, 89 subtests passed in 8.11s'}

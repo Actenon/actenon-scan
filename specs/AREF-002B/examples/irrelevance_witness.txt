@@ -1,0 +1,3 @@
+Authored normative premise for claim1/PERSISTENCE: max_dependency_hops was exhausted only while inspecting the OPERATION descriptor frontier at synthetic/subject.py:10. That edge cannot change the all-path rollback refutation recorded by c1-persistence at synthetic/subject.py:25. No affected exhaustion path contributed to that refutation, and frontier entry 0 has the exhaustive scope OPERATION only.
+
+This is a supplied premise for an authored normative example, not acquired source-analysis evidence or a real-world finding. Later acquisition must verify its truth; the validation here verifies only its exact encoding and structural links.

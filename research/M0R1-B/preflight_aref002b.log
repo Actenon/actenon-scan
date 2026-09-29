@@ -1,0 +1,42 @@
+PASS effect_claim schema is valid
+PASS effect_receipt schema is valid
+PASS budget_provenance schema is valid
+PASS claim schema changes exactly budget clauses
+PASS receipt schema changes only claim references
+PASS A no exhaustion: valid negative
+PASS C supported unrelated exhaustion: valid negative
+PASS B contributing exhaustion: valid abstention
+PASS B false C4 cannot establish negative
+PASS D mere unrelated label cannot establish negative
+PASS D retained identities with no closure: abstention
+PASS E unknown relevance: valid abstention
+PASS E witness cannot erase unknown frontier scope
+PASS F missing explicit exhaustion identity: invalid
+PASS F staged missing budget_exhausted
+PASS F staged missing edge_name
+PASS exclusion without locator fails
+PASS exclusion without extract fails
+PASS wrong exclusion budget_name max_bytes_read fails
+PASS wrong exclusion frontier_indices [] fails
+PASS wrong exclusion frontier_indices [1] fails
+PASS positive/other-obligation packet cannot establish exclusion
+PASS another refutation cannot authorize this closure
+PASS truncated witness does not establish exclusion
+PASS witness cannot erase a relevant frontier
+PASS no exhaustion needs no stale budget proof
+PASS corrected fixture witness extract is actually verbatim
+PASS fixture changes only named budget identity and exclusion provenance
+PASS receipt retains new acquisition provenance under inherited projection
+PASS exact M0R1 rejects original missing budget identity
+PASS exact M0R1 accepts names-only unrelated label
+PASS exact M0R1 cannot yet load the new witness codec
+PASS missing verifier is fatal, never skipped
+PASS AREF-001 seal unchanged
+PASS AREF-002 seal unchanged
+PASS AREF-002A seal unchanged
+PASS AREF-002B inventory exact
+PASS AREF-002B hashes and byte counts exact
+PASS SHA inventory agrees with manifest
+CASES {"A": {"result": "NO_EFFECT"}, "B": {"result": "ABSTAIN"}, "C": {"result": "NO_EFFECT"}, "D": {"result": "ABSTAIN"}, "E": {"result": "ABSTAIN"}, "F": {"code": "BUDGET_IDENTITY", "reason": "BUDGET_EXHAUSTED requires a nonempty exhausted-budget list", "result": "INVALID"}}
+M0R1_OBSERVED {"C_versioned_witness": {"reason": "claim.acquisition: unknown key(s) ['budget_provenance']", "result": "INVALID"}, "D_names_only": {"result": "NO_EFFECT"}, "F_original": {"reason": "frontier entry: a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED", "result": "INVALID"}}
+39 checks; 39 passed; 0 failed

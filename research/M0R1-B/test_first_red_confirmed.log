@@ -1,0 +1,327 @@
+F.FFFF.......F.....................FFFFFFFFFF.                           [100%]
+=================================== FAILURES ===================================
+______________ test_CASE_A_no_exhaustion_needs_no_budget_witness _______________
+
+    def test_CASE_A_no_exhaustion_needs_no_budget_witness():
+        data = amended_example('valid_no_effect')
+        assert not data['acquisition'].get('budget_exhausted')
+        claim = EffectClaim.from_dict(data)
+        assert claim.verdict is Verdict.NO_EFFECT
+>       assert claim.acquisition.budget_provenance is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Acquisition' object has no attribute 'budget_provenance'
+
+tests/effect_claims/test_m0r1b_budget.py:47: AttributeError
+__________ test_CASE_C_unrelated_exhaustion_with_provenance_can_close __________
+
+    def test_CASE_C_unrelated_exhaustion_with_provenance_can_close():
+>       claim = EffectClaim.from_dict(corrected())
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1b_budget.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1053: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:615: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x107aa3590>
+data = {'highest_tier_reached': 'L1', 'stop_reason': 'BUDGET_EXHAUSTED', 'tiers_attempted': ['L0', 'L1'], 'unresolved_obligations': [], ...}
+where = 'claim.acquisition'
+required = ('highest_tier_reached', 'stop_reason', 'tiers_attempted', 'unresolved_obligations', 'frontier_size')
+optional = ('budget_exhausted', 'hops_followed', 'hops_declined', 'frontier', 'frontier_truncated')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.acquisition: unknown key(s) ['budget_provenance']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+____ test_CASE_D_bare_unrelated_label_is_insufficient_but_abstain_is_valid _____
+
+    def test_CASE_D_bare_unrelated_label_is_insufficient_but_abstain_is_valid():
+        data = without_provenance()
+>       with pytest.raises(EffectModelError, match='C4.*budget.*provenance'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0r1b_budget.py:74: Failed
+_____ test_CASE_E_unknown_relevance_does_not_close_even_with_witness[None] _____
+
+scope = None
+
+    @pytest.mark.parametrize('scope', [None, []])
+    def test_CASE_E_unknown_relevance_does_not_close_even_with_witness(scope):
+        data = corrected()
+        if scope is None:
+            del data['acquisition']['frontier'][0]['might_settle']
+        else:
+            data['acquisition']['frontier'][0]['might_settle'] = scope
+>       with pytest.raises(EffectModelError, match='C5'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'C5'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:86: AssertionError
+____ test_CASE_E_unknown_relevance_does_not_close_even_with_witness[scope1] ____
+
+scope = []
+
+    @pytest.mark.parametrize('scope', [None, []])
+    def test_CASE_E_unknown_relevance_does_not_close_even_with_witness(scope):
+        data = corrected()
+        if scope is None:
+            del data['acquisition']['frontier'][0]['might_settle']
+        else:
+            data['acquisition']['frontier'][0]['might_settle'] = scope
+>       with pytest.raises(EffectModelError, match='C5'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'C5'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:86: AssertionError
+____________ test_claim_and_receipt_keep_budget_witness_losslessly _____________
+
+    def test_claim_and_receipt_keep_budget_witness_losslessly():
+        original = corrected()
+>       claim = EffectClaim.from_dict(original)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1b_budget.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1053: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:615: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x1071e5850>
+data = {'highest_tier_reached': 'L1', 'stop_reason': 'BUDGET_EXHAUSTED', 'tiers_attempted': ['L0', 'L1'], 'unresolved_obligations': [], ...}
+where = 'claim.acquisition'
+required = ('highest_tier_reached', 'stop_reason', 'tiers_attempted', 'unresolved_obligations', 'frontier_size')
+optional = ('budget_exhausted', 'hops_followed', 'hops_declined', 'frontier', 'frontier_truncated')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.acquisition: unknown key(s) ['budget_provenance']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+___________ test_budget_proof_is_forbidden_when_no_exhaustion_exists ___________
+
+    def test_budget_proof_is_forbidden_when_no_exhaustion_exists():
+        data = amended_example('valid_no_effect')
+        data['acquisition']['budget_provenance'] = corrected()['acquisition']['budget_provenance']
+>       with pytest.raises(EffectModelError, match='budget.*exhaust'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'budget.*exhaust'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:169: AssertionError
+_______ test_missing_one_of_two_exhausted_edges_is_not_complete_coverage _______
+
+    def test_missing_one_of_two_exhausted_edges_is_not_complete_coverage():
+        data = corrected()
+        data['acquisition']['frontier'].append(copy.deepcopy(data['acquisition']['frontier'][0]))
+        data['acquisition']['frontier_size'] = 2
+>       with pytest.raises(EffectModelError, match='budget.*frontier'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'budget.*frontier'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:177: AssertionError
+____ test_all_budgets_need_distinct_witnesses_even_without_a_frontier_edge _____
+
+    def test_all_budgets_need_distinct_witnesses_even_without_a_frontier_edge():
+        data = corrected(); data['acquisition']['budget_exhausted'].append('max_call_depth')
+>       with pytest.raises(EffectModelError, match='budget.*exhaust'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'budget.*exhaust'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:185: AssertionError
+________ test_exclusion_provenance_cannot_override_relevant_C5[scope0] _________
+
+scope = ['PERSISTENCE']
+
+    @pytest.mark.parametrize('scope', [['PERSISTENCE'], ['OPERATION', 'PERSISTENCE']])
+    def test_exclusion_provenance_cannot_override_relevant_C5(scope):
+        data = corrected(); data['acquisition']['frontier'][0]['might_settle'] = scope
+>       with pytest.raises(EffectModelError, match='C5'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'C5'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:195: AssertionError
+________ test_exclusion_provenance_cannot_override_relevant_C5[scope1] _________
+
+scope = ['OPERATION', 'PERSISTENCE']
+
+    @pytest.mark.parametrize('scope', [['PERSISTENCE'], ['OPERATION', 'PERSISTENCE']])
+    def test_exclusion_provenance_cannot_override_relevant_C5(scope):
+        data = corrected(); data['acquisition']['frontier'][0]['might_settle'] = scope
+>       with pytest.raises(EffectModelError, match='C5'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'C5'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:195: AssertionError
+________ test_unrelated_witness_cannot_override_incomplete_frontier_C5 _________
+
+    def test_unrelated_witness_cannot_override_incomplete_frontier_C5():
+        data = corrected(); data['acquisition'].update(frontier_size=2, frontier_truncated=True)
+>       with pytest.raises(EffectModelError, match='C5'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'C5'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:201: AssertionError
+_______________ test_unrelated_witness_preserves_error_priority ________________
+
+    def test_unrelated_witness_preserves_error_priority():
+        data = with_boundary_error()
+>       assert EffectClaim.from_dict(data).verdict is Verdict.ANALYSIS_ERROR
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1b_budget.py:230: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1053: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:615: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x107b57950>
+data = {'highest_tier_reached': 'L1', 'stop_reason': 'BUDGET_EXHAUSTED', 'tiers_attempted': ['L0', 'L1'], 'unresolved_obligations': [], ...}
+where = 'claim.acquisition'
+required = ('highest_tier_reached', 'stop_reason', 'tiers_attempted', 'unresolved_obligations', 'frontier_size')
+optional = ('budget_exhausted', 'hops_followed', 'hops_declined', 'frontier', 'frontier_truncated')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.acquisition: unknown key(s) ['budget_provenance']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+____________ test_unrelated_witness_preserves_contradiction_and_C3 _____________
+
+    def test_unrelated_witness_preserves_contradiction_and_C3():
+        data = with_boundary_conflict()
+>       claim = EffectClaim.from_dict(data)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1b_budget.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1053: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:615: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x107b57830>
+data = {'highest_tier_reached': 'L1', 'stop_reason': 'BUDGET_EXHAUSTED', 'tiers_attempted': ['L0', 'L1'], 'unresolved_obligations': ['BOUNDARY'], ...}
+where = 'claim.acquisition'
+required = ('highest_tier_reached', 'stop_reason', 'tiers_attempted', 'unresolved_obligations', 'frontier_size')
+optional = ('budget_exhausted', 'hops_followed', 'hops_declined', 'frontier', 'frontier_truncated')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.acquisition: unknown key(s) ['budget_provenance']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+______________ test_proof_on_abstain_is_still_checked_not_trusted ______________
+
+    def test_proof_on_abstain_is_still_checked_not_trusted():
+        data = with_boundary_conflict()
+        exclusion(data)['frontier_indices'] = []
+>       with pytest.raises(EffectModelError, match='budget.*frontier'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'budget.*frontier'
+E         Actual message: "claim.acquisition: unknown key(s) ['budget_provenance']"
+
+tests/effect_claims/test_m0r1b_budget.py:248: AssertionError
+___ test_negative_receipt_cannot_drop_exclusion_or_retain_relevant_frontier ____
+
+    def test_negative_receipt_cannot_drop_exclusion_or_retain_relevant_frontier():
+>       wire = EffectReceipt.from_claim(EffectClaim.from_dict(corrected()), 'budget-receipt').to_dict()
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1b_budget.py:253: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1053: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:615: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x107b567b0>
+data = {'highest_tier_reached': 'L1', 'stop_reason': 'BUDGET_EXHAUSTED', 'tiers_attempted': ['L0', 'L1'], 'unresolved_obligations': [], ...}
+where = 'claim.acquisition'
+required = ('highest_tier_reached', 'stop_reason', 'tiers_attempted', 'unresolved_obligations', 'frontier_size')
+optional = ('budget_exhausted', 'hops_followed', 'hops_declined', 'frontier', 'frontier_truncated')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.acquisition: unknown key(s) ['budget_provenance']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+=========================== short test summary info ============================
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_CASE_A_no_exhaustion_needs_no_budget_witness
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_CASE_C_unrelated_exhaustion_with_provenance_can_close
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_CASE_D_bare_unrelated_label_is_insufficient_but_abstain_is_valid
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_CASE_E_unknown_relevance_does_not_close_even_with_witness[None]
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_CASE_E_unknown_relevance_does_not_close_even_with_witness[scope1]
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_claim_and_receipt_keep_budget_witness_losslessly
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_budget_proof_is_forbidden_when_no_exhaustion_exists
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_missing_one_of_two_exhausted_edges_is_not_complete_coverage
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_all_budgets_need_distinct_witnesses_even_without_a_frontier_edge
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_exclusion_provenance_cannot_override_relevant_C5[scope0]
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_exclusion_provenance_cannot_override_relevant_C5[scope1]
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_unrelated_witness_cannot_override_incomplete_frontier_C5
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_unrelated_witness_preserves_error_priority
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_unrelated_witness_preserves_contradiction_and_C3
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_proof_on_abstain_is_still_checked_not_trusted
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_negative_receipt_cannot_drop_exclusion_or_retain_relevant_frontier
+16 failed, 30 passed in 0.30s
