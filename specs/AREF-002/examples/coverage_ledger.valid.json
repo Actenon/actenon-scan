@@ -1,0 +1,176 @@
+{
+  "_case": "A ledger for a run that produced zero PROVEN_EFFECT. This is exactly the case requirement 17 exists for: 1,284 invocations enumerated, 1,284 claims instantiated, 1,240 of them with no sink rule involved, 902 investigated, 382 never investigated, and not one negative result among them.",
+  "schema_version": "0.1.0",
+  "enabled_effect_classes": ["EXTERNAL_PERSISTENT_STATE_EFFECT"],
+  "budgets": {
+    "max_ladder_tier": "L7",
+    "max_dependency_hops": 6,
+    "max_files_opened": 4000,
+    "max_bytes_read": 268435456,
+    "max_wall_ms_per_claim": 2000,
+    "max_claims_investigated": 900,
+    "max_implementation_candidates": 8
+  },
+  "priority_policy_id": "priority-v1",
+  "capabilities": {
+    "discovered": 34,
+    "by_language": {
+      "typescript": 34
+    }
+  },
+  "invocations": {
+    "enumerated": 1284,
+    "with_matching_sink_rule": 44,
+    "without_matching_sink_rule": 1240,
+    "by_language": {
+      "typescript": 1284
+    }
+  },
+  "claims": {
+    "instantiated": 1284,
+    "scheduled": 1284,
+    "investigated": 902,
+    "not_investigated": 382,
+    "instantiated_without_any_rule_match": 1240,
+    "by_language": {
+      "typescript": 1284
+    }
+  },
+  "verdict_distribution": {
+    "PROVEN_EFFECT": 0,
+    "NO_EFFECT": 11,
+    "ABSTAIN": 888,
+    "ANALYSIS_ERROR": 3
+  },
+  "obligation_state_distribution": {
+    "IMPLEMENTATION": {
+      "SUPPORTED": 640,
+      "REFUTED": 0,
+      "UNKNOWN": 259,
+      "CONFLICTING": 0,
+      "ERROR": 3
+    },
+    "ACTIVATION": {
+      "SUPPORTED": 701,
+      "REFUTED": 9,
+      "UNKNOWN": 192,
+      "CONFLICTING": 0,
+      "ERROR": 0
+    },
+    "BOUNDARY": {
+      "SUPPORTED": 117,
+      "REFUTED": 11,
+      "UNKNOWN": 772,
+      "CONFLICTING": 2,
+      "ERROR": 0
+    },
+    "OPERATION": {
+      "SUPPORTED": 31,
+      "REFUTED": 6,
+      "UNKNOWN": 861,
+      "CONFLICTING": 4,
+      "ERROR": 0
+    },
+    "PERSISTENCE": {
+      "SUPPORTED": 8,
+      "REFUTED": 11,
+      "UNKNOWN": 883,
+      "CONFLICTING": 0,
+      "ERROR": 0
+    }
+  },
+  "highest_tier_reached_histogram": {
+    "L0": 382,
+    "L1": 118,
+    "L2": 74,
+    "L3": 96,
+    "L4": 561,
+    "L5": 41,
+    "L6": 9,
+    "L7": 3
+  },
+  "stop_reason_histogram": {
+    "SETTLED": 19,
+    "NO_FURTHER_TIER": 61,
+    "TIER_UNAVAILABLE": 704,
+    "BUDGET_EXHAUSTED": 115,
+    "ACQUISITION_ERROR": 3,
+    "CLAIM_NOT_INVESTIGATED": 382
+  },
+  "budget_exhaustion": {
+    "max_ladder_tier": 0,
+    "max_dependency_hops": 97,
+    "max_files_opened": 0,
+    "max_bytes_read": 0,
+    "max_wall_ms_per_claim": 18,
+    "max_claims_investigated": 382,
+    "max_implementation_candidates": 0
+  },
+  "frontier": {
+    "total": 2417,
+    "by_tier": {
+      "L1": 88,
+      "L2": 51,
+      "L5": 1902,
+      "L6": 341,
+      "L7": 35
+    },
+    "by_reason": {
+      "TIER_UNAVAILABLE": 2243,
+      "BUDGET_EXHAUSTED": 171,
+      "ACQUISITION_ERROR": 3
+    }
+  },
+  "contradictions": {
+    "total": 6,
+    "unresolved": 6,
+    "resolved_by_implementation_precedence": 0,
+    "by_obligation": {
+      "BOUNDARY": 2,
+      "OPERATION": 4
+    }
+  },
+  "counter_evidence": {
+    "blocking_probes_executed": 6104,
+    "blocking_probes_incomplete": 3811
+  },
+  "evidence": {
+    "packets_total": 3092,
+    "probative": 1104,
+    "hypothesis_only": 1988,
+    "by_tier": {
+      "L0": 1411,
+      "L1": 402,
+      "L2": 188,
+      "L3": 561,
+      "L4": 388,
+      "L5": 104,
+      "L6": 29,
+      "L7": 9
+    },
+    "fidelity_checked": 3092,
+    "fidelity_failures": 0
+  },
+  "analysis_errors": {
+    "total": 3,
+    "by_obligation": {
+      "IMPLEMENTATION": 3
+    },
+    "by_cause": {
+      "parse_failure": 3
+    }
+  },
+  "performance": {
+    "wall_ms_total": 184203,
+    "claims_hitting_wall_budget": 18,
+    "artefacts_opened": 2841,
+    "bytes_read": 91204338,
+    "cache_hit_rate": 0.72
+  },
+  "interpretation": {
+    "abstained_claims_are_not_negative_results": true,
+    "uninvestigated_claims_are_not_negative_results": true,
+    "zero_proven_effect_does_not_mean_safe": true,
+    "statement": "0 PROVEN_EFFECT. This does not mean this repository is safe or free of external persistent state effects. 888 claims abstained and 382 were never investigated; 2,417 dependency-descent edges were identified and not opened, 1,902 of them at the pinned-dependency-source tier. OPERATION is UNKNOWN on 861 of 902 investigated claims. The analysis established the absence of an effect on 11 claims only."
+  }
+}

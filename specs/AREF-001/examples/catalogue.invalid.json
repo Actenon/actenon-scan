@@ -1,0 +1,129 @@
+{
+  "_comment": "NEGATIVE instances for schema/resource-effect-catalogue.schema.json. Each entry below is a whole catalogue document that MUST be rejected. validate.py fails if any of them validates. These cases matter more than the positive one: the catalogue is the artefact most likely to be edited by someone who has not read AREF-001, and these are the edits that would quietly break a frozen decision.",
+  "documents": [
+    {
+      "_case": "frozen entry with a heuristic ceiling",
+      "_violates": "AREF-001 3.7 ceiling table - status and max_certainty are not independent. Allowing them to disagree would let 'frozen' mean nothing.",
+      "document": {
+        "catalogue_version": "x",
+        "rei_schema_version": "0.1.0",
+        "entries": [
+          {
+            "normalised_rule_id": "FILE-OPEN-WRITE",
+            "language": "python",
+            "resource_kind": "filesystem_path",
+            "selector": { "arg_positions": [0] },
+            "scope_rule": "single",
+            "max_certainty": "heuristic",
+            "status": "frozen"
+          }
+        ]
+      }
+    },
+    {
+      "_case": "frozen entry declaring no selector location",
+      "_violates": "AREF-001 D-06 - a frozen entry asserts where the resource is. An entry that declares nothing cannot assert anything, so it cannot be frozen.",
+      "document": {
+        "catalogue_version": "x",
+        "rei_schema_version": "0.1.0",
+        "entries": [
+          {
+            "normalised_rule_id": "EXEC-SHELL",
+            "language": "python",
+            "resource_kind": "os_process",
+            "selector": {},
+            "scope_rule": "single",
+            "max_certainty": "strong",
+            "status": "frozen"
+          }
+        ]
+      }
+    },
+    {
+      "_case": "blocked entry with no blocked_on",
+      "_violates": "AREF-001 8 - 'blocked' without a decision ID is indistinguishable from 'not done yet'. The ID is what ties the entry to the evidence that would unblock it.",
+      "document": {
+        "catalogue_version": "x",
+        "rei_schema_version": "0.1.0",
+        "entries": [
+          {
+            "normalised_rule_id": "DATA-DELETE-SQL",
+            "language": "python",
+            "resource_kind": "database_row_set",
+            "selector": { "arg_positions": [0] },
+            "scope_rule": "unknown",
+            "max_certainty": "unknown",
+            "status": "blocked"
+          }
+        ]
+      }
+    },
+    {
+      "_case": "unknown_resource declared as a frozen answer",
+      "_violates": "AREF-001 D-05 - unknown_resource is the layer's runtime sentinel, not a catalogue answer. A catalogue that freezes 'unknown' has asserted that nothing can ever be learned about that rule.",
+      "document": {
+        "catalogue_version": "x",
+        "rei_schema_version": "0.1.0",
+        "entries": [
+          {
+            "normalised_rule_id": "PROVIDER-SDK-CALL",
+            "language": "python",
+            "resource_kind": "unknown_resource",
+            "selector": { "arg_positions": [0] },
+            "scope_rule": "unknown",
+            "max_certainty": "strong",
+            "status": "frozen"
+          }
+        ]
+      }
+    },
+    {
+      "_case": "proven as a catalogue ceiling",
+      "_violates": "AREF-001 3.7 - proven is excluded from max_certainty at the schema level, so no catalogue edit can mint a proof.",
+      "document": {
+        "catalogue_version": "x",
+        "rei_schema_version": "0.1.0",
+        "entries": [
+          {
+            "normalised_rule_id": "EXEC-CODE",
+            "language": "python",
+            "resource_kind": "code_string",
+            "selector": { "arg_positions": [0] },
+            "scope_rule": "single",
+            "max_certainty": "proven",
+            "status": "frozen"
+          }
+        ]
+      }
+    },
+    {
+      "_case": "a vendor-shaped selector declaration smuggled in as an identifier pattern",
+      "_violates": "AREF-001 D-06 - the declaration vocabulary is argument positions, argument keywords and the receiver. A 'receiver_patterns' field would reintroduce name matching, which is the mechanism behind the recorded 'sandbox contains db' defect.",
+      "document": {
+        "catalogue_version": "x",
+        "rei_schema_version": "0.1.0",
+        "entries": [
+          {
+            "normalised_rule_id": "DATA-DELETE-SQL",
+            "language": "python",
+            "resource_kind": "database_row_set",
+            "selector": { "arg_positions": [0], "receiver_patterns": ["db", "conn"] },
+            "scope_rule": "unknown",
+            "max_certainty": "unknown",
+            "status": "blocked",
+            "blocked_on": "B-04"
+          }
+        ]
+      }
+    },
+    {
+      "_case": "empty entries array",
+      "_violates": "A catalogue with no entries loads successfully and reports every site as unknown - indistinguishable from a repository with no resources. minItems 1 makes the degenerate case a load error instead, per 4.1's requirement that a malformed catalogue fail loudly.",
+      "document": {
+        "catalogue_version": "x",
+        "rei_schema_version": "0.1.0",
+        "entries": []
+      }
+    }
+  ]
+}

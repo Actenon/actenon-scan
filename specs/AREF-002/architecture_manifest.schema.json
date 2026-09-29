@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002/architecture-manifest-0.1.0.json",
+  "title": "AREF-002 architecture manifest",
+  "description": "Machine-readable form of the AREF-002 freeze: closed vocabularies, proof obligations with their prohibitions, the effect class registry including declared-but-unpopulated future classes, the evidence acquisition ladder, the budget vocabulary with defaults, the counter-evidence probe registry, and the disposition of every AREF-001 decision. Exists so that an implementation and a validator can check themselves against the freeze rather than against prose.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "architecture_id",
+    "status",
+    "supersedes",
+    "frozen_against",
+    "founding_principle",
+    "vocabularies",
+    "obligations",
+    "descriptors",
+    "effect_classes",
+    "ladder",
+    "budgets",
+    "counter_evidence_probes",
+    "sink_rule_admissibility",
+    "aref_001_dispositions",
+    "invariants"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "architecture_id": { "const": "AREF-002" },
+    "status": { "const": "AUTHORITATIVE" },
+    "supersedes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architecture_id", "status", "path"],
+      "properties": {
+        "architecture_id": { "const": "AREF-001" },
+        "status": { "const": "SUPERSEDED DESIGN CANDIDATE / NOT AUTHORITATIVE" },
+        "path": { "type": "string" },
+        "preserved_unmodified": { "const": true },
+        "manifest_hashed_files": { "type": "integer", "minimum": 1 },
+        "manifest_total_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "frozen_against": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "branch", "version"],
+      "properties": {
+        "repository": { "type": "string" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "branch": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "founding_principle": { "type": "string", "minLength": 1 },
+    "vocabularies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proof_states",
+        "verdicts",
+        "obligations",
+        "descriptors",
+        "control_sub_descriptors",
+        "implementation_candidate_kinds",
+        "selection_states",
+        "admissibility",
+        "polarity",
+        "ladder_tiers",
+        "stop_reasons",
+        "budget_names",
+        "contradiction_resolutions"
+      ],
+      "properties": {
+        "proof_states": { "$ref": "#/$defs/closedVocabulary" },
+        "verdicts": { "$ref": "#/$defs/closedVocabulary" },
+        "obligations": { "$ref": "#/$defs/closedVocabulary" },
+        "descriptors": { "$ref": "#/$defs/closedVocabulary" },
+        "control_sub_descriptors": { "$ref": "#/$defs/closedVocabulary" },
+        "implementation_candidate_kinds": { "$ref": "#/$defs/closedVocabulary" },
+        "selection_states": { "$ref": "#/$defs/closedVocabulary" },
+        "admissibility": { "$ref": "#/$defs/closedVocabulary" },
+        "polarity": { "$ref": "#/$defs/closedVocabulary" },
+        "ladder_tiers": { "$ref": "#/$defs/closedVocabulary" },
+        "stop_reasons": { "$ref": "#/$defs/closedVocabulary" },
+        "budget_names": { "$ref": "#/$defs/closedVocabulary" },
+        "contradiction_resolutions": { "$ref": "#/$defs/closedVocabulary" }
+      }
+    },
+    "obligations": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "settled_by_tiers", "prohibitions"],
+        "properties": {
+          "id": { "type": "string" },
+          "question": { "type": "string" },
+          "settled_by_tiers": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "can_be_refuted": { "type": "boolean" },
+          "prohibitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["prohibition", "source"],
+              "properties": {
+                "prohibition": { "type": "string" },
+                "source": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "descriptors": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "is_obligation", "gates_verdict"],
+        "properties": {
+          "id": { "type": "string" },
+          "is_obligation": { "const": false },
+          "gates_verdict": { "const": false },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "effect_classes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/effectClassEntry" }
+    },
+    "ladder": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tier", "name", "is_evidence_source", "yields"],
+        "properties": {
+          "tier": { "type": "string" },
+          "name": { "type": "string" },
+          "is_evidence_source": { "type": "boolean" },
+          "yields": { "type": "string" },
+          "can_settle": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defaults", "scopes"],
+      "properties": {
+        "defaults": {
+          "$ref": "https://actenon.dev/schema/aref-002/coverage-ledger-0.1.0.json#/$defs/budgets"
+        },
+        "scopes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["per_claim", "per_run"]
+          }
+        },
+        "exhaustion_behaviour": { "type": "string" }
+      }
+    },
+    "counter_evidence_probes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["probe_id", "obligation", "probe_class", "question"],
+        "properties": {
+          "probe_id": {
+            "type": "string",
+            "pattern": "^CP-(IMPL|ACT|BND|OPR|PER)-[0-9]{2}$"
+          },
+          "obligation": { "type": "string" },
+          "probe_class": { "type": "string", "enum": ["BLOCKING", "ADVISORY"] },
+          "question": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "sink_rule_admissibility": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["admissibility", "anchor"],
+        "properties": {
+          "admissibility": {
+            "type": "string",
+            "enum": ["PROBATIVE", "HYPOTHESIS_ONLY"]
+          },
+          "anchor": { "type": "string" },
+          "may_settle": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "aref_001_dispositions": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "summary", "disposition"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^D-[0-9]{2}$" },
+          "summary": { "type": "string" },
+          "disposition": {
+            "type": "string",
+            "enum": ["KEEP", "MODIFY", "REJECT", "DEFER"]
+          },
+          "rejected_for_preserving_old_ontology": { "type": "boolean" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^AREF-002-[TEDV][0-9]{2}$"
+          },
+          "statement": { "type": "string" },
+          "source": { "type": "string" }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": { "type": "string" },
+        "repositories_selected": { "const": false },
+        "repositories_inspected": { "const": false },
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": { "type": ["number", "string"] }
+        },
+        "invalidating_conditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "outcomes": { "$ref": "#/$defs/closedVocabulary" }
+      }
+    },
+    "prohibitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prohibition", "requirement"],
+        "properties": {
+          "prohibition": { "type": "string" },
+          "requirement": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "closedVocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["closed", "members"],
+      "properties": {
+        "closed": { "type": "boolean" },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "note": { "type": "string" }
+      }
+    },
+    "effectClassEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "necessary_obligations", "requires_persistence"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["POPULATED_V1", "DECLARED_UNPOPULATED"]
+        },
+        "necessary_obligations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "requires_persistence": {
+          "type": "string",
+          "enum": ["yes", "no", "per_instance"],
+          "description": "Requirement 18: future consequential effects must not be forced into persistence."
+        },
+        "note": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "$comment": "A declared-unpopulated class must not be usable by the v1 verdict function.",
+          "if": {
+            "properties": { "status": { "const": "DECLARED_UNPOPULATED" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "note": { "type": "string", "minLength": 1 }
+            },
+            "required": ["note"]
+          }
+        }
+      ]
+    }
+  }
+}

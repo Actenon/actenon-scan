@@ -1,0 +1,30 @@
+{
+  "_case": "INVALID. An identifier-anchored packet claims PROBATIVE admissibility. Requirement 10 and evidence_acquisition.md 5.3 forbid this: names may generate hypotheses but never establish an obligation. The schema's conditional on kind = identifier_name pins admissibility to HYPOTHESIS_ONLY.",
+  "_expected_failure": "admissibility must be HYPOTHESIS_ONLY for kind identifier_name",
+  "packet_id": "pkt-bad-01",
+  "tier": "L0",
+  "kind": "identifier_name",
+  "locator": {
+    "path": "src/tools/cleanup.py",
+    "start_line": 88,
+    "end_line": 88,
+    "symbol": "delete_all_records"
+  },
+  "assertion": {
+    "predicate": "operation_is_mutation",
+    "detail": "the method is named delete_all_records"
+  },
+  "polarity": "POSITIVE",
+  "obligation": "OPERATION",
+  "implementation_candidate_id": "cand-1",
+  "admissibility": "PROBATIVE",
+  "strength": "STRONG",
+  "acquisition_cost": {
+    "hops": 0,
+    "bytes_read": 64
+  },
+  "extract": {
+    "text": "    result = client.delete_all_records(table)",
+    "verbatim": true
+  }
+}

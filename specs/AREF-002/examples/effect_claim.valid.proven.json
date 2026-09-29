@@ -1,0 +1,243 @@
+{
+  "_case": "The same unfamiliar SDK call after the ladder reached L5, L6 and L7. All five obligations SUPPORTED, every BLOCKING probe completed, no contradiction. Still no sink rule involved. Note TARGET_CONTROL = REFUTED, which does not prevent PROVEN_EFFECT (REI-002 fixed-target case, AREF-002-T13).",
+  "schema_version": "0.1.0",
+  "claim_id": "claim-0002",
+  "capability_id": "cap-zones-settings-tool",
+  "invocation_id": "inv-src-tools-zones.ts-L57C11",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "invocation": {
+    "locator": {
+      "path": "src/tools/zones.ts",
+      "start_line": 57,
+      "end_line": 57,
+      "start_column": 11,
+      "end_column": 58
+    },
+    "callee_expression": "client.zones.settings.edit",
+    "language": "typescript",
+    "matched_rule_ids": []
+  },
+  "genesis": {
+    "basis": "NON_REFUTATION_OF_INERTNESS",
+    "inertness_established": false,
+    "inertness_blockers": ["NO_PROBATIVE_REFUTATION"]
+  },
+  "implementation_candidates": [
+    {
+      "candidate_id": "cand-1",
+      "kind": "RESOLVED_DEPENDENCY_SOURCE",
+      "symbol": "Settings.prototype.edit",
+      "locator": {
+        "path": "node_modules/example-sdk/dist/resources/settings.js",
+        "start_line": 138,
+        "end_line": 151,
+        "package": "example-sdk",
+        "version": "3.4.1",
+        "version_resolution": "LOCKFILE"
+      },
+      "obligations": {
+        "IMPLEMENTATION": "SUPPORTED",
+        "ACTIVATION": "SUPPORTED",
+        "BOUNDARY": "SUPPORTED",
+        "OPERATION": "SUPPORTED",
+        "PERSISTENCE": "SUPPORTED"
+      },
+      "resolved_at_tier": "L5"
+    }
+  ],
+  "selection_state": "SINGLE_ESTABLISHED",
+  "obligations": {
+    "IMPLEMENTATION": "SUPPORTED",
+    "ACTIVATION": "SUPPORTED",
+    "BOUNDARY": "SUPPORTED",
+    "OPERATION": "SUPPORTED",
+    "PERSISTENCE": "SUPPORTED"
+  },
+  "descriptors": {
+    "target": {
+      "coordinates": [
+        {
+          "field": "service",
+          "value": "example-sdk zones settings API",
+          "resolution": "resolved"
+        },
+        {
+          "field": "object_identity",
+          "value": "zoneId",
+          "resolution": "heuristic"
+        }
+      ],
+      "scope": "single"
+    },
+    "control": {
+      "TRIGGER_CONTROL": "SUPPORTED",
+      "TARGET_CONTROL": "REFUTED",
+      "CONTENT_CONTROL": "SUPPORTED",
+      "taint": "model_controlled"
+    },
+    "authority": {
+      "state": "SUPPORTED",
+      "mechanism": "API token scope checked by the remote service; recorded, not a proof obligation"
+    },
+    "conditions": []
+  },
+  "evidence_packets": [
+    {
+      "packet_id": "pkt-0001",
+      "tier": "L0",
+      "kind": "local_call_site",
+      "locator": {
+        "path": "src/tools/zones.ts",
+        "start_line": 57,
+        "end_line": 57
+      },
+      "assertion": {
+        "predicate": "invocation_executes",
+        "detail": "unguarded statement on the handler's main path"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "ACTIVATION",
+      "implementation_candidate_id": "cand-1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 0,
+        "bytes_read": 96
+      },
+      "extract": {
+        "text": "  await client.zones.settings.edit({ zoneId, value: input.value });",
+        "verbatim": true
+      }
+    },
+    {
+      "packet_id": "pkt-0004",
+      "tier": "L5",
+      "kind": "dependency_source_body",
+      "locator": {
+        "path": "node_modules/example-sdk/dist/resources/settings.js",
+        "start_line": 142,
+        "end_line": 144,
+        "symbol": "Settings.prototype.edit",
+        "package": "example-sdk",
+        "version": "3.4.1",
+        "version_resolution": "LOCKFILE"
+      },
+      "assertion": {
+        "predicate": "egress_mechanism_is",
+        "detail": "HTTPS request dispatched through the package's own transport client"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "BOUNDARY",
+      "implementation_candidate_id": "cand-1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 3,
+        "bytes_read": 18422
+      },
+      "extract": {
+        "text": "    return this._client.request({\n      method: 'PATCH',\n      path: `/zones/${zoneId}/settings`,",
+        "verbatim": true
+      }
+    },
+    {
+      "packet_id": "pkt-0005",
+      "tier": "L6",
+      "kind": "sdk_operation_metadata",
+      "locator": {
+        "path": "node_modules/example-sdk/openapi/zones.json",
+        "start_line": 2210,
+        "end_line": 2214,
+        "package": "example-sdk",
+        "version": "3.4.1",
+        "version_resolution": "LOCKFILE",
+        "document_pointer": "/paths/~1zones~1{zoneId}~1settings/patch"
+      },
+      "assertion": {
+        "predicate": "operation_is_mutation",
+        "detail": "contract declares the operation as updating zone settings"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "OPERATION",
+      "implementation_candidate_id": "cand-1",
+      "admissibility": "PROBATIVE",
+      "strength": "STRONG",
+      "acquisition_cost": {
+        "hops": 4,
+        "bytes_read": 40112
+      },
+      "extract": {
+        "text": "        \"operationId\": \"zones-settings-edit\",\n        \"x-effect\": \"mutates-zone-configuration\",",
+        "verbatim": true
+      }
+    },
+    {
+      "packet_id": "pkt-0006",
+      "tier": "L7",
+      "kind": "transport_primitive",
+      "locator": {
+        "path": "node_modules/example-sdk/openapi/zones.json",
+        "start_line": 2219,
+        "end_line": 2221,
+        "package": "example-sdk",
+        "version": "3.4.1",
+        "version_resolution": "LOCKFILE",
+        "document_pointer": "/paths/~1zones~1{zoneId}~1settings/patch/x-retention"
+      },
+      "assertion": {
+        "predicate": "state_is_durably_committed",
+        "detail": "contract declares the updated configuration is retained until further change"
+      },
+      "polarity": "POSITIVE",
+      "obligation": "PERSISTENCE",
+      "implementation_candidate_id": "cand-1",
+      "admissibility": "PROBATIVE",
+      "strength": "MODERATE",
+      "acquisition_cost": {
+        "hops": 4,
+        "bytes_read": 40112
+      },
+      "extract": {
+        "text": "        \"x-retention\": \"persisted-until-changed\",",
+        "verbatim": true
+      }
+    }
+  ],
+  "probe_outcomes": [
+    { "probe_id": "CP-IMPL-01", "obligation": "IMPLEMENTATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-IMPL-02", "obligation": "IMPLEMENTATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-IMPL-04", "obligation": "IMPLEMENTATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-ACT-01", "obligation": "ACTIVATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-ACT-02", "obligation": "ACTIVATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-BND-01", "obligation": "BOUNDARY", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-BND-02", "obligation": "BOUNDARY", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-BND-03", "obligation": "BOUNDARY", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-OPR-01", "obligation": "OPERATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-OPR-02", "obligation": "OPERATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-OPR-03", "obligation": "OPERATION", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-PER-01", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-PER-02", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-PER-03", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-PER-04", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" },
+    { "probe_id": "CP-PER-05", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "outcome": "NOT_FOUND" }
+  ],
+  "contradictions": [],
+  "acquisition": {
+    "highest_tier_reached": "L7",
+    "stop_reason": "SETTLED",
+    "tiers_attempted": ["L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7"],
+    "unresolved_obligations": [],
+    "hops_followed": 4,
+    "hops_declined": 0,
+    "frontier_size": 0,
+    "frontier": [],
+    "frontier_truncated": false
+  },
+  "verdict": "PROVEN_EFFECT",
+  "verdict_rationale": "Implementation single and established from pinned dependency source; activation, boundary, operation and persistence each SUPPORTED by a separate PROBATIVE packet; no CONFLICTING state; all sixteen BLOCKING probes executed to completion and none found. No sink rule participated at any step.",
+  "priority": {
+    "rank": 3,
+    "policy_id": "priority-v1"
+  },
+  "receipt_id": "rcpt-0002"
+}

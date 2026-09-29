@@ -1,0 +1,21 @@
+{
+  "_case": "INVALID, minimally. A declared-but-unpopulated future effect class is registered with PERSISTENCE among its necessary obligations and requires_persistence 'yes'. Requirement 19 forbids pretending a message emission is a persistent-state mutation, and the schema also requires a note on every DECLARED_UNPOPULATED class. Only the effect_classes fragment is shown; the file is deliberately incomplete so that the required-property checks fail too.",
+  "_expected_failure": "missing required top-level properties, and a DECLARED_UNPOPULATED class without the required note",
+  "schema_version": "0.1.0",
+  "architecture_id": "AREF-002",
+  "status": "AUTHORITATIVE",
+  "effect_classes": [
+    {
+      "id": "MESSAGE_EMISSION_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "PERSISTENCE"
+      ],
+      "requires_persistence": "yes"
+    }
+  ]
+}

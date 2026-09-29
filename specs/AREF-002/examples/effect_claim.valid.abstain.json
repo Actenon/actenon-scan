@@ -1,0 +1,110 @@
+{
+  "_case": "The critical case of AREF-002.md section 13. An unfamiliar high-level SDK call with NO matching sink rule. The claim exists at instantiation with all five obligations UNKNOWN, before any evidence is acquired. Under AREF-001 there would have been no record at all.",
+  "schema_version": "0.1.0",
+  "claim_id": "claim-0001",
+  "capability_id": "cap-zones-settings-tool",
+  "invocation_id": "inv-src-tools-zones.ts-L57C11",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "invocation": {
+    "locator": {
+      "path": "src/tools/zones.ts",
+      "start_line": 57,
+      "end_line": 57,
+      "start_column": 11,
+      "end_column": 58
+    },
+    "callee_expression": "client.zones.settings.edit",
+    "language": "typescript",
+    "argument_shape": [
+      {
+        "position": 0,
+        "taint": "model_controlled"
+      }
+    ],
+    "matched_rule_ids": []
+  },
+  "genesis": {
+    "basis": "NON_REFUTATION_OF_INERTNESS",
+    "inertness_established": false,
+    "inertness_blockers": ["OPAQUE_EXTERNAL_CANDIDATE", "NO_PROBATIVE_REFUTATION"]
+  },
+  "implementation_candidates": [
+    {
+      "candidate_id": "cand-1",
+      "kind": "OPAQUE_EXTERNAL",
+      "symbol": "zones.settings.edit",
+      "obligations": {
+        "IMPLEMENTATION": "SUPPORTED",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "resolved_at_tier": "L3"
+    }
+  ],
+  "selection_state": "SINGLE_ESTABLISHED",
+  "obligations": {
+    "IMPLEMENTATION": "SUPPORTED",
+    "ACTIVATION": "UNKNOWN",
+    "BOUNDARY": "UNKNOWN",
+    "OPERATION": "UNKNOWN",
+    "PERSISTENCE": "UNKNOWN"
+  },
+  "descriptors": {
+    "target": {
+      "coordinates": [
+        {
+          "field": "service",
+          "value": "unresolved",
+          "resolution": "unresolved"
+        }
+      ],
+      "scope": "unknown"
+    },
+    "control": {
+      "TRIGGER_CONTROL": "SUPPORTED",
+      "TARGET_CONTROL": "UNKNOWN",
+      "CONTENT_CONTROL": "SUPPORTED",
+      "taint": "model_controlled"
+    },
+    "authority": {
+      "state": "UNKNOWN"
+    },
+    "conditions": []
+  },
+  "evidence_packets": [],
+  "probe_outcomes": [],
+  "acquisition": {
+    "highest_tier_reached": "L4",
+    "stop_reason": "TIER_UNAVAILABLE",
+    "tiers_attempted": ["L0", "L1", "L2", "L3", "L4"],
+    "unresolved_obligations": ["ACTIVATION", "BOUNDARY", "OPERATION", "PERSISTENCE"],
+    "hops_followed": 2,
+    "hops_declined": 1,
+    "frontier_size": 1,
+    "frontier": [
+      {
+        "origin": {
+          "path": "src/tools/zones.ts",
+          "start_line": 57,
+          "end_line": 57
+        },
+        "target_symbol": "zones.settings.edit",
+        "target_package": "example-sdk",
+        "would_reach_tier": "L5",
+        "might_settle": ["BOUNDARY", "OPERATION", "PERSISTENCE"],
+        "reason": "TIER_UNAVAILABLE"
+      }
+    ],
+    "frontier_truncated": false
+  },
+  "verdict": "ABSTAIN",
+  "verdict_rationale": "The claim exists because inertness could not be established: the sole implementation candidate is OPAQUE_EXTERNAL. Pinned dependency source is not present in the analysed tree, so L5 was unavailable and OPERATION and PERSISTENCE remain UNKNOWN. This is a coverage limit, not evidence of absence.",
+  "priority": {
+    "rank": 41,
+    "policy_id": "priority-v1",
+    "hypothesis_signals": []
+  },
+  "receipt_id": "rcpt-0001"
+}

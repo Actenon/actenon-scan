@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-001/resource-effect-0.1.0.json",
+  "title": "ResourceEffect",
+  "description": "One inferred resource-effect record, annotating exactly one sink call site. Frozen by AREF-001 against actenon-scan b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16. Enum members for effect, controllability and certainty are copied from the shipped Python enums (EffectType, TaintLattice, AnalysisCertainty) and must be bumped together with them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effect",
+    "kind",
+    "scope",
+    "controllability",
+    "certainty",
+    "rule_id",
+    "normalised_rule_id",
+    "language",
+    "catalogue_status"
+  ],
+  "properties": {
+    "effect": {
+      "description": "AREF-001 D-04: values are exactly the members of actenon_scan.repository.effect_summary.EffectType. REI introduces no parallel taxonomy.",
+      "$ref": "#/$defs/effectType"
+    },
+    "kind": {
+      "description": "AREF-001 D-05: closed vocabulary of resource classes. unknown_resource is the mandatory sentinel and the default.",
+      "$ref": "#/$defs/resourceKind"
+    },
+    "scope": {
+      "description": "How many instances of the kind the call acts on. AREF-001 3.4.",
+      "$ref": "#/$defs/resourceScope"
+    },
+    "controllability": {
+      "description": "Taint state of the selecting expression. Values are exactly the members of actenon_scan.repository.taint.TaintLattice; unknown is the strongest for join purposes.",
+      "$ref": "#/$defs/taintLattice"
+    },
+    "certainty": {
+      "description": "Weakest link over catalogue max_certainty, selector certainty and reachability certainty, capped by reachability (AREF-001 D-08).",
+      "$ref": "#/$defs/analysisCertainty"
+    },
+    "rule_id": {
+      "description": "The rule ID exactly as emitted by the detector, including -WEAK / -UNBOUND / -GO qualifiers.",
+      "type": "string",
+      "minLength": 1
+    },
+    "normalised_rule_id": {
+      "description": "The catalogue key after normalisation (AREF-001 D-14).",
+      "type": "string",
+      "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*$"
+    },
+    "language": {
+      "enum": ["python", "typescript", "go"]
+    },
+    "catalogue_status": {
+      "description": "Status of the catalogue entry that produced this record. absent means no entry existed.",
+      "enum": ["frozen", "draft", "blocked", "absent"]
+    },
+    "selector": {
+      "description": "Which instance(s). Null when there is nothing to select rather than when selection failed - a failed selection is an origin of absent or dynamic.",
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/resourceSelector" }
+      ]
+    },
+    "unresolved_reason": {
+      "description": "Required (non-null) whenever certainty is unknown, unsupported or analysis_error. Closed set: AREF-001 3.8 U-4.",
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/unresolvedReason" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "description": "AREF-001 3.8 U-4: an unestablished record must say why.",
+      "if": {
+        "required": ["certainty"],
+        "properties": {
+          "certainty": { "enum": ["unknown", "unsupported", "analysis_error"] }
+        }
+      },
+      "then": {
+        "required": ["unresolved_reason"],
+        "properties": {
+          "unresolved_reason": { "$ref": "#/$defs/unresolvedReason" }
+        }
+      }
+    },
+    {
+      "description": "AREF-001 D-07 / 3.7: an unknown_resource record may not carry an established certainty.",
+      "if": {
+        "required": ["kind"],
+        "properties": { "kind": { "const": "unknown_resource" } }
+      },
+      "then": {
+        "properties": {
+          "certainty": { "enum": ["unknown", "unsupported", "analysis_error"] }
+        }
+      }
+    },
+    {
+      "description": "AREF-001 3.7: proven is unreachable in REI v0 by construction. A static argument-position read is not a proof.",
+      "not": {
+        "required": ["certainty"],
+        "properties": { "certainty": { "const": "proven" } }
+      }
+    },
+    {
+      "description": "AREF-001 3.7 ceiling: a blocked or absent catalogue entry can only yield an unestablished record.",
+      "if": {
+        "required": ["catalogue_status"],
+        "properties": { "catalogue_status": { "enum": ["blocked", "absent"] } }
+      },
+      "then": {
+        "properties": {
+          "certainty": { "enum": ["unknown", "unsupported", "analysis_error"] }
+        }
+      }
+    },
+    {
+      "description": "AREF-001 3.7 ceiling: a draft catalogue entry tops out at heuristic.",
+      "if": {
+        "required": ["catalogue_status"],
+        "properties": { "catalogue_status": { "const": "draft" } }
+      },
+      "then": {
+        "properties": {
+          "certainty": { "enum": ["heuristic", "unknown", "unsupported", "analysis_error"] }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "effectType": {
+      "enum": [
+        "shell_execution",
+        "code_execution",
+        "file_write",
+        "file_delete",
+        "data_mutation",
+        "data_deletion",
+        "identity_mutation",
+        "access_control_mutation",
+        "money_mutation",
+        "money_refund",
+        "communication_send",
+        "email_send",
+        "repository_mutation",
+        "deploy_action",
+        "container_execution",
+        "infrastructure_mutation",
+        "credential_access",
+        "network_egress",
+        "browser_action",
+        "unknown_effect"
+      ]
+    },
+    "resourceKind": {
+      "enum": [
+        "filesystem_path",
+        "database_table",
+        "database_row_set",
+        "object_store_key",
+        "os_process",
+        "code_string",
+        "container_image",
+        "payment_object",
+        "identity_principal",
+        "access_policy",
+        "message_channel",
+        "email_recipient",
+        "vcs_ref",
+        "repository_object",
+        "deploy_target",
+        "infrastructure_resource",
+        "secret_store_entry",
+        "network_endpoint",
+        "browser_target",
+        "unknown_resource"
+      ]
+    },
+    "resourceScope": {
+      "enum": ["single", "set", "all", "unknown"]
+    },
+    "taintLattice": {
+      "enum": [
+        "untainted",
+        "constrained",
+        "external",
+        "model_derived",
+        "model_controlled",
+        "unknown"
+      ]
+    },
+    "analysisCertainty": {
+      "enum": [
+        "proven",
+        "strong",
+        "heuristic",
+        "unknown",
+        "unsupported",
+        "analysis_error"
+      ]
+    },
+    "selectorOrigin": {
+      "enum": [
+        "literal",
+        "parameter",
+        "local_variable",
+        "attribute",
+        "receiver",
+        "expression",
+        "absent",
+        "dynamic"
+      ]
+    },
+    "unresolvedReason": {
+      "enum": [
+        "rule_id_not_in_catalogue",
+        "catalogue_entry_blocked",
+        "declared_argument_absent",
+        "selector_is_dynamic",
+        "selector_not_decomposable",
+        "scope_requires_predicate_analysis",
+        "taint_state_unavailable",
+        "call_site_not_located",
+        "language_not_supported",
+        "analysis_error"
+      ]
+    },
+    "resourceSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "origin", "certainty"],
+      "properties": {
+        "text": {
+          "description": "The exact source segment of the selecting expression. Never a reconstruction (AREF-001 3.9).",
+          "type": "string"
+        },
+        "origin": { "$ref": "#/$defs/selectorOrigin" },
+        "certainty": { "$ref": "#/$defs/analysisCertainty" }
+      },
+      "allOf": [
+        {
+          "description": "AREF-001 3.6: absent and dynamic origins cannot carry an established certainty.",
+          "if": {
+            "required": ["origin"],
+            "properties": { "origin": { "enum": ["absent", "dynamic"] } }
+          },
+          "then": {
+            "properties": {
+              "certainty": { "enum": ["unknown", "unsupported", "analysis_error"] }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

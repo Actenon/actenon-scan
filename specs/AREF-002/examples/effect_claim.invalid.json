@@ -1,0 +1,83 @@
+{
+  "_case": "INVALID. Verdict NO_EFFECT with no closure object. A refuted obligation alone is not enough: NO_EFFECT is the only verdict that makes a safety claim, so closure C1 to C6 must be established and recorded. Here C1 fails anyway, because a DYNAMIC_UNRESOLVED candidate is present.",
+  "_expected_failure": "verdict NO_EFFECT requires the closure object (C1 to C6)",
+  "schema_version": "0.1.0",
+  "claim_id": "claim-bad-01",
+  "capability_id": "cap-cache-tool",
+  "invocation_id": "inv-src-cache.py-L22C5",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "invocation": {
+    "locator": {
+      "path": "src/cache.py",
+      "start_line": 22,
+      "end_line": 22
+    },
+    "callee_expression": "handlers[name].store",
+    "language": "python",
+    "matched_rule_ids": []
+  },
+  "genesis": {
+    "basis": "NON_REFUTATION_OF_INERTNESS",
+    "inertness_established": false,
+    "inertness_blockers": ["DYNAMIC_UNRESOLVED_CANDIDATE"]
+  },
+  "implementation_candidates": [
+    {
+      "candidate_id": "cand-1",
+      "kind": "RESOLVED_LOCAL",
+      "symbol": "MemoryCache.store",
+      "obligations": {
+        "IMPLEMENTATION": "SUPPORTED",
+        "ACTIVATION": "SUPPORTED",
+        "BOUNDARY": "REFUTED",
+        "OPERATION": "SUPPORTED",
+        "PERSISTENCE": "REFUTED"
+      }
+    },
+    {
+      "candidate_id": "cand-2",
+      "kind": "DYNAMIC_UNRESOLVED",
+      "symbol": "handlers[name].store",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "SUPPORTED",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      }
+    }
+  ],
+  "selection_state": "UNRESOLVED_DIVERGENT",
+  "obligations": {
+    "IMPLEMENTATION": "UNKNOWN",
+    "ACTIVATION": "SUPPORTED",
+    "BOUNDARY": "UNKNOWN",
+    "OPERATION": "UNKNOWN",
+    "PERSISTENCE": "REFUTED"
+  },
+  "descriptors": {
+    "target": {
+      "coordinates": [],
+      "scope": "unknown"
+    },
+    "control": {
+      "TRIGGER_CONTROL": "SUPPORTED",
+      "TARGET_CONTROL": "UNKNOWN",
+      "CONTENT_CONTROL": "SUPPORTED"
+    },
+    "authority": {
+      "state": "UNKNOWN"
+    },
+    "conditions": []
+  },
+  "evidence_packets": [],
+  "probe_outcomes": [],
+  "acquisition": {
+    "highest_tier_reached": "L1",
+    "stop_reason": "NO_FURTHER_TIER",
+    "tiers_attempted": ["L0", "L1"],
+    "unresolved_obligations": ["IMPLEMENTATION", "BOUNDARY", "OPERATION"],
+    "frontier_size": 3
+  },
+  "verdict": "NO_EFFECT"
+}

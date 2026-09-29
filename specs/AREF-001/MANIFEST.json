@@ -1,0 +1,134 @@
+{
+  "artefact": "AREF-001",
+  "manifest_schema_version": "0.1.0",
+  "frozen_against_commit": "b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16",
+  "hash_algorithm": "sha256",
+  "excluded": [
+    "MANIFEST.json",
+    "MANIFEST.sha256"
+  ],
+  "file_count": 24,
+  "total_bytes": 237251,
+  "files": [
+    {
+      "path": "specs/AREF-001/00-SCOPE-AND-FREEZE.md",
+      "sha256": "2ac89cf34fde4874aaeeb86d93b7841c904a0feb6fd964360c3bd04e68e65651",
+      "bytes": 7046
+    },
+    {
+      "path": "specs/AREF-001/01-EVIDENCE-AVAILABILITY.md",
+      "sha256": "858c06b3f500a82efbe1990627d0885ae36ae50197f393c8c8b92e851c0a1486",
+      "bytes": 7238
+    },
+    {
+      "path": "specs/AREF-001/02-ARCHITECTURE.md",
+      "sha256": "ebf921e7e208d8d683a90076e75a3e1a1b7b0eaa569d9bf121f449f7789c29a2",
+      "bytes": 20572
+    },
+    {
+      "path": "specs/AREF-001/03-DATA-MODEL.md",
+      "sha256": "30a5d8d13c266904a26d9629c1cd6c0fd569f02e2bb2627872bfd61e8bbf2fa0",
+      "bytes": 11570
+    },
+    {
+      "path": "specs/AREF-001/04-INTERFACES.md",
+      "sha256": "f1c8cce796eb1b8bc345d48b79d1b5ff68b7b30af71469d66bd275c3276b9be9",
+      "bytes": 11299
+    },
+    {
+      "path": "specs/AREF-001/05-INVARIANTS.md",
+      "sha256": "71ef89a06d4554d7c57d83c080653e6239b3e75a49e40bd4d58389e5a75c1a1e",
+      "bytes": 10593
+    },
+    {
+      "path": "specs/AREF-001/06-ARCHITECTURE-QUESTIONS.md",
+      "sha256": "8e2a04bbec2d33514f663b6b8949731b5ed81ac76cb05c3432a99d6888f00104",
+      "bytes": 15705
+    },
+    {
+      "path": "specs/AREF-001/07-RISKS-AND-FALSIFICATION.md",
+      "sha256": "ddb69f7ac441f32bde732d5bf186d2337691a313e6a34df675a01c4564ef66e5",
+      "bytes": 9102
+    },
+    {
+      "path": "specs/AREF-001/08-BLOCKED-DECISIONS.md",
+      "sha256": "f1298e9437b0baa0321fff97abc2ebf9e116e8bec79d262104c294cbb749f3f9",
+      "bytes": 11197
+    },
+    {
+      "path": "specs/AREF-001/09-IMPLEMENTATION-PLAN.md",
+      "sha256": "a1c8f4c6072b11f8f87342d477239aac95343272d97093130044490da2074694",
+      "bytes": 6459
+    },
+    {
+      "path": "specs/AREF-001/10-CONTRADICTION-CHECK.md",
+      "sha256": "ce02bf0e6136b142c1a1b2329dee2c3b2a1924a05a6f4842138e1951cb8889b7",
+      "bytes": 13101
+    },
+    {
+      "path": "specs/AREF-001/README.md",
+      "sha256": "76f5925f38eb9982b7c7bde30a4720a9f6c5ed0c7a4804c4efc5257338426d20",
+      "bytes": 5000
+    },
+    {
+      "path": "specs/AREF-001/REPORT.md",
+      "sha256": "d8ae1201edcad0aa47c09a974198274e8c1df889811c670cad1ce3ad6e8f462e",
+      "bytes": 30607
+    },
+    {
+      "path": "specs/AREF-001/catalogue/resource-effect-catalogue.draft.json",
+      "sha256": "d0829cb6e2be472d1753df38999e6f88afab96438a6e3f8b9c62c2bb06a94fee",
+      "bytes": 19391
+    },
+    {
+      "path": "specs/AREF-001/examples/catalogue.invalid.json",
+      "sha256": "2580997f5f4b45b0c96bf322802ea95ebe775f5da65213e91fbfcf6f5fda78bf",
+      "bytes": 5163
+    },
+    {
+      "path": "specs/AREF-001/examples/catalogue.valid.json",
+      "sha256": "b9314552709964bcecf7f20abaaf89600a68da8d9a62f0b00c711ad105fb2db4",
+      "bytes": 1781
+    },
+    {
+      "path": "specs/AREF-001/examples/rei-report-fragment.valid.json",
+      "sha256": "cdff056323da045570855ecbf11609117382c38a6c2a9f0134bc2e6f8af0f14d",
+      "bytes": 2152
+    },
+    {
+      "path": "specs/AREF-001/examples/resource-effect.invalid.json",
+      "sha256": "fa0804efd97a5dbc7bf2ef80ae9e433c9cdbec9a39975e3495c63b16d01d497d",
+      "bytes": 8060
+    },
+    {
+      "path": "specs/AREF-001/examples/resource-effect.valid.json",
+      "sha256": "2dd6455605177ecb8fcf567e82ce0f3f9cbcde7f0448d2d4b6b36d11014f54f5",
+      "bytes": 5541
+    },
+    {
+      "path": "specs/AREF-001/schema/aref-001-manifest.schema.json",
+      "sha256": "3a081d226582ac266d48bd48420187874fc3b6a10330557e153894031d4d7da3",
+      "bytes": 1869
+    },
+    {
+      "path": "specs/AREF-001/schema/rei-report-fragment.schema.json",
+      "sha256": "f358767d6c36863943ab5c0a7c3200425272cb63f991862308b8ce93cd3d636e",
+      "bytes": 2709
+    },
+    {
+      "path": "specs/AREF-001/schema/resource-effect-catalogue.schema.json",
+      "sha256": "e3f17be3f41e812b8a055da0e3309be7089de64cd1db3c060b43a56fd2707076",
+      "bytes": 6017
+    },
+    {
+      "path": "specs/AREF-001/schema/resource-effect.schema.json",
+      "sha256": "0446735428c306db9058dd5fe9bd49f1059c30a2ae75fbafbe56855f6763fd88",
+      "bytes": 8128
+    },
+    {
+      "path": "specs/AREF-001/validate.py",
+      "sha256": "5e3e40e421c8eba3480aabe921900fda52cdd0c3f76e0483da27d264fb360e99",
+      "bytes": 16951
+    }
+  ]
+}

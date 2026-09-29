@@ -1,0 +1,120 @@
+{
+  "_comment": "Positive schema-conformance instances for schema/resource-effect.schema.json. These are ILLUSTRATIONS OF THE SCHEMA, not evidence: no instance here was produced by running anything against real code, and none should be cited as a measurement. Their purpose is to exercise every branch of the schema's conditional rules so that a reviewer can see what each frozen decision permits. Every instance is validated by validate.py.",
+  "instances": [
+    {
+      "_case": "A determined record at the v0 ceiling. catalogue_status frozen permits certainty strong; proven is unreachable by construction (AREF-001 3.7).",
+      "effect": "file_delete",
+      "kind": "filesystem_path",
+      "scope": "single",
+      "controllability": "model_controlled",
+      "certainty": "strong",
+      "rule_id": "DATA-DELETE-OS",
+      "normalised_rule_id": "DATA-DELETE-OS",
+      "language": "python",
+      "catalogue_status": "frozen",
+      "selector": { "text": "path", "origin": "parameter", "certainty": "strong" },
+      "unresolved_reason": null
+    },
+    {
+      "_case": "A draft catalogue entry caps at heuristic. Note the rule_id carries the -WEAK qualifier the pipeline appended; normalised_rule_id is the catalogue key (AREF-001 D-14).",
+      "effect": "shell_execution",
+      "kind": "os_process",
+      "scope": "single",
+      "controllability": "model_controlled",
+      "certainty": "heuristic",
+      "rule_id": "EXEC-SHELL-WEAK",
+      "normalised_rule_id": "EXEC-SHELL",
+      "language": "python",
+      "catalogue_status": "draft",
+      "selector": { "text": "cmd", "origin": "parameter", "certainty": "heuristic" },
+      "unresolved_reason": null
+    },
+    {
+      "_case": "A blocked entry. The kind is known from the rule, but the scope is not, because it lives in a SQL predicate (B-04). The selector text is the literal statement; nothing parses it.",
+      "effect": "data_deletion",
+      "kind": "database_row_set",
+      "scope": "unknown",
+      "controllability": "unknown",
+      "certainty": "unknown",
+      "rule_id": "DATA-DELETE-SQL",
+      "normalised_rule_id": "DATA-DELETE-SQL",
+      "language": "python",
+      "catalogue_status": "blocked",
+      "selector": {
+        "text": "\"DELETE FROM runs WHERE run_id = ?\"",
+        "origin": "literal",
+        "certainty": "unknown"
+      },
+      "unresolved_reason": "scope_requires_predicate_analysis"
+    },
+    {
+      "_case": "No catalogue entry at all. The record still exists (AREF-001 D-02, I-03) and says why it is unknown. selector is null because there was nothing to select, not because selection failed.",
+      "effect": "unknown_effect",
+      "kind": "unknown_resource",
+      "scope": "unknown",
+      "controllability": "unknown",
+      "certainty": "unknown",
+      "rule_id": "SOME-FUTURE-RULE",
+      "normalised_rule_id": "SOME-FUTURE-RULE",
+      "language": "python",
+      "catalogue_status": "absent",
+      "selector": null,
+      "unresolved_reason": "rule_id_not_in_catalogue"
+    },
+    {
+      "_case": "A Go site. rule_id carries the -GO suffix the detector emits; normalisation strips it into the language field. At the frozen commit effect_for_rule_id returns None for this ID (10-CONTRADICTION-CHECK.md 10.5) - D-14 exists so REI does not inherit that hole.",
+      "effect": "file_delete",
+      "kind": "filesystem_path",
+      "scope": "single",
+      "controllability": "external",
+      "certainty": "heuristic",
+      "rule_id": "DATA-DELETE-OS-GO",
+      "normalised_rule_id": "DATA-DELETE-OS",
+      "language": "go",
+      "catalogue_status": "draft",
+      "selector": { "text": "p", "origin": "parameter", "certainty": "heuristic" }
+    },
+    {
+      "_case": "A structurally unresolvable selector. dynamic is distinct from absent (AREF-001 3.6): no catalogue declaration could have helped here, whereas absent may mean the declaration is wrong.",
+      "effect": "network_egress",
+      "kind": "network_endpoint",
+      "scope": "unknown",
+      "controllability": "unknown",
+      "certainty": "unknown",
+      "rule_id": "NET-EGRESS",
+      "normalised_rule_id": "NET-EGRESS",
+      "language": "typescript",
+      "catalogue_status": "draft",
+      "selector": { "text": "...endpoints", "origin": "dynamic", "certainty": "unknown" },
+      "unresolved_reason": "selector_is_dynamic"
+    },
+    {
+      "_case": "Internal failure. infer_resource_effect is total (AREF-001 4.1): a crash yields a record, never an exception and never a skipped site.",
+      "effect": "unknown_effect",
+      "kind": "unknown_resource",
+      "scope": "unknown",
+      "controllability": "unknown",
+      "certainty": "analysis_error",
+      "rule_id": "EXEC-CODE",
+      "normalised_rule_id": "EXEC-CODE",
+      "language": "python",
+      "catalogue_status": "draft",
+      "selector": null,
+      "unresolved_reason": "analysis_error"
+    },
+    {
+      "_case": "The declared argument was not present in the call. This is the outcome the draft catalogue predicts for every vendor-keyword-driven SDK, and it is countable rather than wrong (AREF-001 B-03).",
+      "effect": "money_refund",
+      "kind": "payment_object",
+      "scope": "unknown",
+      "controllability": "unknown",
+      "certainty": "unknown",
+      "rule_id": "PAY-STRIPE-REFUND",
+      "normalised_rule_id": "PAY-STRIPE-REFUND",
+      "language": "python",
+      "catalogue_status": "draft",
+      "selector": { "text": "", "origin": "absent", "certainty": "unknown" },
+      "unresolved_reason": "declared_argument_absent"
+    }
+  ]
+}

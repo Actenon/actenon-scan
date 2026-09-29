@@ -1,0 +1,193 @@
+{
+  "_comment": "NEGATIVE schema-conformance instances. Every instance here MUST be rejected by schema/resource-effect.schema.json. validate.py fails if any of them validates - a schema that accepts everything is not a constraint, and the conditional rules in this schema are where the frozen decisions actually live, so they need negative coverage more than the positive cases do.",
+  "instances": [
+    {
+      "_case": "proven certainty",
+      "_violates": "AREF-001 3.7 / D-08 - proven is unreachable in v0. A static argument-position read is not a proof that the resource is what the catalogue says it is.",
+      "instance": {
+        "effect": "file_delete",
+        "kind": "filesystem_path",
+        "scope": "single",
+        "controllability": "untainted",
+        "certainty": "proven",
+        "rule_id": "DATA-DELETE-OS",
+        "normalised_rule_id": "DATA-DELETE-OS",
+        "language": "python",
+        "catalogue_status": "frozen",
+        "selector": { "text": "\"/tmp/x\"", "origin": "literal", "certainty": "strong" }
+      }
+    },
+    {
+      "_case": "unknown certainty with no reason",
+      "_violates": "AREF-001 3.8 U-4 - an unestablished record must say why, from a closed set of ten reasons. Free-text or missing reasons make the unknown population uncountable, which is the state D-13 exists to escape.",
+      "instance": {
+        "effect": "data_deletion",
+        "kind": "database_row_set",
+        "scope": "unknown",
+        "controllability": "unknown",
+        "certainty": "unknown",
+        "rule_id": "DATA-DELETE-SQL",
+        "normalised_rule_id": "DATA-DELETE-SQL",
+        "language": "python",
+        "catalogue_status": "blocked"
+      }
+    },
+    {
+      "_case": "unknown_resource carrying strong certainty",
+      "_violates": "AREF-001 D-07 - an unknown may not be dressed as an establishment. This is the shape a consumer would misread as 'determined'.",
+      "instance": {
+        "effect": "unknown_effect",
+        "kind": "unknown_resource",
+        "scope": "unknown",
+        "controllability": "unknown",
+        "certainty": "strong",
+        "rule_id": "PROVIDER-SDK-CALL",
+        "normalised_rule_id": "PROVIDER-SDK-CALL",
+        "language": "python",
+        "catalogue_status": "blocked",
+        "selector": null
+      }
+    },
+    {
+      "_case": "blocked catalogue entry yielding strong certainty",
+      "_violates": "AREF-001 3.7 ceiling table - a blocked entry can only produce an unestablished record. Without this rule, B-04 could be circumvented by an implementation rather than by evidence.",
+      "instance": {
+        "effect": "data_deletion",
+        "kind": "database_row_set",
+        "scope": "all",
+        "controllability": "model_controlled",
+        "certainty": "strong",
+        "rule_id": "DATA-DELETE-SQL",
+        "normalised_rule_id": "DATA-DELETE-SQL",
+        "language": "python",
+        "catalogue_status": "blocked",
+        "selector": { "text": "q", "origin": "parameter", "certainty": "strong" }
+      }
+    },
+    {
+      "_case": "draft catalogue entry yielding strong certainty",
+      "_violates": "AREF-001 3.7 ceiling table - draft tops out at heuristic. Promotion to strong requires promoting the catalogue entry, which requires the B-03 measurement.",
+      "instance": {
+        "effect": "shell_execution",
+        "kind": "os_process",
+        "scope": "single",
+        "controllability": "model_controlled",
+        "certainty": "strong",
+        "rule_id": "EXEC-SHELL",
+        "normalised_rule_id": "EXEC-SHELL",
+        "language": "python",
+        "catalogue_status": "draft",
+        "selector": { "text": "cmd", "origin": "parameter", "certainty": "strong" }
+      }
+    },
+    {
+      "_case": "dynamic selector with strong certainty",
+      "_violates": "AREF-001 3.6 - a structurally unresolvable selector cannot be certain about what it selects.",
+      "instance": {
+        "effect": "network_egress",
+        "kind": "network_endpoint",
+        "scope": "single",
+        "controllability": "model_controlled",
+        "certainty": "heuristic",
+        "rule_id": "NET-EGRESS",
+        "normalised_rule_id": "NET-EGRESS",
+        "language": "python",
+        "catalogue_status": "draft",
+        "selector": { "text": "*urls", "origin": "dynamic", "certainty": "strong" }
+      }
+    },
+    {
+      "_case": "resource kind outside the closed enum",
+      "_violates": "AREF-001 D-05 - the vocabulary is closed. 'database' is plausible English and is not a member; admitting it would restart the free-text drift the closed enum exists to prevent.",
+      "instance": {
+        "effect": "data_deletion",
+        "kind": "database",
+        "scope": "unknown",
+        "controllability": "unknown",
+        "certainty": "unknown",
+        "rule_id": "DATA-DELETE-SQL",
+        "normalised_rule_id": "DATA-DELETE-SQL",
+        "language": "python",
+        "catalogue_status": "blocked",
+        "unresolved_reason": "catalogue_entry_blocked"
+      }
+    },
+    {
+      "_case": "effect outside EffectType",
+      "_violates": "AREF-001 D-04 - the effect vocabulary is EffectType and nothing else. 'database_drop' is exactly the kind of one-off string a parallel taxonomy starts with.",
+      "instance": {
+        "effect": "database_drop",
+        "kind": "database_row_set",
+        "scope": "all",
+        "controllability": "model_controlled",
+        "certainty": "unknown",
+        "rule_id": "DATA-DELETE-SQL",
+        "normalised_rule_id": "DATA-DELETE-SQL",
+        "language": "python",
+        "catalogue_status": "blocked",
+        "unresolved_reason": "catalogue_entry_blocked"
+      }
+    },
+    {
+      "_case": "extra property",
+      "_violates": "additionalProperties false - an undeclared field is an unversioned field, and D-10 makes the output surface versioned.",
+      "instance": {
+        "effect": "file_write",
+        "kind": "filesystem_path",
+        "scope": "single",
+        "controllability": "external",
+        "certainty": "heuristic",
+        "rule_id": "FILE-WRITE",
+        "normalised_rule_id": "FILE-WRITE",
+        "language": "python",
+        "catalogue_status": "draft",
+        "blast_radius": "high"
+      }
+    },
+    {
+      "_case": "normalised_rule_id not in canonical form",
+      "_violates": "AREF-001 D-14 - the catalogue key is the normalised ID in upper-case hyphenated form. A lower-case key would silently miss the catalogue and be reported as rule_id_not_in_catalogue, hiding a normalisation bug as a coverage gap.",
+      "instance": {
+        "effect": "file_write",
+        "kind": "filesystem_path",
+        "scope": "single",
+        "controllability": "external",
+        "certainty": "heuristic",
+        "rule_id": "FILE-WRITE",
+        "normalised_rule_id": "file-write",
+        "language": "python",
+        "catalogue_status": "draft"
+      }
+    },
+    {
+      "_case": "missing required scope",
+      "_violates": "AREF-001 D-03 - scope is one of the five components and is the one that does not exist in the current model. An optional scope would make it the first field an implementation drops.",
+      "instance": {
+        "effect": "file_write",
+        "kind": "filesystem_path",
+        "controllability": "external",
+        "certainty": "heuristic",
+        "rule_id": "FILE-WRITE",
+        "normalised_rule_id": "FILE-WRITE",
+        "language": "python",
+        "catalogue_status": "draft"
+      }
+    },
+    {
+      "_case": "unresolved_reason outside the closed set",
+      "_violates": "AREF-001 3.8 U-4 - the reason set is closed so that reasons can be counted and acted on. 'could not figure it out' is unactionable in aggregate.",
+      "instance": {
+        "effect": "unknown_effect",
+        "kind": "unknown_resource",
+        "scope": "unknown",
+        "controllability": "unknown",
+        "certainty": "unknown",
+        "rule_id": "X-Y",
+        "normalised_rule_id": "X-Y",
+        "language": "python",
+        "catalogue_status": "absent",
+        "unresolved_reason": "could not figure it out"
+      }
+    }
+  ]
+}

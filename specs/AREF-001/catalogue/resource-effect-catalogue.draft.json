@@ -1,0 +1,486 @@
+{
+  "_comment": "AREF-001 DRAFT resource-effect catalogue. NOT a shipped artefact: this file lives under specs/ and is not loaded by any code. It exists so that the catalogue design (AREF-001 D-06) can be reviewed against real rule IDs before any of it is implemented. Coverage: the 31 Python sink rules in actenon_scan/rules/default_rules.json, the 9 rule IDs emitted by actenon_scan/detectors/typescript.py, and the 9 emitted by actenon_scan/detectors/go.py (keyed after D-14 normalisation, which strips the -GO suffix). NO ENTRY HAS STATUS 'frozen'. That is deliberate and is the catalogue's main honest statement: promoting an entry from draft to frozen asserts that its declared selector location is correct on real call sites, and that assertion requires the REI-001 measurement which is not accessible (see 01-EVIDENCE-AVAILABILITY.md and blocked decision B-03). KEYWORD POLICY: arg_keywords are restricted to lowercase, vendor-neutral parameter names. No vendor-specific keyword (CamelCase SDK parameter names, provider-branded fields) appears anywhere in this file, because the task prohibits provider-specific rules and because a vendor keyword list in a data file is a provider-specific rule wearing a different hat. The NET-EGRESS keyword set is copied verbatim from that rule's own escalate_when.arg_keywords in default_rules.json, so it introduces nothing new.",
+  "catalogue_version": "0.1.0-draft",
+  "rei_schema_version": "0.1.0",
+  "frozen_against_commit": "b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16",
+  "entries": [
+    {
+      "normalised_rule_id": "PAY-STRIPE-REFUND",
+      "language": "python",
+      "resource_kind": "payment_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "The refunded object is usually identified by a keyword argument rather than position 0. The keyword is vendor-specific, so it is deliberately not declared here; this entry will therefore often yield declared_argument_absent, which is a countable outcome (D-13) rather than a wrong one."
+    },
+    {
+      "normalised_rule_id": "PAY-GENERIC-REFUND",
+      "language": "python",
+      "resource_kind": "payment_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Underlying rule is an unqualified name_call at priority 10. A resource claim can never be stronger than the sink match it annotates."
+    },
+    {
+      "normalised_rule_id": "PAY-BRAINTREE",
+      "language": "python",
+      "resource_kind": "payment_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "DATA-DELETE-SQL",
+      "language": "python",
+      "resource_kind": "database_row_set",
+      "selector": { "arg_positions": [0], "from_receiver": true },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-04",
+      "note": "The selector is inside a SQL string. Distinguishing a bounded row set from a whole table requires statement parsing. A WHERE-presence regex is explicitly rejected: a tautological predicate would produce a false NARROWING claim, which is the forbidden direction of error."
+    },
+    {
+      "normalised_rule_id": "DATA-DELETE-SQL-RAW",
+      "language": "python",
+      "resource_kind": "database_row_set",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-04",
+      "note": "This rule exists to catch dynamically assembled SQL, which is precisely the case a parser cannot resolve."
+    },
+    {
+      "normalised_rule_id": "DATA-DELETE-FILE",
+      "language": "python",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0], "arg_keywords": ["path"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "scope_rule is single, but a recursive-tree deletion is set or all. The recursive flag is not modelled in v0."
+    },
+    {
+      "normalised_rule_id": "DATA-DELETE-OS",
+      "language": "python",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0], "arg_keywords": ["path"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "DATA-DELETE-OBJ",
+      "language": "python",
+      "resource_kind": "object_store_key",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Object-store deletes are keyword-driven in every major SDK and the keywords are vendor-specific, so they are not declared. A prefix delete is scope all; nothing here can tell a key from a prefix."
+    },
+    {
+      "normalised_rule_id": "DEPLOY-SUBPROCESS",
+      "language": "python",
+      "resource_kind": "deploy_target",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Position 0 is the argv list or command string; the deploy target is inside it."
+    },
+    {
+      "normalised_rule_id": "ACCESS-CONTROL-MUTATE",
+      "language": "python",
+      "resource_kind": "access_policy",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "COMMUNICATION-SEND",
+      "language": "python",
+      "resource_kind": "message_channel",
+      "selector": { "arg_positions": [0], "arg_keywords": ["channel", "to"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "EMAIL-PROVIDER-SEND",
+      "language": "python",
+      "resource_kind": "email_recipient",
+      "selector": { "arg_positions": [0], "arg_keywords": ["to"] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "A recipient list is scope set; a single address is single. v0 does not inspect the container, so unknown."
+    },
+    {
+      "normalised_rule_id": "COMMUNICATION-SEND-NAME",
+      "language": "python",
+      "resource_kind": "message_channel",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Unqualified name_call rule."
+    },
+    {
+      "normalised_rule_id": "PROVIDER-SDK-CALL",
+      "language": "python",
+      "resource_kind": "unknown_resource",
+      "selector": {},
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-02",
+      "note": "This rule already maps to UNKNOWN_EFFECT in the shipped _RULE_ID_TO_EFFECT. A rule that cannot name its effect cannot name its resource. Kept as an explicit blocked entry so the site is counted rather than skipped."
+    },
+    {
+      "normalised_rule_id": "DATABASE-MUTATE",
+      "language": "python",
+      "resource_kind": "database_row_set",
+      "selector": { "arg_positions": [0], "from_receiver": true },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-04"
+    },
+    {
+      "normalised_rule_id": "DATABASE-ORM-MUTATE",
+      "language": "python",
+      "resource_kind": "database_row_set",
+      "selector": { "from_receiver": true },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-04",
+      "note": "An ORM query object carries its predicate in a chain of prior calls, not in this call's arguments. Resolving it needs the chain, which v0 does not walk."
+    },
+    {
+      "normalised_rule_id": "IDENTITY-CHANGE",
+      "language": "python",
+      "resource_kind": "identity_principal",
+      "selector": { "arg_positions": [0], "arg_keywords": ["user", "email"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "IDENTITY-IAM-MUTATE",
+      "language": "python",
+      "resource_kind": "access_policy",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "IAM SDKs are keyword-driven with vendor-specific parameter names, which the keyword policy excludes. Expect declared_argument_absent."
+    },
+    {
+      "normalised_rule_id": "DEPLOY-K8S",
+      "language": "python",
+      "resource_kind": "infrastructure_resource",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-03",
+      "note": "The resource is inside a kubectl command line. Extracting it is command-line parsing, not argument-position reading, so the declarative mechanism does not reach it."
+    },
+    {
+      "normalised_rule_id": "DEPLOY-TERRAFORM",
+      "language": "python",
+      "resource_kind": "infrastructure_resource",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-03",
+      "note": "terraform apply names no resource at the call site; the resource set is in the state and the plan."
+    },
+    {
+      "normalised_rule_id": "EXEC-CODE",
+      "language": "python",
+      "resource_kind": "code_string",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "The resource IS the argument: the code string being evaluated. This is the one family where position 0 is the resource by definition rather than by convention, and therefore the strongest candidate for promotion to frozen once B-03 closes."
+    },
+    {
+      "normalised_rule_id": "EXEC-SHELL",
+      "language": "python",
+      "resource_kind": "os_process",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Position 0 is the command or argv. Same structural argument as EXEC-CODE."
+    },
+    {
+      "normalised_rule_id": "EXEC-CONTAINER",
+      "language": "python",
+      "resource_kind": "container_image",
+      "selector": { "arg_positions": [0], "arg_keywords": ["image", "command"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "BROWSER-ACTION",
+      "language": "python",
+      "resource_kind": "browser_target",
+      "selector": { "arg_positions": [0], "arg_keywords": ["url"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "FILE-WRITE",
+      "language": "python",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0], "arg_keywords": ["path"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "FILE-OPEN-WRITE",
+      "language": "python",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Position 0 of open() is the path; position 1 is the mode the rule matched on. This is the least ambiguous declaration in the catalogue."
+    },
+    {
+      "normalised_rule_id": "NET-EGRESS",
+      "language": "python",
+      "resource_kind": "network_endpoint",
+      "selector": { "arg_positions": [0], "arg_keywords": ["url", "endpoint", "uri"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "arg_positions and arg_keywords are copied verbatim from this rule's own escalate_when block in default_rules.json. The catalogue introduces nothing the scanner did not already assert about this rule."
+    },
+    {
+      "normalised_rule_id": "GIT-MUTATE",
+      "language": "python",
+      "resource_kind": "vcs_ref",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "The reachability ground-truth study recorded a GIT-MUTATE match on repo.commit(revision), which RESOLVES a revision rather than creating one. A resource annotation on a mis-labelled sink is annotation of a false positive; REI cannot fix that and must not obscure it."
+    },
+    {
+      "normalised_rule_id": "REPOSITORY-MUTATION",
+      "language": "python",
+      "resource_kind": "repository_object",
+      "selector": { "arg_positions": [0], "arg_keywords": ["path"] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "GITHUB-REST-MUTATION",
+      "language": "python",
+      "resource_kind": "repository_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Position 0 is the REST path, which names the object. Parsing it is string work the declarative mechanism does not do; the raw path is reported as the selector text."
+    },
+    {
+      "normalised_rule_id": "SECRET-READ",
+      "language": "python",
+      "resource_kind": "secret_store_entry",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+
+    {
+      "normalised_rule_id": "DATA-DELETE-FILE",
+      "language": "typescript",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "TypeScript entries mirror the Python resource kinds but not their keyword declarations: object-literal options bags are the dominant convention and v0 does not descend into them."
+    },
+    {
+      "normalised_rule_id": "DATA-DELETE-SQL",
+      "language": "typescript",
+      "resource_kind": "database_row_set",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-04"
+    },
+    {
+      "normalised_rule_id": "EXEC-SHELL",
+      "language": "typescript",
+      "resource_kind": "os_process",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "FILE-WRITE",
+      "language": "typescript",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "NET-EGRESS",
+      "language": "typescript",
+      "resource_kind": "network_endpoint",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "fetch(url, init) puts the endpoint at position 0, which is why no keyword is declared for the TypeScript variant."
+    },
+    {
+      "normalised_rule_id": "PAY-GENERIC-REFUND",
+      "language": "typescript",
+      "resource_kind": "payment_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "PAY-STRIPE-REFUND",
+      "language": "typescript",
+      "resource_kind": "payment_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "PROVIDER-SDK-CALL",
+      "language": "typescript",
+      "resource_kind": "unknown_resource",
+      "selector": {},
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-02"
+    },
+    {
+      "normalised_rule_id": "SECRET-READ",
+      "language": "typescript",
+      "resource_kind": "secret_store_entry",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+
+    {
+      "normalised_rule_id": "DATA-DELETE-OS",
+      "language": "go",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "Keyed after D-14 normalisation: the Go detector emits DATA-DELETE-OS-GO. At the frozen commit, effect_for_rule_id returns None for this ID because it strips only -WEAK and -UNBOUND. That hole is recorded in 10-CONTRADICTION-CHECK.md 10.5 and is NOT fixed here; D-14 exists so REI does not inherit it."
+    },
+    {
+      "normalised_rule_id": "DATA-DELETE-SQL",
+      "language": "go",
+      "resource_kind": "database_row_set",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-04"
+    },
+    {
+      "normalised_rule_id": "EXEC-SHELL",
+      "language": "go",
+      "resource_kind": "os_process",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft",
+      "note": "exec.Command(name, args...) puts the binary at position 0. This is the one Go ID that already has an effect mapping at the frozen commit."
+    },
+    {
+      "normalised_rule_id": "FILE-WRITE",
+      "language": "go",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "NET-EGRESS",
+      "language": "go",
+      "resource_kind": "network_endpoint",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "PAY-GENERIC-REFUND",
+      "language": "go",
+      "resource_kind": "payment_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "PAY-STRIPE-REFUND",
+      "language": "go",
+      "resource_kind": "payment_object",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "unknown",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "PROVIDER-SDK-CALL",
+      "language": "go",
+      "resource_kind": "unknown_resource",
+      "selector": {},
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-02"
+    },
+    {
+      "normalised_rule_id": "SECRET-READ",
+      "language": "go",
+      "resource_kind": "secret_store_entry",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    }
+  ]
+}

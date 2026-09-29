@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-001/resource-effect-catalogue-0.1.0.json",
+  "title": "ResourceEffectCatalogue",
+  "description": "The rule-ID to resource mapping. AREF-001 D-06: this file is the whole of REI's per-rule knowledge. Selector locations are declared as argument positions, argument keywords or the call receiver - never as module names, function names or identifier patterns, because the repository's recorded dominant false-positive mechanism is code-resident name heuristics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["catalogue_version", "rei_schema_version", "entries"],
+  "properties": {
+    "_comment": { "type": "string" },
+    "catalogue_version": { "type": "string", "minLength": 1 },
+    "rei_schema_version": { "type": "string", "minLength": 1 },
+    "frozen_against_commit": {
+      "description": "The actenon-scan commit whose rule IDs this catalogue was derived from.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "normalised_rule_id",
+        "language",
+        "resource_kind",
+        "selector",
+        "scope_rule",
+        "max_certainty",
+        "status"
+      ],
+      "properties": {
+        "normalised_rule_id": {
+          "description": "The catalogue key, after AREF-001 D-14 normalisation (qualifier and language suffixes removed).",
+          "type": "string",
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*$"
+        },
+        "language": {
+          "description": "The detector that emits this rule ID. A rule emitted by more than one detector has one entry per language, because the argument conventions differ.",
+          "enum": ["python", "typescript", "go"]
+        },
+        "resource_kind": {
+          "$ref": "https://actenon.dev/schema/aref-001/resource-effect-0.1.0.json#/$defs/resourceKind"
+        },
+        "selector": { "$ref": "#/$defs/selectorDeclaration" },
+        "scope_rule": {
+          "description": "The scope this rule's calls have when the selector resolves. unknown is correct and expected wherever scope depends on a predicate (AREF-001 3.4, B-04).",
+          "enum": ["single", "set", "all", "unknown"]
+        },
+        "max_certainty": {
+          "description": "Ceiling on the certainty any record derived from this entry may reach. proven is excluded at the schema level (AREF-001 3.7).",
+          "enum": ["strong", "heuristic", "unknown"]
+        },
+        "status": {
+          "enum": ["frozen", "draft", "blocked"]
+        },
+        "note": { "type": "string" },
+        "blocked_on": {
+          "description": "The AREF-001 blocked-decision ID. Required when status is blocked.",
+          "type": "string",
+          "pattern": "^B-[0-9]{2}$"
+        }
+      },
+      "allOf": [
+        {
+          "description": "AREF-001 3.7 ceiling table: status determines max_certainty exactly.",
+          "if": {
+            "required": ["status"],
+            "properties": { "status": { "const": "frozen" } }
+          },
+          "then": {
+            "properties": { "max_certainty": { "const": "strong" } }
+          }
+        },
+        {
+          "if": {
+            "required": ["status"],
+            "properties": { "status": { "const": "draft" } }
+          },
+          "then": {
+            "properties": { "max_certainty": { "const": "heuristic" } }
+          }
+        },
+        {
+          "if": {
+            "required": ["status"],
+            "properties": { "status": { "const": "blocked" } }
+          },
+          "then": {
+            "required": ["blocked_on"],
+            "properties": { "max_certainty": { "const": "unknown" } }
+          }
+        },
+        {
+          "description": "A frozen entry must declare where the selector is. An entry that declares nothing cannot be frozen.",
+          "if": {
+            "required": ["status"],
+            "properties": { "status": { "const": "frozen" } }
+          },
+          "then": {
+            "required": ["selector"],
+            "properties": {
+              "selector": {
+                "anyOf": [
+                  {
+                    "required": ["arg_positions"],
+                    "properties": { "arg_positions": { "minItems": 1 } }
+                  },
+                  {
+                    "required": ["arg_keywords"],
+                    "properties": { "arg_keywords": { "minItems": 1 } }
+                  },
+                  {
+                    "required": ["from_receiver"],
+                    "properties": { "from_receiver": { "const": true } }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "description": "AREF-001 D-05: unknown_resource is the layer's sentinel, not a catalogue answer. An entry that cannot name a kind must be blocked, not frozen.",
+          "if": {
+            "required": ["resource_kind"],
+            "properties": { "resource_kind": { "const": "unknown_resource" } }
+          },
+          "then": {
+            "properties": { "status": { "enum": ["blocked", "draft"] } }
+          }
+        }
+      ]
+    },
+    "selectorDeclaration": {
+      "description": "Where in the call the resource selector lives. Positions are 0-indexed over positional arguments. Keywords are matched exactly, never by substring.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "arg_positions": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "uniqueItems": true
+        },
+        "arg_keywords": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "from_receiver": { "type": "boolean" }
+      }
+    }
+  }
+}
