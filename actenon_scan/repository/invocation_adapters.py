@@ -205,6 +205,8 @@ def _python_unit(file, source, tree, index, cfg):
             name = previous.symbol + "." + node.name if previous.symbol != "<module>" else node.name
             cls = CallableSymbol("python", file, name, node.lineno, node.col_offset + 1)
             unit.class_scopes[name] = cls.key
+            if node.decorator_list:
+                unit.bind(cls.key, "*")
             caller = execution or previous
             unit.scope_parents[cls.key] = caller.key
             self.owner, self.class_context, self.execution_owner = cls, (name, caller), caller
@@ -338,7 +340,16 @@ def _tree_unit(language, file, source, tree, index):
             unit.class_scopes[name] = stable_id("class-scope", language, file, name)
         return unit.class_scopes[name]
 
-    def visit(node, owner, class_name="", conditional=False, class_identity=""):
+    def this_scope(node, parent, receiver=None):
+        scope = stable_id("class-execution-scope", language, file, node.start_point[0] + 1,
+                          node.start_point[1] + 1)
+        unit.scope_parents[scope] = parent
+        unit.bind(scope, "this", _Binding("receiver", receiver_class=receiver) if receiver else _Binding())
+        return scope
+
+    def visit(node, owner, class_name="", conditional=False, class_identity="", lexical_scope=None):
+        scope = lexical_scope or owner.key
+        definition_children = ()
         if node.type in {"if_statement", "for_statement", "while_statement", "do_statement",
                          "try_statement", "switch_statement", "switch_case", "conditional_expression",
                          "type_switch_statement", "type_case", "for_in_statement", "catch_clause"}:
@@ -349,20 +360,59 @@ def _tree_unit(language, file, source, tree, index):
             conditional = True
         if node.type in {"class_declaration", "class"}:
             name = _text(node.child_by_field_name("name"), data)
-            unit.bind(owner.key, name, _Binding(conditional=conditional, line=node.start_point[0] + 1))
+            unit.bind(scope, name, _Binding(conditional=conditional, line=node.start_point[0] + 1))
             class_name = ".".join(x for x in (module, name) if x)
             # Distinct declarations with the same spelling are not one class.
             class_identity = stable_id("class-scope", language, file, node.start_point[0] + 1,
                                        node.start_point[1] + 1, class_name)
+            if any(c.type == "decorator" for c in node.children):
+                unit.bind(class_identity, "*")
+                unit.bind(stable_id("static-scope", class_identity), "*")
+        if language == "typescript" and node.type == "class_static_block":
+            # Executed with the class definition, but its this is the
+            # constructor, never an enclosing method's instance receiver.
+            scope = this_scope(node, scope)
+        if language == "typescript" and node.type in {"public_field_definition", "field_definition"}:
+            static = any(child.type == "static" for child in node.children)
+            member_scope = stable_id("static-scope", class_identity) if static else class_identity
+            name = node.child_by_field_name("name")
+            literal_name = name and name.type in {"property_identifier", "private_property_identifier", "identifier"}
+            unit.bind(member_scope, _text(name, data) if literal_name else "*")
+            value = node.child_by_field_name("value")
+            if value:
+                if static:
+                    initializer, initializer_scope = owner, this_scope(node, scope)
+                else:
+                    # Instance initialization is a separate, deferred body.
+                    # Declaring the class does not establish instantiation.
+                    name = f"{class_name}.<field@{node.start_point[0] + 1}:{node.start_point[1] + 1}>"
+                    initializer = unit.symbol(name, node, owner.symbol)
+                    initializer_scope = initializer.key
+                    unit.scope_parents[initializer_scope] = scope
+                    unit.bind(initializer_scope, "this", _Binding("receiver", receiver_class=class_identity))
+            for child in node.named_children:
+                # Computed keys/decorator expressions execute at definition;
+                # only the value expression belongs to initialization.
+                if value and child == value:
+                    visit(child, initializer, class_name, conditional, class_identity, initializer_scope)
+                else:
+                    visit(child, owner, class_name, conditional, class_identity, scope)
+            return
         if node.type in _FUNCTION_TYPES:
-            previous = owner
-            name = _text(node.child_by_field_name("name"), data)
+            previous_scope = scope
+            name_node = node.child_by_field_name("name")
+            definition_children = tuple(c for c in node.named_children
+                                        if c.type == "decorator" or (c == name_node and c.type == "computed_property_name"))
+            for child in definition_children:
+                visit(child, owner, class_name, conditional, class_identity, scope)
+            name = _text(name_node, data)
             internal_name = name
             declarator = node.parent if node.parent and node.parent.type == "variable_declarator" else None
             variable = declarator.child_by_field_name("name") if declarator else None
             if not name and variable and variable.type == "identifier":
                 name = _text(variable, data)
             method = node.type in {"method_definition", "method_declaration"}
+            class_method = method and (language == "go" or (node.parent and node.parent.type == "class_body"))
             if language == "go" and node.type == "method_declaration":
                 from actenon_scan.repository.go_symbol_index import _receiver_type_name
                 class_name = ".".join(x for x in (module, _receiver_type_name(node, data)) if x)
@@ -371,23 +421,30 @@ def _tree_unit(language, file, source, tree, index):
             if not name:
                 name = f"<callback@{node.start_point[0] + 1}:{node.start_point[1] + 1}>"
             sym = unit.symbol(".".join(x for x in (prefix, name) if x), node, owner.symbol)
-            unit.scope_parents[sym.key] = previous.key
+            unit.scope_parents[sym.key] = previous_scope
             static = any(child.type == "static" for child in node.children)
             # Generator calls return suspended bodies. Accessors do not bind
             # the returned value of a member call to the accessor's own body.
             deferred = node.type in {"generator_function_declaration", "generator_function"}
             deferred |= method and any(c.type in {"*", "get", "set", "decorator"} for c in node.children)
+            deferred |= bool(class_method and node.prev_named_sibling and node.prev_named_sibling.type == "decorator")
+            # A class constructor cannot enter its body as an ordinary
+            # instance-method call. Construction remains a local frontier.
+            deferred |= language == "typescript" and class_method and not static and name == "constructor"
             kind = "possible_callable" if deferred else "callable"
             member_scope = stable_id("static-scope", class_identity) if static else class_identity
-            if method and class_name:
-                unit.bind(member_scope, name, _Binding(kind, sym.key, conditional=conditional,
+            if class_method and class_name:
+                computed = language == "typescript" and name_node.type not in {"property_identifier", "private_property_identifier", "identifier"}
+                unit.bind(member_scope, "*" if computed else name,
+                          _Binding("possible_callable" if computed else kind, sym.key, conditional=conditional,
                                                        line=node.start_point[0] + 1,
                                                        column=node.start_point[1] + 1))
             elif node.type in {"function_declaration", "generator_function_declaration"} or (variable and variable.type == "identifier"):
-                unit.bind(previous.key, _text(variable, data) if variable else name,
+                unit.bind(previous_scope, _text(variable, data) if variable else name,
                           _Binding(kind, sym.key, conditional=conditional, line=node.start_point[0] + 1,
                                    column=node.start_point[1] + 1))
             owner, conditional = sym, False
+            scope = sym.key
             if node.type in {"function_expression", "generator_function"} and internal_name:
                 # The expression's self name lives inside it; the receiving
                 # variable name lives in the enclosing scope.
@@ -399,7 +456,7 @@ def _tree_unit(language, file, source, tree, index):
             # JavaScript's this is lexical in arrows and rebound in ordinary functions.
             if language == "typescript" and node.type != "arrow_function":
                 unit.bind(sym.key, "this", _Binding("receiver", receiver_class=class_identity)
-                          if method and class_name and not static else _Binding())
+                          if class_method and class_name and not static else _Binding())
             if language == "go" and node.type == "method_declaration":
                 names = _pattern_names(node.child_by_field_name("receiver"), data)
                 if len(names) == 1:
@@ -409,56 +466,54 @@ def _tree_unit(language, file, source, tree, index):
             if callee:
                 spelling = _text(callee, data)
                 unit.sites.append(_Site(owner, node.start_point[0] + 1, node.start_point[1] + 1,
-                                        spelling, callee, bool(re.search(r"[\[\]()?]", spelling))))
+                                        spelling, callee, bool(re.search(r"[\[\]()?]", spelling)), scope))
         if node.type == "variable_declarator":
             name, value = node.child_by_field_name("name"), node.child_by_field_name("value")
             if not (name and name.type == "identifier" and value and value.type in _FUNCTION_TYPES):
                 for identifier in _pattern_names(name, data):
-                    unit.bind(owner.key, identifier, _Binding(conditional=conditional))
+                    unit.bind(scope, identifier, _Binding(conditional=conditional))
         if node.type in {"short_var_declaration", "range_clause", "for_in_statement", "type_switch_statement"}:
             left = node.child_by_field_name("alias") if node.type == "type_switch_statement" else node.child_by_field_name("left")
             for identifier in _pattern_names(left, data):
-                unit.bind(owner.key, identifier, _Binding(conditional=conditional))
+                unit.bind(scope, identifier, _Binding(conditional=conditional))
         if node.type in {"assignment_expression", "augmented_assignment_expression", "assignment_statement", "update_expression"}:
             left = node.child_by_field_name("left")
             if node.type == "update_expression":
                 left = node.child_by_field_name("argument")
             for identifier in _pattern_names(left, data):
-                writes.append((owner.key, identifier))
-            if left and left.type == "member_expression":
+                writes.append((scope, identifier))
+            if left and left.type in {"member_expression", "subscript_expression"}:
                 receiver = left.child_by_field_name("object")
-                member_writes.append((owner.key, _text(receiver, data), _text(left.child_by_field_name("property"), data)))
+                member = "*" if left.type == "subscript_expression" else _text(left.child_by_field_name("property"), data)
+                member_writes.append((scope, _text(receiver, data), member))
         if node.type in {"var_spec", "type_spec"}:
             for i, child in enumerate(node.children):
                 if node.field_name_for_child(i) == "name":
-                    unit.bind(owner.key, _text(child, data), _Binding(conditional=conditional))
+                    unit.bind(scope, _text(child, data), _Binding(conditional=conditional))
         if node.type == "import_spec" and language == "go":
             name = _text(node.child_by_field_name("name"), data)
             if name:
-                unit.bind(owner.key, "*" if name == "." else name)
+                unit.bind(scope, "*" if name == "." else name)
         if node.type == "catch_clause":
             for identifier in _pattern_names(node.child_by_field_name("parameter"), data):
-                unit.bind(owner.key, identifier, _Binding(conditional=conditional))
-        if node.type in {"public_field_definition", "field_definition"} and class_name:
-            static = any(child.type == "static" for child in node.children)
-            field_scope = stable_id("static-scope", class_identity) if static else class_identity
-            unit.bind(field_scope, _text(node.child_by_field_name("name"), data))
+                unit.bind(scope, identifier, _Binding(conditional=conditional))
         if node.type == "import_statement":
             specifier = _text(node.child_by_field_name("source"), data).strip("\"'")
             for child in _walk(node):
                 if child.type == "import_specifier":
                     imported = child.child_by_field_name("name")
                     local = child.child_by_field_name("alias") or imported
-                    unit.bind(owner.key, _text(local, data), _Binding("ts_import", module=specifier,
+                    unit.bind(scope, _text(local, data), _Binding("ts_import", module=specifier,
                               member=_text(imported, data), conditional=conditional))
                 elif child.type in {"import_clause", "namespace_import"}:
                     for identifier in child.named_children:
                         if identifier.type == "identifier":
-                            unit.bind(owner.key, _text(identifier, data), _Binding("ts_import", module=specifier,
+                            unit.bind(scope, _text(identifier, data), _Binding("ts_import", module=specifier,
                                       member="default" if child.type == "import_clause" else None,
                                       conditional=conditional))
         for child in node.named_children:
-            visit(child, owner, class_name, conditional, class_identity)
+            if child not in definition_children:
+                visit(child, owner, class_name, conditional, class_identity, scope)
 
     visit(tree, module_sym)
     # Stores resolve against the completed declaration set, independent of
@@ -529,7 +584,8 @@ def _registered_roots(unit, index, symbols, units):
                                  and s.column == node.start_point[1] + 1), None)
             if registration:
                 reference = _Site(registration.owner, handler.start_point[0] + 1,
-                                  handler.start_point[1] + 1, _text(handler, data), handler)
+                                  handler.start_point[1] + 1, _text(handler, data), handler,
+                                  lexical_scope=registration.lexical_scope)
                 certainty, targets, _ = _resolve(unit, reference, index, symbols, units)
                 if certainty == ResolutionCertainty.RESOLVED:
                     (selected,) = targets
@@ -640,7 +696,8 @@ def _resolve(unit, site, index, symbols, units):
     if simple and len(parts) == 2 and len(bindings) == 1 and bindings[0].kind == "receiver":
         receiver = bindings[0]
         class_scope = _receiver_scope(unit, receiver)
-        member_bindings = unit.bindings.get(class_scope, {}).get(name, [])
+        members = unit.bindings.get(class_scope, {})
+        member_bindings = members.get(name, []) + members.get("*", [])
         candidates, complete = _binding_targets(unit, class_scope, name, member_bindings, [],
                                                 index, units, symbols, resumes_coroutine=site.resumes_coroutine)
         complete &= not receiver.conditional

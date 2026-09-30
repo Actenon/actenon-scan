@@ -161,3 +161,93 @@ def test_direct_await_keeps_import_provenance_and_decorator_uncertainty(tmp_path
     (tmp_path / "helper.py").write_text("@unknown\nasync def run():\n    unrelated.frob()\n")
     result = scan(tmp_path, "app.py", "from helper import run\nasync def entry():\n    await run()\n")
     honest(result, "run")
+
+
+@pytest.mark.parametrize("source,symbol,spelling", [
+    ("class Service { entry() { const obj = { helper() { unrelated.frob(); } }; this.helper(); } }", "Service.entry", "this.helper"),
+    ("class Service { helper() { unrelated.frob(); } entry() { const obj = { run() { this.helper(); } }; } }", "Service.run", "this.helper"),
+    ("class Outer { helper() { unrelated.frob(); } entry() { class Inner { static { this.helper(); } } } }", "Outer.entry", "this.helper"),
+    ("class Outer { helper() { unrelated.frob(); } entry() { class Inner { static value = this.helper(); } } }", "Outer.entry", "this.helper"),
+    ("function entry() { class Inner { value = unrelated.frob(); } visible.frob(); }", "entry", "visible.frob"),
+    ("class Outer { helper() { unrelated.frob(); } entry() { class Inner { value = () => this.helper(); } } }", "Inner.<callback@1:78>", "this.helper"),
+])
+def test_class_execution_scopes_do_not_inherit_an_outer_receiver(tmp_path, source, symbol, spelling):
+    honest(scan(tmp_path, "app.ts", source, symbol), spelling)
+
+
+def test_unused_object_method_does_not_shadow_an_instance_method(tmp_path):
+    # Select the method body; the object method is never invoked.
+    result = scan(tmp_path, "app.ts", "class Service { helper() { visible.frob(); } entry() { const obj = { helper() { unrelated.frob(); } }; this.helper(); } }", "Service.entry")
+    honest(result, "this.helper", True)
+    assert sites(result, "this.helper")[0].resolution_certainty == ResolutionCertainty.RESOLVED
+    assert sites(result, "visible.frob")
+
+
+def test_static_initializers_still_execute_under_the_enclosing_root(tmp_path):
+    source = "function entry() { class Inner { static value = visible.frob(); static { another.frob(); } value = unrelated.frob(); } }"
+    result = scan(tmp_path, "app.ts", source)
+    honest(result, "visible.frob")
+    assert sites(result, "another.frob")
+    assert result.coverage["invocations_enumerated"] == 3
+    assert result.coverage["invocations_reached"] == 2
+
+
+@pytest.mark.parametrize("member", [
+    "[key] = unknown;",
+    "[key]() {}",
+])
+def test_computed_members_do_not_establish_a_unique_named_method(tmp_path, member):
+    source = "class Service { helper() { unrelated.frob(); } " + member + " entry() { this.helper(); } }"
+    honest(scan(tmp_path, "app.ts", source, "Service.entry"), "this.helper")
+
+
+def test_computed_receiver_store_invalidates_possible_named_members(tmp_path):
+    source = "class Service { helper() { unrelated.frob(); } entry(key: string) { this[key] = unknown; this.helper(); } }"
+    honest(scan(tmp_path, "app.ts", source, "Service.entry"), "this.helper")
+
+
+def test_class_decorator_does_not_establish_original_method_binding(tmp_path):
+    source = "@replace class Service { helper() { unrelated.frob(); } entry() { this.helper(); } }"
+    honest(scan(tmp_path, "app.ts", source, "Service.entry"), "this.helper")
+
+
+def test_computed_field_key_is_evaluated_even_without_instantiation(tmp_path):
+    source = "function entry() { class Inner { [visible.frob()] = unrelated.frob(); } }"
+    result = scan(tmp_path, "app.ts", source)
+    honest(result, "visible.frob")
+    assert result.coverage["invocations_enumerated"] == 2
+    assert result.coverage["invocations_reached"] == 1
+
+
+def test_python_class_decorator_keeps_method_candidates_uncertain(tmp_path):
+    source = "@replace\nclass Service:\n    def helper(self):\n        unrelated.frob()\n    def entry(self):\n        self.helper()\n"
+    honest(scan(tmp_path, "app.py", source, "Service.entry"), "self.helper")
+
+
+def test_quoted_instance_field_cannot_leave_prototype_method_exact(tmp_path):
+    source = "class Service { helper() { unrelated.frob(); } 'helper' = unknown; entry() { this.helper(); } }"
+    honest(scan(tmp_path, "app.ts", source, "Service.entry"), "this.helper")
+
+
+def test_computed_method_key_executes_at_definition_not_in_method_body(tmp_path):
+    source = "function entry() { class Inner { [visible.frob()]() { unrelated.frob(); } } }"
+    result = scan(tmp_path, "app.ts", source)
+    honest(result, "visible.frob")
+    source = "class Inner { [unrelated.frob()]() { visible.frob(); } }"
+    result = scan(tmp_path, "app.ts", source, "Inner.[unrelated.frob()]")
+    honest(result, "visible.frob")
+
+
+def test_method_decorator_arguments_execute_at_class_definition(tmp_path):
+    source = "function entry() { class Inner { @wrap(visible.frob()) helper() { unrelated.frob(); } } }"
+    honest(scan(tmp_path, "app.ts", source), "visible.frob")
+
+
+def test_typescript_method_decorator_does_not_establish_original_body(tmp_path):
+    source = "class Service { @replace helper() { unrelated.frob(); } entry() { this.helper(); } }"
+    honest(scan(tmp_path, "app.ts", source, "Service.entry"), "this.helper")
+
+
+def test_class_constructor_is_not_an_ordinary_instance_method_call(tmp_path):
+    source = "class Service { constructor() { unrelated.frob(); } entry() { this.constructor(); } }"
+    honest(scan(tmp_path, "app.ts", source, "Service.entry"), "this.constructor")

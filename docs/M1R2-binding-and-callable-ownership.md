@@ -24,6 +24,20 @@ follow an exact coroutine binding, including a local import or direct receiver;
 an unawaited call or a call merely passed as an argument may not. This records
 language execution structure without supplying any M0 effect proof.
 
+Execution ownership is distinct from lexical scope. Object-literal methods
+do not become members of an enclosing class or inherit its receiver. Static
+blocks and static field values execute at class definition, with a separate
+constructor `this` scope. Instance field values belong to deferred initializer
+bodies; their arrows capture that instance, never an outer method's `this`.
+Computed keys and decorator expressions execute in the definition context,
+outside the method/instance initializer body. Construction itself remains a
+frontier; a constructor is not traversed as an ordinary method call.
+
+Computed member names/stores and class or method decorators undermine a unique
+member binding. Retain the known method candidates plus uncertainty rather than
+choosing the original method. These are language binding facts, with no resource
+operation or effect semantics attached.
+
 Assignments are writes, not declarations. Resolve their lexical destination
 after collecting all declarations, so source order cannot manufacture a local
 binding or leave an outer binding falsely exact. A write invalidates exactness
