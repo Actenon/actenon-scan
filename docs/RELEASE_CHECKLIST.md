@@ -29,6 +29,7 @@ Lessons from WO1.9 (v1.3.0 release) and WO1.10-1.11.
     - Release gate runs: checkout at tag, `uses: ./`, verifies findings + Go guards + SARIF + version
     - If gate passes, advance-v1 moves the v1 tag
     - Post-advancement verification: `uses: Actenon/actenon-scan@v1` delivers the new version
+    - PyPI probes must read the complete response and validate its version. Under `pipefail`, an early-closing pipeline such as `curl ... | head` can report curl exit 23 despite a successful HTTP response.
     **Second irreversible step.**
 12. **Verify v1 advancement:**
     ```
