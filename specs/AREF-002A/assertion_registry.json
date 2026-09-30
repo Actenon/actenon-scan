@@ -1,0 +1,728 @@
+{
+  "version": "0.1.1",
+  "default": "UNREGISTERED_COMBINATIONS_CANNOT_BE_PROBATIVE",
+  "test_double_in_force": "HYPOTHESIS_ONLY; effect facts require independent body/contract evidence",
+  "rules": [
+    {
+      "predicate": "implementation_is",
+      "obligation": "IMPLEMENTATION",
+      "polarity": "POSITIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_binding",
+          "tier": "L0"
+        },
+        {
+          "kind": "local_binding",
+          "tier": "L1"
+        },
+        {
+          "kind": "type_declaration",
+          "tier": "L2"
+        },
+        {
+          "kind": "interface_declaration",
+          "tier": "L2"
+        }
+      ],
+      "meaning": "BINDING_WITNESS"
+    },
+    {
+      "predicate": "invocation_executes",
+      "obligation": "ACTIVATION",
+      "polarity": "POSITIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_call_site",
+          "tier": "L0"
+        },
+        {
+          "kind": "local_control_flow",
+          "tier": "L0"
+        },
+        {
+          "kind": "local_control_flow",
+          "tier": "L1"
+        },
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "invocation_does_not_execute",
+      "obligation": "ACTIVATION",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_call_site",
+          "tier": "L0"
+        },
+        {
+          "kind": "local_control_flow",
+          "tier": "L0"
+        },
+        {
+          "kind": "local_control_flow",
+          "tier": "L1"
+        },
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "egress_mechanism_is",
+      "obligation": "BOUNDARY",
+      "polarity": "POSITIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "transport_primitive",
+          "tier": "L0"
+        },
+        {
+          "kind": "transport_primitive",
+          "tier": "L1"
+        },
+        {
+          "kind": "transport_primitive",
+          "tier": "L5"
+        },
+        {
+          "kind": "transport_primitive",
+          "tier": "L7"
+        },
+        {
+          "kind": "driver_primitive",
+          "tier": "L7"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "terminates_in_process_state",
+      "obligation": "BOUNDARY",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        },
+        {
+          "kind": "driver_primitive",
+          "tier": "L7"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "operation_is_mutation",
+      "obligation": "OPERATION",
+      "polarity": "POSITIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        },
+        {
+          "kind": "sql_statement",
+          "tier": "L7"
+        },
+        {
+          "kind": "document_store_operation",
+          "tier": "L7"
+        },
+        {
+          "kind": "shell_command",
+          "tier": "L7"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "operation_is_observation",
+      "obligation": "OPERATION",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        },
+        {
+          "kind": "sql_statement",
+          "tier": "L7"
+        },
+        {
+          "kind": "document_store_operation",
+          "tier": "L7"
+        },
+        {
+          "kind": "shell_command",
+          "tier": "L7"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "state_is_durably_committed",
+      "obligation": "PERSISTENCE",
+      "polarity": "POSITIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        },
+        {
+          "kind": "driver_primitive",
+          "tier": "L7"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "state_is_guaranteed_rolled_back",
+      "obligation": "PERSISTENCE",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        },
+        {
+          "kind": "driver_primitive",
+          "tier": "L7"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "state_is_ephemeral",
+      "obligation": "PERSISTENCE",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        },
+        {
+          "kind": "driver_primitive",
+          "tier": "L7"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "operation_is_no_op",
+      "obligation": "OPERATION",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "dry_run_in_force",
+      "obligation": "OPERATION",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "operation_is_no_op",
+      "obligation": "PERSISTENCE",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "dry_run_in_force",
+      "obligation": "PERSISTENCE",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        }
+      ],
+      "meaning": "DIRECTIONAL"
+    },
+    {
+      "predicate": "commit_outcome_undetermined",
+      "obligation": "PERSISTENCE",
+      "polarity": "NEGATIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "local_function_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "wrapper_chain_body",
+          "tier": "L1"
+        },
+        {
+          "kind": "dependency_source_body",
+          "tier": "L5"
+        },
+        {
+          "kind": "openapi_operation",
+          "tier": "L6"
+        },
+        {
+          "kind": "protobuf_service_method",
+          "tier": "L6"
+        },
+        {
+          "kind": "graphql_schema_field",
+          "tier": "L6"
+        },
+        {
+          "kind": "json_schema_node",
+          "tier": "L6"
+        },
+        {
+          "kind": "sdk_operation_metadata",
+          "tier": "L6"
+        },
+        {
+          "kind": "command_specification",
+          "tier": "L6"
+        },
+        {
+          "kind": "driver_primitive",
+          "tier": "L7"
+        }
+      ],
+      "meaning": "UNCERTAINTY_NOT_REFUTATION"
+    },
+    {
+      "predicate": "egress_mechanism_is",
+      "obligation": "BOUNDARY",
+      "polarity": "POSITIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "sink_rule_match",
+          "tier": "L0"
+        },
+        {
+          "kind": "sink_rule_match",
+          "tier": "L1"
+        }
+      ],
+      "meaning": "STRUCTURAL_RULE_WITNESS"
+    },
+    {
+      "predicate": "operation_is_mutation",
+      "obligation": "OPERATION",
+      "polarity": "POSITIVE",
+      "admissibility": "PROBATIVE",
+      "sources": [
+        {
+          "kind": "sink_rule_match",
+          "tier": "L0"
+        },
+        {
+          "kind": "sink_rule_match",
+          "tier": "L1"
+        }
+      ],
+      "meaning": "STRUCTURAL_RULE_WITNESS"
+    }
+  ]
+}

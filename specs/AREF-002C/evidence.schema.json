@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002c/evidence-contract-provenance-0.1.1.json",
+  "title": "AREF-002C: L6 probative contract version provenance",
+  "$comment": "Proposal only until explicitly adopted. Narrow additional constraint; all inherited assertions remain unchanged.",
+  "allOf": [
+    {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json"
+    },
+    {
+      "if": {
+        "required": [
+          "tier",
+          "admissibility"
+        ],
+        "properties": {
+          "tier": {
+            "const": "L6"
+          },
+          "admissibility": {
+            "const": "PROBATIVE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "locator": {
+            "required": [
+              "package",
+              "version",
+              "version_resolution"
+            ],
+            "properties": {
+              "version_resolution": {
+                "enum": [
+                  "LOCKFILE",
+                  "EXACT_MANIFEST_PIN",
+                  "INSTALLED_TREE_METADATA"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

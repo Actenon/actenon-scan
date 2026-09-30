@@ -1,0 +1,639 @@
+{
+  "schema_version": "0.1.0",
+  "architecture_id": "AREF-002",
+  "status": "AUTHORITATIVE",
+  "supersedes": {
+    "architecture_id": "AREF-001",
+    "status": "SUPERSEDED DESIGN CANDIDATE / NOT AUTHORITATIVE",
+    "path": "specs/AREF-001/",
+    "preserved_unmodified": true,
+    "manifest_hashed_files": 24,
+    "manifest_total_bytes": 237251
+  },
+  "frozen_against": {
+    "repository": "actenon-scan",
+    "commit": "b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16",
+    "branch": "main",
+    "version": "1.5.0"
+  },
+  "founding_principle": "A consequential effect is a claim to be proved, not a sink to be matched.",
+
+  "vocabularies": {
+    "proof_states": {
+      "closed": true,
+      "members": ["SUPPORTED", "REFUTED", "UNKNOWN", "CONFLICTING", "ERROR"],
+      "note": "Requirement 5. ERROR is separate from UNKNOWN: 'we did not find out' and 'our analysis broke' require different responses. CONFLICTING never silently collapses to UNKNOWN."
+    },
+    "verdicts": {
+      "closed": true,
+      "members": ["PROVEN_EFFECT", "NO_EFFECT", "ABSTAIN", "ANALYSIS_ERROR"],
+      "note": "Requirement 6."
+    },
+    "obligations": {
+      "closed": true,
+      "members": ["IMPLEMENTATION", "ACTIVATION", "BOUNDARY", "OPERATION", "PERSISTENCE"],
+      "note": "Requirement 7. Independent: none may be inferred from another."
+    },
+    "descriptors": {
+      "closed": true,
+      "members": ["TARGET", "CONTROL", "AUTHORITY", "CONDITIONS"],
+      "note": "Requirement 8. Retained separately and never obligations."
+    },
+    "control_sub_descriptors": {
+      "closed": true,
+      "members": ["TRIGGER_CONTROL", "TARGET_CONTROL", "CONTENT_CONTROL"],
+      "note": "Each carries its own proof state. REI-002 measured a fixed-target effect at PROVEN_EFFECT with TRIGGER_CONTROL SUPPORTED and TARGET_CONTROL REFUTED."
+    },
+    "implementation_candidate_kinds": {
+      "closed": true,
+      "members": [
+        "RESOLVED_LOCAL",
+        "RESOLVED_DEPENDENCY_SOURCE",
+        "CONTRACT_DECLARED",
+        "OPAQUE_EXTERNAL",
+        "DYNAMIC_UNRESOLVED",
+        "TEST_DOUBLE"
+      ],
+      "note": "Requirement 3: set-valued. OPAQUE_EXTERNAL is a first-class candidate, not an error; that is what allows a claim to exist for an unseen SDK."
+    },
+    "selection_states": {
+      "closed": true,
+      "members": [
+        "SINGLE_ESTABLISHED",
+        "AGREEMENT_INVARIANT",
+        "UNRESOLVED_DIVERGENT",
+        "SELECTION_ERROR"
+      ],
+      "note": "Selection is never performed by severity, danger, name plausibility or recency."
+    },
+    "admissibility": {
+      "closed": true,
+      "members": ["PROBATIVE", "HYPOTHESIS_ONLY"],
+      "note": "Exactly two classes. A third, intermediate class would let name-derived signals drift into verdicts and would make the anti-gaming criteria unmeasurable."
+    },
+    "polarity": {
+      "closed": true,
+      "members": ["POSITIVE", "NEGATIVE"]
+    },
+    "ladder_tiers": {
+      "closed": true,
+      "members": ["L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"],
+      "note": "Requirement 12. L8 is a terminal ABSTAIN state, not an evidence source."
+    },
+    "stop_reasons": {
+      "closed": true,
+      "members": [
+        "SETTLED",
+        "NO_FURTHER_TIER",
+        "TIER_UNAVAILABLE",
+        "BUDGET_EXHAUSTED",
+        "ACQUISITION_ERROR",
+        "CLAIM_NOT_INVESTIGATED",
+        "CYCLE",
+        "MAX_TIER_REACHED",
+        "CANDIDATE_LIMIT"
+      ],
+      "note": "TIER_UNAVAILABLE and BUDGET_EXHAUSTED are never merged: the first is a property of the repository, the second of our configuration."
+    },
+    "budget_names": {
+      "closed": true,
+      "members": [
+        "max_ladder_tier",
+        "max_dependency_hops",
+        "max_files_opened",
+        "max_bytes_read",
+        "max_wall_ms_per_claim",
+        "max_claims_investigated",
+        "max_implementation_candidates"
+      ],
+      "note": "Requirement 13."
+    },
+    "contradiction_resolutions": {
+      "closed": true,
+      "members": ["UNRESOLVED", "RESOLVED_IMPLEMENTATION_PRECEDENCE"],
+      "note": "Requirement 14. Recency, severity, safety, tier rank, packet strength, majority vote and discarding a packet are all prohibited resolutions."
+    }
+  },
+
+  "obligations": [
+    {
+      "id": "IMPLEMENTATION",
+      "question": "Which code actually runs?",
+      "settled_by_tiers": ["L0", "L1", "L2", "L3", "L4", "L5"],
+      "can_be_refuted": false,
+      "prohibitions": [
+        {
+          "prohibition": "The dangerous implementation is never selected because it is dangerous.",
+          "source": "REI-002"
+        },
+        {
+          "prohibition": "A callee name never establishes which implementation runs.",
+          "source": "requirement 10; REI-001B lexical-adversary invariance"
+        },
+        {
+          "prohibition": "The presence or absence of a sink rule never establishes or excludes a candidate.",
+          "source": "requirements 2 and 11"
+        }
+      ]
+    },
+    {
+      "id": "ACTIVATION",
+      "question": "Is this invocation executed when the capability runs?",
+      "settled_by_tiers": ["L0", "L1"],
+      "can_be_refuted": true,
+      "prohibitions": [
+        { "prohibition": "Construction is not activation.", "source": "REI-002" },
+        { "prohibition": "Import is not activation.", "source": "REI-002" },
+        {
+          "prohibition": "Conditional execution is not refutation; a guard is recorded as a CONDITIONS descriptor.",
+          "source": "AREF-002 proof_obligations.md 2.2"
+        }
+      ]
+    },
+    {
+      "id": "BOUNDARY",
+      "question": "Does the effect leave the analysed state into an external system?",
+      "settled_by_tiers": ["L0", "L1", "L2", "L5", "L6", "L7"],
+      "can_be_refuted": true,
+      "prohibitions": [
+        {
+          "prohibition": "HTTP or network dispatch may support ACTIVATION and BOUNDARY but never establishes OPERATION or PERSISTENCE.",
+          "source": "requirement 9; REI-002 — every carrier used POST, yet an identical-source pair changed classification solely because the operation contract changed"
+        },
+        {
+          "prohibition": "External boundary does not imply persistence.",
+          "source": "REI-002"
+        }
+      ]
+    },
+    {
+      "id": "OPERATION",
+      "question": "Is the operation contract a mutation rather than an observation?",
+      "settled_by_tiers": ["L1", "L5", "L6", "L7"],
+      "can_be_refuted": true,
+      "prohibitions": [
+        {
+          "prohibition": "The HTTP method never establishes the operation.",
+          "source": "REI-002"
+        },
+        {
+          "prohibition": "An identifier never establishes the operation; names generate hypotheses only.",
+          "source": "requirement 10"
+        },
+        {
+          "prohibition": "Unknown SQL, command or operation semantics yield UNKNOWN; keyword-prefix inference on an unparsed statement is prohibited.",
+          "source": "REI-002 — abstain on unknown SQL semantics"
+        }
+      ]
+    },
+    {
+      "id": "PERSISTENCE",
+      "question": "Does the mutation outlive the request?",
+      "settled_by_tiers": ["L1", "L5", "L6", "L7"],
+      "can_be_refuted": true,
+      "prohibitions": [
+        { "prohibition": "Dispatch is not persistence.", "source": "REI-002" },
+        { "prohibition": "Persistence is independent of transport.", "source": "REI-002" },
+        { "prohibition": "Guaranteed rollback refutes persistence.", "source": "REI-002" },
+        {
+          "prohibition": "Unknown commit versus rollback preserves uncertainty: UNKNOWN, never SUPPORTED.",
+          "source": "REI-002"
+        }
+      ]
+    }
+  ],
+
+  "descriptors": [
+    {
+      "id": "TARGET",
+      "is_obligation": false,
+      "gates_verdict": false,
+      "note": "Coordinates with per-field resolution state plus scope. A fully unresolved target does not weaken the verdict."
+    },
+    {
+      "id": "CONTROL",
+      "is_obligation": false,
+      "gates_verdict": false,
+      "note": "Split into TRIGGER_CONTROL, TARGET_CONTROL and CONTENT_CONTROL because REI-002 measured a case where they disagreed."
+    },
+    {
+      "id": "AUTHORITY",
+      "is_obligation": false,
+      "gates_verdict": false,
+      "note": "Authority is not an obligation of effect (REI-002). An authorised effect is still an effect; an unauthorised read is still not an effect."
+    },
+    {
+      "id": "CONDITIONS",
+      "is_obligation": false,
+      "gates_verdict": false,
+      "note": "Guards, flags and branch predicates. Recorded, never used to refute ACTIVATION."
+    }
+  ],
+
+  "effect_classes": [
+    {
+      "id": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+      "status": "POPULATED_V1",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "PERSISTENCE"
+      ],
+      "requires_persistence": "yes",
+      "note": "Requirement 18: the only class populated in v1."
+    },
+    {
+      "id": "MESSAGE_EMISSION_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "DELIVERY_ATTEMPT"
+      ],
+      "requires_persistence": "no",
+      "note": "Not implemented in v1; DELIVERY_ATTEMPT may not be read by the v1 verdict function. A message send is not a persistent-state mutation."
+    },
+    {
+      "id": "VALUE_TRANSFER_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "SETTLEMENT"
+      ],
+      "requires_persistence": "no",
+      "note": "Payments. Not implemented in v1; SETTLEMENT may not be read by the v1 verdict function."
+    },
+    {
+      "id": "CODE_EXECUTION_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "EXECUTION_SEMANTICS"
+      ],
+      "requires_persistence": "no",
+      "note": "Not implemented in v1. Notably has no BOUNDARY obligation: in-process code execution is consequential without leaving the process."
+    },
+    {
+      "id": "DEPLOYMENT_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "ROLLOUT_SCOPE"
+      ],
+      "requires_persistence": "no",
+      "note": "Not implemented in v1; ROLLOUT_SCOPE may not be read by the v1 verdict function."
+    },
+    {
+      "id": "PERMISSION_CHANGE_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "POLICY_SCOPE"
+      ],
+      "requires_persistence": "per_instance",
+      "note": "Not implemented in v1. Persistence is instance-dependent: a session-scoped grant is consequential without being durable."
+    },
+    {
+      "id": "SECRET_DISCLOSURE_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "DISCLOSURE_SINK"
+      ],
+      "requires_persistence": "no",
+      "note": "Not implemented in v1. Notably has no OPERATION obligation: disclosure is consequential regardless of whether the operation mutates."
+    },
+    {
+      "id": "DEVICE_ACTION_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "ACTUATION"
+      ],
+      "requires_persistence": "no",
+      "note": "Not implemented in v1; ACTUATION may not be read by the v1 verdict function."
+    },
+    {
+      "id": "PACKET_CAPTURE_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "CAPTURE_SCOPE"
+      ],
+      "requires_persistence": "no",
+      "note": "Not implemented in v1. Has no BOUNDARY obligation: capture is an intake, not an egress."
+    },
+    {
+      "id": "PHYSICAL_ACTION_EFFECT",
+      "status": "DECLARED_UNPOPULATED",
+      "necessary_obligations": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "IRREVERSIBILITY"
+      ],
+      "requires_persistence": "no",
+      "note": "Not implemented in v1. IRREVERSIBILITY is not persistence: a physical action can be irreversible without writing durable state anywhere."
+    }
+  ],
+
+  "ladder": [
+    {
+      "tier": "L0",
+      "name": "LOCAL_SYNTAX_BINDING",
+      "is_evidence_source": true,
+      "yields": "call site, callee expression, argument shapes, literals, local bindings, enclosing control flow, guards",
+      "can_settle": ["ACTIVATION", "BOUNDARY", "IMPLEMENTATION"]
+    },
+    {
+      "tier": "L1",
+      "name": "LOCAL_IMPLEMENTATION_WRAPPER",
+      "is_evidence_source": true,
+      "yields": "bodies of functions and methods defined in the scanned workspace, including the wrapper chain",
+      "can_settle": ["IMPLEMENTATION", "ACTIVATION", "BOUNDARY", "OPERATION", "PERSISTENCE"]
+    },
+    {
+      "tier": "L2",
+      "name": "TYPES_DECLARATIONS_INTERFACES",
+      "is_evidence_source": true,
+      "yields": "type annotations, stubs, .d.ts, interfaces, protocols, ambient declarations",
+      "can_settle": ["IMPLEMENTATION", "BOUNDARY"]
+    },
+    {
+      "tier": "L3",
+      "name": "PACKAGE_MODULE_PROVENANCE",
+      "is_evidence_source": true,
+      "yields": "which external package or module the callee belongs to",
+      "can_settle": ["IMPLEMENTATION"]
+    },
+    {
+      "tier": "L4",
+      "name": "WORKSPACE_DEPENDENCIES",
+      "is_evidence_source": true,
+      "yields": "dependency manifests and lockfiles: the declared and pinned version in this workspace",
+      "can_settle": ["IMPLEMENTATION"]
+    },
+    {
+      "tier": "L5",
+      "name": "PINNED_DEPENDENCY_SOURCE",
+      "is_evidence_source": true,
+      "yields": "the actual source of the pinned dependency, when present in the analysed tree",
+      "can_settle": ["IMPLEMENTATION", "BOUNDARY", "OPERATION", "PERSISTENCE"]
+    },
+    {
+      "tier": "L6",
+      "name": "MACHINE_READABLE_CONTRACT",
+      "is_evidence_source": true,
+      "yields": "OpenAPI, JSON Schema, protobuf/gRPC, GraphQL SDL, SDK operation metadata, command specifications",
+      "can_settle": ["BOUNDARY", "OPERATION", "PERSISTENCE"]
+    },
+    {
+      "tier": "L7",
+      "name": "UNDERLYING_OPERATION_SEMANTICS",
+      "is_evidence_source": true,
+      "yields": "the SQL statement, document-store operation, shell command, transport or driver primitive the call reduces to",
+      "can_settle": ["BOUNDARY", "OPERATION", "PERSISTENCE"]
+    },
+    {
+      "tier": "L8",
+      "name": "ABSTAIN",
+      "is_evidence_source": false,
+      "yields": "nothing; terminal state reached when no tier below can be advanced within budget",
+      "can_settle": []
+    }
+  ],
+
+  "budgets": {
+    "defaults": {
+      "max_ladder_tier": "L7",
+      "max_dependency_hops": 6,
+      "max_files_opened": 4000,
+      "max_bytes_read": 268435456,
+      "max_wall_ms_per_claim": 2000,
+      "max_claims_investigated": 5000,
+      "max_implementation_candidates": 8
+    },
+    "scopes": {
+      "max_ladder_tier": "per_claim",
+      "max_dependency_hops": "per_claim",
+      "max_files_opened": "per_run",
+      "max_bytes_read": "per_run",
+      "max_wall_ms_per_claim": "per_claim",
+      "max_claims_investigated": "per_run",
+      "max_implementation_candidates": "per_claim"
+    },
+    "exhaustion_behaviour": "Descent stops on the affected path; unsettled necessary obligations remain UNKNOWN with no default and no inference; the stop reason BUDGET_EXHAUSTED is recorded with the specific budget name; unopened edges go on the frontier; the verdict is ABSTAIN unless an obligation was already legitimately REFUTED and closure C1-C6 holds, where C4 explicitly fails if the exhausted path contributed to the refutation."
+  },
+
+  "counter_evidence_probes": [
+    { "probe_id": "CP-IMPL-01", "obligation": "IMPLEMENTATION", "probe_class": "BLOCKING", "question": "Is a test double, mock, stub or fake injected at this site or by the enclosing fixture?" },
+    { "probe_id": "CP-IMPL-02", "obligation": "IMPLEMENTATION", "probe_class": "BLOCKING", "question": "Is the callee monkey-patched, re-assigned or shadowed before this site?" },
+    { "probe_id": "CP-IMPL-03", "obligation": "IMPLEMENTATION", "probe_class": "ADVISORY", "question": "Is the resolved symbol a re-export or alias whose ultimate target differs?" },
+    { "probe_id": "CP-IMPL-04", "obligation": "IMPLEMENTATION", "probe_class": "BLOCKING", "question": "Is the site inside a type-checking-only block or ambient declaration?" },
+    { "probe_id": "CP-ACT-01", "obligation": "ACTIVATION", "probe_class": "BLOCKING", "question": "Is the enclosing function dead: never referenced, never registered, never exported?" },
+    { "probe_id": "CP-ACT-02", "obligation": "ACTIVATION", "probe_class": "BLOCKING", "question": "Is the site statically unreachable?" },
+    { "probe_id": "CP-ACT-03", "obligation": "ACTIVATION", "probe_class": "ADVISORY", "question": "Is the site in test-only, example-only, fixture or generated-sample code?", "note": "Advisory on purpose: treating a file path as refutation is how real effects get suppressed." },
+    { "probe_id": "CP-ACT-04", "obligation": "ACTIVATION", "probe_class": "ADVISORY", "question": "Is the site behind a feature flag whose default is closed?" },
+    { "probe_id": "CP-BND-01", "obligation": "BOUNDARY", "probe_class": "BLOCKING", "question": "Is the transport or driver an in-memory, emulator, fake or local-stub implementation?" },
+    { "probe_id": "CP-BND-02", "obligation": "BOUNDARY", "probe_class": "BLOCKING", "question": "Is egress unconditionally disabled at this site?" },
+    { "probe_id": "CP-BND-03", "obligation": "BOUNDARY", "probe_class": "BLOCKING", "question": "Does the write terminate in a process-local buffer never flushed on any path?" },
+    { "probe_id": "CP-BND-04", "obligation": "BOUNDARY", "probe_class": "ADVISORY", "question": "Is the destination a loopback or ephemeral test endpoint?" },
+    { "probe_id": "CP-OPR-01", "obligation": "OPERATION", "probe_class": "BLOCKING", "question": "Does the machine-readable contract classify this operation as an observation?" },
+    { "probe_id": "CP-OPR-02", "obligation": "OPERATION", "probe_class": "BLOCKING", "question": "Does the underlying statement or command reduce to a read?" },
+    { "probe_id": "CP-OPR-03", "obligation": "OPERATION", "probe_class": "BLOCKING", "question": "Is a dry_run, validate_only, plan_only or preview parameter passed at this site?" },
+    { "probe_id": "CP-OPR-04", "obligation": "OPERATION", "probe_class": "ADVISORY", "question": "Is the mutation semantics conditional on an argument not resolvable at this site?" },
+    { "probe_id": "CP-PER-01", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "question": "Is rollback or transaction abort guaranteed on every path from this site?" },
+    { "probe_id": "CP-PER-02", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "question": "Is a dry-run, validate-only or plan-only mode in force?" },
+    { "probe_id": "CP-PER-03", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "question": "Is the backing store in-memory, ephemeral, a temporary file removed on exit, or an emulator?" },
+    { "probe_id": "CP-PER-04", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "question": "Is the operation documented as a no-op for the observed argument shape?" },
+    { "probe_id": "CP-PER-05", "obligation": "PERSISTENCE", "probe_class": "BLOCKING", "question": "Is the commit-versus-rollback outcome undetermined at this site?", "note": "A positive finding does not refute persistence: it forces PERSISTENCE = UNKNOWN, because unknown commit versus rollback preserves uncertainty (REI-002). The only probe whose positive result yields ABSTAIN rather than NO_EFFECT." },
+    { "probe_id": "CP-PER-06", "obligation": "PERSISTENCE", "probe_class": "ADVISORY", "question": "Is the written state subject to a documented TTL shorter than the request lifetime?" }
+  ],
+
+  "sink_rule_admissibility": {
+    "qualified_call": {
+      "admissibility": "PROBATIVE",
+      "anchor": "a resolved dotted symbol",
+      "may_settle": ["BOUNDARY", "OPERATION"],
+      "note": "Settles only the obligation it structurally witnesses; never persistence."
+    },
+    "attr_call": {
+      "admissibility": "PROBATIVE",
+      "anchor": "a resolved dotted symbol",
+      "may_settle": ["BOUNDARY", "OPERATION"],
+      "note": "Settles only the obligation it structurally witnesses; never persistence."
+    },
+    "open_write": {
+      "admissibility": "PROBATIVE",
+      "anchor": "an argument-structure witness of a write mode",
+      "may_settle": ["BOUNDARY"]
+    },
+    "subprocess_deploy": {
+      "admissibility": "PROBATIVE",
+      "anchor": "an argument-structure witness of a command shape",
+      "may_settle": ["BOUNDARY"]
+    },
+    "github_rest_mutation": {
+      "admissibility": "PROBATIVE",
+      "anchor": "an argument-structure witness of a mutating REST shape",
+      "may_settle": ["BOUNDARY", "OPERATION"]
+    },
+    "name_call": {
+      "admissibility": "HYPOTHESIS_ONLY",
+      "anchor": "an unqualified function name",
+      "may_settle": [],
+      "note": "May raise and prioritise a claim; never establishes an obligation."
+    },
+    "sql_execute_pattern": {
+      "admissibility": "HYPOTHESIS_ONLY",
+      "anchor": "a regex over source text",
+      "may_settle": [],
+      "note": "The settling evidence for OPERATION is L7 parsed operation semantics."
+    },
+    "string_pattern": {
+      "admissibility": "HYPOTHESIS_ONLY",
+      "anchor": "a regex over source text",
+      "may_settle": []
+    }
+  },
+
+  "aref_001_dispositions": [
+    { "id": "D-01", "summary": "REI is a non-gating annotation layer", "disposition": "REJECT", "rejected_for_preserving_old_ontology": true, "reason": "An annotation can only describe what already became a finding, so the describable set is the set of rule hits. The non-gating property survives as an integration constraint; the annotation-layer shape does not." },
+    { "id": "D-02", "summary": "The unit of inference is the sink call site, exactly one record", "disposition": "REJECT", "rejected_for_preserving_old_ontology": true, "reason": "The unit carries rule_id in its identity, so an unmatched invocation cannot produce a record. The unit becomes the invocation; identity is (capability_id, invocation_id, effect_class)." },
+    { "id": "D-03", "summary": "Five inferred components: effect, kind, selector, scope, controllability", "disposition": "MODIFY", "rejected_for_preserving_old_ontology": false, "reason": "Split along what must be proved versus what is described: effect becomes class plus five obligations; kind and selector fold into TARGET; scope is retained inside TARGET; controllability becomes CONTROL with three sub-descriptors, forced by REI-002's fixed-target case." },
+    { "id": "D-04", "summary": "The effect vocabulary is EffectType; no parallel taxonomy", "disposition": "REJECT", "rejected_for_preserving_old_ontology": true, "reason": "EffectType is a sink classification vocabulary populated by a per-rule-ID map, so adopting it makes the ontology of effects the catalogue of rules. It also cannot express the nine future classes that must not require persistence." },
+    { "id": "D-05", "summary": "The resource vocabulary is a new closed enum with a mandatory sentinel", "disposition": "DEFER", "rejected_for_preserving_old_ontology": false, "reason": "v1 needs no resource taxonomy. AREF-001's own B-02 analysis is accepted: the twenty members were derived from what the shipped rules suggest, not from real code, and vocabulary churn after release is unrecoverable." },
+    { "id": "D-06", "summary": "Selector extraction is declared as data, never per-rule code", "disposition": "REJECT", "rejected_for_preserving_old_ontology": true, "reason": "The catalogue is keyed by rule ID: the sink-centric ontology in data form. Replaced by the evidence acquisition ladder, keyed by what evidence is obtainable. The no-special-case-code prohibition survives and is widened to ban provider-specific signatures." },
+    { "id": "D-07", "summary": "unknown is the default; no name-based inference", "disposition": "KEEP", "rejected_for_preserving_old_ontology": false, "reason": "Kept, generalised and made the strongest rule in the architecture: identifier-anchored evidence is HYPOTHESIS_ONLY and can move nothing. Basis narrowed to REI-001B, since REI-001 is permanently INCONCLUSIVE." },
+    { "id": "D-08", "summary": "Certainty reuses AnalysisCertainty, weakest link, capped by reachability", "disposition": "MODIFY", "rejected_for_preserving_old_ontology": false, "reason": "A single scalar cannot say which part is uncertain. Replaced by five per-obligation proof states plus one verdict. Weakest link survives as the conjunction, reachability as the ACTIVATION obligation, and the error-versus-unknown separation is promoted to ERROR and ANALYSIS_ERROR." },
+    { "id": "D-09", "summary": "No severity change in v0", "disposition": "MODIFY", "rejected_for_preserving_old_ontology": false, "reason": "Prohibition kept for v1 and widened to all verdicts, states and descriptors. The modification is that the condition for lifting it is now preregistered in the R05/R06 thresholds, which AREF-001's B-01 could not do." },
+    { "id": "D-10", "summary": "Output is additive, versioned, and absent when off", "disposition": "KEEP", "rejected_for_preserving_old_ontology": false, "reason": "Kept and extended to claims, receipts and the ledger, with one addition: when the layer is enabled the coverage ledger is never absent." },
+    { "id": "D-11", "summary": "Opt-in for at least one minor release", "disposition": "KEEP", "rejected_for_preserving_old_ontology": false, "reason": "Kept with the rationale strengthened: AREF-002 is a larger change resting on controlled-corpus evidence only. Default-on is gated on R05/R06." },
+    { "id": "D-12", "summary": "resource_boundary and resource_effect never share a name", "disposition": "KEEP", "rejected_for_preserving_old_ontology": false, "reason": "Kept and observed: resource_boundary keeps its existing meaning as an entrypoint class, and the obligation is named BOUNDARY in its own namespace. Tested by AREF-002-T21." },
+    { "id": "D-13", "summary": "A disclosure counter is mandatory, not optional", "disposition": "KEEP", "rejected_for_preserving_old_ontology": false, "reason": "Kept and promoted from a counter pair to the first-class coverage ledger. The precedent is the shipped transitive-reachability failure: 2 followed edges against 3,297 unfollowed, 0 of 22 confirmed cases caught, invisible until an explicit disclosure was added." },
+    { "id": "D-14", "summary": "Rule-ID normalisation is explicit, language-aware and total", "disposition": "MODIFY", "rejected_for_preserving_old_ontology": false, "reason": "Retained but demoted from a soundness concern to an evidence-provenance concern. A normalisation miss now costs an evidence packet, not an effect: the claim still exists and the ledger reports the gap by language." }
+  ],
+
+  "invariants": [
+    { "id": "AREF-002-T01", "statement": "An invocation with zero matching sink rules and a single OPAQUE_EXTERNAL candidate instantiates an EffectClaim with all necessary obligations UNKNOWN and verdict ABSTAIN.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T02", "statement": "Injecting or removing every sink rule changes no claim's existence; it may change only evidence packets and priority.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T03", "statement": "A HYPOTHESIS_ONLY packet never changes an obligation state.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T04", "statement": "Obligation states are invariant under permutation of packet arrival order.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T05", "statement": "BOUNDARY = SUPPORTED with OPERATION = UNKNOWN never yields PROVEN_EFFECT.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T06", "statement": "An HTTP POST dispatch with no contract or operation-semantics evidence yields OPERATION = UNKNOWN and PERSISTENCE = UNKNOWN.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T07", "statement": "Identical source differing only in the operation contract yields different OPERATION states.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T08", "statement": "Guaranteed rollback on all paths yields PERSISTENCE = REFUTED, and NO_EFFECT only if C1-C6 hold.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T09", "statement": "Undetermined commit yields PERSISTENCE = UNKNOWN and verdict ABSTAIN, never SUPPORTED.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T10", "statement": "Contract-says-READ versus body-says-MUTATE yields CONFLICTING unless resolved-implementation precedence applies exactly; when it applies, the overridden packet is still present in the receipt.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T11", "statement": "Inter-candidate divergence yields UNRESOLVED_DIVERGENT and claim-level UNKNOWN, never CONFLICTING.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T12", "statement": "A BLOCKING probe that cannot complete forces ABSTAIN even when all five obligations are otherwise SUPPORTED.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T13", "statement": "TARGET_CONTROL = REFUTED with TRIGGER_CONTROL = SUPPORTED does not prevent PROVEN_EFFECT.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T14", "statement": "AUTHORITY present or absent never changes a verdict.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T15", "statement": "Budget exhaustion on a contributing path forces ABSTAIN, never NO_EFFECT.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T16", "statement": "ERROR on a necessary obligation yields ANALYSIS_ERROR, and the claim is not counted as a negative anywhere in the ledger.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T17", "statement": "Every emitted ABSTAIN carries a highest-tier-reached, a stop reason, an unresolved-obligation list and a frontier size.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T18", "statement": "Every emitted verdict has a schema-valid EffectReceipt whose answers object contains all eleven required keys.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T19", "statement": "A run producing zero PROVEN_EFFECT emits a coverage ledger, and no output path renders that as safe, clean or no effects.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T20", "statement": "No v1 verdict computation reads an obligation belonging only to a declared-unpopulated future effect class.", "source": "proof_obligations.md 8" },
+    { "id": "AREF-002-T21", "statement": "No AREF-002 identifier, field name or output key reuses resource_boundary or any existing name whose meaning differs.", "source": "implementation_plan.md 6" },
+    { "id": "AREF-002-E01", "statement": "A claim records the highest tier reached and exactly one stop reason.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E02", "statement": "Ascent is demand-driven: no tier is opened when no necessary obligation is UNKNOWN and addressable by it.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E03", "statement": "Every packet carries a byte-identical verbatim extract and a locator sufficient to retrieve it.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E04", "statement": "Dependency- and contract-sourced packets carry package name and pinned version.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E05", "statement": "No packet whose only anchor is an identifier is PROBATIVE.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E06", "statement": "No packet targets more than one obligation or more than one implementation candidate.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E07", "statement": "An unparsed statement or command yields UNKNOWN, never a keyword-prefix inference.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E08", "statement": "Prose documentation never yields a PROBATIVE packet.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E09", "statement": "The packet set and stop reason are identical across runs for a fixed workspace, configuration and budget.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E10", "statement": "TIER_UNAVAILABLE and BUDGET_EXHAUSTED are never merged into one reason.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E11", "statement": "Removing the entire sink-rule corpus changes no claim's existence and no claim's stop reason.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-E12", "statement": "No tier consults a provider-specific identifier table to establish an obligation.", "source": "evidence_acquisition.md 9" },
+    { "id": "AREF-002-D01", "statement": "Descent terminates on every input; no unbounded recursion, no unbounded breadth.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D02", "statement": "For fixed workspace, configuration and budget, the opened-edge set and the frontier are identical across runs.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D03", "statement": "Budget exhaustion never changes an obligation from UNKNOWN to SUPPORTED or REFUTED.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D04", "statement": "Budget exhaustion on a contributing path makes NO_EFFECT unreachable.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D05", "statement": "A non-empty frontier relevant to the refuted obligation makes NO_EFFECT unreachable.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D06", "statement": "Every unopened relevant edge appears on the frontier with a reason distinguishing budget from unavailability.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D07", "statement": "A partially followed wrapper chain settles no obligation the unfollowed remainder would have settled.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D08", "statement": "Every L5, L6 or L7-via-dependency packet records package name and version resolution, including UNPINNED.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D09", "statement": "No descent performs network access, package installation, or execution of analysed code.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D10", "statement": "Caching changes cost only: cached and uncached runs produce identical packets and extracts.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D11", "statement": "Prioritisation changes only investigation order; two runs with different priority policies and unbounded budget produce identical verdicts.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-D12", "statement": "An uninvestigated claim is reported with reason CLAIM_NOT_INVESTIGATED and is never counted as a negative.", "source": "dependency_descent.md 8" },
+    { "id": "AREF-002-V01", "statement": "Claim-level recall on EFFECT units is reported separately from PROVEN_EFFECT recall, isolating requirement 2.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V02", "statement": "Every emitted verdict has a schema-valid receipt whose answers object contains all eleven required keys.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V03", "statement": "For at least one EFFECT unit whose callee matches no rule in the sink corpus, a claim is instantiated and investigated, and its receipt names the tiers reached.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V04", "statement": "Re-running with the sink-rule corpus emptied changes no claim's existence and no claim's stop reason.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V05", "statement": "No provider-specific signature, table or identifier list is present in the implementation commit under test.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V06", "statement": "Two runs with identical configuration produce identical verdicts, packets, extracts and frontiers.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V07", "statement": "Every ABSTAIN carries a highest-tier-reached, a stop reason, an unresolved-obligation list and a frontier size.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V08", "statement": "No output path renders zero PROVEN_EFFECT as safe, clean or no effects.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V09", "statement": "The existing scanner gates are unchanged by enabling the layer: precision 16/16, soundness 6/6 and the recall figures are byte-identical with the layer on and off.", "source": "validation_protocol.md 9" },
+    { "id": "AREF-002-V10", "statement": "No obligation belonging only to a declared-unpopulated future effect class is read by the v1 verdict function.", "source": "validation_protocol.md 9" }
+  ],
+
+  "validation": {
+    "protocol": "specs/AREF-002/validation_protocol.md",
+    "repositories_selected": false,
+    "repositories_inspected": false,
+    "thresholds": {
+      "proven_effect_precision_min": 0.9,
+      "semantic_positive_recall_min": 0.3,
+      "evidence_fidelity_exact": 1.0,
+      "required_abstention_accuracy_min": 0.9,
+      "inappropriate_abstention_rate_max": 0.2,
+      "false_no_effect_on_effect_units_exact": 0
+    },
+    "invalidating_conditions": [
+      "abstention rate over invocations exceeds 0.95",
+      "contamination of selection, specification, implementation or ground truth",
+      "any protocol violation",
+      "a provider-specific patch between preregistration and reporting"
+    ],
+    "outcomes": {
+      "closed": true,
+      "members": [
+        "SUPPORTED",
+        "PARTIALLY_SUPPORTED",
+        "REFUTED",
+        "INVALID",
+        "ARCHITECTURE_FAILURE"
+      ]
+    }
+  },
+
+  "prohibitions": [
+    { "prohibition": "An EffectClaim may not require a known sink hit to exist.", "requirement": "2" },
+    { "prohibition": "Possible implementations may not be collapsed to a single value.", "requirement": "3" },
+    { "prohibition": "Evidence packets may not be merged across implementation candidates.", "requirement": "4" },
+    { "prohibition": "HTTP or network dispatch may not establish OPERATION or PERSISTENCE.", "requirement": "9" },
+    { "prohibition": "Names may not establish effects.", "requirement": "10" },
+    { "prohibition": "Known sink rules may not define whether an effect exists.", "requirement": "11" },
+    { "prohibition": "Budget exhaustion may not produce guessed semantics.", "requirement": "13" },
+    { "prohibition": "A contradiction may not be resolved by recency, severity, safety, tier rank, packet strength, majority vote or discarding a packet.", "requirement": "14" },
+    { "prohibition": "PROVEN_EFFECT may not be reached with a BLOCKING counter-evidence probe incomplete.", "requirement": "15" },
+    { "prohibition": "Zero findings may not be rendered as safe.", "requirement": "17" },
+    { "prohibition": "Future consequential effects may not be forced into persistence.", "requirement": "18" },
+    { "prohibition": "No provider-specific signature, table or identifier list may establish an obligation.", "requirement": "STRICT RULES" }
+  ]
+}

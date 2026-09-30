@@ -1,0 +1,91 @@
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................x............... [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 43%]
+..........F............................................................. [ 49%]
+........................................................................ [ 55%]
+............................................................................................................................... [ 66%]
+...................................s.................................... [ 72%]
+..............s......................................................... [ 78%]
+.........................xx.x........................................... [ 84%]
+...............................................sssssss...sss............ [ 90%]
+........................................................................ [ 97%]
+...................................                                      [100%]
+=================================== FAILURES ===================================
+______ test_sealed_amendment_examples[valid_unrelated_frontier_negative] _______
+
+case = {'id': 'valid_unrelated_frontier_negative', 'kind': 'claim', 'file': 'examples/valid_unrelated_frontier_negative.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:219: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1053: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:622: in from_dict
+    frontier = tuple(FrontierEntry.from_dict(e, f"{r.at('frontier')}[{i}]") for i, e in enumerate(entries))
+               ^^^^^
+actenon_scan/effects/claim.py:622: in <genexpr>
+    frontier = tuple(FrontierEntry.from_dict(e, f"{r.at('frontier')}[{i}]") for i, e in enumerate(entries))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:516: in from_dict
+    return cls(origin=SourceLocator.from_dict(r.get("origin"), r.at("origin")),
+<string>:10: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = FrontierEntry(origin=SourceLocator(path='synthetic/subject.py', start_line=10, end_line=10, start_column=None, end_col...STED'>, target_symbol=None, target_package=None, might_settle=(<Obligation.OPERATION: 'OPERATION'>,), budget_name=None)
+
+    def __post_init__(self) -> None:
+        w = "frontier entry"
+        c.instance(SourceLocator, self.origin, f"{w}.origin")
+        object.__setattr__(self, "would_reach_tier", c.enum_value(LadderTier, self.would_reach_tier, f"{w}.would_reach_tier"))
+        object.__setattr__(self, "reason", c.enum_value(StopReason, self.reason, f"{w}.reason"))
+        c.optional_text(self.target_symbol, f"{w}.target_symbol")
+        c.optional_text(self.target_package, f"{w}.target_package")
+        object.__setattr__(self, "might_settle", c.enum_tuple(Obligation, self.might_settle, f"{w}.might_settle"))
+        object.__setattr__(self, "budget_name", c.optional_enum(BudgetName, self.budget_name, f"{w}.budget_name"))
+        if self.would_reach_tier is LadderTier.L8:
+            raise c.fail(w, "L8 is not a tier an edge can reach")
+        if self.reason not in FRONTIER_REASONS:
+            raise c.fail(w, f"{self.reason.value} is not a reason an edge is left unopened")
+        if (self.reason is StopReason.BUDGET_EXHAUSTED) != (self.budget_name is not None):
+>           raise c.fail(w, "a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED")
+E           actenon_scan.effects._codec.EffectModelError: frontier entry: a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED
+
+actenon_scan/effects/claim.py:495: EffectModelError
+=============================== warnings summary ===============================
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-6d0e8d92-03b6-4b33-a22c-3271978904f4
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-6d0e8d92-03b6-4b33-a22c-3271978904f4'
+    warnings.warn(
+
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-a6561858-83a4-4c9a-bdb2-9621f201a558
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-a6561858-83a4-4c9a-bdb2-9621f201a558'
+    warnings.warn(
+
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-496d73b8-4eeb-4f9b-968b-06598e09d197
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-496d73b8-4eeb-4f9b-968b-06598e09d197'
+    warnings.warn(
+
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-7f3abcf2-4b6d-4cf3-af98-9ee7ed85f8a2
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-7f3abcf2-4b6d-4cf3-af98-9ee7ed85f8a2'
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_unrelated_frontier_negative]
+1 failed, 1153 passed, 12 skipped, 4 xfailed, 4 warnings, 89 subtests passed in 9.93s

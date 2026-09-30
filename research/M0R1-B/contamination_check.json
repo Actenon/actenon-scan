@@ -1,0 +1,15 @@
+{
+  "comparison_parent": "ec4db0c2ab61c6d5b1c5d8537a9617f2d2534b30",
+  "production_modified": [
+    "actenon_scan/effects/__init__.py",
+    "actenon_scan/effects/claim.py"
+  ],
+  "new_production_addition_checks": {
+    "provider_terms": [],
+    "prior_sdk_signatures": [],
+    "verb_only_rules": []
+  },
+  "provider_specific_knowledge_introduced": false,
+  "held_out_repositories_accessed": false,
+  "scope": "Only supplied immutable budget records, codecs, links, conditional negative guard; no evidence acquisition or classifier logic."
+}

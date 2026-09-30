@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-001/manifest-0.1.0.json",
+  "title": "AREF-001 artefact manifest",
+  "description": "SHA-256 inventory of every artefact in specs/AREF-001/. Deliberately carries no timestamp: the manifest must be reproducible from the files alone, so that a reviewer can regenerate it and compare byte for byte. MANIFEST.json and MANIFEST.sha256 are excluded from their own inventory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artefact",
+    "manifest_schema_version",
+    "frozen_against_commit",
+    "hash_algorithm",
+    "file_count",
+    "files"
+  ],
+  "properties": {
+    "artefact": { "const": "AREF-001" },
+    "manifest_schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "frozen_against_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "hash_algorithm": { "const": "sha256" },
+    "excluded": {
+      "description": "Paths deliberately omitted from the inventory (the manifest files themselves).",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "file_count": { "type": "integer", "minimum": 1 },
+    "total_bytes": { "type": "integer", "minimum": 0 },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": {
+            "description": "Relative to the repository root, POSIX separators.",
+            "type": "string",
+            "pattern": "^specs/AREF-001/"
+          },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

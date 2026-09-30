@@ -1,0 +1,137 @@
+{
+  "amendment": "AREF-002C",
+  "status": "PROPOSED",
+  "candidate_sha": "c3e044218ba246cbbcb73746f3f8bd0064cc8b52",
+  "files": [
+    {
+      "path": "AMENDMENT.md",
+      "bytes": 2820,
+      "sha256": "3c5f5e2c05f212631537a2a5be95bcb96782205203c3061170e06be45a524539"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1252,
+      "sha256": "ef831bd9d37006c2cbc4569c19c931e4685e2f5d205767fa072e5cf2eed95737"
+    },
+    {
+      "path": "REPORT.md",
+      "bytes": 1702,
+      "sha256": "4f09cb7a7d271fd158811f2b98e610c601ca65ea5a99521f0fc0e5488860f27d"
+    },
+    {
+      "path": "contract_provenance.md",
+      "bytes": 2574,
+      "sha256": "282dfb588f9219b68001a599081c351eb49e7e2629807728dafaafbd411afb0e"
+    },
+    {
+      "path": "effect_claim.schema.json",
+      "bytes": 659,
+      "sha256": "3e5ad0b6076156733d5a4a58ab1eedbfc555a18c524d0b2eb22171beee8ffc09"
+    },
+    {
+      "path": "effect_receipt.schema.json",
+      "bytes": 805,
+      "sha256": "63ecaffc58681ab778a88bf6e12b99ebd1dff72a3974c03d2cba6b68d2657a8c"
+    },
+    {
+      "path": "evidence.schema.json",
+      "bytes": 1205,
+      "sha256": "04f41a33b855c20916c7f54a94402dec56eb89ffe8997508e367ebe5378b1c74"
+    },
+    {
+      "path": "examples/no_effect_operation_pinned_control.json",
+      "bytes": 8262,
+      "sha256": "2640b2c78c4d133332eb168c771cd7b0068a1f5f1d0ca5a729a1f4b914986a84"
+    },
+    {
+      "path": "examples/no_effect_operation_unpinned_hypothesis.json",
+      "bytes": 7922,
+      "sha256": "aa5548bf88b06de34ab938e8f2c65277bc2ff2b6f7681570bfcd91673e7284ad"
+    },
+    {
+      "path": "examples/no_effect_operation_unpinned_probative.json",
+      "bytes": 8224,
+      "sha256": "e3d3baef9ac967c79614b219df0169deb2f4be5ff90f1e609ef7ffed85008215"
+    },
+    {
+      "path": "examples/no_effect_persistence_pinned_control.json",
+      "bytes": 8266,
+      "sha256": "1e6196fbcdc2ba08804360cce2c0738c9ca0bdb571d151e0ccc6c42be89bfe06"
+    },
+    {
+      "path": "examples/no_effect_persistence_unpinned_hypothesis.json",
+      "bytes": 7926,
+      "sha256": "f7cb46ebd9c119c4de7f88d529601c67bc6abccc11fc84f9159d55aa862cc62c"
+    },
+    {
+      "path": "examples/no_effect_persistence_unpinned_probative.json",
+      "bytes": 8228,
+      "sha256": "22ad7af176192a4c3105b87e12bea760a3f9567656f5fb998e230eceb0a04524"
+    },
+    {
+      "path": "examples/proven_effect_operation_pinned_control.json",
+      "bytes": 7930,
+      "sha256": "40a4dd765def65798455d09d4c2a84ca71d9ee5ad6d7956c5cd7fd259a2e0a60"
+    },
+    {
+      "path": "examples/proven_effect_operation_unpinned_hypothesis.json",
+      "bytes": 7919,
+      "sha256": "93815988bc271f2e205e93aef026c2ddfcde8b5950d97fff1f19fbcbb3e2cb8b"
+    },
+    {
+      "path": "examples/proven_effect_operation_unpinned_probative.json",
+      "bytes": 7892,
+      "sha256": "0521b11b63b9737c3cf18d4ea546060448c4ccacdfb288c3d5f544c350dcf8a2"
+    },
+    {
+      "path": "examples/proven_effect_persistence_pinned_control.json",
+      "bytes": 7930,
+      "sha256": "c7baddb3b2d120b25b203081a6bedceb1e48153b5dd7338dfe63375cc05393d0"
+    },
+    {
+      "path": "examples/proven_effect_persistence_unpinned_hypothesis.json",
+      "bytes": 7921,
+      "sha256": "8c5b8789b4235cf7f01ca09737b8634419de90284fe592b8ecac872010705350"
+    },
+    {
+      "path": "examples/proven_effect_persistence_unpinned_probative.json",
+      "bytes": 7892,
+      "sha256": "d7c0036b6a6850d2c68982122d31d9d786cf789c5b2da10aa191e4384297d3c1"
+    },
+    {
+      "path": "examples/valid_abstain.json",
+      "bytes": 1746,
+      "sha256": "b427e9925a10897a48d6a12ef3787556caef6aaa2d4faa196730532a1aaf0a2a"
+    },
+    {
+      "path": "examples/valid_analysis_error.json",
+      "bytes": 7785,
+      "sha256": "b02f458243f51cb4ce631f43050782cb70c6918b0b1883d67e63c6ed4aad84f4"
+    },
+    {
+      "path": "examples/valid_no_effect.json",
+      "bytes": 8123,
+      "sha256": "35325be202ff0161bf96c514c86fa0a8b9cfe7d0a5f5d11b22a296c929a3e013"
+    },
+    {
+      "path": "examples/valid_proven_effect.json",
+      "bytes": 7787,
+      "sha256": "a3dce1d6a5cfda15bdef2b9a5d7905a80492cb52b030d50eeec4d9777cf4b15f"
+    },
+    {
+      "path": "input_preservation.json",
+      "bytes": 88373,
+      "sha256": "c323ce5e8efb6f09deede798c887ae5e6be7ce609fc7e0e0b07e30ac7ea61a99"
+    },
+    {
+      "path": "repair_contract.md",
+      "bytes": 2010,
+      "sha256": "3704f2efb601f0ceccda2a628dd9e4cf597beddd373df3bc7a681c355cbd578c"
+    },
+    {
+      "path": "validate.py",
+      "bytes": 14844,
+      "sha256": "37ee023750955661edc22673bbc635483a3dcfafc949805e05e1d92d5844a38f"
+    }
+  ]
+}

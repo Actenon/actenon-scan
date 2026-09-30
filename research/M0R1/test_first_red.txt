@@ -1,0 +1,1400 @@
+FFFFFFF..........................FF.FFFF..........FF....FF..F..F.F...F.F [ 69%]
+FFFF..FF..FF....F...F.F.F..FFFF                                          [100%]
+=================================== FAILURES ===================================
+___________ test_H1_two_candidates_implementation_error_cannot_prove ___________
+
+    def test_H1_two_candidates_implementation_error_cannot_prove():
+        base = proven_claim()
+        one = next(iter(base.implementation_candidates))
+        candidates = [dc.replace(one, obligations=states(S, S, S, S, S)),
+                      dc.replace(one, candidate_id='second', obligations=states(E, S, S, S, S))]
+        packets = base.evidence_packets + tuple(dc.replace(p, packet_id='second-'+p.packet_id,
+                    implementation_candidate_id='second') for p in base.evidence_packets)
+>       with pytest.raises(EffectModelError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0r1_regressions.py:44: Failed
+____________ test_H2_positive_ephemeral_is_not_persistence_support _____________
+
+    def test_H2_positive_ephemeral_is_not_persistence_support():
+>       with pytest.raises(EffectModelError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0r1_regressions.py:53: Failed
+____________ test_H3_L1_package_provenance_cannot_override_contract ____________
+
+    def test_H3_L1_package_provenance_cannot_override_contract():
+        base = resolved_claim()
+>       with pytest.raises(EffectModelError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0r1_regressions.py:60: Failed
+__________ test_H4_uncertainty_cannot_hide_conflict_to_allow_negative __________
+
+    def test_H4_uncertainty_cannot_hide_conflict_to_allow_negative():
+        base = proven_claim()
+        durable = next(p for p in base.evidence_packets if p.obligation is Obligation.PERSISTENCE)
+        rollback = rolled_back_packet()
+        uncertainty = dc.replace(rollback, packet_id='uncertainty',
+                                assertion=EvidenceAssertion(AssertionPredicate.COMMIT_OUTCOME_UNDETERMINED))
+        operation_read = packet('read', Obligation.OPERATION, polarity=Polarity.NEGATIVE)
+        packets = tuple(p for p in base.evidence_packets if p.obligation is not Obligation.OPERATION)
+        contradiction = Contradiction(Obligation.PERSISTENCE, durable.implementation_candidate_id,
+                                      (durable.packet_id,), (rollback.packet_id,), ContradictionResolution.UNRESOLVED)
+>       with pytest.raises(EffectModelError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0r1_regressions.py:76: Failed
+____________ test_H5_receipt_open_frontier_cannot_load_as_negative _____________
+
+    def test_H5_receipt_open_frontier_cannot_load_as_negative():
+        data = EffectReceipt.from_claim(no_effect_claim(), 'receipt').to_dict()
+        edge = fixture('valid_open_frontier_abstain')['acquisition']['frontier']
+        for acq in [data['acquisition'], data['answers']['unknowns']]:
+            acq.update(frontier_size=1, frontier=edge, stop_reason='TIER_UNAVAILABLE')
+        if 'claim_snapshot' in data:
+            data['claim_snapshot']['acquisition'].update(frontier_size=1, frontier=edge,
+                                                        stop_reason='TIER_UNAVAILABLE')
+>       with pytest.raises(EffectModelError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0r1_regressions.py:93: Failed
+________ test_H6_impossible_error_conflict_negative_population_rejected ________
+
+    def test_H6_impossible_error_conflict_negative_population_rejected():
+        data = fixture('H6_impossible_settled_population')
+        # On unrepaired M0, test the semantic defect rather than version rejection.
+        from actenon_scan.effects import SCHEMA_VERSION
+        data['schema_version'] = SCHEMA_VERSION
+>       with pytest.raises(EffectModelError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0r1_regressions.py:102: Failed
+_________________ test_M1_hypothesis_found_does_not_veto_proof _________________
+
+    def test_M1_hypothesis_found_does_not_veto_proof():
+        base = proven_claim()
+        hypothesis = dc.replace(packet('hypothesis', Obligation.PERSISTENCE),
+                                admissibility=Admissibility.HYPOTHESIS_ONLY,
+                                kind=PacketKind.IDENTIFIER_NAME, polarity=Polarity.NEGATIVE,
+                                assertion=EvidenceAssertion(AssertionPredicate.STATE_IS_EPHEMERAL))
+        probes = tuple(dc.replace(p, outcome=ProbeResult.FOUND, packet_ids=('hypothesis',))
+                       if p.probe_id == 'CP-PER-03' else p for p in base.probe_outcomes)
+>       assert dc.replace(base, evidence_packets=base.evidence_packets+(hypothesis,),
+                          probe_outcomes=probes).verdict is Verdict.PROVEN_EFFECT
+
+tests/effect_claims/test_m0r1_regressions.py:114: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1778: in replace
+    return _replace(obj, **changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/dataclasses.py:1812: in _replace
+    return self.__class__(**changes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:23: in __init__
+    ???
+actenon_scan/effects/claim.py:869: in __post_init__
+    _validate_claim(self, w)
+actenon_scan/effects/claim.py:1002: in _validate_claim
+    _check_verdict(claim, effective, probes, w)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+claim = EffectClaim(claim_id='claim-0001', capability_id='cap-zones-settings-tool', invocation_id='inv-src-tools-zones.ts-L57C...=())), contradictions=(), closure=None, verdict_rationale=None, priority=None, receipt_id=None, schema_version='0.1.0')
+effective = {'cand-1': ObligationStates(implementation=<ProofState.SUPPORTED: 'SUPPORTED'>, activation=<ProofState.SUPPORTED: 'SUP...PPORTED: 'SUPPORTED'>, operation=<ProofState.SUPPORTED: 'SUPPORTED'>, persistence=<ProofState.SUPPORTED: 'SUPPORTED'>)}
+probes = {'CP-ACT-01': ProbeOutcome(probe_id='CP-ACT-01', obligation=<Obligation.ACTIVATION: 'ACTIVATION'>, probe_class=<ProbeC...Class.BLOCKING: 'BLOCKING'>, outcome=<ProbeResult.NOT_FOUND: 'NOT_FOUND'>, incomplete_reason=None, packet_ids=()), ...}
+w = "claim 'claim-0001'"
+
+    def _check_verdict(claim: EffectClaim, effective: dict, probes: dict, w: str) -> None:
+        """The recorded verdict must be the one the frozen verdict function yields."""
+        states = claim.obligations
+        necessary = claim.necessary_obligations
+        verdict = claim.verdict
+    
+        if any(states[o] is _E for o in necessary):
+            if verdict is not Verdict.ANALYSIS_ERROR:
+                raise c.fail(w, f"an ERROR on a necessary obligation is ANALYSIS_ERROR, never {verdict.value}")
+        elif verdict is Verdict.ANALYSIS_ERROR:
+            raise c.fail(w, "ANALYSIS_ERROR requires an ERROR on a necessary obligation")
+    
+        if verdict is not Verdict.ANALYSIS_ERROR:
+            proven_blockers = _proven_effect_blockers(claim, probes)
+            if verdict is Verdict.PROVEN_EFFECT and proven_blockers:
+>               raise c.fail(w, "PROVEN_EFFECT is not established: " + "; ".join(proven_blockers))
+E               actenon_scan.effects._codec.EffectModelError: claim 'claim-0001': PROVEN_EFFECT is not established: BLOCKING probe CP-PER-03 found counter-evidence
+
+actenon_scan/effects/claim.py:1118: EffectModelError
+________________ test_M3_opaque_unknown_singleton_without_sink _________________
+
+    def test_M3_opaque_unknown_singleton_without_sink():
+>       claim = EffectClaim.from_dict(fixture('valid_opaque_abstain'))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:136: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:953: in from_dict
+    return cls(
+<string>:23: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = EffectClaim(claim_id='claim1', capability_id='cap1', invocation_id='inv1', effect_class='EXTERNAL_PERSISTENT_STATE_EFF...es=(), contradictions=(), closure=None, verdict_rationale=None, priority=None, receipt_id=None, schema_version='0.1.1')
+
+    def __post_init__(self) -> None:
+        w = f"claim {self.claim_id!r}"
+        if self.schema_version != SCHEMA_VERSION:
+>           raise c.fail(w, f"schema_version must be {SCHEMA_VERSION}")
+E           actenon_scan.effects._codec.EffectModelError: claim 'claim1': schema_version must be 0.1.0
+
+actenon_scan/effects/claim.py:849: EffectModelError
+_________ test_M4_runtime_negative_conforms_and_missing_closure_fails __________
+
+    def test_M4_runtime_negative_conforms_and_missing_closure_fails():
+        data = no_effect_claim().to_dict()
+>       schema_validator('effect_claim').validate(data)
+
+tests/effect_claims/test_m0r1_regressions.py:153: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = Draft202012Validator(schema={'$comment': 'AREF-002 as ...re mandatory.', '$defs': {'acquisition': {'additionalProperti.....}, ...}, '$id': 'https://acte...im-0.1.1.json', '$schema': 'https://json...020-12/schema', ...}, format_checker=None)
+args = ({'schema_version': '0.1.0', 'claim_id': 'claim-0001', 'capability_id': 'cap-zones-settings-tool', 'invocation_id': 'inv-src-tools-zones.ts-L57C11', ...},)
+kwargs = {}
+
+    def validate(self, *args, **kwargs):
+        for error in self.iter_errors(*args, **kwargs):
+>           raise error
+E           jsonschema.exceptions.ValidationError: '0.1.1' was expected
+E           
+E           Failed validating 'const' in schema['properties']['schema_version']:
+E               {'const': '0.1.1'}
+E           
+E           On instance['schema_version']:
+E               '0.1.0'
+
+../m0_review_env/lib/python3.14/site-packages/jsonschema/validators.py:450: ValidationError
+_________________ test_sealed_amendment_examples[valid_proven] _________________
+
+case = {'id': 'valid_proven', 'kind': 'claim', 'file': 'examples/valid_proven.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b6f39b0>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_______________ test_sealed_amendment_examples[valid_no_effect] ________________
+
+case = {'id': 'valid_no_effect', 'kind': 'claim', 'file': 'examples/valid_no_effect.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b73a870>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_____________ test_sealed_amendment_examples[valid_opaque_abstain] _____________
+
+case = {'id': 'valid_opaque_abstain', 'kind': 'claim', 'file': 'examples/valid_opaque_abstain.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:953: in from_dict
+    return cls(
+<string>:23: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = EffectClaim(claim_id='claim1', capability_id='cap1', invocation_id='inv1', effect_class='EXTERNAL_PERSISTENT_STATE_EFF...es=(), contradictions=(), closure=None, verdict_rationale=None, priority=None, receipt_id=None, schema_version='0.1.1')
+
+    def __post_init__(self) -> None:
+        w = f"claim {self.claim_id!r}"
+        if self.schema_version != SCHEMA_VERSION:
+>           raise c.fail(w, f"schema_version must be {SCHEMA_VERSION}")
+E           actenon_scan.effects._codec.EffectModelError: claim 'claim1': schema_version must be 0.1.0
+
+actenon_scan/effects/claim.py:849: EffectModelError
+_____________ test_sealed_amendment_examples[valid_analysis_error] _____________
+
+case = {'id': 'valid_analysis_error', 'kind': 'claim', 'file': 'examples/valid_analysis_error.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b73b4d0>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+________ test_sealed_amendment_examples[valid_unregistered_hypothesis] _________
+
+case = {'id': 'valid_unregistered_hypothesis', 'kind': 'claim', 'file': 'examples/valid_unregistered_hypothesis.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b73ab70>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+____________ test_sealed_amendment_examples[valid_precedence_found] ____________
+
+case = {'id': 'valid_precedence_found', 'kind': 'claim', 'file': 'examples/valid_precedence_found.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b73b590>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+___________ test_sealed_amendment_examples[valid_helper_precedence] ____________
+
+case = {'id': 'valid_helper_precedence', 'kind': 'claim', 'file': 'examples/valid_helper_precedence.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b739df0>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_____ test_sealed_amendment_examples[valid_uncertainty_preserves_conflict] _____
+
+case = {'id': 'valid_uncertainty_preserves_conflict', 'kind': 'claim', 'file': 'examples/valid_uncertainty_preserves_conflict.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b739970>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+____________ test_sealed_amendment_examples[valid_hypothesis_found] ____________
+
+case = {'id': 'valid_hypothesis_found', 'kind': 'claim', 'file': 'examples/valid_hypothesis_found.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67df10>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_________ test_sealed_amendment_examples[valid_missing_probe_abstain] __________
+
+case = {'id': 'valid_missing_probe_abstain', 'kind': 'claim', 'file': 'examples/valid_missing_probe_abstain.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67fe90>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+________ test_sealed_amendment_examples[valid_incomplete_probe_abstain] ________
+
+case = {'id': 'valid_incomplete_probe_abstain', 'kind': 'claim', 'file': 'examples/valid_incomplete_probe_abstain.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67f470>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_________ test_sealed_amendment_examples[valid_open_frontier_abstain] __________
+
+case = {'id': 'valid_open_frontier_abstain', 'kind': 'claim', 'file': 'examples/valid_open_frontier_abstain.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67f0b0>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_____________ test_sealed_amendment_examples[valid_receipt_proven] _____________
+
+case = {'id': 'valid_receipt_proven', 'kind': 'receipt', 'file': 'examples/valid_receipt_proven.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/receipt.py:440: in from_dict
+    r = c.Reader(data, where, ("schema_version", "receipt_id", "claim_id", "capability_id", "invocation_id",
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67f890>
+data = {'schema_version': '0.1.1', 'claim_id': 'claim1', 'capability_id': 'cap1', 'invocation_id': 'inv1', ...}
+where = 'receipt'
+required = ('schema_version', 'receipt_id', 'claim_id', 'capability_id', 'invocation_id', 'effect_class', ...)
+optional = ('rendering_constraints',)
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: receipt: unknown key(s) ['claim_snapshot']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+___________ test_sealed_amendment_examples[valid_receipt_no_effect] ____________
+
+case = {'id': 'valid_receipt_no_effect', 'kind': 'receipt', 'file': 'examples/valid_receipt_no_effect.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/receipt.py:440: in from_dict
+    r = c.Reader(data, where, ("schema_version", "receipt_id", "claim_id", "capability_id", "invocation_id",
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67fe30>
+data = {'schema_version': '0.1.1', 'claim_id': 'claim1', 'capability_id': 'cap1', 'invocation_id': 'inv1', ...}
+where = 'receipt'
+required = ('schema_version', 'receipt_id', 'claim_id', 'capability_id', 'invocation_id', 'effect_class', ...)
+optional = ('rendering_constraints',)
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: receipt: unknown key(s) ['claim_snapshot', 'closure']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+____________ test_sealed_amendment_examples[valid_receipt_abstain] _____________
+
+case = {'id': 'valid_receipt_abstain', 'kind': 'receipt', 'file': 'examples/valid_receipt_abstain.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/receipt.py:440: in from_dict
+    r = c.Reader(data, where, ("schema_version", "receipt_id", "claim_id", "capability_id", "invocation_id",
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67cbf0>
+data = {'schema_version': '0.1.1', 'claim_id': 'claim1', 'capability_id': 'cap1', 'invocation_id': 'inv1', ...}
+where = 'receipt'
+required = ('schema_version', 'receipt_id', 'claim_id', 'capability_id', 'invocation_id', 'effect_class', ...)
+optional = ('rendering_constraints',)
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: receipt: unknown key(s) ['claim_snapshot']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_________ test_sealed_amendment_examples[valid_receipt_analysis_error] _________
+
+case = {'id': 'valid_receipt_analysis_error', 'kind': 'receipt', 'file': 'examples/valid_receipt_analysis_error.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/receipt.py:440: in from_dict
+    r = c.Reader(data, where, ("schema_version", "receipt_id", "claim_id", "capability_id", "invocation_id",
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b8ec9b0>
+data = {'schema_version': '0.1.1', 'claim_id': 'claim1', 'capability_id': 'cap1', 'invocation_id': 'inv1', ...}
+where = 'receipt'
+required = ('schema_version', 'receipt_id', 'claim_id', 'capability_id', 'invocation_id', 'effect_class', ...)
+optional = ('rendering_constraints',)
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: receipt: unknown key(s) ['claim_snapshot']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+________ test_sealed_amendment_examples[valid_receipt_found_precedence] ________
+
+case = {'id': 'valid_receipt_found_precedence', 'kind': 'receipt', 'file': 'examples/valid_receipt_found_precedence.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/receipt.py:440: in from_dict
+    r = c.Reader(data, where, ("schema_version", "receipt_id", "claim_id", "capability_id", "invocation_id",
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b8ee0f0>
+data = {'schema_version': '0.1.1', 'claim_id': 'claim1', 'capability_id': 'cap1', 'invocation_id': 'inv1', ...}
+where = 'receipt'
+required = ('schema_version', 'receipt_id', 'claim_id', 'capability_id', 'invocation_id', 'effect_class', ...)
+optional = ('rendering_constraints',)
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: receipt: unknown key(s) ['claim_snapshot']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_______________ test_sealed_amendment_examples[valid_agreement] ________________
+
+case = {'id': 'valid_agreement', 'kind': 'claim', 'file': 'examples/valid_agreement.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b67dcd0>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_______________ test_sealed_amendment_examples[valid_divergent] ________________
+
+case = {'id': 'valid_divergent', 'kind': 'claim', 'file': 'examples/valid_divergent.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b8ee1b0>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+______________ test_sealed_amendment_examples[valid_multi_error] _______________
+
+case = {'id': 'valid_multi_error', 'kind': 'claim', 'file': 'examples/valid_multi_error.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b8efb30>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_________________ test_sealed_amendment_examples[valid_ledger] _________________
+
+case = {'id': 'valid_ledger', 'kind': 'ledger', 'file': 'examples/valid_ledger.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/ledger.py:727: in from_dict
+    return cls(
+<string>:22: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = CoverageLedger(enabled_effect_classes=['EXTERNAL_PERSISTENT_STATE_EFFECT'], budgets=Budgets(max_ladder_tier=<LadderTie..._id='priority-v1', contradictions=None, counter_evidence=None, evidence=None, performance=None, schema_version='0.1.1')
+
+    def __post_init__(self) -> None:
+        w = "ledger"
+        if self.schema_version != SCHEMA_VERSION:
+>           raise c.fail(w, f"schema_version must be {SCHEMA_VERSION}")
+E           actenon_scan.effects._codec.EffectModelError: ledger: schema_version must be 0.1.0
+
+actenon_scan/effects/ledger.py:464: EffectModelError
+______ test_sealed_amendment_examples[valid_single_established_shorthand] ______
+
+case = {'id': 'valid_single_established_shorthand', 'kind': 'claim', 'file': 'examples/valid_single_established_shorthand.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b8ed550>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+______ test_sealed_amendment_examples[valid_unrelated_frontier_negative] _______
+
+case = {'id': 'valid_unrelated_frontier_negative', 'kind': 'claim', 'file': 'examples/valid_unrelated_frontier_negative.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b8efe30>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_____________ test_sealed_amendment_examples[valid_multi_conflict] _____________
+
+case = {'id': 'valid_multi_conflict', 'kind': 'claim', 'file': 'examples/valid_multi_conflict.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b783530>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+__________ test_sealed_amendment_examples[valid_error_over_conflict] ___________
+
+case = {'id': 'valid_error_over_conflict', 'kind': 'claim', 'file': 'examples/valid_error_over_conflict.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b8ee690>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+_______ test_sealed_amendment_examples[valid_ledger_overlapping_errors] ________
+
+case = {'id': 'valid_ledger_overlapping_errors', 'kind': 'ledger', 'file': 'examples/valid_ledger_overlapping_errors.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/ledger.py:727: in from_dict
+    return cls(
+<string>:22: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = CoverageLedger(enabled_effect_classes=['EXTERNAL_PERSISTENT_STATE_EFFECT'], budgets=Budgets(max_ladder_tier=<LadderTie..._id='priority-v1', contradictions=None, counter_evidence=None, evidence=None, performance=None, schema_version='0.1.1')
+
+    def __post_init__(self) -> None:
+        w = "ledger"
+        if self.schema_version != SCHEMA_VERSION:
+>           raise c.fail(w, f"schema_version must be {SCHEMA_VERSION}")
+E           actenon_scan.effects._codec.EffectModelError: ledger: schema_version must be 0.1.0
+
+actenon_scan/effects/ledger.py:464: EffectModelError
+__________ test_sealed_amendment_examples[valid_negative_precedence] ___________
+
+case = {'id': 'valid_negative_precedence', 'kind': 'claim', 'file': 'examples/valid_negative_precedence.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b781250>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+______ test_sealed_amendment_examples[valid_receipt_negative_precedence] _______
+
+case = {'id': 'valid_receipt_negative_precedence', 'kind': 'receipt', 'file': 'examples/valid_receipt_negative_precedence.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/receipt.py:440: in from_dict
+    r = c.Reader(data, where, ("schema_version", "receipt_id", "claim_id", "capability_id", "invocation_id",
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b781c70>
+data = {'schema_version': '0.1.1', 'claim_id': 'claim1', 'capability_id': 'cap1', 'invocation_id': 'inv1', ...}
+where = 'receipt'
+required = ('schema_version', 'receipt_id', 'claim_id', 'capability_id', 'invocation_id', 'effect_class', ...)
+optional = ('rendering_constraints',)
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: receipt: unknown key(s) ['claim_snapshot', 'closure']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+____ test_whole_claim_candidate_order_and_equal_states_preserve_identities _____
+
+    def test_whole_claim_candidate_order_and_equal_states_preserve_identities():
+        base = fixture('valid_agreement')
+>       original = EffectClaim.from_dict(base)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:965: in from_dict
+    evidence_packets=many("evidence_packets", EvidencePacket.from_dict),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:951: in many
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+           ^^^^^
+actenon_scan/effects/claim.py:951: in <genexpr>
+    return tuple(parse(item, f"{r.at(key)}[{i}]") for i, item in enumerate(items))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/evidence.py:309: in from_dict
+    r = c.Reader(data, where, (
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <actenon_scan.effects._codec.Reader object at 0x10b783a10>
+data = {'packet_id': 'c1-implementation', 'tier': 'L0', 'kind': 'local_binding', 'locator': {'path': 'synthetic/subject.py', 'start_line': 10, 'end_line': 10}, ...}
+where = 'claim.evidence_packets[0]'
+required = ('packet_id', 'tier', 'kind', 'locator', 'assertion', 'polarity', ...)
+optional = ('derived_from_rule_id', 'rule_match_type', 'notes')
+
+    def __init__(self, data: Any, where: str, required: Iterable[str], optional: Iterable[str] = ()):
+        if not isinstance(data, Mapping):
+            raise fail(where, f"expected an object, got {type(data).__name__}")
+        required = tuple(required)
+        allowed = set(required) | set(optional)
+        unknown = sorted(k for k in data if k not in allowed)
+        if unknown:
+>           raise fail(where, f"unknown key(s) {unknown}")
+E           actenon_scan.effects._codec.EffectModelError: claim.evidence_packets[0]: unknown key(s) ['binding']
+
+actenon_scan/effects/_codec.py:174: EffectModelError
+=============================== warnings summary ===============================
+../m0_review_env/lib/python3.14/site-packages/_pytest/python.py:124
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/python.py:124: PytestRemovedIn10Warning: Passing a non-Collection iterable to parametrize is deprecated.
+  Test: tests/effect_claims/test_m0r1_regressions.py::test_M2_every_ordered_pair, argvalues type: product
+  Please convert to a list or tuple.
+  See https://docs.pytest.org/en/stable/deprecations.html#parametrize-iterators
+    metafunc.parametrize(*marker.args, **marker.kwargs, _param_mark=marker)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_H1_two_candidates_implementation_error_cannot_prove
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_H2_positive_ephemeral_is_not_persistence_support
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_H3_L1_package_provenance_cannot_override_contract
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_H4_uncertainty_cannot_hide_conflict_to_allow_negative
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_H5_receipt_open_frontier_cannot_load_as_negative
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_H6_impossible_error_conflict_negative_population_rejected
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_M1_hypothesis_found_does_not_veto_proof
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_M3_opaque_unknown_singleton_without_sink
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_M4_runtime_negative_conforms_and_missing_closure_fails
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_proven]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_no_effect]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_opaque_abstain]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_analysis_error]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_unregistered_hypothesis]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_precedence_found]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_helper_precedence]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_uncertainty_preserves_conflict]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_hypothesis_found]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_missing_probe_abstain]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_incomplete_probe_abstain]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_open_frontier_abstain]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_receipt_proven]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_receipt_no_effect]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_receipt_abstain]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_receipt_analysis_error]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_receipt_found_precedence]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_agreement]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_divergent]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_multi_error]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_ledger]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_single_established_shorthand]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_unrelated_frontier_negative]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_multi_conflict]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_error_over_conflict]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_ledger_overlapping_errors]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_negative_precedence]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_receipt_negative_precedence]
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_whole_claim_candidate_order_and_equal_states_preserve_identities
+38 failed, 65 passed, 1 warning in 0.97s

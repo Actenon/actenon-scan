@@ -1,0 +1,55 @@
+{
+  "_comment": "Positive instance for schema/rei-report-fragment.schema.json. Shows the additive delta REI would contribute to a results.json, applied to a two-capability scan. ILLUSTRATIVE ONLY - not the output of a real scan. The counters are deliberately set so that known=1, unknown=1 and known+unknown equals the capability count (AREF-001 I-11), and so that the all-unknown misreading risk is visible: if both were unknown, the by_unresolved_reason breakdown would be the only thing distinguishing 'we could not tell' from 'there is nothing here'.",
+  "rei_schema_version": "0.1.0",
+  "resource_effect_catalogue_version": "0.1.0-draft",
+  "resource_effect_known_count": 1,
+  "resource_effect_unknown_count": 1,
+  "resource_effect_by_kind": {
+    "filesystem_path": 1,
+    "unknown_resource": 1
+  },
+  "resource_effect_by_unresolved_reason": {
+    "scope_requires_predicate_analysis": 0,
+    "rule_id_not_in_catalogue": 1
+  },
+  "capabilities": [
+    {
+      "file": "agent/tools.py",
+      "line": 42,
+      "rule_id": "DATA-DELETE-OS",
+      "state": "REVIEW_REQUIRED",
+      "resource_effect": {
+        "effect": "file_delete",
+        "kind": "filesystem_path",
+        "scope": "single",
+        "controllability": "model_controlled",
+        "certainty": "heuristic",
+        "rule_id": "DATA-DELETE-OS",
+        "normalised_rule_id": "DATA-DELETE-OS",
+        "language": "python",
+        "catalogue_status": "draft",
+        "selector": { "text": "target", "origin": "parameter", "certainty": "heuristic" },
+        "unresolved_reason": null
+      }
+    },
+    {
+      "file": "agent/tools.py",
+      "line": 77,
+      "rule_id": "SOME-FUTURE-RULE",
+      "state": "GUARD_FOUND",
+      "resource_effect": {
+        "effect": "unknown_effect",
+        "kind": "unknown_resource",
+        "scope": "unknown",
+        "controllability": "unknown",
+        "certainty": "unknown",
+        "rule_id": "SOME-FUTURE-RULE",
+        "normalised_rule_id": "SOME-FUTURE-RULE",
+        "language": "python",
+        "catalogue_status": "absent",
+        "selector": null,
+        "unresolved_reason": "rule_id_not_in_catalogue"
+      }
+    }
+  ]
+}

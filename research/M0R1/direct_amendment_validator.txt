@@ -1,0 +1,87 @@
+PASS schema evidence
+PASS schema effect_claim
+PASS schema effect_receipt
+PASS schema coverage_ledger
+PASS every schema reference resolves locally
+PASS valid_proven accepted
+PASS valid_no_effect accepted
+PASS valid_opaque_abstain accepted
+PASS valid_analysis_error accepted
+PASS H1_error_erased CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS H1_error_bad_selection SELECTION_STATE: selection requires SELECTION_ERROR, not SINGLE_ESTABLISHED
+PASS H2_positive_state_is_ephemeral SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'state_is_ephemeral'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_state_is_guaranteed_rolled_back SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'state_is_guaranteed_rolled_back'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_dry_run_in_force SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'dry_run_in_force'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_test_double_in_force SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'test_double_in_force'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_noop SCHEMA: {'packet_id': 'c1-operation', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 24, 'end_line': 24}, 'assertion': {'predicate': 'operation_is_no_op'}, 'polarity': 'POSITIVE', 'obligation': 'OPERATION', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for OPERATION', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_transport_persistence SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'transport_primitive', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'state_is_durably_committed'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_transport_operation SCHEMA: {'packet_id': 'c1-operation', 'tier': 'L1', 'kind': 'transport_primitive', 'locator': {'path': 'synthetic/subject.py', 'start_line': 24, 'end_line': 24}, 'assertion': {'predicate': 'operation_is_mutation'}, 'polarity': 'POSITIVE', 'obligation': 'OPERATION', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for OPERATION', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_unregistered_probative SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'unregistered_fact'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS valid_unregistered_hypothesis accepted
+PASS valid_precedence_found accepted
+PASS H3_tier_not_selection_proof PRECEDENCE_SELECTION: selected-body binding witness missing or does not bind this invocation/body
+PASS H3_unlinked_body PRECEDENCE_LINK: winning evidence is outside the linked body span
+PASS H3_package_not_body SCHEMA: {'packet_id': 'c1-operation', 'tier': 'L1', 'kind': 'package_provenance', 'locator': {'path': 'synthetic/subject.py', 'start_line': 24, 'end_line': 24}, 'assertion': {'predicate': 'operation_is_mutation'}, 'polarity': 'POSITIVE', 'obligation': 'OPERATION', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for OPERATION', 'verbatim': True}} is not valid under any of the given schemas
+PASS H3_no_recorded_provenance SCHEMA: 'precedence' is a required property
+PASS valid_helper_precedence accepted
+PASS valid_uncertainty_preserves_conflict accepted
+PASS H4_uncertainty_erases_conflict PROOF_STATE: candidate c1 PERSISTENCE requires CONFLICTING, recorded UNKNOWN
+PASS H4_conflict_negative_closure CLOSURE_C3: unresolved contradiction forbids NO_EFFECT
+PASS valid_hypothesis_found accepted
+PASS M1_blanket_found_veto VERDICT: evidence/closure requires PROVEN_EFFECT, recorded ABSTAIN
+PASS M1_missing_positive VERDICT: evidence/closure requires ABSTAIN, recorded PROVEN_EFFECT
+PASS valid_missing_probe_abstain accepted
+PASS M1_incomplete_positive VERDICT: evidence/closure requires ABSTAIN, recorded PROVEN_EFFECT
+PASS valid_incomplete_probe_abstain accepted
+PASS M3_opaque_false_establishment SELECTION_STATE: selection requires UNRESOLVED_IDENTITY, not SINGLE_ESTABLISHED
+PASS M4_missing_closure SCHEMA: 'closure' is a required property
+PASS M4_false_closure_flag SCHEMA: True was expected
+PASS valid_open_frontier_abstain accepted
+PASS H5_claim_open_negative CLOSURE_C5: relevant unopened frontier prevents negative closure
+PASS valid_receipt_proven accepted
+PASS valid_receipt_no_effect accepted
+PASS valid_receipt_abstain accepted
+PASS valid_receipt_analysis_error accepted
+PASS valid_receipt_found_precedence accepted
+PASS H5_receipt_strengthened RECEIPT_PROJECTION: receipt differs from validated claim: verdict
+PASS H5_receipt_and_snapshot_open_negative CLOSURE_C5: relevant unopened frontier prevents negative closure
+PASS valid_agreement accepted
+PASS valid_divergent accepted
+PASS M2_divergence_not_contradiction CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS H1_agreement_hides_error CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS valid_multi_error accepted
+PASS valid_ledger accepted
+PASS H6_impossible_settled_population LEDGER_DISJOINT: ERROR and CONFLICTING on BOUNDARY are disjoint and cannot belong to settled populations
+PASS H6_error_total LEDGER_ERROR_TOTAL: error total counts ANALYSIS_ERROR claims
+PASS H6_error_breakdown LEDGER_ERROR_BREAKDOWN: error breakdown must equal ERROR marginals
+PASS H6_cause_partition LEDGER_ERROR_BREAKDOWN: primary-cause breakdown partitions errored claims
+PASS valid_single_established_shorthand accepted
+PASS M3_opaque_omitted_states CANDIDATE_STATES: explicit candidate states required except unique established shorthand
+PASS M3_opaque_supported_identity OPAQUE_IDENTITY: opaque/unresolved identity cannot be established by a label or locator
+PASS H3_other_source_identity PRECEDENCE_LINK: winning evidence is outside the linked body span
+PASS valid_unrelated_frontier_negative accepted
+PASS H5_receipt_missing_closure SCHEMA: 'closure' is a required property
+PASS valid_multi_conflict accepted
+PASS M2_conflict_erased CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS valid_error_over_conflict accepted
+PASS M2_error_erased CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS H1_error_as_abstain VERDICT: evidence/closure requires ANALYSIS_ERROR, recorded ABSTAIN
+PASS valid_ledger_overlapping_errors accepted
+PASS valid_negative_precedence accepted
+PASS valid_receipt_negative_precedence accepted
+PASS all 25 aggregation pairs
+PASS 125 triples order independent
+PASS aggregation associative
+PASS valid records preserve JSON round-trip state
+PASS claim decisions invariant to reversed record order
+PASS all four verdict branches have accepted examples
+PASS missing verifier exits 2, never skips
+FAIL frozen inputs byte-identical
+FAIL frozen input inventory unchanged
+PASS North-Star vocabulary unchanged
+PASS amended selection vocabulary matches schema
+PASS assertion registry exactly encoded in schema
+PASS sealed file inventory exact
+PASS sealed hashes and byte counts
+PASS SHA inventory agrees with JSON manifest
+86 checks; 84 passed; 2 failed

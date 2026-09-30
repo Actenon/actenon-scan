@@ -1,0 +1,32 @@
+{
+  "A": {
+    "expected": "NO_EFFECT",
+    "result": "NO_EFFECT",
+    "reason": null
+  },
+  "B": {
+    "expected": "ABSTAIN",
+    "result": "ABSTAIN",
+    "reason": null
+  },
+  "C": {
+    "expected": "NO_EFFECT",
+    "result": "NO_EFFECT",
+    "reason": null
+  },
+  "D": {
+    "expected": "ABSTAIN",
+    "result": "ABSTAIN",
+    "reason": null
+  },
+  "E": {
+    "expected": "ABSTAIN",
+    "result": "ABSTAIN",
+    "reason": null
+  },
+  "F": {
+    "expected": "INVALID",
+    "result": "INVALID",
+    "reason": "acquisition: frontier entry blames budget max_dependency_hops, which is not recorded as exhausted"
+  }
+}

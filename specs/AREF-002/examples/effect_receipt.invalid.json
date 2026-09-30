@@ -1,0 +1,67 @@
+{
+  "_case": "INVALID twice over. The answers object omits the 'unknowns' key, so the receipt does not answer requirement 16's eleventh question; and the boundary answer claims SUPPORTED while naming no packet that settled it. A receipt that cannot answer a question must answer it with an explicit unknown, never omit the key.",
+  "_expected_failure": "answers is missing the required key 'unknowns'; boundary is SUPPORTED with an empty settled_by_packet_ids",
+  "schema_version": "0.1.0",
+  "receipt_id": "rcpt-bad-01",
+  "claim_id": "claim-bad-02",
+  "capability_id": "cap-upload-tool",
+  "invocation_id": "inv-src-upload.py-L14C9",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "verdict": "PROVEN_EFFECT",
+  "answers": {
+    "effect": {
+      "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+      "verdict": "PROVEN_EFFECT",
+      "statement": "Writes an object to external storage."
+    },
+    "implementation": {
+      "selection_state": "SINGLE_ESTABLISHED",
+      "candidates": [
+        {
+          "candidate_id": "cand-1",
+          "kind": "RESOLVED_LOCAL",
+          "symbol": "Uploader.put"
+        }
+      ]
+    },
+    "resource": {
+      "coordinates": [],
+      "scope": "single"
+    },
+    "activation": {
+      "state": "SUPPORTED",
+      "settled_by_packet_ids": ["pkt-a"]
+    },
+    "boundary": {
+      "state": "SUPPORTED",
+      "settled_by_packet_ids": []
+    },
+    "operation": {
+      "state": "SUPPORTED",
+      "settled_by_packet_ids": ["pkt-c"]
+    },
+    "persistence": {
+      "state": "SUPPORTED",
+      "settled_by_packet_ids": ["pkt-d"]
+    },
+    "control": {
+      "TRIGGER_CONTROL": "SUPPORTED",
+      "TARGET_CONTROL": "SUPPORTED",
+      "CONTENT_CONTROL": "SUPPORTED"
+    },
+    "authority": {
+      "state": "UNKNOWN"
+    },
+    "contradictions": {
+      "contradictions": [],
+      "counter_evidence_found": []
+    }
+  },
+  "evidence_packets": [],
+  "probe_outcomes": [],
+  "acquisition": {
+    "highest_tier_reached": "L5",
+    "stop_reason": "SETTLED",
+    "tiers_attempted": ["L0", "L1", "L5"]
+  }
+}

@@ -1,0 +1,443 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002/coverage-ledger-0.1.0.json",
+  "title": "AREF-002 coverage ledger",
+  "description": "A first-class required output whenever the claim layer runs, in every format (requirement 17). The ledger exists so that '0 PROVEN_EFFECT' can never be rendered as 'safe'. It is the only instrument that distinguishes 'this repository has no external persistent effects' from 'we could not open a single dependency'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enabled_effect_classes",
+    "budgets",
+    "capabilities",
+    "invocations",
+    "claims",
+    "verdict_distribution",
+    "obligation_state_distribution",
+    "highest_tier_reached_histogram",
+    "stop_reason_histogram",
+    "budget_exhaustion",
+    "frontier",
+    "analysis_errors",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "enabled_effect_classes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://actenon.dev/schema/aref-002/effect-claim-0.1.0.json#/$defs/effectClass"
+      }
+    },
+    "budgets": {
+      "$ref": "#/$defs/budgets"
+    },
+    "priority_policy_id": {
+      "type": "string",
+      "description": "Recorded so that a run's investigation ordering can be reproduced."
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discovered"],
+      "properties": {
+        "discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_language": {
+          "$ref": "#/$defs/countByString"
+        }
+      }
+    },
+    "invocations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enumerated"],
+      "properties": {
+        "enumerated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Every call site in every capability's analysed region, independent of rule matching. This is the denominator the architecture is accountable to."
+        },
+        "with_matching_sink_rule": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Reported for comparison only. Under the superseded sink-centric design this was the population that could produce a record at all."
+        },
+        "without_matching_sink_rule": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_language": {
+          "$ref": "#/$defs/countByString"
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instantiated", "investigated", "not_investigated"],
+      "properties": {
+        "instantiated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Instantiation is cheap and universal; investigation is budgeted. The gap between this and 'investigated' is the coverage gap."
+        },
+        "scheduled": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "investigated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_investigated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Reported on its own line because an uninvestigated claim is the most dangerous possible thing to render as a negative result."
+        },
+        "instantiated_without_any_rule_match": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Direct evidence for requirement 2: claims that exist with no sink rule involved."
+        },
+        "by_language": {
+          "$ref": "#/$defs/countByString"
+        }
+      }
+    },
+    "verdict_distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["PROVEN_EFFECT", "NO_EFFECT", "ABSTAIN", "ANALYSIS_ERROR"],
+      "properties": {
+        "PROVEN_EFFECT": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "NO_EFFECT": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ABSTAIN": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ANALYSIS_ERROR": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "obligation_state_distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "PERSISTENCE"
+      ],
+      "properties": {
+        "IMPLEMENTATION": {
+          "$ref": "#/$defs/proofStateCounts"
+        },
+        "ACTIVATION": {
+          "$ref": "#/$defs/proofStateCounts"
+        },
+        "BOUNDARY": {
+          "$ref": "#/$defs/proofStateCounts"
+        },
+        "OPERATION": {
+          "$ref": "#/$defs/proofStateCounts"
+        },
+        "PERSISTENCE": {
+          "$ref": "#/$defs/proofStateCounts"
+        }
+      }
+    },
+    "highest_tier_reached_histogram": {
+      "$ref": "#/$defs/tierCounts"
+    },
+    "stop_reason_histogram": {
+      "$ref": "#/$defs/countByString"
+    },
+    "budget_exhaustion": {
+      "description": "Counts keyed by budget name, so that 'we configured it too small' is never confused with 'the architecture cannot do this'.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_ladder_tier": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_dependency_hops": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_files_opened": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_bytes_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_wall_ms_per_claim": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_claims_investigated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_implementation_candidates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "frontier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "by_tier", "by_reason"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_tier": {
+          "$ref": "#/$defs/tierCounts"
+        },
+        "by_reason": {
+          "$ref": "#/$defs/countByString"
+        }
+      }
+    },
+    "contradictions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolved_by_implementation_precedence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_obligation": {
+          "$ref": "#/$defs/countByString"
+        }
+      }
+    },
+    "counter_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "blocking_probes_executed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking_probes_incomplete": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_probe_id": {
+          "$ref": "#/$defs/countByString"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packets_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "probative": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hypothesis_only": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_tier": {
+          "$ref": "#/$defs/tierCounts"
+        },
+        "fidelity_checked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fidelity_failures": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Must be zero. A non-zero value means the analyser cited text that is not there."
+        }
+      }
+    },
+    "analysis_errors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_obligation": {
+          "$ref": "#/$defs/countByString"
+        },
+        "by_cause": {
+          "$ref": "#/$defs/countByString"
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wall_ms_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "claims_hitting_wall_budget": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artefacts_opened": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_hit_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "marginal_wall_ms_by_tier": {
+          "$ref": "#/$defs/tierCounts"
+        }
+      }
+    },
+    "interpretation": {
+      "$ref": "#/$defs/interpretation"
+    }
+  },
+  "$defs": {
+    "countByString": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "proofStateCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SUPPORTED", "REFUTED", "UNKNOWN", "CONFLICTING", "ERROR"],
+      "properties": {
+        "SUPPORTED": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "REFUTED": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "UNKNOWN": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "CONFLICTING": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ERROR": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "tierCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "L0": { "type": "integer", "minimum": 0 },
+        "L1": { "type": "integer", "minimum": 0 },
+        "L2": { "type": "integer", "minimum": 0 },
+        "L3": { "type": "integer", "minimum": 0 },
+        "L4": { "type": "integer", "minimum": 0 },
+        "L5": { "type": "integer", "minimum": 0 },
+        "L6": { "type": "integer", "minimum": 0 },
+        "L7": { "type": "integer", "minimum": 0 },
+        "L8": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_ladder_tier",
+        "max_dependency_hops",
+        "max_files_opened",
+        "max_bytes_read",
+        "max_wall_ms_per_claim",
+        "max_claims_investigated",
+        "max_implementation_candidates"
+      ],
+      "properties": {
+        "max_ladder_tier": {
+          "$ref": "https://actenon.dev/schema/aref-002/evidence-0.1.0.json#/$defs/tier"
+        },
+        "max_dependency_hops": { "type": "integer", "minimum": 0 },
+        "max_files_opened": { "type": "integer", "minimum": 0 },
+        "max_bytes_read": { "type": "integer", "minimum": 0 },
+        "max_wall_ms_per_claim": { "type": "integer", "minimum": 0 },
+        "max_claims_investigated": { "type": "integer", "minimum": 0 },
+        "max_implementation_candidates": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "interpretation": {
+      "description": "Required, literal, machine-readable statements of what the ledger does and does not mean. Required rather than advisory so that a downstream consumer cannot omit them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "abstained_claims_are_not_negative_results",
+        "uninvestigated_claims_are_not_negative_results",
+        "zero_proven_effect_does_not_mean_safe",
+        "statement"
+      ],
+      "properties": {
+        "abstained_claims_are_not_negative_results": {
+          "const": true
+        },
+        "uninvestigated_claims_are_not_negative_results": {
+          "const": true
+        },
+        "zero_proven_effect_does_not_mean_safe": {
+          "const": true
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable rendering of the three flags above, emitted verbatim alongside any summary of the results."
+        }
+      }
+    }
+  }
+}

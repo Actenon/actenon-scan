@@ -1,0 +1,157 @@
+........................................................................ [ 15%]
+........................................................F..F............ [ 30%]
+........................................................................ [ 45%]
+............................F........................................... [ 60%]
+...FF.........x......................................................... [ 75%]
+........................................................................ [ 90%]
+....................................F..........                          [100%]
+=================================== FAILURES ===================================
+_____ test_dependency_and_contract_evidence_names_package_and_version[L4] ______
+
+tier = <LadderTier.L4: 'L4'>
+
+    @pytest.mark.parametrize("tier", [LadderTier.L4, LadderTier.L5, LadderTier.L6])
+    def test_dependency_and_contract_evidence_names_package_and_version(tier):
+        kind = PacketKind.OPENAPI_OPERATION if tier is LadderTier.L6 else PacketKind.DEPENDENCY_SOURCE_BODY
+        obligation = Obligation.IMPLEMENTATION if tier is LadderTier.L4 else Obligation.BOUNDARY
+>       with pytest.raises(EffectModelError, match="package and version resolution"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EffectModelError
+
+tests/effect_claims/test_m0_evidence.py:76: Failed
+________ test_unpinned_source_is_recorded_as_unpinned_never_substituted ________
+
+    def test_unpinned_source_is_recorded_as_unpinned_never_substituted():
+        locator = SourceLocator(path="vendor/pkg/a.py", start_line=1, end_line=1, package="pkg",
+                                version_resolution=VersionResolution.UNPINNED)
+        packet("p", Obligation.BOUNDARY, tier=LadderTier.L5, kind=PacketKind.DEPENDENCY_SOURCE_BODY,
+               locator=locator, admissibility=Admissibility.HYPOTHESIS_ONLY)
+>       with pytest.raises(EffectModelError, match="pinned dependency source"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'pinned dependency source'
+E         Actual message: "packet 'p': PROBATIVE dependency body requires pinned version provenance"
+
+tests/effect_claims/test_m0_evidence.py:91: AssertionError
+__________ test_8_conflicting_receipt_cannot_be_downgraded_to_unknown __________
+
+    def test_8_conflicting_receipt_cannot_be_downgraded_to_unknown():
+        receipt = receipt_of(conflicting_claim())
+    
+        def downgrade(data):
+            data["answers"]["operation"] = {"state": "UNKNOWN", "settled_by_packet_ids": []}
+            for section in (data["answers"]["unknowns"], data["acquisition"]):
+                if "OPERATION" not in section["unresolved_obligations"]:
+                    section["unresolved_obligations"].append("OPERATION")
+    
+>       with pytest.raises(EffectModelError, match="receipt acquisition disagrees with underlying claim"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'receipt acquisition disagrees with underlying claim'
+E         Actual message: "receipt 'rcpt-1': OPERATION answer/settling packets disagree with underlying claim"
+
+tests/effect_claims/test_m0_receipt.py:142: AssertionError
+________ test_frozen_invalid_receipt_is_rejected_for_each_stated_reason ________
+
+    def test_frozen_invalid_receipt_is_rejected_for_each_stated_reason():
+        with pytest.raises(EffectModelError, match="schema_version must be 0.1.1"):
+            EffectReceipt.from_dict(example("effect_receipt.invalid"))
+        # Recreate both historical attacks on the amended wire contract.
+        data = amended_example("valid_receipt_proven")
+        del data["answers"]["unknowns"]
+>       with pytest.raises(EffectModelError, match="missing required field.*unknowns"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'missing required field.*unknowns'
+E         Actual message: "receipt.answers: missing required key(s) ['unknowns']"
+
+tests/effect_claims/test_m0_receipt.py:590: AssertionError
+________ test_completed_hypothesis_found_is_retained_in_proven_receipt _________
+
+    def test_completed_hypothesis_found_is_retained_in_proven_receipt():
+>       claim = EffectClaim.from_dict(amended_example("valid_found_hypothesis_proven"))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0_receipt.py:599: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/effect_claims/_spec.py:29: in amended_example
+    return json.loads((SPEC_DIR.parent / "AREF-002A" / "examples" / f"{name}.json").read_text())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/aref002_m0_review/specs/AREF-002A/examples/valid_found_hypothesis_proven.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/aref002_m0_review/specs/AREF-002A/examples/valid_found_hypothesis_proven.json'
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError
+______ test_sealed_amendment_examples[valid_unrelated_frontier_negative] _______
+
+case = {'id': 'valid_unrelated_frontier_negative', 'kind': 'claim', 'file': 'examples/valid_unrelated_frontier_negative.json', 'valid': True, ...}
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c:c['id'])
+    def test_sealed_amendment_examples(case):
+        data = json.loads((AMENDMENT/case['file']).read_text())
+        cls = {'claim':EffectClaim,'receipt':EffectReceipt,'ledger':CoverageLedger,'evidence':EvidencePacket}[case['kind']]
+        if case['valid']:
+>           loaded = cls.from_dict(data)
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1_regressions.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1056: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:625: in from_dict
+    frontier = tuple(FrontierEntry.from_dict(e, f"{r.at('frontier')}[{i}]") for i, e in enumerate(entries))
+               ^^^^^
+actenon_scan/effects/claim.py:625: in <genexpr>
+    frontier = tuple(FrontierEntry.from_dict(e, f"{r.at('frontier')}[{i}]") for i, e in enumerate(entries))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:519: in from_dict
+    return cls(origin=SourceLocator.from_dict(r.get("origin"), r.at("origin")),
+<string>:10: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = FrontierEntry(origin=SourceLocator(path='synthetic/subject.py', start_line=10, end_line=10, start_column=None, end_col...STED'>, target_symbol=None, target_package=None, might_settle=(<Obligation.OPERATION: 'OPERATION'>,), budget_name=None)
+
+    def __post_init__(self) -> None:
+        w = "frontier entry"
+        c.instance(SourceLocator, self.origin, f"{w}.origin")
+        object.__setattr__(self, "would_reach_tier", c.enum_value(LadderTier, self.would_reach_tier, f"{w}.would_reach_tier"))
+        object.__setattr__(self, "reason", c.enum_value(StopReason, self.reason, f"{w}.reason"))
+        c.optional_text(self.target_symbol, f"{w}.target_symbol")
+        c.optional_text(self.target_package, f"{w}.target_package")
+        object.__setattr__(self, "might_settle", c.enum_tuple(Obligation, self.might_settle, f"{w}.might_settle"))
+        object.__setattr__(self, "budget_name", c.optional_enum(BudgetName, self.budget_name, f"{w}.budget_name"))
+        if self.would_reach_tier is LadderTier.L8:
+            raise c.fail(w, "L8 is not a tier an edge can reach")
+        if self.reason not in FRONTIER_REASONS:
+            raise c.fail(w, f"{self.reason.value} is not a reason an edge is left unopened")
+        if (self.reason is StopReason.BUDGET_EXHAUSTED) != (self.budget_name is not None):
+>           raise c.fail(w, "a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED")
+E           actenon_scan.effects._codec.EffectModelError: frontier entry: a budget name is recorded exactly when the reason is BUDGET_EXHAUSTED
+
+actenon_scan/effects/claim.py:498: EffectModelError
+=========================== short test summary info ============================
+FAILED tests/effect_claims/test_m0_evidence.py::test_dependency_and_contract_evidence_names_package_and_version[L4]
+FAILED tests/effect_claims/test_m0_evidence.py::test_unpinned_source_is_recorded_as_unpinned_never_substituted
+FAILED tests/effect_claims/test_m0_receipt.py::test_8_conflicting_receipt_cannot_be_downgraded_to_unknown
+FAILED tests/effect_claims/test_m0_receipt.py::test_frozen_invalid_receipt_is_rejected_for_each_stated_reason
+FAILED tests/effect_claims/test_m0_receipt.py::test_completed_hypothesis_found_is_retained_in_proven_receipt
+FAILED tests/effect_claims/test_m0r1_regressions.py::test_sealed_amendment_examples[valid_unrelated_frontier_negative]
+6 failed, 472 passed, 1 xfailed in 1.42s

@@ -1,0 +1,33 @@
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+......................................................... [ 29%]
+...................................................................... [ 39%]
+........................................................s............... [ 49%]
+...................................s.................................... [ 60%]
+..............................................xx.x...................... [ 70%]
+....................................................................ssss [ 81%]
+sss...sss............................................................... [ 91%]
+........................................................                 [100%]
+=============================== warnings summary ===============================
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-eb4228e0-a278-4cf9-bca2-45cf98e51ea9
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-eb4228e0-a278-4cf9-bca2-45cf98e51ea9'
+    warnings.warn(
+
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-d2f7387c-757a-43b6-80d5-0fb8b471845d
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-d2f7387c-757a-43b6-80d5-0fb8b471845d'
+    warnings.warn(
+
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-0926e333-4163-4203-8a56-c8617da23ab4
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-0926e333-4163-4203-8a56-c8617da23ab4'
+    warnings.warn(
+
+../m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95
+  /Users/ross/Documents/Codex/2026-09-27/https-github-com-actenon-actenon-scan/work/m0_review_env/lib/python3.14/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-50ebd717-8e5e-4bdc-9554-cd85935c4aab
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/tz/y04t4d0900xdbmz96jp608180000gn/T/pytest-of-ross/garbage-50ebd717-8e5e-4bdc-9554-cd85935c4aab'
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+672 passed, 12 skipped, 3 xfailed, 4 warnings, 89 subtests passed in 8.68s

@@ -1,0 +1,63 @@
+{
+  "_case": "INVALID. The interpretation block asserts that zero PROVEN_EFFECT does mean safe, and that uninvestigated claims are negative results. The schema pins all three interpretation flags to true precisely so that this ledger cannot be emitted: it is the exact failure mode requirement 17 forbids, and the structural descendant of the shipped transitive-reachability defect where 3,297 unfollowed edges were reported as a clean result.",
+  "_expected_failure": "interpretation.zero_proven_effect_does_not_mean_safe and interpretation.uninvestigated_claims_are_not_negative_results must both be true",
+  "schema_version": "0.1.0",
+  "enabled_effect_classes": ["EXTERNAL_PERSISTENT_STATE_EFFECT"],
+  "budgets": {
+    "max_ladder_tier": "L1",
+    "max_dependency_hops": 0,
+    "max_files_opened": 10,
+    "max_bytes_read": 1024,
+    "max_wall_ms_per_claim": 1,
+    "max_claims_investigated": 1,
+    "max_implementation_candidates": 1
+  },
+  "capabilities": {
+    "discovered": 34
+  },
+  "invocations": {
+    "enumerated": 1284
+  },
+  "claims": {
+    "instantiated": 1284,
+    "investigated": 1,
+    "not_investigated": 1283
+  },
+  "verdict_distribution": {
+    "PROVEN_EFFECT": 0,
+    "NO_EFFECT": 0,
+    "ABSTAIN": 1,
+    "ANALYSIS_ERROR": 0
+  },
+  "obligation_state_distribution": {
+    "IMPLEMENTATION": { "SUPPORTED": 0, "REFUTED": 0, "UNKNOWN": 1, "CONFLICTING": 0, "ERROR": 0 },
+    "ACTIVATION": { "SUPPORTED": 0, "REFUTED": 0, "UNKNOWN": 1, "CONFLICTING": 0, "ERROR": 0 },
+    "BOUNDARY": { "SUPPORTED": 0, "REFUTED": 0, "UNKNOWN": 1, "CONFLICTING": 0, "ERROR": 0 },
+    "OPERATION": { "SUPPORTED": 0, "REFUTED": 0, "UNKNOWN": 1, "CONFLICTING": 0, "ERROR": 0 },
+    "PERSISTENCE": { "SUPPORTED": 0, "REFUTED": 0, "UNKNOWN": 1, "CONFLICTING": 0, "ERROR": 0 }
+  },
+  "highest_tier_reached_histogram": {
+    "L0": 1284
+  },
+  "stop_reason_histogram": {
+    "CLAIM_NOT_INVESTIGATED": 1283,
+    "BUDGET_EXHAUSTED": 1
+  },
+  "budget_exhaustion": {
+    "max_claims_investigated": 1283
+  },
+  "frontier": {
+    "total": 0,
+    "by_tier": {},
+    "by_reason": {}
+  },
+  "analysis_errors": {
+    "total": 0
+  },
+  "interpretation": {
+    "abstained_claims_are_not_negative_results": true,
+    "uninvestigated_claims_are_not_negative_results": false,
+    "zero_proven_effect_does_not_mean_safe": false,
+    "statement": "No effects found. Repository is clean."
+  }
+}

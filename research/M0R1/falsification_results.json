@@ -1,0 +1,232 @@
+{
+  "attempts": 35,
+  "passed": 35,
+  "failed": 0,
+  "results": [
+    {
+      "attempt": "H1_error_erased",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': claim-level IMPLEMENTATION is SUPPORTED but candidates aggregate to ERROR"
+    },
+    {
+      "attempt": "H1_error_bad_selection",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': selection requires SELECTION_ERROR, not SINGLE_ESTABLISHED; labels are not evidence"
+    },
+    {
+      "attempt": "H1_agreement_hides_error",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': claim-level IMPLEMENTATION is SUPPORTED but candidates aggregate to ERROR"
+    },
+    {
+      "attempt": "H2_positive_state_is_ephemeral",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H2_positive_state_is_guaranteed_rolled_back",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H2_positive_dry_run_in_force",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H2_positive_test_double_in_force",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H2_positive_noop",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-operation': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H2_transport_persistence",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H2_transport_operation",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-operation': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H2_unregistered_probative",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-persistence': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H3_tier_not_selection_proof",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': precedence requires selected-body binding provenance"
+    },
+    {
+      "attempt": "H3_unlinked_body",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': winning evidence is outside the selected/linked body source"
+    },
+    {
+      "attempt": "H3_package_not_body",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "packet 'c1-operation': unregistered predicate/obligation/polarity/source combination cannot settle proof"
+    },
+    {
+      "attempt": "H3_no_recorded_provenance",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "contradiction.precedence: expected ImplementationPrecedence, got NoneType"
+    },
+    {
+      "attempt": "H3_other_source_identity",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': winning evidence is outside the selected/linked body source"
+    },
+    {
+      "attempt": "H4_uncertainty_erases_conflict",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': PERSISTENCE for 'c1': PROBATIVE evidence requires CONFLICTING, recorded UNKNOWN"
+    },
+    {
+      "attempt": "H4_conflict_negative_closure",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': C3 fails: a necessary obligation is CONFLICTING"
+    },
+    {
+      "attempt": "M3_opaque_false_establishment",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': selection requires UNRESOLVED_IDENTITY, not SINGLE_ESTABLISHED; labels are not evidence"
+    },
+    {
+      "attempt": "M3_opaque_supported_identity",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "candidate 'c1': opaque/unresolved identity cannot be implementation-supported"
+    },
+    {
+      "attempt": "M3_opaque_omitted_states",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': every candidate carries its own obligation states except the unique established shorthand"
+    },
+    {
+      "attempt": "H5_receipt_open_frontier",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': C5 fails: an unopened edge might settle PERSISTENCE"
+    },
+    {
+      "attempt": "H5_receipt_strengthening",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "receipt 'receipt1': receipt verdict disagrees with underlying claim"
+    },
+    {
+      "attempt": "H6_impossible_ledger",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "ledger: BOUNDARY ERROR and CONFLICTING are disjoint and neither is PROVEN_EFFECT or NO_EFFECT"
+    },
+    {
+      "attempt": "H6_impossible_ledger_without_breakdown",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "ledger: BOUNDARY ERROR and CONFLICTING are disjoint and neither is PROVEN_EFFECT or NO_EFFECT"
+    },
+    {
+      "attempt": "empty_evidence_cannot_prove",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': IMPLEMENTATION for 'c1': PROBATIVE evidence requires UNKNOWN, recorded SUPPORTED"
+    },
+    {
+      "attempt": "missing_negative_closure",
+      "pass": true,
+      "result": "REJECTED",
+      "reason": "claim 'claim1': NO_EFFECT requires an established closure C1 to C6"
+    },
+    {
+      "attempt": "sink_independent_opaque_genesis",
+      "pass": true,
+      "verdict": "ABSTAIN",
+      "implementation": "UNKNOWN",
+      "matched_rule_ids": []
+    },
+    {
+      "attempt": "completed_harmless_FOUND",
+      "pass": true,
+      "verdict": "PROVEN_EFFECT",
+      "implementation": "SUPPORTED",
+      "matched_rule_ids": []
+    },
+    {
+      "attempt": "completed_resolved_FOUND",
+      "pass": true,
+      "verdict": "PROVEN_EFFECT",
+      "implementation": "SUPPORTED",
+      "matched_rule_ids": []
+    },
+    {
+      "attempt": "uncertainty_retains_conflict",
+      "pass": true,
+      "verdict": "ABSTAIN",
+      "implementation": "SUPPORTED",
+      "matched_rule_ids": []
+    },
+    {
+      "attempt": "candidate_ordering",
+      "pass": true,
+      "permutations": 8
+    },
+    {
+      "attempt": "aggregation_triples_ordering",
+      "pass": true,
+      "permutations": 750
+    },
+    {
+      "attempt": "schema_verifier_absence",
+      "pass": true,
+      "exit_code": 2,
+      "stderr": "FATAL: required architecture verifier failed: No module named 'jsonschema'"
+    },
+    {
+      "attempt": "legacy_Finding_output_baseline_M0_M0R1",
+      "pass": true,
+      "reports": {
+        "baseline": {
+          "sha256": "0cb2bdb2f4151477e05a86ba9cde258536578e4a8b8dbcbb5e2a4a2cdcc7804b",
+          "finding_count": 9
+        },
+        "failed_M0": {
+          "sha256": "0cb2bdb2f4151477e05a86ba9cde258536578e4a8b8dbcbb5e2a4a2cdcc7804b",
+          "finding_count": 9
+        },
+        "M0R1": {
+          "sha256": "0cb2bdb2f4151477e05a86ba9cde258536578e4a8b8dbcbb5e2a4a2cdcc7804b",
+          "finding_count": 9
+        }
+      }
+    }
+  ],
+  "claim_boundary": "Supplied proof-record validation only; C4 is represented, not acquired or verified."
+}

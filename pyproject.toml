@@ -45,6 +45,9 @@ go = [
 ]
 dev = [
   "pytest>=8.0",
+  # Mandatory architecture conformance; neither is a scanner runtime dependency.
+  "jsonschema==4.26.0",
+  "referencing==0.37.0",
   "pyyaml>=6.0",
   "tree-sitter>=0.25,<1",
   "tree-sitter-typescript>=0.23,<1",
@@ -67,6 +70,7 @@ actenon-scan = "actenon_scan.cli:main"
 packages = [
     "actenon_scan",
     "actenon_scan.detectors",
+    "actenon_scan.effects",
     "actenon_scan.report",
     "actenon_scan.repository",
     "actenon_scan.rules",

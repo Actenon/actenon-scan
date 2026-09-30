@@ -1,0 +1,2336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json",
+  "title": "AREF-002A evidence packet",
+  "description": "A single AREF-002 evidence packet as amended by AREF-002A. Exactly one obligation and candidate. Typed registry compatibility and provenance govern probative admissibility; a packet never gates claim existence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "packet_id",
+    "tier",
+    "kind",
+    "locator",
+    "assertion",
+    "polarity",
+    "obligation",
+    "implementation_candidate_id",
+    "admissibility",
+    "strength",
+    "acquisition_cost",
+    "extract"
+  ],
+  "properties": {
+    "packet_id": {
+      "$ref": "#/$defs/identifier",
+      "description": "Stable identifier for this packet within its claim."
+    },
+    "tier": {
+      "$ref": "#/$defs/tier"
+    },
+    "kind": {
+      "$ref": "#/$defs/packetKind"
+    },
+    "locator": {
+      "$ref": "#/$defs/locator"
+    },
+    "assertion": {
+      "$ref": "#/$defs/assertion"
+    },
+    "polarity": {
+      "$ref": "#/$defs/polarity"
+    },
+    "obligation": {
+      "$ref": "#/$defs/obligation",
+      "description": "Exactly one obligation. Evidence bearing on two obligations produces two packets sharing an extract."
+    },
+    "implementation_candidate_id": {
+      "$ref": "#/$defs/identifier",
+      "description": "The implementation candidate this packet pertains to. Packets are never merged across candidates."
+    },
+    "admissibility": {
+      "$ref": "#/$defs/admissibility"
+    },
+    "strength": {
+      "$ref": "#/$defs/strength"
+    },
+    "acquisition_cost": {
+      "$ref": "#/$defs/acquisitionCost"
+    },
+    "extract": {
+      "$ref": "#/$defs/extract"
+    },
+    "derived_from_rule_id": {
+      "type": "string",
+      "description": "Provenance only, for packets produced by the existing sink-rule corpus. Present or absent, this field has no bearing on claim existence and no authority over any obligation.",
+      "minLength": 1
+    },
+    "rule_match_type": {
+      "$ref": "#/$defs/ruleMatchType",
+      "description": "The matched rule's own match.type, which fixes admissibility for rule-derived packets."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Human-readable commentary. Never a substitute for the verbatim extract."
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation",
+        "invocation_id",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "relation": {
+          "enum": [
+            "SELECTED_TARGET",
+            "POSSIBLE_TARGET",
+            "RESOLVED_CALL"
+          ]
+        },
+        "invocation_id": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+        },
+        "from": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/locator"
+        },
+        "to": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/locator"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Identifier-anchored evidence can never be PROBATIVE (requirement 10; evidence_acquisition.md 5.3).",
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "identifier_name",
+              "prose_documentation",
+              "source_text_regex",
+              "http_method",
+              "unqualified_name_rule_match"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "admissibility": {
+            "const": "HYPOTHESIS_ONLY"
+          }
+        }
+      }
+    },
+    {
+      "$comment": "name_call, sql_execute_pattern and string_pattern rules are text or bare-name anchored and are HYPOTHESIS_ONLY (AREF-002.md 12).",
+      "if": {
+        "properties": {
+          "rule_match_type": {
+            "enum": [
+              "name_call",
+              "sql_execute_pattern",
+              "string_pattern"
+            ]
+          }
+        },
+        "required": [
+          "rule_match_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "admissibility": {
+            "const": "HYPOTHESIS_ONLY"
+          }
+        }
+      }
+    },
+    {
+      "$comment": "Dependency- and contract-sourced evidence must name the package and its version resolution (AREF-002-D08).",
+      "if": {
+        "properties": {
+          "tier": {
+            "enum": [
+              "L4",
+              "L5",
+              "L6"
+            ]
+          }
+        },
+        "required": [
+          "tier"
+        ]
+      },
+      "then": {
+        "properties": {
+          "locator": {
+            "required": [
+              "package",
+              "version_resolution"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "binding"
+        ]
+      },
+      "then": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "local_binding",
+              "type_declaration",
+              "interface_declaration"
+            ]
+          },
+          "obligation": {
+            "const": "IMPLEMENTATION"
+          },
+          "polarity": {
+            "const": "POSITIVE"
+          },
+          "admissibility": {
+            "const": "PROBATIVE"
+          },
+          "assertion": {
+            "properties": {
+              "predicate": {
+                "const": "implementation_is"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "admissibility": {
+            "const": "PROBATIVE"
+          }
+        }
+      },
+      "then": {
+        "anyOf": [
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "implementation_is"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "IMPLEMENTATION"
+              },
+              "polarity": {
+                "const": "POSITIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_binding"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_binding"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "type_declaration"
+                  },
+                  "tier": {
+                    "const": "L2"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "interface_declaration"
+                  },
+                  "tier": {
+                    "const": "L2"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "invocation_executes"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "ACTIVATION"
+              },
+              "polarity": {
+                "const": "POSITIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_call_site"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_control_flow"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_control_flow"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "invocation_does_not_execute"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "ACTIVATION"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_call_site"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_control_flow"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_control_flow"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "egress_mechanism_is"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "BOUNDARY"
+              },
+              "polarity": {
+                "const": "POSITIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "transport_primitive"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "transport_primitive"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "transport_primitive"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "transport_primitive"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "driver_primitive"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "terminates_in_process_state"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "BOUNDARY"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "driver_primitive"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "operation_is_mutation"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "OPERATION"
+              },
+              "polarity": {
+                "const": "POSITIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sql_statement"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "document_store_operation"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "shell_command"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "operation_is_observation"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "OPERATION"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sql_statement"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "document_store_operation"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "shell_command"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "state_is_durably_committed"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "PERSISTENCE"
+              },
+              "polarity": {
+                "const": "POSITIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "driver_primitive"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "state_is_guaranteed_rolled_back"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "PERSISTENCE"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "driver_primitive"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "state_is_ephemeral"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "PERSISTENCE"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "driver_primitive"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "operation_is_no_op"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "OPERATION"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "dry_run_in_force"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "OPERATION"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "operation_is_no_op"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "PERSISTENCE"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "dry_run_in_force"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "PERSISTENCE"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "commit_outcome_undetermined"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "PERSISTENCE"
+              },
+              "polarity": {
+                "const": "NEGATIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "local_function_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "wrapper_chain_body"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "dependency_source_body"
+                  },
+                  "tier": {
+                    "const": "L5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "openapi_operation"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "protobuf_service_method"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "graphql_schema_field"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "json_schema_node"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sdk_operation_metadata"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "command_specification"
+                  },
+                  "tier": {
+                    "const": "L6"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "driver_primitive"
+                  },
+                  "tier": {
+                    "const": "L7"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "egress_mechanism_is"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "BOUNDARY"
+              },
+              "polarity": {
+                "const": "POSITIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sink_rule_match"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sink_rule_match"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "assertion": {
+                "properties": {
+                  "predicate": {
+                    "const": "operation_is_mutation"
+                  }
+                }
+              },
+              "obligation": {
+                "const": "OPERATION"
+              },
+              "polarity": {
+                "const": "POSITIVE"
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sink_rule_match"
+                  },
+                  "tier": {
+                    "const": "L0"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "sink_rule_match"
+                  },
+                  "tier": {
+                    "const": "L1"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "admissibility": {
+            "const": "PROBATIVE"
+          },
+          "assertion": {
+            "properties": {
+              "predicate": {
+                "const": "implementation_is"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "binding"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/#-]*$"
+    },
+    "tier": {
+      "description": "Evidence acquisition ladder tier. L8 (ABSTAIN) is a terminal state, not an evidence source, and is therefore not a legal packet tier.",
+      "type": "string",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7"
+      ]
+    },
+    "tierOrAbstain": {
+      "description": "A ladder position including the terminal L8 ABSTAIN state, used for highest-tier-reached reporting.",
+      "type": "string",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ]
+    },
+    "tierName": {
+      "type": "string",
+      "enum": [
+        "LOCAL_SYNTAX_BINDING",
+        "LOCAL_IMPLEMENTATION_WRAPPER",
+        "TYPES_DECLARATIONS_INTERFACES",
+        "PACKAGE_MODULE_PROVENANCE",
+        "WORKSPACE_DEPENDENCIES",
+        "PINNED_DEPENDENCY_SOURCE",
+        "MACHINE_READABLE_CONTRACT",
+        "UNDERLYING_OPERATION_SEMANTICS",
+        "ABSTAIN"
+      ]
+    },
+    "obligation": {
+      "description": "The frozen v1 proof obligation vocabulary. Closed for EXTERNAL_PERSISTENT_STATE_EFFECT.",
+      "type": "string",
+      "enum": [
+        "IMPLEMENTATION",
+        "ACTIVATION",
+        "BOUNDARY",
+        "OPERATION",
+        "PERSISTENCE"
+      ]
+    },
+    "admissibility": {
+      "description": "PROBATIVE registered directional facts may settle or conflict. Registered uncertainty prevents proof but is not a negative fact. HYPOTHESIS_ONLY never settles or vetoes proof; there is no third class.",
+      "type": "string",
+      "enum": [
+        "PROBATIVE",
+        "HYPOTHESIS_ONLY"
+      ]
+    },
+    "polarity": {
+      "type": "string",
+      "enum": [
+        "POSITIVE",
+        "NEGATIVE"
+      ]
+    },
+    "strength": {
+      "description": "Ordinal annotation used for receipt presentation and investigation prioritisation only. Never affects a state transition and never resolves a contradiction.",
+      "type": "string",
+      "enum": [
+        "WEAK",
+        "MODERATE",
+        "STRONG"
+      ]
+    },
+    "packetKind": {
+      "description": "The acquisition mechanism that produced the packet.",
+      "type": "string",
+      "enum": [
+        "local_call_site",
+        "local_binding",
+        "local_control_flow",
+        "local_function_body",
+        "wrapper_chain_body",
+        "type_declaration",
+        "interface_declaration",
+        "package_provenance",
+        "dependency_manifest",
+        "dependency_lockfile",
+        "dependency_source_body",
+        "openapi_operation",
+        "protobuf_service_method",
+        "graphql_schema_field",
+        "json_schema_node",
+        "sdk_operation_metadata",
+        "command_specification",
+        "sql_statement",
+        "document_store_operation",
+        "shell_command",
+        "transport_primitive",
+        "driver_primitive",
+        "sink_rule_match",
+        "unqualified_name_rule_match",
+        "identifier_name",
+        "prose_documentation",
+        "source_text_regex",
+        "http_method",
+        "counter_evidence_probe"
+      ]
+    },
+    "ruleMatchType": {
+      "description": "Match types present in actenon_scan/rules/default_rules.json. Listed so that rule-derived packet admissibility is machine-checkable.",
+      "type": "string",
+      "enum": [
+        "attr_call",
+        "qualified_call",
+        "name_call",
+        "open_write",
+        "sql_execute_pattern",
+        "string_pattern",
+        "subprocess_deploy",
+        "github_rest_mutation"
+      ]
+    },
+    "locator": {
+      "description": "Where the evidence came from, in enough detail to re-read it and re-verify the extract byte for byte.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "start_line",
+        "end_line"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path relative to the scan root, forward-slash separated."
+        },
+        "start_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "start_column": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_column": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "symbol": {
+          "type": "string",
+          "description": "The symbol the evidence concerns, when applicable."
+        },
+        "package": {
+          "type": "string",
+          "description": "Package or module identity. Required for L4, L5 and L6 evidence."
+        },
+        "version": {
+          "type": "string",
+          "description": "The resolved version, absent only when version_resolution is UNPINNED."
+        },
+        "version_resolution": {
+          "$ref": "#/$defs/versionResolution"
+        },
+        "document_pointer": {
+          "type": "string",
+          "description": "A JSON Pointer or equivalent path into a structured contract document."
+        }
+      }
+    },
+    "versionResolution": {
+      "description": "How the pinned version was established, in the order dependency_descent.md 5.2 requires. UNPINNED means source physically present in the tree was read without a resolvable version, and is never substituted by a typical or latest version.",
+      "type": "string",
+      "enum": [
+        "LOCKFILE",
+        "EXACT_MANIFEST_PIN",
+        "INSTALLED_TREE_METADATA",
+        "UNPINNED"
+      ]
+    },
+    "assertion": {
+      "description": "The structured statement the packet makes about its obligation. Structured rather than free text so that contradictions are computable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "predicate"
+      ],
+      "properties": {
+        "predicate": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Registered predicate, or an unrecognized hypothesis. Only registry-compatible combinations may be PROBATIVE."
+        },
+        "detail": {
+          "type": "string",
+          "description": "Mechanism detail, e.g. the transport, driver, statement root or contract operation identifier."
+        }
+      }
+    },
+    "acquisitionCost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hops",
+        "bytes_read"
+      ],
+      "properties": {
+        "hops": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Followed descent edges from the call site to this evidence."
+        },
+        "bytes_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artefacts_opened": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wall_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "extract": {
+      "description": "Verbatim source text the assertion rests on. Must be byte-identical to the located source. Paraphrase, normalisation, reconstruction and unmarked truncation are violations; the R05/R06 fidelity threshold is exactly 1.00.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "verbatim"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verbatim": {
+          "const": true,
+          "description": "Always true. A packet whose extract is not verbatim is not a legal packet."
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "True when the extract was truncated for size. The locator must still be sufficient to retrieve the whole."
+        },
+        "truncation_marker": {
+          "type": "string"
+        }
+      }
+    },
+    "probeOutcome": {
+      "description": "The outcome of a counter-evidence probe from the closed registry in proof_obligations.md section 7. A BLOCKING probe whose outcome is INCOMPLETE forces ABSTAIN; non-execution is never recorded as NOT_FOUND.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe_id",
+        "obligation",
+        "probe_class",
+        "outcome"
+      ],
+      "properties": {
+        "probe_id": {
+          "type": "string",
+          "pattern": "^CP-(IMPL|ACT|BND|OPR|PER)-[0-9]{2}$"
+        },
+        "obligation": {
+          "$ref": "#/$defs/obligation"
+        },
+        "probe_class": {
+          "type": "string",
+          "enum": [
+            "BLOCKING",
+            "ADVISORY"
+          ]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "FOUND",
+            "NOT_FOUND",
+            "INCOMPLETE"
+          ]
+        },
+        "incomplete_reason": {
+          "$ref": "#/$defs/stopReason"
+        },
+        "packet_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "description": "Packets the probe produced, if any."
+        }
+      }
+    },
+    "stopReason": {
+      "description": "Why acquisition stopped. TIER_UNAVAILABLE and BUDGET_EXHAUSTED are never merged: the first is a property of the analysed repository, the second of our configuration.",
+      "type": "string",
+      "enum": [
+        "SETTLED",
+        "NO_FURTHER_TIER",
+        "TIER_UNAVAILABLE",
+        "BUDGET_EXHAUSTED",
+        "ACQUISITION_ERROR",
+        "CLAIM_NOT_INVESTIGATED",
+        "CYCLE",
+        "MAX_TIER_REACHED",
+        "CANDIDATE_LIMIT"
+      ]
+    },
+    "budgetName": {
+      "type": "string",
+      "enum": [
+        "max_ladder_tier",
+        "max_dependency_hops",
+        "max_files_opened",
+        "max_bytes_read",
+        "max_wall_ms_per_claim",
+        "max_claims_investigated",
+        "max_implementation_candidates"
+      ]
+    }
+  },
+  "$comment": "AREF-002 as amended by AREF-002A. Shape validity is necessary, not sufficient: validate.py normative semantic checks are mandatory."
+}

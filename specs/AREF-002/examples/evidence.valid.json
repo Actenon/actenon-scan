@@ -1,0 +1,34 @@
+{
+  "_case": "PROBATIVE evidence acquired at L5 from pinned dependency source, settling BOUNDARY for a candidate that began as OPAQUE_EXTERNAL. No sink rule was involved.",
+  "packet_id": "pkt-0004",
+  "tier": "L5",
+  "kind": "dependency_source_body",
+  "locator": {
+    "path": "node_modules/example-sdk/dist/resources/settings.js",
+    "start_line": 142,
+    "end_line": 144,
+    "symbol": "Settings.prototype.edit",
+    "package": "example-sdk",
+    "version": "3.4.1",
+    "version_resolution": "LOCKFILE"
+  },
+  "assertion": {
+    "predicate": "egress_mechanism_is",
+    "detail": "HTTPS request dispatched through the package's own transport client"
+  },
+  "polarity": "POSITIVE",
+  "obligation": "BOUNDARY",
+  "implementation_candidate_id": "cand-1",
+  "admissibility": "PROBATIVE",
+  "strength": "STRONG",
+  "acquisition_cost": {
+    "hops": 3,
+    "bytes_read": 18422,
+    "artefacts_opened": 4,
+    "wall_ms": 27
+  },
+  "extract": {
+    "text": "    return this._client.request({\n      method: 'PATCH',\n      path: `/zones/${zoneId}/settings`,",
+    "verbatim": true
+  }
+}

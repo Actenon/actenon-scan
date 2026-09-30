@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-001/rei-report-fragment-0.1.0.json",
+  "title": "REI report fragment",
+  "description": "The additive delta REI contributes to the JSON report. A FRAGMENT, not a whole report: additionalProperties is permitted at every level so that this schema can be applied to a real actenon-scan results.json without restating it. AREF-001 D-10 requires the delta to be additive and absent-when-off: when the layer did not run, none of these keys appears at all - not null, not empty.",
+  "type": "object",
+  "required": [
+    "rei_schema_version",
+    "resource_effect_catalogue_version",
+    "resource_effect_known_count",
+    "resource_effect_unknown_count",
+    "resource_effect_by_kind",
+    "resource_effect_by_unresolved_reason"
+  ],
+  "properties": {
+    "rei_schema_version": {
+      "description": "Version of the resource-effect record schema this report was produced against.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "resource_effect_catalogue_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resource_effect_known_count": {
+      "description": "AREF-001 D-13 / I-11. Records where is_determined() holds. known + unknown == capability_count.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "resource_effect_unknown_count": {
+      "description": "AREF-001 D-13 / I-11. Emitted unconditionally, including when it equals capability_count - the all-unknown case a reader must not mistake for a clean one.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "resource_effect_by_kind": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "https://actenon.dev/schema/aref-001/resource-effect-0.1.0.json#/$defs/resourceKind"
+      },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "resource_effect_by_unresolved_reason": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "https://actenon.dev/schema/aref-001/resource-effect-0.1.0.json#/$defs/unresolvedReason"
+      },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "resource_effect": {
+            "$ref": "https://actenon.dev/schema/aref-001/resource-effect-0.1.0.json"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "resource_effect": {
+            "$ref": "https://actenon.dev/schema/aref-001/resource-effect-0.1.0.json"
+          }
+        }
+      }
+    }
+  }
+}

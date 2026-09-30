@@ -1,0 +1,37 @@
+{
+  "_comment": "Positive instance for schema/resource-effect-catalogue.schema.json, exercising all three entry statuses. The SHIPPED draft catalogue (catalogue/resource-effect-catalogue.draft.json) deliberately contains no 'frozen' entry, because promoting one asserts a selector location is correct on real code and that assertion needs the unavailable REI-001 measurement. This example therefore exists to give the schema's 'frozen' branch coverage that the draft catalogue cannot supply. It is an ILLUSTRATION, not a proposal.",
+  "catalogue_version": "0.0.0-example",
+  "rei_schema_version": "0.1.0",
+  "frozen_against_commit": "b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16",
+  "entries": [
+    {
+      "normalised_rule_id": "FILE-OPEN-WRITE",
+      "language": "python",
+      "resource_kind": "filesystem_path",
+      "selector": { "arg_positions": [0] },
+      "scope_rule": "single",
+      "max_certainty": "strong",
+      "status": "frozen",
+      "note": "open(path, mode): position 0 is the path by the language's own signature, not by convention. The least ambiguous declaration available, and therefore the first candidate for promotion once B-03 closes."
+    },
+    {
+      "normalised_rule_id": "NET-EGRESS",
+      "language": "python",
+      "resource_kind": "network_endpoint",
+      "selector": { "arg_positions": [0], "arg_keywords": ["url", "endpoint", "uri"] },
+      "scope_rule": "single",
+      "max_certainty": "heuristic",
+      "status": "draft"
+    },
+    {
+      "normalised_rule_id": "DATABASE-ORM-MUTATE",
+      "language": "python",
+      "resource_kind": "database_row_set",
+      "selector": { "from_receiver": true },
+      "scope_rule": "unknown",
+      "max_certainty": "unknown",
+      "status": "blocked",
+      "blocked_on": "B-04"
+    }
+  ]
+}

@@ -1,0 +1,388 @@
+Normative preservation context: a93b013383ce773b10708d3f30b2a1660e141527
+PASS  schema is valid JSON Schema 2020-12: evidence.schema.json
+PASS  schema declares 2020-12 $schema: evidence.schema.json
+PASS  schema has an absolute versioned $id: evidence.schema.json
+PASS  schema $id carries the 0.1.0 version: evidence.schema.json
+PASS  schema is valid JSON Schema 2020-12: effect_claim.schema.json
+PASS  schema declares 2020-12 $schema: effect_claim.schema.json
+PASS  schema has an absolute versioned $id: effect_claim.schema.json
+PASS  schema $id carries the 0.1.0 version: effect_claim.schema.json
+PASS  schema is valid JSON Schema 2020-12: effect_receipt.schema.json
+PASS  schema declares 2020-12 $schema: effect_receipt.schema.json
+PASS  schema has an absolute versioned $id: effect_receipt.schema.json
+PASS  schema $id carries the 0.1.0 version: effect_receipt.schema.json
+PASS  schema is valid JSON Schema 2020-12: coverage_ledger.schema.json
+PASS  schema declares 2020-12 $schema: coverage_ledger.schema.json
+PASS  schema has an absolute versioned $id: coverage_ledger.schema.json
+PASS  schema $id carries the 0.1.0 version: coverage_ledger.schema.json
+PASS  schema is valid JSON Schema 2020-12: architecture_manifest.schema.json
+PASS  schema declares 2020-12 $schema: architecture_manifest.schema.json
+PASS  schema has an absolute versioned $id: architecture_manifest.schema.json
+PASS  schema $id carries the 0.1.0 version: architecture_manifest.schema.json
+PASS  all 57 cross-file $refs resolve to a known $id
+PASS  valid example validates: evidence.valid.json
+PASS  invalid example is rejected: evidence.invalid.json
+PASS  valid example validates: effect_claim.valid.abstain.json
+PASS  valid example validates: effect_claim.valid.proven.json
+PASS  invalid example is rejected: effect_claim.invalid.json
+PASS  valid example validates: effect_receipt.valid.json
+PASS  invalid example is rejected: effect_receipt.invalid.json
+PASS  valid example validates: coverage_ledger.valid.json
+PASS  invalid example is rejected: coverage_ledger.invalid.json
+PASS  invalid example is rejected: architecture_manifest.invalid.json
+PASS  architecture_manifest.json validates against its schema
+PASS  invalid example names its expected failure: evidence.invalid.json
+PASS  invalid example names its expected failure: effect_claim.invalid.json
+PASS  invalid example names its expected failure: effect_receipt.invalid.json
+PASS  invalid example names its expected failure: coverage_ledger.invalid.json
+PASS  invalid example names its expected failure: architecture_manifest.invalid.json
+PASS  manifest vocabulary matches schema enum: proof_states
+PASS  manifest vocabulary is closed: proof_states
+PASS  manifest vocabulary matches schema enum: verdicts
+PASS  manifest vocabulary is closed: verdicts
+PASS  manifest vocabulary matches schema enum: obligations
+PASS  manifest vocabulary is closed: obligations
+PASS  manifest vocabulary matches schema enum: implementation_candidate_kinds
+PASS  manifest vocabulary is closed: implementation_candidate_kinds
+PASS  manifest vocabulary matches schema enum: selection_states
+PASS  manifest vocabulary is closed: selection_states
+PASS  manifest vocabulary matches schema enum: admissibility
+PASS  manifest vocabulary is closed: admissibility
+PASS  manifest vocabulary matches schema enum: polarity
+PASS  manifest vocabulary is closed: polarity
+PASS  manifest vocabulary matches schema enum: ladder_tiers
+PASS  manifest vocabulary is closed: ladder_tiers
+PASS  manifest vocabulary matches schema enum: stop_reasons
+PASS  manifest vocabulary is closed: stop_reasons
+PASS  manifest vocabulary matches schema enum: budget_names
+PASS  manifest vocabulary is closed: budget_names
+PASS  manifest vocabulary matches schema enum: contradiction_resolutions
+PASS  manifest control sub-descriptors match the control object's keys
+PASS  manifest descriptors are exactly TARGET, CONTROL, AUTHORITY, CONDITIONS
+PASS  claim schema descriptors object carries exactly those four
+PASS  L8 is not a legal evidence packet tier (it is a terminal state)
+PASS  L8 is a legal highest-tier-reached value
+PASS  sink rule admissibility table covers every rule match type
+PASS  manifest identifies AREF-002
+PASS  manifest records AREF-001 as a superseded, non-authoritative candidate
+PASS  manifest records AREF-001 as preserved unmodified
+PASS  manifest is frozen against the recorded HEAD commit
+PASS  manifest carries the founding principle
+PASS  manifest declares exactly the five v1 obligations
+PASS  obligation carries its frozen prohibitions: IMPLEMENTATION
+PASS  every prohibition names a source: IMPLEMENTATION
+PASS  every prohibition names a source: IMPLEMENTATION
+PASS  every prohibition names a source: IMPLEMENTATION
+PASS  obligation carries its frozen prohibitions: ACTIVATION
+PASS  every prohibition names a source: ACTIVATION
+PASS  every prohibition names a source: ACTIVATION
+PASS  every prohibition names a source: ACTIVATION
+PASS  obligation carries its frozen prohibitions: BOUNDARY
+PASS  every prohibition names a source: BOUNDARY
+PASS  every prohibition names a source: BOUNDARY
+PASS  obligation carries its frozen prohibitions: OPERATION
+PASS  every prohibition names a source: OPERATION
+PASS  every prohibition names a source: OPERATION
+PASS  every prohibition names a source: OPERATION
+PASS  obligation carries its frozen prohibitions: PERSISTENCE
+PASS  every prohibition names a source: PERSISTENCE
+PASS  every prohibition names a source: PERSISTENCE
+PASS  every prohibition names a source: PERSISTENCE
+PASS  every prohibition names a source: PERSISTENCE
+PASS  IMPLEMENTATION is the one obligation that is never REFUTED
+PASS  requirement 9 is recorded as a BOUNDARY prohibition
+PASS  ACTIVATION is settled only by workspace-local tiers
+PASS  descriptor is not an obligation and does not gate a verdict: TARGET
+PASS  descriptor is not an obligation and does not gate a verdict: CONTROL
+PASS  descriptor is not an obligation and does not gate a verdict: AUTHORITY
+PASS  descriptor is not an obligation and does not gate a verdict: CONDITIONS
+PASS  exactly one effect class is populated in v1
+PASS  the populated v1 class is EXTERNAL_PERSISTENT_STATE_EFFECT
+PASS  EPSE declares all five obligations as necessary
+PASS  at least nine future effect classes are declared (found 9)
+PASS  no future effect class is forced into persistence
+PASS  future class does not require PERSISTENCE: MESSAGE_EMISSION_EFFECT
+PASS  future class is marked unimplemented: MESSAGE_EMISSION_EFFECT
+PASS  future class does not require PERSISTENCE: VALUE_TRANSFER_EFFECT
+PASS  future class is marked unimplemented: VALUE_TRANSFER_EFFECT
+PASS  future class does not require PERSISTENCE: CODE_EXECUTION_EFFECT
+PASS  future class is marked unimplemented: CODE_EXECUTION_EFFECT
+PASS  future class does not require PERSISTENCE: DEPLOYMENT_EFFECT
+PASS  future class is marked unimplemented: DEPLOYMENT_EFFECT
+PASS  future class does not require PERSISTENCE: PERMISSION_CHANGE_EFFECT
+PASS  future class is marked unimplemented: PERMISSION_CHANGE_EFFECT
+PASS  future class does not require PERSISTENCE: SECRET_DISCLOSURE_EFFECT
+PASS  future class is marked unimplemented: SECRET_DISCLOSURE_EFFECT
+PASS  future class does not require PERSISTENCE: DEVICE_ACTION_EFFECT
+PASS  future class is marked unimplemented: DEVICE_ACTION_EFFECT
+PASS  future class does not require PERSISTENCE: PACKET_CAPTURE_EFFECT
+PASS  future class is marked unimplemented: PACKET_CAPTURE_EFFECT
+PASS  future class does not require PERSISTENCE: PHYSICAL_ACTION_EFFECT
+PASS  future class is marked unimplemented: PHYSICAL_ACTION_EFFECT
+PASS  every effect kind named in requirement 19 is declared
+PASS  the ladder has nine tiers
+PASS  ladder tiers are L0 through L8 in order
+PASS  L8 is a terminal state and settles nothing
+PASS  L0 through L7 are evidence sources
+PASS  ladder tier settles only declared obligations: L0
+PASS  ladder tier settles only declared obligations: L0
+PASS  ladder tier settles only declared obligations: L0
+PASS  ladder tier settles only declared obligations: L1
+PASS  ladder tier settles only declared obligations: L1
+PASS  ladder tier settles only declared obligations: L1
+PASS  ladder tier settles only declared obligations: L1
+PASS  ladder tier settles only declared obligations: L1
+PASS  ladder tier settles only declared obligations: L2
+PASS  ladder tier settles only declared obligations: L2
+PASS  ladder tier settles only declared obligations: L3
+PASS  ladder tier settles only declared obligations: L4
+PASS  ladder tier settles only declared obligations: L5
+PASS  ladder tier settles only declared obligations: L5
+PASS  ladder tier settles only declared obligations: L5
+PASS  ladder tier settles only declared obligations: L5
+PASS  ladder tier settles only declared obligations: L6
+PASS  ladder tier settles only declared obligations: L6
+PASS  ladder tier settles only declared obligations: L6
+PASS  ladder tier settles only declared obligations: L7
+PASS  ladder tier settles only declared obligations: L7
+PASS  ladder tier settles only declared obligations: L7
+PASS  tier cannot settle OPERATION or PERSISTENCE: L0
+PASS  tier cannot settle OPERATION or PERSISTENCE: L2
+PASS  tier cannot settle OPERATION or PERSISTENCE: L3
+PASS  tier cannot settle OPERATION or PERSISTENCE: L4
+PASS  budget defaults cover exactly the frozen budget names
+PASS  budget scopes cover exactly the frozen budget names
+PASS  budget exhaustion behaviour names UNKNOWN and ABSTAIN (requirement 13)
+PASS  probe ids are unique
+PASS  every probe targets a declared obligation
+PASS  obligation has at least one BLOCKING counter-evidence probe: OPERATION
+PASS  obligation has at least one BLOCKING counter-evidence probe: IMPLEMENTATION
+PASS  obligation has at least one BLOCKING counter-evidence probe: ACTIVATION
+PASS  obligation has at least one BLOCKING counter-evidence probe: PERSISTENCE
+PASS  obligation has at least one BLOCKING counter-evidence probe: BOUNDARY
+PASS  CP-PER-05 is BLOCKING and preserves uncertainty rather than refuting
+PASS  text- or name-anchored rule is HYPOTHESIS_ONLY: name_call
+PASS  HYPOTHESIS_ONLY rule settles nothing: name_call
+PASS  text- or name-anchored rule is HYPOTHESIS_ONLY: sql_execute_pattern
+PASS  HYPOTHESIS_ONLY rule settles nothing: sql_execute_pattern
+PASS  text- or name-anchored rule is HYPOTHESIS_ONLY: string_pattern
+PASS  HYPOTHESIS_ONLY rule settles nothing: string_pattern
+PASS  no sink rule alone settles PERSISTENCE: qualified_call
+PASS  no sink rule alone settles PERSISTENCE: attr_call
+PASS  no sink rule alone settles PERSISTENCE: open_write
+PASS  no sink rule alone settles PERSISTENCE: subprocess_deploy
+PASS  no sink rule alone settles PERSISTENCE: github_rest_mutation
+PASS  all fourteen AREF-001 decisions are classified, in order
+PASS  every disposition is KEEP, MODIFY, REJECT or DEFER
+PASS  every disposition carries a reason
+PASS  exactly the rejected decisions are flagged as preserving the old ontology
+PASS  the ontology-preserving rejections are D-01, D-02, D-04 and D-06
+PASS  disposition counts are KEEP 5 / MODIFY 4 / REJECT 4 / DEFER 1 (found {'REJECT': 4, 'MODIFY': 4, 'DEFER': 1, 'KEEP': 5})
+PASS  invariant ids are unique
+PASS  invariant series is complete: AREF-002-T01..21
+PASS  invariant series is complete: AREF-002-E01..12
+PASS  invariant series is complete: AREF-002-D01..12
+PASS  invariant series is complete: AREF-002-V01..10
+PASS  every invariant carries a statement
+PASS  manifest records that no validation repository is selected or inspected
+PASS  evidence fidelity threshold is exactly 1.00
+PASS  false NO_EFFECT threshold is exactly zero
+PASS  PROVEN_EFFECT precision threshold is at least 0.90
+PASS  abstain-on-everything is an invalidating condition (anti-gaming)
+PASS  a prohibition is recorded for requirement 2
+PASS  a prohibition is recorded for requirement 3
+PASS  a prohibition is recorded for requirement 9
+PASS  a prohibition is recorded for requirement 10
+PASS  a prohibition is recorded for requirement 11
+PASS  a prohibition is recorded for requirement 13
+PASS  a prohibition is recorded for requirement 14
+PASS  a prohibition is recorded for requirement 15
+PASS  a prohibition is recorded for requirement 17
+PASS  a prohibition is recorded for requirement 18
+PASS  receipt answers requires the eleven keys of requirement 16, in order
+PASS  receipt answers has exactly eleven required keys
+PASS  receipt answers admits no extra keys
+PASS  receipt answers declares exactly those eleven properties
+PASS  no receipt may license a safety claim
+PASS  the coverage ledger's interpretation block is required
+PASS  ledger interpretation flag is pinned true: abstained_claims_are_not_negative_results
+PASS  ledger interpretation flag is pinned true: uninvestigated_claims_are_not_negative_results
+PASS  ledger interpretation flag is pinned true: zero_proven_effect_does_not_mean_safe
+PASS  ledger requires: claims
+PASS  ledger requires: verdict_distribution
+PASS  ledger requires: frontier
+PASS  ledger requires: budget_exhaustion
+PASS  ledger requires: stop_reason_histogram
+PASS  ledger requires: highest_tier_reached_histogram
+PASS  ledger requires: analysis_errors
+PASS  the ledger requires an uninvestigated-claim count on its own line
+PASS  claim genesis is pinned to non-refutation of inertness (requirement 2)
+PASS  an emitted claim never has inertness established
+PASS  claim identity is (capability_id, invocation_id, effect_class)
+PASS  no rule_id appears in claim identity or top-level properties
+PASS  a claim always carries at least one implementation candidate
+PASS  OPAQUE_EXTERNAL and DYNAMIC_UNRESOLVED are first-class candidate kinds
+PASS  a claim may carry zero evidence packets (existence precedes evidence)
+PASS  NO_EFFECT closure condition is required true: C1_no_opaque_or_dynamic_candidate
+PASS  NO_EFFECT closure condition is required true: C2_refuted_for_every_candidate
+PASS  NO_EFFECT closure condition is required true: C3_no_conflicting_obligation
+PASS  NO_EFFECT closure condition is required true: C4_no_budget_exhausted_on_contributing_path
+PASS  NO_EFFECT closure condition is required true: C5_relevant_frontier_empty
+PASS  NO_EFFECT closure condition is required true: C6_no_error_on_necessary_obligation
+PASS  closure requires all six conditions C1 to C6
+PASS  admissibility has exactly two classes and no intermediate
+PASS  every packet's extract must be verbatim
+PASS  extract text and the verbatim flag are both required
+PASS  a packet targets exactly one obligation
+PASS  the schema mechanically forbids identifier-anchored probative evidence
+PASS  the schema requires package and version on dependency-sourced evidence
+PASS  probe outcomes distinguish incomplete from not-found
+PASS  document exists: README.md
+PASS  document exists: AREF-002.md
+PASS  document exists: proof_obligations.md
+PASS  document exists: evidence_acquisition.md
+PASS  document exists: dependency_descent.md
+PASS  document exists: aref_001_delta.md
+PASS  document exists: validation_protocol.md
+PASS  document exists: implementation_plan.md
+PASS  document exists: REPORT.md
+PASS  all 146 relative links resolve
+PASS  every invariant id cited in prose is declared in the manifest
+PASS  every probe id cited in prose is in the registry
+PASS  every registered probe is documented in prose
+PASS  delta discusses AREF-001 decision D-01
+PASS  delta discusses AREF-001 decision D-02
+PASS  delta discusses AREF-001 decision D-03
+PASS  delta discusses AREF-001 decision D-04
+PASS  delta discusses AREF-001 decision D-05
+PASS  delta discusses AREF-001 decision D-06
+PASS  delta discusses AREF-001 decision D-07
+PASS  delta discusses AREF-001 decision D-08
+PASS  delta discusses AREF-001 decision D-09
+PASS  delta discusses AREF-001 decision D-10
+PASS  delta discusses AREF-001 decision D-11
+PASS  delta discusses AREF-001 decision D-12
+PASS  delta discusses AREF-001 decision D-13
+PASS  delta discusses AREF-001 decision D-14
+PASS  delta uses the disposition KEEP
+PASS  delta uses the disposition MODIFY
+PASS  delta uses the disposition REJECT
+PASS  delta uses the disposition DEFER
+PASS  delta states that no decision is preserved merely for being frozen
+PASS  delta summary table has fourteen rows (found 14)
+PASS  delta summary table agrees with the manifest
+PASS  report answers final question Q1
+PASS  report answers final question Q2
+PASS  report answers final question Q3
+PASS  report answers final question Q4
+PASS  report answers final question Q5
+PASS  report answers final question Q6
+PASS  report answers final question Q7
+PASS  report answers final question Q8
+PASS  report answers final question Q9
+PASS  report answers final question Q10
+PASS  report states exactly one standalone verdict (found 1)
+PASS  report contains the numbered section the architecture references
+PASS  AREF-002.md states the founding principle
+PASS  AREF-002.md states the genesis condition
+PASS  no held-out validation repository is named
+PASS  the validation protocol states that no repository was selected
+PASS  the validation protocol is preregistered
+PASS  protocol freezes precision
+PASS  protocol freezes recall
+PASS  protocol freezes abstention
+PASS  protocol freezes fidelity
+PASS  protocol freezes coverage
+PASS  protocol freezes first-broken-component
+PASS  protocol freezes denominator
+PASS  protocol freezes contamination
+PASS  AREF-001 is byte-identical (24 hashed files)
+
+298 checks, 298 passed, 0 failed
+PASS schema evidence
+PASS schema effect_claim
+PASS schema effect_receipt
+PASS schema coverage_ledger
+PASS every schema reference resolves locally
+PASS valid_proven accepted
+PASS valid_no_effect accepted
+PASS valid_opaque_abstain accepted
+PASS valid_analysis_error accepted
+PASS H1_error_erased CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS H1_error_bad_selection SELECTION_STATE: selection requires SELECTION_ERROR, not SINGLE_ESTABLISHED
+PASS H2_positive_state_is_ephemeral SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'state_is_ephemeral'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_state_is_guaranteed_rolled_back SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'state_is_guaranteed_rolled_back'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_dry_run_in_force SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'dry_run_in_force'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_test_double_in_force SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'test_double_in_force'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_positive_noop SCHEMA: {'packet_id': 'c1-operation', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 24, 'end_line': 24}, 'assertion': {'predicate': 'operation_is_no_op'}, 'polarity': 'POSITIVE', 'obligation': 'OPERATION', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for OPERATION', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_transport_persistence SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'transport_primitive', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'state_is_durably_committed'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_transport_operation SCHEMA: {'packet_id': 'c1-operation', 'tier': 'L1', 'kind': 'transport_primitive', 'locator': {'path': 'synthetic/subject.py', 'start_line': 24, 'end_line': 24}, 'assertion': {'predicate': 'operation_is_mutation'}, 'polarity': 'POSITIVE', 'obligation': 'OPERATION', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for OPERATION', 'verbatim': True}} is not valid under any of the given schemas
+PASS H2_unregistered_probative SCHEMA: {'packet_id': 'c1-persistence', 'tier': 'L1', 'kind': 'local_function_body', 'locator': {'path': 'synthetic/subject.py', 'start_line': 25, 'end_line': 25}, 'assertion': {'predicate': 'unregistered_fact'}, 'polarity': 'POSITIVE', 'obligation': 'PERSISTENCE', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for PERSISTENCE', 'verbatim': True}} is not valid under any of the given schemas
+PASS valid_unregistered_hypothesis accepted
+PASS valid_precedence_found accepted
+PASS H3_tier_not_selection_proof PRECEDENCE_SELECTION: selected-body binding witness missing or does not bind this invocation/body
+PASS H3_unlinked_body PRECEDENCE_LINK: winning evidence is outside the linked body span
+PASS H3_package_not_body SCHEMA: {'packet_id': 'c1-operation', 'tier': 'L1', 'kind': 'package_provenance', 'locator': {'path': 'synthetic/subject.py', 'start_line': 24, 'end_line': 24}, 'assertion': {'predicate': 'operation_is_mutation'}, 'polarity': 'POSITIVE', 'obligation': 'OPERATION', 'implementation_candidate_id': 'c1', 'admissibility': 'PROBATIVE', 'strength': 'STRONG', 'acquisition_cost': {'hops': 0, 'bytes_read': 1}, 'extract': {'text': 'Authored witness for OPERATION', 'verbatim': True}} is not valid under any of the given schemas
+PASS H3_no_recorded_provenance SCHEMA: 'precedence' is a required property
+PASS valid_helper_precedence accepted
+PASS valid_uncertainty_preserves_conflict accepted
+PASS H4_uncertainty_erases_conflict PROOF_STATE: candidate c1 PERSISTENCE requires CONFLICTING, recorded UNKNOWN
+PASS H4_conflict_negative_closure CLOSURE_C3: unresolved contradiction forbids NO_EFFECT
+PASS valid_hypothesis_found accepted
+PASS M1_blanket_found_veto VERDICT: evidence/closure requires PROVEN_EFFECT, recorded ABSTAIN
+PASS M1_missing_positive VERDICT: evidence/closure requires ABSTAIN, recorded PROVEN_EFFECT
+PASS valid_missing_probe_abstain accepted
+PASS M1_incomplete_positive VERDICT: evidence/closure requires ABSTAIN, recorded PROVEN_EFFECT
+PASS valid_incomplete_probe_abstain accepted
+PASS M3_opaque_false_establishment SELECTION_STATE: selection requires UNRESOLVED_IDENTITY, not SINGLE_ESTABLISHED
+PASS M4_missing_closure SCHEMA: 'closure' is a required property
+PASS M4_false_closure_flag SCHEMA: True was expected
+PASS valid_open_frontier_abstain accepted
+PASS H5_claim_open_negative CLOSURE_C5: relevant unopened frontier prevents negative closure
+PASS valid_receipt_proven accepted
+PASS valid_receipt_no_effect accepted
+PASS valid_receipt_abstain accepted
+PASS valid_receipt_analysis_error accepted
+PASS valid_receipt_found_precedence accepted
+PASS H5_receipt_strengthened RECEIPT_PROJECTION: receipt differs from validated claim: verdict
+PASS H5_receipt_and_snapshot_open_negative CLOSURE_C5: relevant unopened frontier prevents negative closure
+PASS valid_agreement accepted
+PASS valid_divergent accepted
+PASS M2_divergence_not_contradiction CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS H1_agreement_hides_error CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS valid_multi_error accepted
+PASS valid_ledger accepted
+PASS H6_impossible_settled_population LEDGER_DISJOINT: ERROR and CONFLICTING on BOUNDARY are disjoint and cannot belong to settled populations
+PASS H6_error_total LEDGER_ERROR_TOTAL: error total counts ANALYSIS_ERROR claims
+PASS H6_error_breakdown LEDGER_ERROR_BREAKDOWN: error breakdown must equal ERROR marginals
+PASS H6_cause_partition LEDGER_ERROR_BREAKDOWN: primary-cause breakdown partitions errored claims
+PASS valid_single_established_shorthand accepted
+PASS M3_opaque_omitted_states CANDIDATE_STATES: explicit candidate states required except unique established shorthand
+PASS M3_opaque_supported_identity OPAQUE_IDENTITY: opaque/unresolved identity cannot be established by a label or locator
+PASS H3_other_source_identity PRECEDENCE_LINK: winning evidence is outside the linked body span
+PASS valid_unrelated_frontier_negative accepted
+PASS H5_receipt_missing_closure SCHEMA: 'closure' is a required property
+PASS valid_multi_conflict accepted
+PASS M2_conflict_erased CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS valid_error_over_conflict accepted
+PASS M2_error_erased CANDIDATE_AGGREGATION: claim must aggregate every obligation, including candidate IMPLEMENTATION errors
+PASS H1_error_as_abstain VERDICT: evidence/closure requires ANALYSIS_ERROR, recorded ABSTAIN
+PASS valid_ledger_overlapping_errors accepted
+PASS valid_negative_precedence accepted
+PASS valid_receipt_negative_precedence accepted
+PASS all 25 aggregation pairs
+PASS 125 triples order independent
+PASS aggregation associative
+PASS valid records preserve JSON round-trip state
+PASS claim decisions invariant to reversed record order
+PASS all four verdict branches have accepted examples
+PASS missing verifier exits 2, never skips
+PASS frozen inputs byte-identical
+PASS frozen input inventory unchanged
+PASS North-Star vocabulary unchanged
+PASS amended selection vocabulary matches schema
+PASS assertion registry exactly encoded in schema
+PASS sealed file inventory exact
+PASS sealed hashes and byte counts
+PASS SHA inventory agrees with JSON manifest
+86 checks; 86 passed; 0 failed

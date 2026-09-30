@@ -1,0 +1,123 @@
+{
+  "_case": "An ABSTAIN receipt for the unfamiliar-SDK claim. Every one of the eleven required answers is present; the ones that could not be established say so explicitly rather than being omitted. This is the shape of an honest negative-looking output that is not a negative result.",
+  "schema_version": "0.1.0",
+  "receipt_id": "rcpt-0001",
+  "claim_id": "claim-0001",
+  "capability_id": "cap-zones-settings-tool",
+  "invocation_id": "inv-src-tools-zones.ts-L57C11",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "verdict": "ABSTAIN",
+  "answers": {
+    "effect": {
+      "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+      "verdict": "ABSTAIN",
+      "statement": "This invocation may produce an external persistent state effect. Neither the effect nor its absence was established, because the pinned dependency source and any machine-readable contract are not present in the analysed tree."
+    },
+    "implementation": {
+      "selection_state": "SINGLE_ESTABLISHED",
+      "candidates": [
+        {
+          "candidate_id": "cand-1",
+          "kind": "OPAQUE_EXTERNAL",
+          "symbol": "zones.settings.edit",
+          "resolved_at_tier": "L3"
+        }
+      ],
+      "selected_candidate_id": "cand-1"
+    },
+    "resource": {
+      "coordinates": [
+        {
+          "field": "service",
+          "value": "unresolved",
+          "resolution": "unresolved"
+        }
+      ],
+      "scope": "unknown"
+    },
+    "activation": {
+      "state": "UNKNOWN",
+      "settled_by_packet_ids": []
+    },
+    "boundary": {
+      "state": "UNKNOWN",
+      "settled_by_packet_ids": []
+    },
+    "operation": {
+      "state": "UNKNOWN",
+      "settled_by_packet_ids": []
+    },
+    "persistence": {
+      "state": "UNKNOWN",
+      "settled_by_packet_ids": []
+    },
+    "control": {
+      "TRIGGER_CONTROL": "SUPPORTED",
+      "TARGET_CONTROL": "UNKNOWN",
+      "CONTENT_CONTROL": "SUPPORTED",
+      "taint": "model_controlled"
+    },
+    "authority": {
+      "state": "UNKNOWN"
+    },
+    "contradictions": {
+      "contradictions": [],
+      "counter_evidence_found": [],
+      "blocking_probes_incomplete": [
+        "CP-OPR-01",
+        "CP-OPR-02",
+        "CP-PER-01",
+        "CP-PER-03"
+      ]
+    },
+    "unknowns": {
+      "unresolved_obligations": ["ACTIVATION", "BOUNDARY", "OPERATION", "PERSISTENCE"],
+      "highest_tier_reached": "L4",
+      "stop_reason": "TIER_UNAVAILABLE",
+      "budget_exhausted": [],
+      "frontier_size": 1,
+      "frontier": [
+        {
+          "origin": {
+            "path": "src/tools/zones.ts",
+            "start_line": 57,
+            "end_line": 57
+          },
+          "target_symbol": "zones.settings.edit",
+          "target_package": "example-sdk",
+          "would_reach_tier": "L5",
+          "might_settle": ["BOUNDARY", "OPERATION", "PERSISTENCE"],
+          "reason": "TIER_UNAVAILABLE"
+        }
+      ]
+    }
+  },
+  "evidence_packets": [],
+  "probe_outcomes": [
+    {
+      "probe_id": "CP-OPR-01",
+      "obligation": "OPERATION",
+      "probe_class": "BLOCKING",
+      "outcome": "INCOMPLETE",
+      "incomplete_reason": "TIER_UNAVAILABLE"
+    },
+    {
+      "probe_id": "CP-PER-01",
+      "obligation": "PERSISTENCE",
+      "probe_class": "BLOCKING",
+      "outcome": "INCOMPLETE",
+      "incomplete_reason": "TIER_UNAVAILABLE"
+    }
+  ],
+  "acquisition": {
+    "highest_tier_reached": "L4",
+    "stop_reason": "TIER_UNAVAILABLE",
+    "tiers_attempted": ["L0", "L1", "L2", "L3", "L4"],
+    "unresolved_obligations": ["ACTIVATION", "BOUNDARY", "OPERATION", "PERSISTENCE"],
+    "frontier_size": 1
+  },
+  "rendering_constraints": {
+    "is_negative_result": false,
+    "may_render_as_safe": false
+  }
+}

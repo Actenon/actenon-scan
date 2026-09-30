@@ -1,0 +1,68 @@
+{
+  "schema_version": "0.1.1",
+  "claim_id": "claim1",
+  "capability_id": "cap1",
+  "invocation_id": "inv1",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "invocation": {
+    "locator": {
+      "path": "synthetic/subject.py",
+      "start_line": 10,
+      "end_line": 10
+    },
+    "callee_expression": "x.f",
+    "language": "python",
+    "matched_rule_ids": []
+  },
+  "genesis": {
+    "basis": "NON_REFUTATION_OF_INERTNESS",
+    "inertness_established": false
+  },
+  "implementation_candidates": [
+    {
+      "candidate_id": "c1",
+      "kind": "OPAQUE_EXTERNAL"
+    }
+  ],
+  "selection_state": "UNRESOLVED_IDENTITY",
+  "obligations": {
+    "IMPLEMENTATION": "UNKNOWN",
+    "ACTIVATION": "UNKNOWN",
+    "BOUNDARY": "UNKNOWN",
+    "OPERATION": "UNKNOWN",
+    "PERSISTENCE": "UNKNOWN"
+  },
+  "descriptors": {
+    "target": {
+      "coordinates": [],
+      "scope": "unknown"
+    },
+    "control": {
+      "TRIGGER_CONTROL": "UNKNOWN",
+      "TARGET_CONTROL": "UNKNOWN",
+      "CONTENT_CONTROL": "UNKNOWN"
+    },
+    "authority": {
+      "state": "UNKNOWN"
+    },
+    "conditions": []
+  },
+  "evidence_packets": [],
+  "probe_outcomes": [],
+  "contradictions": [],
+  "acquisition": {
+    "highest_tier_reached": "L0",
+    "stop_reason": "CLAIM_NOT_INVESTIGATED",
+    "tiers_attempted": [],
+    "unresolved_obligations": [
+      "IMPLEMENTATION",
+      "ACTIVATION",
+      "BOUNDARY",
+      "OPERATION",
+      "PERSISTENCE"
+    ],
+    "frontier_size": 0,
+    "frontier": []
+  },
+  "verdict": "ABSTAIN"
+}

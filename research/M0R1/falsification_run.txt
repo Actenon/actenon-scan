@@ -1,0 +1,6 @@
+{
+  "attempts": 35,
+  "passed": 35,
+  "failed": 0,
+  "claim_boundary": "Supplied proof-record validation only; C4 is represented, not acquired or verified."
+}

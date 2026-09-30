@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002b/effect-receipt-budget-profile-0.1.1.json",
+  "title": "AREF-002B EffectReceipt budget profile",
+  "description": "The auditable artefact emitted for every EffectClaim verdict, including ABSTAIN. Its answers object has exactly eleven required keys, mapping one-to-one onto the eleven questions frozen by requirement 16. A receipt that cannot answer a question answers it with an explicit unknown; it never omits the key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "claim_id",
+    "capability_id",
+    "invocation_id",
+    "effect_class",
+    "verdict",
+    "answers",
+    "evidence_packets",
+    "probe_outcomes",
+    "acquisition",
+    "claim_snapshot"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.1"
+    },
+    "receipt_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+    },
+    "claim_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+    },
+    "capability_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+    },
+    "invocation_id": {
+      "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+    },
+    "effect_class": {
+      "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/effectClass"
+    },
+    "verdict": {
+      "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/verdict"
+    },
+    "answers": {
+      "$ref": "#/$defs/answers"
+    },
+    "evidence_packets": {
+      "type": "array",
+      "items": {
+        "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json"
+      },
+      "description": "Every packet the verdict rests on, including packets overridden by an admissible contradiction resolution. Evidence is never discarded to obtain a verdict."
+    },
+    "probe_outcomes": {
+      "type": "array",
+      "items": {
+        "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/probeOutcome"
+      }
+    },
+    "acquisition": {
+      "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/acquisition"
+    },
+    "rendering_constraints": {
+      "$ref": "#/$defs/renderingConstraints"
+    },
+    "claim_snapshot": {
+      "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json",
+      "description": "Mandatory full underlying claim. Validate it and the receipt projection on construction and deserialization; no cryptographic authenticity claim."
+    },
+    "closure": {
+      "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/closure"
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "A PROVEN_EFFECT receipt must show that every BLOCKING probe completed.",
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PROVEN_EFFECT"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "probe_outcomes": {
+            "type": "array",
+            "items": {
+              "if": {
+                "properties": {
+                  "probe_class": {
+                    "const": "BLOCKING"
+                  }
+                },
+                "required": [
+                  "probe_class"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "outcome": {
+                    "enum": [
+                      "FOUND",
+                      "NOT_FOUND"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "NO_EFFECT"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "closure"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "closure"
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "answers": {
+      "description": "The eleven questions of requirement 16, in order. All eleven keys are required on every receipt regardless of verdict.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effect",
+        "implementation",
+        "resource",
+        "activation",
+        "boundary",
+        "operation",
+        "persistence",
+        "control",
+        "authority",
+        "contradictions",
+        "unknowns"
+      ],
+      "properties": {
+        "effect": {
+          "$comment": "Q1: what effect?",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "effect_class",
+            "verdict",
+            "statement"
+          ],
+          "properties": {
+            "effect_class": {
+              "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/effectClass"
+            },
+            "verdict": {
+              "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/verdict"
+            },
+            "statement": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "implementation": {
+          "$comment": "Q2: which implementation?",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selection_state",
+            "candidates"
+          ],
+          "properties": {
+            "selection_state": {
+              "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/selectionState"
+            },
+            "candidates": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/implementationCandidate"
+              }
+            },
+            "selected_candidate_id": {
+              "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+            }
+          }
+        },
+        "resource": {
+          "$comment": "Q3: what resource?",
+          "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/target"
+        },
+        "activation": {
+          "$comment": "Q4: was it activated?",
+          "$ref": "#/$defs/obligationAnswer"
+        },
+        "boundary": {
+          "$comment": "Q5: what boundary?",
+          "$ref": "#/$defs/obligationAnswer"
+        },
+        "operation": {
+          "$comment": "Q6: what operation?",
+          "$ref": "#/$defs/obligationAnswer"
+        },
+        "persistence": {
+          "$comment": "Q7: what persistence?",
+          "$ref": "#/$defs/obligationAnswer"
+        },
+        "control": {
+          "$comment": "Q8: what does the model control?",
+          "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/control"
+        },
+        "authority": {
+          "$comment": "Q9: what authority?",
+          "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/authority"
+        },
+        "contradictions": {
+          "$comment": "Q10: what contradicts the claim?",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contradictions",
+            "counter_evidence_found"
+          ],
+          "properties": {
+            "contradictions": {
+              "type": "array",
+              "items": {
+                "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/contradiction"
+              }
+            },
+            "counter_evidence_found": {
+              "type": "array",
+              "items": {
+                "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/probeOutcome"
+              }
+            },
+            "blocking_probes_incomplete": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^CP-(IMPL|ACT|BND|OPR|PER)-[0-9]{2}$"
+              }
+            }
+          }
+        },
+        "unknowns": {
+          "$comment": "Q11: what remains unknown?",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unresolved_obligations",
+            "highest_tier_reached",
+            "stop_reason",
+            "frontier_size"
+          ],
+          "properties": {
+            "unresolved_obligations": {
+              "type": "array",
+              "items": {
+                "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/obligation"
+              }
+            },
+            "highest_tier_reached": {
+              "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/tierOrAbstain"
+            },
+            "stop_reason": {
+              "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/stopReason"
+            },
+            "budget_exhausted": {
+              "type": "array",
+              "items": {
+                "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/budgetName"
+              }
+            },
+            "frontier_size": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "frontier": {
+              "type": "array",
+              "items": {
+                "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/frontierEntry"
+              }
+            }
+          }
+        }
+      }
+    },
+    "obligationAnswer": {
+      "description": "One obligation's answer: its state, the mechanism established (if any), and the packets that settled it. A state of UNKNOWN with an empty packet list is a legitimate and common answer.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "settled_by_packet_ids"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json#/$defs/proofState"
+        },
+        "mechanism": {
+          "type": "string",
+          "description": "The established mechanism, e.g. the transport, the contract operation, the commit semantics. Absent when the state is UNKNOWN or ERROR."
+        },
+        "settled_by_packet_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/identifier"
+          }
+        },
+        "settled_at_tier": {
+          "$ref": "https://actenon.dev/schema/aref-002a/evidence-0.1.1.json#/$defs/tier"
+        },
+        "error_detail": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "An UNKNOWN obligation cannot have been settled by anything.",
+          "if": {
+            "properties": {
+              "state": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "settled_by_packet_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "$comment": "A SUPPORTED or REFUTED obligation must name at least one probative packet.",
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "SUPPORTED",
+                  "REFUTED"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "settled_by_packet_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "renderingConstraints": {
+      "description": "Constraints a consumer must honour. Present so that the prohibition on rendering absence as safety travels with the data rather than living only in documentation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is_negative_result",
+        "may_render_as_safe"
+      ],
+      "properties": {
+        "is_negative_result": {
+          "type": "boolean",
+          "description": "True only for NO_EFFECT with established closure. ABSTAIN, ANALYSIS_ERROR and uninvestigated claims are never negative results."
+        },
+        "may_render_as_safe": {
+          "const": false,
+          "description": "Always false. No receipt licenses a safety claim about the surrounding code."
+        }
+      }
+    }
+  },
+  "$comment": "Only inherited claim references change: budget provenance is retained by the existing acquisition and claim_snapshot projection rule."
+}

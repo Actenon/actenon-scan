@@ -1,0 +1,53 @@
+.....................................F........                           [100%]
+=================================== FAILURES ===================================
+____ test_all_budgets_need_distinct_witnesses_even_without_a_frontier_edge _____
+
+    def test_all_budgets_need_distinct_witnesses_even_without_a_frontier_edge():
+        data = corrected(); data['acquisition']['budget_exhausted'].append('max_call_depth')
+        with pytest.raises(EffectModelError, match='budget.*exhaust'):
+            EffectClaim.from_dict(data)
+        witness = copy.deepcopy(exclusion(data)); witness.update(budget_name='max_call_depth', frontier_indices=[])
+        data['acquisition']['budget_provenance']['exclusions'].append(witness)
+>       assert EffectClaim.from_dict(data).verdict is Verdict.NO_EFFECT
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/effect_claims/test_m0r1b_budget.py:189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+actenon_scan/effects/claim.py:1139: in from_dict
+    acquisition=Acquisition.from_dict(r.get("acquisition"), r.at("acquisition")),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:713: in from_dict
+    budget_provenance=None if "budget_provenance" not in r else BudgetProvenance.from_dict(
+actenon_scan/effects/claim.py:586: in from_dict
+    exclusions = tuple(BudgetExclusion.from_dict(x, f"{r.at('exclusions')}[{i}]")
+                 ^^^^^
+actenon_scan/effects/claim.py:586: in <genexpr>
+    exclusions = tuple(BudgetExclusion.from_dict(x, f"{r.at('exclusions')}[{i}]")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+actenon_scan/effects/claim.py:551: in from_dict
+    return cls(budget_name=r.get("budget_name"), frontier_indices=r.get("frontier_indices"),
+<string>:7: in __init__
+    ???
+actenon_scan/effects/claim.py:535: in __post_init__
+    object.__setattr__(self, "budget_name", c.enum_value(BudgetName, self.budget_name, f"{w}.budget_name"))
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <enum 'BudgetName'>, value = 'max_call_depth'
+where = 'budget exclusion.budget_name'
+
+    def enum_value(cls: type[E], value: Any, where: str) -> E:
+        if isinstance(value, cls):
+            return value
+        if type(value) is str:
+            try:
+                return cls(value)
+            except ValueError:
+                pass
+>           raise fail(where, f"{value!r} is not a member of {cls.__name__}")
+E           actenon_scan.effects._codec.EffectModelError: budget exclusion.budget_name: 'max_call_depth' is not a member of BudgetName
+
+actenon_scan/effects/_codec.py:38: EffectModelError
+=========================== short test summary info ============================
+FAILED tests/effect_claims/test_m0r1b_budget.py::test_all_budgets_need_distinct_witnesses_even_without_a_frontier_edge
+1 failed, 45 passed in 0.22s
