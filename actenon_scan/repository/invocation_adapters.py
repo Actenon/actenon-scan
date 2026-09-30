@@ -1,8 +1,8 @@
 """Repository-index adapters for the common invocation graph.
 
-Indexes supply import/local-call resolution. Lexical collectors repair the
-indexes' intentional omissions (nested functions and anonymous callbacks),
-without changing the legacy index consumers or learning effect semantics.
+Three passes construct scopes/bindings, enumerate separately owned bodies,
+and resolve evidence-bearing binding claims. Legacy indexes supply parsing
+and module coordinates, never authority from flattened same-name resolution.
 """
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from actenon_scan.invocation_graph import (
     InvocationNode, InvocationRoot, RootKind, stable_id,
 )
 from actenon_scan.repository.symbol_index import RepositoryIndex, ResolutionCertainty
+from actenon_scan.binding_claims import BindingClaim, BindingEvidence as E, BindingState
 
 TS_SUFFIXES = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
 _FUNCTION_TYPES = {"function_declaration", "function_expression", "arrow_function",
@@ -54,6 +55,9 @@ class _Binding:
     conditional: bool = False
     line: int = 0
     column: int = 0
+    alias_name: str | None = None
+    alias_scope: str | None = None
+    counter_evidence: frozenset[E] = frozenset()
 
 
 @dataclass
@@ -69,6 +73,10 @@ class _Unit:
     bindings: dict[str, dict[str, list[_Binding]]] = field(default_factory=dict)
     scope_parents: dict[str, str] = field(default_factory=dict)
     class_scopes: dict[str, str] = field(default_factory=dict)
+    # Pass 1 syntax coordinates and execution-region boundaries. No calls yet.
+    node_scopes: dict[object, str] = field(default_factory=dict)
+    execution_scopes: dict[str, CallableSymbol] = field(default_factory=dict)
+    member_writes: list[tuple[str, str, str]] = field(default_factory=list)
     package_name: str = ""
     exports: set[str] = field(default_factory=set)
     discovered: dict[str, tuple[str, ...]] = field(default_factory=dict)
@@ -147,12 +155,14 @@ def _python_generator(node):
     return False
 
 
-def _python_unit(file, source, tree, index, cfg):
+def _python_unit(file, source, tree, index, cfg, *, enumerate_calls=True):
     from actenon_scan.detectors.reachability import _reachability_for_func
     module = index._module_qualified_name(file)
     unit = _Unit("python", file, source, tree, module)
     module_sym = CallableSymbol("python", file, module or "<module>", 1, 1)
-    awaited_callees = set()
+    unit.execution_scopes[unit.module_key] = module_sym
+    directives = {}
+    cross_scope_writes = []
 
     class Collector(ast.NodeVisitor):
         owner = module_sym
@@ -161,8 +171,17 @@ def _python_unit(file, source, tree, index, cfg):
         class_context = None
         execution_owner = None
 
+        def visit(self, node):
+            unit.node_scopes[node] = self.owner.key
+            return super().visit(node)
+
         def bind(self, name, **values):
-            unit.bind(self.owner.key, name, _Binding(conditional=self.conditional, **values))
+            directive = directives.get((self.owner.key, name))
+            if directive:
+                cross_scope_writes.append((self.owner.key, name, directive))
+                unit.bind(self.owner.key, name, _Binding("write", counter_evidence=frozenset({E.REASSIGNMENT_WRITE})))
+            else:
+                unit.bind(self.owner.key, name, _Binding(conditional=self.conditional, **values))
 
         def parameters(self, args, receiver=None):
             positional = args.posonlyargs + args.args
@@ -178,10 +197,15 @@ def _python_unit(file, source, tree, index, cfg):
             sym = unit.symbol(name, node, previous.symbol)
             # A decorator may replace the binding; a generator call does not
             # establish resumption of its body. Keep the source candidate.
-            kind = "possible_callable" if node.decorator_list or _python_generator(node) else "callable"
-            if kind == "callable" and isinstance(node, ast.AsyncFunctionDef):
-                kind = "coroutine_callable"
-            self.bind(node.name, kind=kind, callable_key=sym.key, line=node.lineno)
+            kind = "coroutine_callable" if isinstance(node, ast.AsyncFunctionDef) else "callable"
+            counter = set()
+            if node.decorator_list:
+                counter.add(E.UNKNOWN_DECORATOR)
+            if _python_generator(node):
+                counter.add(E.DEFERRED_EXECUTION)
+            self.bind(node.name, kind=kind, callable_key=sym.key, line=node.lineno,
+                      counter_evidence=frozenset(counter))
+            unit.execution_scopes[sym.key] = sym
             unit.scope_parents[sym.key] = context[1].key if context else previous.key
             signal = _reachability_for_func(tree, node, cfg, None, node.lineno)
             if signal.confidence == "high":
@@ -206,8 +230,9 @@ def _python_unit(file, source, tree, index, cfg):
             cls = CallableSymbol("python", file, name, node.lineno, node.col_offset + 1)
             unit.class_scopes[name] = cls.key
             if node.decorator_list:
-                unit.bind(cls.key, "*")
+                unit.bind(cls.key, "*", _Binding(counter_evidence=frozenset({E.UNKNOWN_DECORATOR})))
             caller = execution or previous
+            unit.execution_scopes[cls.key] = caller
             unit.scope_parents[cls.key] = caller.key
             self.owner, self.class_context, self.execution_owner = cls, (name, caller), caller
             for statement in node.body:
@@ -220,21 +245,48 @@ def _python_unit(file, source, tree, index, cfg):
             previous, conditional, context, execution = self.owner, self.conditional, self.class_context, self.execution_owner
             name = f"{previous.symbol}.<lambda@{node.lineno}:{node.col_offset + 1}>"
             self.owner = unit.symbol(name, node, previous.symbol)
+            unit.execution_scopes[self.owner.key] = self.owner
             unit.scope_parents[self.owner.key] = context[1].key if context else previous.key
             self.conditional, self.class_context, self.execution_owner = False, None, None
             self.parameters(node.args)
             self.visit(node.body)
             self.owner, self.conditional, self.class_context, self.execution_owner = previous, conditional, context, execution
 
+        def assignment(self, node, targets, value):
+            if value:
+                self.visit(value)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    values = dict(line=node.lineno, column=node.col_offset + 1)
+                    if isinstance(value, ast.Name):
+                        values.update(kind="alias", alias_name=value.id, alias_scope=self.owner.key)
+                    elif isinstance(value, ast.Lambda):
+                        symbol = next(s for s in unit.symbols if unit.nodes[s.key] is value)
+                        values.update(kind="callable", callable_key=symbol.key)
+                    self.bind(target.id, **values)
+                else:
+                    self.visit(target)
+
+        def visit_Assign(self, node):
+            self.assignment(node, node.targets, node.value)
+
+        def visit_AnnAssign(self, node):
+            self.visit(node.annotation)
+            self.assignment(node, [node.target], node.value)
+
         def visit_Name(self, node):
             if isinstance(node.ctx, (ast.Store, ast.Del)):
                 self.bind(node.id, line=node.lineno)
 
         def visit_Attribute(self, node):
-            if isinstance(node.ctx, (ast.Store, ast.Del)) and isinstance(node.value, ast.Name):
-                _, bindings = _lexical_bindings(unit, self.owner.key, node.value.id)
-                if len(bindings) == 1 and bindings[0].kind == "receiver":
-                    unit.bind(_receiver_scope(unit, bindings[0]), node.attr)
+            if isinstance(node.ctx, (ast.Store, ast.Del)):
+                unit.member_writes.append((self.owner.key, ast.unparse(node.value), node.attr))
+            self.generic_visit(node)
+
+        def visit_Subscript(self, node):
+            if isinstance(node.ctx, (ast.Store, ast.Del)):
+                member = node.slice.value if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str) else "*"
+                unit.member_writes.append((self.owner.key, ast.unparse(node.value), member))
             self.generic_visit(node)
 
         def visit_ExceptHandler(self, node):
@@ -253,15 +305,14 @@ def _python_unit(file, source, tree, index, cfg):
                           member=alias.name, level=node.level, line=node.lineno)
 
         def visit_Global(self, node):
-            # Cross-scope stores are not proven by this bounded lexical model.
             for name in node.names:
+                directives[(self.owner.key, name)] = "global"
                 self.bind(name, line=node.lineno)
-                unit.bind(unit.module_key, name)
 
         def visit_Nonlocal(self, node):
             for name in node.names:
+                directives[(self.owner.key, name)] = "nonlocal"
                 self.bind(name, line=node.lineno)
-                unit.bind(unit.scope_parents.get(self.owner.key, unit.module_key), name)
 
         def visit_MatchAs(self, node):
             if node.name:
@@ -284,21 +335,22 @@ def _python_unit(file, source, tree, index, cfg):
         visit_If = visit_While = visit_For = visit_AsyncFor = visit_Try = visit_conditional
         visit_TryStar = visit_Match = visit_With = visit_AsyncWith = visit_conditional
 
-        def visit_Await(self, node):
-            # Only the call directly awaited is resumed. Calls passed as its
-            # arguments do not inherit this evidence.
-            if isinstance(node.value, ast.Call):
-                awaited_callees.add(node.value.func)
-            self.generic_visit(node)
-
         def visit_Call(self, node):
-            unit.sites.append(_Site(self.execution_owner or self.owner, node.lineno, node.col_offset + 1,
-                                    ast.unparse(node.func), node.func,
-                                    not isinstance(node.func, (ast.Name, ast.Attribute)), self.owner.key,
-                                    node.func in awaited_callees))
+            # Pass 1 records lexical scope only. Pass 2 owns enumeration.
             self.generic_visit(node)
 
     Collector().visit(tree)
+    invalidations = set()
+    for scope, name, directive in cross_scope_writes:
+        if directive == "global":
+            destination = unit.module_key
+        else:
+            destination, _ = _lexical_bindings(unit, unit.scope_parents.get(scope, unit.module_key), name)
+        invalidations.add((destination, name))
+    for scope, name in sorted(invalidations):
+        unit.bind(scope, name, _Binding("write", counter_evidence=frozenset({E.REASSIGNMENT_WRITE})))
+    if enumerate_calls:
+        _construct_execution_ownership(unit)
     return unit
 
 
@@ -323,14 +375,15 @@ def _pattern_names(node, data):
     return []
 
 
-def _tree_unit(language, file, source, tree, index):
+def _tree_unit(language, file, source, tree, index, *, enumerate_calls=True):
     module = (index._module_qualified_name(file) if language == "typescript"
               else index._package_qualified_name(file))
     unit = _Unit(language, file, source, tree, module)
     data = source.encode()
     module_sym = CallableSymbol(language, file, module or "<module>", 1, 1)
+    unit.execution_scopes[unit.module_key] = module_sym
     writes = []
-    member_writes = []
+    member_writes = unit.member_writes
     if language == "go":
         package = next((n for n in tree.named_children if n.type == "package_clause"), None)
         unit.package_name = _text(package.named_children[0], data) if package and package.named_children else ""
@@ -344,6 +397,7 @@ def _tree_unit(language, file, source, tree, index):
         scope = stable_id("class-execution-scope", language, file, node.start_point[0] + 1,
                           node.start_point[1] + 1)
         unit.scope_parents[scope] = parent
+        unit.execution_scopes[scope] = unit.execution_scopes[parent]
         unit.bind(scope, "this", _Binding("receiver", receiver_class=receiver) if receiver else _Binding())
         return scope
 
@@ -352,7 +406,8 @@ def _tree_unit(language, file, source, tree, index):
         definition_children = ()
         if node.type in {"if_statement", "for_statement", "while_statement", "do_statement",
                          "try_statement", "switch_statement", "switch_case", "conditional_expression",
-                         "type_switch_statement", "type_case", "for_in_statement", "catch_clause"}:
+                         "type_switch_statement", "type_case", "for_in_statement", "catch_clause",
+                         "select_statement", "communication_case"}:
             conditional = True
         if node.type in {"statement_block", "block"} and (not node.parent or node.parent.type not in _FUNCTION_TYPES):
             # Block scopes are summarized conservatively, so declarations in
@@ -365,9 +420,28 @@ def _tree_unit(language, file, source, tree, index):
             # Distinct declarations with the same spelling are not one class.
             class_identity = stable_id("class-scope", language, file, node.start_point[0] + 1,
                                        node.start_point[1] + 1, class_name)
+            unit.execution_scopes[class_identity] = owner
             if any(c.type == "decorator" for c in node.children):
-                unit.bind(class_identity, "*")
-                unit.bind(stable_id("static-scope", class_identity), "*")
+                unit.bind(class_identity, "*", _Binding(counter_evidence=frozenset({E.UNKNOWN_DECORATOR})))
+                unit.bind(stable_id("static-scope", class_identity), "*", _Binding(counter_evidence=frozenset({E.UNKNOWN_DECORATOR})))
+        if language == "typescript" and node.type not in _FUNCTION_TYPES | {"class_declaration", "class"}:
+            if node.type.endswith("_declaration") or node.type in {"internal_module", "module"}:
+                declared = node.child_by_field_name("name")
+                if declared and declared.type in {"identifier", "type_identifier"}:
+                    # Unmodeled declarations cannot be passed through as
+                    # exact outer value bindings, even for type-only syntax.
+                    unit.bind(scope, _text(declared, data), _Binding(conditional=conditional))
+            if node.type in {"internal_module", "module"}:
+                namespace = stable_id("namespace-scope", language, file, node.start_point[0] + 1,
+                                      node.start_point[1] + 1)
+                unit.scope_parents[namespace] = scope
+                unit.execution_scopes[namespace] = owner
+                scope = namespace
+        if language == "go" and any(c.type == ":=" for c in node.children) and node.type not in {
+                "short_var_declaration", "range_clause", "type_switch_statement"}:
+            declared = node.child_by_field_name("left") or node.child_by_field_name("alias")
+            for identifier in _pattern_names(declared, data):
+                unit.bind(scope, identifier, _Binding(conditional=True))
         if language == "typescript" and node.type == "class_static_block":
             # Executed with the class definition, but its this is the
             # constructor, never an enclosing method's instance receiver.
@@ -388,6 +462,7 @@ def _tree_unit(language, file, source, tree, index):
                     name = f"{class_name}.<field@{node.start_point[0] + 1}:{node.start_point[1] + 1}>"
                     initializer = unit.symbol(name, node, owner.symbol)
                     initializer_scope = initializer.key
+                    unit.execution_scopes[initializer_scope] = initializer
                     unit.scope_parents[initializer_scope] = scope
                     unit.bind(initializer_scope, "this", _Binding("receiver", receiver_class=class_identity))
             for child in node.named_children:
@@ -409,6 +484,14 @@ def _tree_unit(language, file, source, tree, index):
             internal_name = name
             declarator = node.parent if node.parent and node.parent.type == "variable_declarator" else None
             variable = declarator.child_by_field_name("name") if declarator else None
+            go_value = None
+            if language == "go" and node.type == "func_literal" and node.parent and node.parent.type == "expression_list":
+                declaration = node.parent.parent
+                if len(node.parent.named_children) == 1 and declaration.type in {"short_var_declaration", "var_spec"}:
+                    pattern = declaration.child_by_field_name("left") or declaration.child_by_field_name("name")
+                    identifiers = _pattern_names(pattern, data)
+                    if len(identifiers) == 1:
+                        go_value = identifiers[0]
             if not name and variable and variable.type == "identifier":
                 name = _text(variable, data)
             method = node.type in {"method_definition", "method_declaration"}
@@ -421,37 +504,49 @@ def _tree_unit(language, file, source, tree, index):
             if not name:
                 name = f"<callback@{node.start_point[0] + 1}:{node.start_point[1] + 1}>"
             sym = unit.symbol(".".join(x for x in (prefix, name) if x), node, owner.symbol)
+            unit.execution_scopes[sym.key] = sym
             unit.scope_parents[sym.key] = previous_scope
             static = any(child.type == "static" for child in node.children)
-            # Generator calls return suspended bodies. Accessors do not bind
-            # the returned value of a member call to the accessor's own body.
-            deferred = node.type in {"generator_function_declaration", "generator_function"}
-            deferred |= method and any(c.type in {"*", "get", "set", "decorator"} for c in node.children)
-            deferred |= bool(class_method and node.prev_named_sibling and node.prev_named_sibling.type == "decorator")
-            # A class constructor cannot enter its body as an ordinary
-            # instance-method call. Construction remains a local frontier.
-            deferred |= language == "typescript" and class_method and not static and name == "constructor"
-            kind = "possible_callable" if deferred else "callable"
+            counter = set()
+            if node.type in {"generator_function_declaration", "generator_function"} or (method and any(c.type == "*" for c in node.children)):
+                counter.add(E.DEFERRED_EXECUTION)
+            if method and any(c.type in {"get", "set"} for c in node.children):
+                counter.add(E.EXECUTION_NOT_ESTABLISHED)
+            if any(c.type == "decorator" for c in node.children) or bool(
+                    class_method and node.prev_named_sibling and node.prev_named_sibling.type == "decorator"):
+                counter.add(E.UNKNOWN_DECORATOR)
+            if language == "typescript" and class_method and not static and name == "constructor":
+                counter.add(E.EXECUTION_NOT_ESTABLISHED)
+            kind, binding_counter = "callable", frozenset(counter)
             member_scope = stable_id("static-scope", class_identity) if static else class_identity
             if class_method and class_name:
                 computed = language == "typescript" and name_node.type not in {"property_identifier", "private_property_identifier", "identifier"}
                 unit.bind(member_scope, "*" if computed else name,
-                          _Binding("possible_callable" if computed else kind, sym.key, conditional=conditional,
+                          _Binding(kind, sym.key, conditional=conditional,
                                                        line=node.start_point[0] + 1,
-                                                       column=node.start_point[1] + 1))
+                                                       column=node.start_point[1] + 1,
+                                                       counter_evidence=binding_counter | (frozenset({E.NO_BINDING_PROOF}) if computed else frozenset())))
             elif node.type in {"function_declaration", "generator_function_declaration"} or (variable and variable.type == "identifier"):
                 unit.bind(previous_scope, _text(variable, data) if variable else name,
                           _Binding(kind, sym.key, conditional=conditional, line=node.start_point[0] + 1,
-                                   column=node.start_point[1] + 1))
+                                   column=node.start_point[1] + 1, counter_evidence=binding_counter))
+            if go_value:
+                # This bounded model preserves literal candidates without
+                # proving all Go short-declaration/value stability semantics.
+                unit.bind(previous_scope, go_value, _Binding("callable", sym.key,
+                          conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
+                          counter_evidence=frozenset({E.NO_BINDING_PROOF})))
             owner, conditional = sym, False
             scope = sym.key
             if node.type in {"function_expression", "generator_function"} and internal_name:
                 # The expression's self name lives inside it; the receiving
                 # variable name lives in the enclosing scope.
-                unit.bind(sym.key, internal_name, _Binding(kind, sym.key))
+                unit.bind(sym.key, internal_name, _Binding("self_callable", sym.key, counter_evidence=binding_counter))
             for parameter in _pattern_names(node.child_by_field_name("parameters"), data):
                 unit.bind(sym.key, parameter)
             for parameter in _pattern_names(node.child_by_field_name("parameter"), data):
+                unit.bind(sym.key, parameter)
+            for parameter in _pattern_names(node.child_by_field_name("result"), data):
                 unit.bind(sym.key, parameter)
             # JavaScript's this is lexical in arrows and rebound in ordinary functions.
             if language == "typescript" and node.type != "arrow_function":
@@ -461,35 +556,44 @@ def _tree_unit(language, file, source, tree, index):
                 names = _pattern_names(node.child_by_field_name("receiver"), data)
                 if len(names) == 1:
                     unit.bind(sym.key, names[0], _Binding("receiver", receiver_class=class_identity))
-        if node.type in {"call_expression", "new_expression"}:
-            callee = node.child_by_field_name("function") or node.child_by_field_name("constructor")
-            if callee:
-                spelling = _text(callee, data)
-                unit.sites.append(_Site(owner, node.start_point[0] + 1, node.start_point[1] + 1,
-                                        spelling, callee, bool(re.search(r"[\[\]()?]", spelling)), scope))
+        unit.node_scopes[node] = scope
         if node.type == "variable_declarator":
             name, value = node.child_by_field_name("name"), node.child_by_field_name("value")
             if not (name and name.type == "identifier" and value and value.type in _FUNCTION_TYPES):
                 for identifier in _pattern_names(name, data):
-                    unit.bind(scope, identifier, _Binding(conditional=conditional))
+                    unit.bind(scope, identifier, _Binding("alias" if value and value.type in {"identifier", "this"} and name.type == "identifier" else "unknown",
+                              conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
+                              alias_name=_text(value, data) if value and value.type in {"identifier", "this"} else None,
+                              alias_scope=scope))
         if node.type in {"short_var_declaration", "range_clause", "for_in_statement", "type_switch_statement"}:
             left = node.child_by_field_name("alias") if node.type == "type_switch_statement" else node.child_by_field_name("left")
-            for identifier in _pattern_names(left, data):
-                unit.bind(scope, identifier, _Binding(conditional=conditional))
+            right = node.child_by_field_name("right")
+            names = _pattern_names(left, data)
+            alias = right.named_children[0] if right and len(right.named_children) == 1 and right.named_children[0].type == "identifier" else None
+            for identifier in names:
+                unit.bind(scope, identifier, _Binding("alias" if alias and len(names) == 1 else "unknown",
+                          conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
+                          alias_name=_text(alias, data) if alias else None, alias_scope=scope))
         if node.type in {"assignment_expression", "augmented_assignment_expression", "assignment_statement", "update_expression"}:
             left = node.child_by_field_name("left")
             if node.type == "update_expression":
                 left = node.child_by_field_name("argument")
             for identifier in _pattern_names(left, data):
                 writes.append((scope, identifier))
-            if left and left.type in {"member_expression", "subscript_expression"}:
-                receiver = left.child_by_field_name("object")
-                member = "*" if left.type == "subscript_expression" else _text(left.child_by_field_name("property"), data)
-                member_writes.append((scope, _text(receiver, data), member))
-        if node.type in {"var_spec", "type_spec"}:
+            destinations = left.named_children if left and left.type == "expression_list" else [left]
+            for destination in destinations:
+                if destination and destination.type in {"member_expression", "subscript_expression", "selector_expression"}:
+                    receiver = destination.child_by_field_name("object") or destination.child_by_field_name("operand")
+                    member = "*" if destination.type == "subscript_expression" else _text(destination.child_by_field_name("property") or destination.child_by_field_name("field"), data)
+                    member_writes.append((scope, _text(receiver, data), member))
+        if node.type in {"var_spec", "const_spec", "type_spec"}:
             for i, child in enumerate(node.children):
                 if node.field_name_for_child(i) == "name":
-                    unit.bind(scope, _text(child, data), _Binding(conditional=conditional))
+                    value = node.child_by_field_name("value")
+                    alias = value.named_children[0] if value and len(value.named_children) == 1 and value.named_children[0].type == "identifier" else None
+                    unit.bind(scope, _text(child, data), _Binding("alias" if alias else "unknown",
+                              conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
+                              alias_name=_text(alias, data) if alias else None, alias_scope=scope))
         if node.type == "import_spec" and language == "go":
             name = _text(node.child_by_field_name("name"), data)
             if name:
@@ -528,13 +632,8 @@ def _tree_unit(language, file, source, tree, index):
             if not bindings or not all(b.conditional for b in bindings):
                 break
             scope = unit.scope_parents.get(destination, "")
-    for scope, receiver, member in member_writes:
-        _, bindings = _lexical_bindings(unit, scope, receiver)
-        for binding in bindings:
-            if binding.kind == "receiver":
-                invalidations.add((_receiver_scope(unit, binding), member))
     for scope, name in sorted(invalidations):
-        unit.bind(scope, name)
+        unit.bind(scope, name, _Binding("write", counter_evidence=frozenset({E.REASSIGNMENT_WRITE})))
     if language == "typescript":
         for node in tree.named_children:
             if node.type == "export_statement" and not any(c.type == "default" for c in node.children):
@@ -546,7 +645,47 @@ def _tree_unit(language, file, source, tree, index):
                     for child in declaration.named_children:
                         if child.type == "variable_declarator":
                             unit.exports.update(_pattern_names(child.child_by_field_name("name"), data))
+    if enumerate_calls:
+        _construct_execution_ownership(unit)
     return unit
+
+
+def _construct_execution_ownership(unit):
+    """Pass 2: attribute each invocation to its separately constructed body.
+
+    Nested callable syntax is enumerated in its own execution region. It is
+    never collected as outgoing syntax of the lexical enclosing callable.
+    """
+    unit.sites.clear()
+    pending = [unit.tree]
+    data = unit.source.encode()
+    resumed_calls = {n.value for n in ast.walk(unit.tree) if isinstance(n, ast.Await)
+                     and isinstance(n.value, ast.Call)} if unit.language == "python" else set()
+    while pending:
+        node = pending.pop()
+        scope = unit.node_scopes.get(node)
+        if unit.language == "python":
+            pending.extend(reversed(list(ast.iter_child_nodes(node))))
+            if not isinstance(node, ast.Call):
+                continue
+            callee, line, column = node.func, node.lineno, node.col_offset + 1
+            spelling = ast.unparse(callee)
+            dynamic = not isinstance(callee, (ast.Name, ast.Attribute))
+            resumed = node in resumed_calls
+        else:
+            pending.extend(reversed(node.named_children))
+            if node.type not in {"call_expression", "new_expression"}:
+                continue
+            callee = node.child_by_field_name("function") or node.child_by_field_name("constructor")
+            if not callee:
+                continue
+            line, column = node.start_point[0] + 1, node.start_point[1] + 1
+            spelling = _text(callee, data)
+            dynamic, resumed = bool(re.search(r"[\[\]()?]", spelling)), False
+        if scope not in unit.execution_scopes:
+            raise RuntimeError("invocation lacks a constructed execution owner")
+        unit.sites.append(_Site(unit.execution_scopes[scope], line, column, spelling,
+                                callee, dynamic, scope, resumed))
 
 
 def _registered_roots(unit, index, symbols, units):
@@ -603,27 +742,110 @@ def _lexical_bindings(unit, scope, name):
     return unit.module_key, unit.bindings.get(unit.module_key, {}).get(name, [])
 
 
+def _apply_namespace_writes(units, indexes):
+    """Complete pass 1 writes after all lexical declarations are available.
+
+    Exact receiver/module aliases identify destinations. Unknown object writes
+    conservatively destabilize matching local member namespaces (and Python
+    modules, which are mutable objects), without guessing a receiver identity.
+    """
+    def namespaces(unit, scope, name, seen=frozenset()):
+        coordinate = (unit.file, scope, name)
+        if coordinate in seen or len(seen) >= 32:
+            return []
+        seen = seen | {coordinate}
+        _, bindings = _lexical_bindings(unit, scope, name)
+        destinations = []
+        for binding in bindings:
+            if binding.kind == "receiver":
+                destinations.append((unit.file, _receiver_scope(unit, binding)))
+            elif binding.kind == "alias" and binding.alias_name:
+                destinations.extend(namespaces(unit, binding.alias_scope or scope, binding.alias_name, seen))
+            elif binding.kind == "import" and unit.language == "python":
+                module = indexes[unit.language]._resolve_module_dotted(
+                    ".".join(x for x in (binding.module, binding.member) if x), binding.level, unit.file)
+                destinations.extend((other.file, other.module_key) for other in units
+                                    if other.language == "python" and other.module == module)
+        return destinations
+
+    invalidations = set()
+    by_file = {u.file: u for u in units}
+    for unit in units:
+        for scope, receiver, member in unit.member_writes:
+            destinations = namespaces(unit, scope, receiver)
+            if not destinations:
+                for other in units:
+                    if other.language != unit.language:
+                        continue
+                    if unit.language == "python":
+                        destinations.append((other.file, other.module_key))
+                    receiver_scopes = {_receiver_scope(other, b) for names in other.bindings.values()
+                                       for declarations in names.values() for b in declarations if b.kind == "receiver"}
+                    destinations.extend((other.file, namespace) for namespace in receiver_scopes)
+            invalidations.update((file, namespace, member) for file, namespace in destinations)
+    # Compute all destinations first: writes cannot change another write's lookup.
+    for file, scope, name in sorted(invalidations):
+        by_file[file].bind(scope, name, _Binding("write", counter_evidence=frozenset({E.REASSIGNMENT_WRITE})))
+
+
 def _receiver_scope(unit, binding):
     return unit.class_scopes.get(binding.receiver_class, binding.receiver_class)
 
 
-def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, seen=frozenset(),
-                     resumes_coroutine=False):
-    """Follow declaration/import provenance, never flattened binding dictionaries."""
+@dataclass
+class _Provenance:
+    """Accumulate facts across every possible binding path; never overwrite."""
+    targets: dict[str, CallableSymbol] = field(default_factory=dict)
+    positive: dict[str, set[E]] = field(default_factory=dict)
+    counter: set[E] = field(default_factory=set)
+
+    def add(self, symbol, evidence):
+        self.targets[symbol.key] = symbol
+        self.positive.setdefault(symbol.key, set()).update(evidence)
+
+    def merge(self, other, evidence=()):
+        self.counter.update(other.counter)
+        for key, symbol in other.targets.items():
+            self.add(symbol, other.positive[key] | set(evidence))
+
+
+def _binding_provenance(unit, scope, name, bindings, tail, index, units, symbols,
+                        seen=frozenset(), resumes_coroutine=False):
+    """Pass 3: bounded, set-valued lexical evidence, independent of sink rules."""
     coordinate = (unit.file, scope, name, tuple(tail))
+    result = _Provenance()
     if coordinate in seen:
-        return [], False
+        result.counter.add(E.UNRESOLVED_ALIAS)
+        return result
     if len(seen) >= 32:
         raise RuntimeError("max_lexical_binding_depth reached (32)")
     seen = seen | {coordinate}
-    targets, complete = [], bool(bindings)
+    if len(bindings) > 1 and any(b.kind in {"unknown", "write", "alias"} for b in bindings):
+        result.counter.add(E.REASSIGNMENT_WRITE)
+    if len(bindings) != 1:
+        result.counter.add(E.AMBIGUOUS_DECLARATION if bindings else E.NO_BINDING_PROOF)
     for binding in bindings:
-        complete &= not binding.conditional
-        if binding.kind in {"callable", "possible_callable", "coroutine_callable"} and not tail:
+        result.counter.update(binding.counter_evidence)
+        if binding.conditional:
+            result.counter.add(E.CONDITIONAL_IMPORT if binding.kind in {"import", "ts_import"} else E.CONDITIONAL_DECLARATION)
+        if binding.kind in {"callable", "self_callable", "coroutine_callable"} and not tail:
             found = [s for s in symbols if s.key == binding.callable_key]
-            targets.extend(found)
-            complete &= len(found) == 1 and (binding.kind == "callable"
-                                            or (binding.kind == "coroutine_callable" and resumes_coroutine))
+            for symbol in found:
+                result.add(symbol, {E.CALLABLE_SELF_BINDING if binding.kind == "self_callable" else E.LEXICAL_DECLARATION})
+            if len(found) != 1:
+                result.counter.add(E.AMBIGUOUS_DECLARATION)
+            if binding.kind == "coroutine_callable" and not resumes_coroutine:
+                result.counter.add(E.DEFERRED_EXECUTION)
+        elif binding.kind == "alias" and binding.alias_name:
+            origin, declarations = _lexical_bindings(unit, binding.alias_scope or scope, binding.alias_name)
+            # Alias initializer execution must itself have a stable target.
+            if any((b.line, b.column) > (binding.line, binding.column) for b in declarations):
+                result.counter.add(E.INITIALIZATION_NOT_ESTABLISHED)
+            child = _binding_provenance(unit, origin, binding.alias_name, declarations, tail,
+                                        index, units, symbols, seen, resumes_coroutine)
+            result.merge(child, {E.STRUCTURALLY_EXACT_ALIAS})
+            if not child.targets:
+                result.counter.add(E.UNRESOLVED_ALIAS)
         elif binding.kind in {"import", "ts_import"}:
             modules, member = [], binding.member
             if unit.language == "python":
@@ -638,15 +860,14 @@ def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, s
                     bound_owners = [u for u in owners if member in u.bindings.get(u.module_key, {})
                                     or "*" in u.bindings.get(u.module_key, {})]
                     if bound_owners:
-                        complete &= len(owners) == 1
+                        if len(owners) != 1:
+                            result.counter.add(E.AMBIGUOUS_DECLARATION)
                         for other in bound_owners:
                             declarations = other.bindings[other.module_key].get(member, []) + other.bindings[other.module_key].get("*", [])
-                            found, exact = _binding_targets(other, other.module_key, member, declarations, tail,
-                                                            index, units, symbols, seen, resumes_coroutine)
-                            targets.extend(found)
-                            complete &= exact
+                            child = _binding_provenance(other, other.module_key, member, declarations, tail,
+                                                        index, units, symbols, seen, resumes_coroutine)
+                            result.merge(child, {E.IMPORT_PROVENANCE})
                         continue
-                    # `from . import module; module.run()` is a submodule binding.
                     module = index._resolve_module_dotted(".".join(x for x in (binding.module, member, *tail[:-1]) if x),
                                                           binding.level, unit.file)
                     member = tail[-1]
@@ -662,27 +883,24 @@ def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, s
                     member = tail[0]
                 elif tail:
                     modules = []
-            complete &= len(modules) == 1 and member not in {None, "*", "default"}
+            if len(modules) != 1 or member in {None, "*", "default"}:
+                result.counter.add(E.UNRESOLVED_IMPORT)
             for other in modules:
                 if unit.language == "typescript" and member not in other.exports:
-                    complete = False
-                other_bindings = other.bindings.get(other.module_key, {}).get(member, [])
-                if "*" in other.bindings.get(other.module_key, {}):
-                    other_bindings = other_bindings + other.bindings[other.module_key]["*"]
-                found, exact = _binding_targets(other, other.module_key, member, other_bindings, [],
-                                                index, units, symbols, seen, resumes_coroutine)
-                targets.extend(found)
-                complete &= exact
+                    result.counter.add(E.UNRESOLVED_IMPORT)
+                declarations = other.bindings.get(other.module_key, {}).get(member, []) + other.bindings.get(other.module_key, {}).get("*", [])
+                child = _binding_provenance(other, other.module_key, member, declarations, [],
+                                            index, units, symbols, seen, resumes_coroutine)
+                result.merge(child, {E.IMPORT_PROVENANCE})
         else:
-            complete = False
-    unique = {s.key: s for s in targets}
-    return list(unique.values()), complete and len(bindings) == 1
+            result.counter.add(E.REASSIGNMENT_WRITE if binding.kind == "write" else E.NO_BINDING_PROOF)
+    if len(result.targets) > 1:
+        result.counter.add(E.AMBIGUOUS_DECLARATION)
+    return result
 
 
-def _resolve(unit, site, index, symbols, units):
-    """RESOLVED means one structurally justified lexical target."""
-    # Retain the index/resolver failure path, but never trust its flattened
-    # import/name binding as proof of a lexical edge.
+def _resolve_binding_claims(unit, site, identity, index, symbols, units):
+    # The legacy resolver remains a diagnostic source, never binding authority.
     if unit.language == "python":
         index.resolve_call_target(site.node, in_module=unit.file)
     else:
@@ -692,44 +910,81 @@ def _resolve(unit, site, index, symbols, units):
     head, name = parts[0], parts[-1]
     lexical_scope = site.lexical_scope or site.owner.key
     scope, bindings = _lexical_bindings(unit, lexical_scope, head)
-    candidates, complete = [], False
+    result = _Provenance()
     if simple and len(parts) == 2 and len(bindings) == 1 and bindings[0].kind == "receiver":
         receiver = bindings[0]
         class_scope = _receiver_scope(unit, receiver)
         members = unit.bindings.get(class_scope, {})
-        member_bindings = members.get(name, []) + members.get("*", [])
-        candidates, complete = _binding_targets(unit, class_scope, name, member_bindings, [],
-                                                index, units, symbols, resumes_coroutine=site.resumes_coroutine)
-        complete &= not receiver.conditional
+        declarations = members.get(name, []) + members.get("*", [])
+        result = _binding_provenance(unit, class_scope, name, declarations, [], index, units, symbols,
+                                     resumes_coroutine=site.resumes_coroutine)
+        for evidence in result.positive.values():
+            evidence.add(E.RECEIVER_IDENTITY)
+        if receiver.conditional:
+            result.counter.add(E.UNESTABLISHED_RECEIVER)
+        # Known static members are incompatible with an instance receiver.
+        if not declarations and unit.language == "typescript":
+            static_scope = stable_id("static-scope", class_scope)
+            incompatible = unit.bindings.get(static_scope, {}).get(name, [])
+            excluded = _binding_provenance(unit, static_scope, name, incompatible, [], index, units, symbols)
+            result.merge(excluded)
+            if incompatible:
+                result.counter.add(E.INCOMPATIBLE_RECEIVER)
     elif simple and unit.language == "go" and len(parts) == 1 and scope == unit.module_key:
-        # Package-level names span files, but not distinct package clauses.
         package_units = [u for u in units if Path(u.file).parent == Path(unit.file).parent
                          and u.package_name == unit.package_name]
-        package_bindings = [(u, u.bindings.get(u.module_key, {}).get(head, [])) for u in package_units]
-        active = [(u, b) for u, b in package_bindings if b]
-        complete = len(active) == 1
+        active = [(u, u.bindings.get(u.module_key, {}).get(head, [])) for u in package_units]
+        active = [(u, b) for u, b in active if b]
+        if len(active) != 1:
+            result.counter.add(E.AMBIGUOUS_DECLARATION if active else E.NO_BINDING_PROOF)
         for other, declarations in active:
-            found, exact = _binding_targets(other, other.module_key, head, declarations, [], index, units, symbols)
-            candidates.extend(found)
-            complete &= exact
+            result.merge(_binding_provenance(other, other.module_key, head, declarations, [], index, units, symbols))
     elif simple and bindings:
-        candidates, complete = _binding_targets(unit, scope, head, bindings, parts[1:], index, units, symbols,
-                                                resumes_coroutine=site.resumes_coroutine)
-        # An initializer later in this or an enclosing callable is not
-        # established at this site. Include columns for same-line programs.
+        result = _binding_provenance(unit, scope, head, bindings, parts[1:], index, units, symbols,
+                                     resumes_coroutine=site.resumes_coroutine)
         if scope != unit.module_key and any((b.line, b.column) > (site.line, site.column) for b in bindings):
-            complete = False
-    if complete and len(candidates) == 1:
-        return ResolutionCertainty.RESOLVED, (ImplementationTarget.local(candidates[0]),), False
-    if simple and not bindings and not candidates:
-        candidates = [s for s in symbols if s.symbol.rsplit(".", 1)[-1] == name]
-    candidates = list({s.key: s for s in candidates}.values())
-    certainty = ResolutionCertainty.HEURISTIC if candidates else ResolutionCertainty.UNRESOLVED
-    targets = [ImplementationTarget.local(s) for s in candidates]
-    dynamic = site.dynamic or bool(bindings) or bool(candidates)
-    targets.append(ImplementationTarget(stable_id("candidate", site.owner.key, site.line, site.column, "unknown"),
-                                         opaque=not dynamic, dynamic=dynamic))
-    return certainty, tuple(sorted(targets, key=lambda t: t.candidate_id)), None
+            result.counter.add(E.INITIALIZATION_NOT_ESTABLISHED)
+    else:
+        result.counter.add(E.NO_BINDING_PROOF)
+    if simple and not bindings and not result.targets:
+        for symbol in symbols:
+            if symbol.symbol.rsplit(".", 1)[-1] == name:
+                result.add(symbol, ())
+        result.counter.add(E.NO_BINDING_PROOF)
+    excluded = _Provenance()
+    if simple and len(parts) == 1 and bindings and not result.targets and scope != unit.module_key:
+        parent = unit.scope_parents.get(scope, unit.module_key)
+        outer_scope, outer = _lexical_bindings(unit, parent, head)
+        excluded = _binding_provenance(unit, outer_scope, head, outer, [], index, units, symbols)
+        if excluded.targets:
+            result.counter.add(E.LEXICAL_SHADOW)
+    targets = [ImplementationTarget.local(s) for s in result.targets.values()]
+    claims = [BindingClaim(identity, t.candidate_id, frozenset(result.positive[t.callable_key]),
+                           frozenset(result.counter), True) for t in targets]
+    for symbol in excluded.targets.values():
+        target = ImplementationTarget.local(symbol)
+        targets.append(target)
+        claims.append(BindingClaim(identity, target.candidate_id, frozenset(excluded.positive[symbol.key]),
+                                   frozenset(excluded.counter | {E.LEXICAL_SHADOW}), True))
+    exact = [b for b in claims if b.state == BindingState.ESTABLISHED]
+    if len(exact) == len(claims) == 1:
+        return ResolutionCertainty.RESOLVED, tuple(targets), False, tuple(claims)
+    if len(exact) > 0:
+        # Unique authority is a global constraint, not a candidate ordering rule.
+        claims = [b.with_evidence(counter={E.AMBIGUOUS_DECLARATION}) for b in claims]
+    dynamic = site.dynamic or bool(bindings) or bool(targets)
+    opaque = ImplementationTarget(stable_id("candidate", site.owner.key, site.line, site.column, "unknown"),
+                                  opaque=not dynamic, dynamic=dynamic)
+    targets.append(opaque)
+    claims.append(BindingClaim(identity, opaque.candidate_id, counter_evidence=frozenset(result.counter)))
+    certainty = ResolutionCertainty.HEURISTIC if result.targets else ResolutionCertainty.UNRESOLVED
+    return certainty, tuple(sorted(targets, key=lambda t: t.candidate_id)), None, tuple(sorted(claims, key=lambda b: b.candidate_id))
+
+
+def _resolve(unit, site, index, symbols, units):
+    """Compatibility projection for existing registration vocabulary only."""
+    certainty, targets, leaves, _ = _resolve_binding_claims(unit, site, "registration", index, symbols, units)
+    return certainty, targets, leaves
 
 
 def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
@@ -744,6 +999,7 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
     units = []
     bytes_read = 0
     files = _collect_sources(target, entrypoints, include_globs, exclude_globs)
+    # Pass 1: construct completed lexical scopes, declarations and writes.
     for i, path in enumerate(files):
         file = path.relative_to(root_dir).as_posix()
         if not path.resolve().is_relative_to(root_dir.resolve()):
@@ -767,7 +1023,7 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
             if language == "python":
                 tree = ast.parse(source, filename=file)
                 indexes[language].add_file(file, source, tree)
-                unit = _python_unit(file, source, tree, indexes[language], reachability_cfg)
+                unit = _python_unit(file, source, tree, indexes[language], reachability_cfg, enumerate_calls=False)
             else:
                 if language == "typescript":
                     from actenon_scan.repository.ts_symbol_index import TSRepositoryIndex, _parser_for
@@ -784,7 +1040,7 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
                 indexes[language].add_file(file, source)
                 if file not in indexes[language].files:
                     raise RuntimeError("repository index did not retain parsed file")
-                unit = _tree_unit(language, file, source, tree, indexes[language])
+                unit = _tree_unit(language, file, source, tree, indexes[language], enumerate_calls=False)
             units.append(unit)
         except ImportError:
             graph.unsupported_files.append((file, language))
@@ -798,6 +1054,21 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
             failed_indexes.add(language)
             graph.analysis_errors.append((language, f"index finalization: {exc}"))
     units = [u for u in units if u.language not in failed_indexes]
+    try:
+        _apply_namespace_writes(units, indexes)
+    except Exception as exc:
+        # Failed stability construction cannot leave partially trusted edges.
+        graph.analysis_errors.append(("binding construction", f"namespace writes: {type(exc).__name__}: {exc}"))
+        units = []
+    # Pass 2 is independent of binding resolution and repository-name lookup.
+    owned_units = []
+    for unit in units:
+        try:
+            _construct_execution_ownership(unit)
+            owned_units.append(unit)
+        except Exception as exc:
+            graph.analysis_errors.append((unit.file, f"execution ownership: {exc}"))
+    units = owned_units
     symbols = [s for u in units for s in u.symbols]
     roots = {}
     for unit in units:
@@ -827,26 +1098,28 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
                                   root.callable_key, previous.provenance + root.provenance)
         roots[root.root_id] = root
     graph.roots = sorted(roots.values(), key=lambda r: r.root_id)
+    # Pass 3: resolve BindingClaims before any graph traversal.
     calls = []
     for unit in units:
         language_symbols = [s for s in symbols if s.language == unit.language]
         at_coordinate = Counter()
         for site in unit.sites:
+            # Lexical preorder distinguishes call-on-call sites independently
+            # of callee spelling, candidate order and root kind.
+            ordinal = at_coordinate[(site.line, site.column)]
+            at_coordinate[(site.line, site.column)] += 1
+            identity = stable_id("invocation", unit.language, unit.file, site.line, site.column, ordinal)
             error = None
+            binding_claims = ()
             try:
-                certainty, candidates, leaves = _resolve(unit, site, indexes[unit.language], language_symbols,
-                                                         [u for u in units if u.language == unit.language])
+                certainty, candidates, leaves, binding_claims = _resolve_binding_claims(
+                    unit, site, identity, indexes[unit.language], language_symbols,
+                    [u for u in units if u.language == unit.language])
             except Exception as exc:
                 error = f"resolution at {site.line}:{site.column}: {type(exc).__name__}: {exc}"
                 graph.analysis_errors.append((unit.file, error))
                 certainty, leaves = ResolutionCertainty.UNRESOLVED, None
                 candidates = (ImplementationTarget(stable_id("candidate", site.owner.key, site.line, site.column), dynamic=True),)
-            # factory().method() has two calls at one start coordinate.
-            # Lexical preorder distinguishes them without depending on the
-            # callee text or its length, preserving rename invariance.
-            ordinal = at_coordinate[(site.line, site.column)]
-            at_coordinate[(site.line, site.column)] += 1
-            identity = stable_id("invocation", unit.language, unit.file, site.line, site.column, ordinal)
             rules = tuple(sorted(set((matched_rule_ids or {}).get((unit.file, site.line, site.column), ()))))
             resolved_identity = None
             if certainty == ResolutionCertainty.RESOLVED:
@@ -855,7 +1128,8 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
             calls.append(InvocationNode(identity, unit.language, unit.file, site.line, site.column,
                                         site.owner.symbol, site.owner.key, site.spelling, certainty, candidates,
                                         resolved_identity,
-                                        leaves, rules, error))
+                                        leaves, rules, error, binding_claims=binding_claims,
+                                        lexical_scope_id=site.lexical_scope or site.owner.key))
     graph.traverse(calls, limits)
     return graph
 

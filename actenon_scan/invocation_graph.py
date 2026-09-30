@@ -11,6 +11,7 @@ from hashlib import sha256
 from pathlib import PurePosixPath
 
 from actenon_scan.repository.symbol_index import ResolutionCertainty
+from actenon_scan.binding_claims import BindingClaim, BindingState
 
 
 class RootKind(str, Enum):
@@ -122,6 +123,25 @@ class InvocationNode:
     resolution_error: str | None = None
     root_paths: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
+    binding_claims: tuple[BindingClaim, ...] = ()
+    lexical_scope_id: str | None = None
+
+    @property
+    def execution_owner_key(self):
+        return self.caller_key
+
+    @property
+    def established_targets(self):
+        if any(b.subject != self.invocation_id or b.state in {BindingState.POSSIBLE, BindingState.UNKNOWN}
+               for b in self.binding_claims):
+            return ()
+        established = {b.candidate_id for b in self.binding_claims
+                       if b.state == BindingState.ESTABLISHED}
+        # Unique binding authority is required even for externally constructed graphs.
+        targets = [t for t in self.possible_implementations
+                   if t.candidate_id in established and t.callable_key]
+        return tuple(targets) if len(established) == len(targets) == 1 and not self.resolution_error else ()
+
     @property
     def root_ids(self):
         return tuple(sorted(self.root_paths))
@@ -130,6 +150,8 @@ class InvocationNode:
         return {**vars(self), "resolution_certainty": self.resolution_certainty.value,
                 "possible_implementations": [c.to_dict() for c in self.possible_implementations],
                 "matched_rule_ids": list(self.matched_rule_ids),
+                "binding_claims": [b.to_dict() for b in self.binding_claims],
+                "execution_owner_key": self.execution_owner_key,
                 "root_ids": list(self.root_ids),
                 "root_paths": {r: list(p) for r, p in sorted(self.root_paths.items())}}
 
@@ -147,8 +169,10 @@ class InvocationGraph:
     coverage_gaps: list[tuple[str, str]] = field(default_factory=list)
 
     def traverse(self, calls: list[InvocationNode], limits: GraphLimits):
+        self.invocations.clear()
         adjacency = defaultdict(list)
         for call in calls:
+            call.root_paths.clear()
             adjacency[call.caller_key].append(call)
         self.invocations_enumerated = len(calls)
         occurrences = 0
@@ -174,15 +198,13 @@ class InvocationGraph:
                     self.invocations[call.invocation_id] = call
                     occurrences += 1
                     # Names and heuristic matches do not establish reachability.
-                    if call.resolution_certainty == ResolutionCertainty.RESOLVED:
-                        for target in call.possible_implementations:
-                            if target.callable_key:
-                                queue.append((target.callable_key, call_path))
+                    for target in call.established_targets:
+                        queue.append((target.callable_key, call_path))
 
     @property
     def coverage(self):
         calls = list(self.invocations.values())
-        resolved = sum(c.resolution_certainty == ResolutionCertainty.RESOLVED for c in calls)
+        resolved = sum(bool(c.established_targets) for c in calls)
         return {
             "roots_discovered": self.roots_discovered,
             "roots_supplied": self.roots_supplied,
@@ -191,6 +213,10 @@ class InvocationGraph:
             "invocations_reached": len(calls),
             "root_invocation_occurrences": sum(len(c.root_paths) for c in calls),
             "resolved_local_calls": resolved,
+            "established_edges": resolved,
+            "possible_edges": sum(b.state == BindingState.POSSIBLE for c in calls for b in c.binding_claims),
+            "unknown_edges": sum(b.state == BindingState.UNKNOWN for c in calls for b in c.binding_claims),
+            "refuted_edges": sum(b.state == BindingState.REFUTED for c in calls for b in c.binding_claims),
             "unresolved_calls": len(calls) - resolved,
             "analysis_errors": len(self.analysis_errors),
             "unsupported_files": len(self.unsupported_files),
