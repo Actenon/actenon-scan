@@ -24,6 +24,9 @@ Usage:
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import TYPE_CHECKING, Iterable, Mapping
+
 # ── Engine: scanning ──
 from actenon_scan.engine import (
     scan_path,
@@ -45,6 +48,28 @@ from actenon_scan.rules.loader import (
 # ── Cache (optional; integrators may want to control cache location) ──
 from actenon_scan.cache import FileCache, get_default_cache_dir
 
+# M1's graph types are inert; importing the proof model is deferred until the
+# explicitly requested claim scan, preserving ordinary scanner isolation.
+from actenon_scan.invocation_graph import Entrypoint, GraphLimits, InvocationGraph, RootKind
+
+if TYPE_CHECKING:
+    from actenon_scan.claim_genesis import ClaimGenesisResult
+
+
+def scan_effect_claims(
+    target: str | Path, *, entrypoints: Iterable[Entrypoint] = (),
+    discover_roots: bool = True, config: str | Path | None = None,
+    include_globs: list[str] | None = None, exclude_globs: list[str] | None = None,
+    limits: GraphLimits | None = None,
+    matched_rule_ids: Mapping[tuple[str, int, int], Iterable[str]] | None = None,
+) -> "ClaimGenesisResult":
+    """Create M1 claims from callable roots; see claim_genesis.scan_effect_claims."""
+    from actenon_scan.claim_genesis import scan_effect_claims as run
+    return run(target, entrypoints=entrypoints, discover_roots=discover_roots, config=config,
+               include_globs=include_globs, exclude_globs=exclude_globs, limits=limits,
+               matched_rule_ids=matched_rule_ids)
+
+
 __all__ = [
     # Engine
     "scan_path",
@@ -52,6 +77,11 @@ __all__ = [
     "auto_jobs",
     "ScanResult",
     "Finding",
+    "scan_effect_claims",
+    "Entrypoint",
+    "GraphLimits",
+    "InvocationGraph",
+    "RootKind",
     # Rules
     "load_rules",
     "load_default_rules",

@@ -1,0 +1,723 @@
+{
+  "repository": "cloudflare/mcp-server-cloudflare",
+  "development_evidence": "R04",
+  "commit": "1d7a16b25db74ed44539cd5079e2db46b42f08db",
+  "automatic": {
+    "roots_discovered": 81,
+    "roots_supplied": 0,
+    "roots_selected": 81,
+    "invocations_enumerated": 5081,
+    "invocations_reached": 398,
+    "root_invocation_occurrences": 1198,
+    "resolved_local_calls": 74,
+    "unresolved_calls": 324,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 0,
+    "claims_instantiated": 1198,
+    "claims_without_rule_match": 1148
+  },
+  "automatic_and_explicit": {
+    "roots_discovered": 81,
+    "roots_supplied": 60,
+    "roots_selected": 141,
+    "invocations_enumerated": 5081,
+    "invocations_reached": 837,
+    "root_invocation_occurrences": 1655,
+    "resolved_local_calls": 102,
+    "unresolved_calls": 735,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 0,
+    "claims_instantiated": 1655,
+    "claims_without_rule_match": 1599
+  },
+  "legacy_findings": 1,
+  "legacy_capabilities": 1,
+  "legacy_analysis_errors": 0,
+  "annotation_removal_preserves_every_claim": true,
+  "all_claim_verdicts": "ABSTAIN",
+  "all_semantic_obligations": "UNKNOWN",
+  "sink_free_sdk_call_sites": 48,
+  "sink_free_sdk_examples": [
+    {
+      "file": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+      "line": 25,
+      "callee": "client.aiGateway.list",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+      "line": 152,
+      "callee": "client.aiGateway.logs.request",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+      "line": 165,
+      "callee": "client.r2.buckets.delete",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 458,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/dns-analytics/src/tools/dex-analytics.tools.ts",
+      "line": 39,
+      "callee": "client.dns.analytics.reports.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+      "line": 193,
+      "callee": "client.aiGateway.logs.response",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 506,
+      "callee": "client.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 243,
+      "callee": "client.radar.entities.asns.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+      "line": 238,
+      "callee": "client.kv.namespaces.update",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/autorag/src/tools/autorag.tools.ts",
+      "line": 132,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+      "line": 57,
+      "callee": "client.hyperdrive.configs.list",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 201,
+      "callee": "client.radar.entities.asns.list",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 582,
+      "callee": "client.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 379,
+      "callee": "client.radar.ranking.internetServices.top",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 466,
+      "callee": "client.radar.ranking.domain.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/autorag/src/tools/autorag.tools.ts",
+      "line": 75,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+      "line": 68,
+      "callee": "client.aiGateway.logs.list",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 1151,
+      "callee": "client.radar.bgp.routes.stats",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 233,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+      "line": 46,
+      "callee": "client.kv.namespaces.list",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/dns-analytics/src/tools/dex-analytics.tools.ts",
+      "line": 117,
+      "callee": "client.dns.settings.zone.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 423,
+      "callee": "client.radar.ranking.top",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 393,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+      "line": 87,
+      "callee": "client.r2.buckets.create",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/d1.tools.ts",
+      "line": 35,
+      "callee": "client.d1.database.list",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 81,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 544,
+      "callee": "client.delete",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/autorag/src/tools/autorag.tools.ts",
+      "line": 24,
+      "callee": "client.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/d1.tools.ts",
+      "line": 212,
+      "callee": "client.d1.database.query",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+      "line": 38,
+      "callee": "client.r2.buckets.list",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 293,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/d1.tools.ts",
+      "line": 128,
+      "callee": "client.d1.database.delete",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+      "line": 102,
+      "callee": "client.kv.namespaces.create",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 895,
+      "callee": "client.radar.quality.iqi[format]",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+      "line": 112,
+      "callee": "client.hyperdrive.configs.delete",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+      "line": 127,
+      "callee": "client.r2.buckets.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+      "line": 252,
+      "callee": "client.hyperdrive.configs.edit",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/d1.tools.ts",
+      "line": 85,
+      "callee": "client.d1.database.create",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+      "line": 145,
+      "callee": "client.kv.namespaces.delete",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+      "line": 194,
+      "callee": "client.kv.namespaces.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+      "line": 111,
+      "callee": "client.aiGateway.logs.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/dns-analytics/src/tools/dex-analytics.tools.ts",
+      "line": 77,
+      "callee": "client.dns.settings.account.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 622,
+      "callee": "client.delete",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 35,
+      "callee": "client.browserRendering.content.create",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 331,
+      "callee": "client.radar.trafficAnomalies.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 345,
+      "callee": "client.post",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+      "line": 154,
+      "callee": "client.hyperdrive.configs.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    },
+    {
+      "file": "apps/workers-bindings/src/tools/d1.tools.ts",
+      "line": 167,
+      "callee": "client.d1.database.get",
+      "verdict": "ABSTAIN",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      },
+      "matched_rule_ids": []
+    }
+  ],
+  "limitations": [
+    "Custom registration seam uses explicit, evidence-backed root configuration.",
+    "Static call resolution is conservative; unresolved implementations are not followed.",
+    "No effect has been proven; this evaluation measures genesis only."
+  ]
+}

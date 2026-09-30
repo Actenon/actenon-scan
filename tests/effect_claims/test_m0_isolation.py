@@ -27,6 +27,9 @@ PACKAGE = REPO / "actenon_scan"
 EFFECTS = PACKAGE / "effects"
 FIXTURE = REPO / "tests" / "fixtures" / "vulnerable"
 ALLOWED_EXISTING_IMPORTS = {"actenon_scan.repository.symbol_index", "actenon_scan.repository.taint"}
+# M1 adds one explicit integration consumer. All legacy modules and the
+# frozen effects package retain their original isolation guarantees.
+M1_CONSUMERS = {PACKAGE / "claim_genesis.py"}
 
 
 def module_name(path: Path) -> str:
@@ -55,7 +58,7 @@ def imported_modules(path: Path) -> set[str]:
 def test_10_no_existing_module_imports_the_claim_layer():
     offenders = []
     for path in PACKAGE.rglob("*.py"):
-        if EFFECTS in path.parents:
+        if EFFECTS in path.parents or path in M1_CONSUMERS:
             continue
         if any(m == "actenon_scan.effects" or m.startswith("actenon_scan.effects.") for m in imported_modules(path)):
             offenders.append(str(path.relative_to(REPO)))
@@ -65,7 +68,8 @@ def test_10_no_existing_module_imports_the_claim_layer():
 def test_10_no_existing_module_mentions_the_claim_layer_dynamically():
     pattern = re.compile(r"actenon_scan\.effects|['\"]effects['\"]")
     offenders = [str(p.relative_to(REPO)) for p in PACKAGE.rglob("*.py")
-                 if EFFECTS not in p.parents and pattern.search(p.read_text(encoding="utf-8"))]
+                 if EFFECTS not in p.parents and p not in M1_CONSUMERS
+                 and pattern.search(p.read_text(encoding="utf-8"))]
     assert offenders == []
 
 
