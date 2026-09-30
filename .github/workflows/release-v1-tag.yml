@@ -169,17 +169,37 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
+          METADATA_FILE=$(mktemp)
+          trap 'rm -f "$METADATA_FILE"' EXIT
           echo "Waiting for actenon-scan==$VERSION to appear on PyPI..."
           for i in 1 2 3 4 5; do
-            AVAILABLE=$(curl -sf "https://pypi.org/pypi/actenon-scan/$VERSION/json" 2>/dev/null | head -c1)
-            if [ -n "$AVAILABLE" ]; then
-              echo "OK: version $VERSION is available on PyPI (attempt $i)"
-              exit 0
+            if curl -fsS --connect-timeout 10 --max-time 30 \
+                "https://pypi.org/pypi/actenon-scan/$VERSION/json" -o "$METADATA_FILE"; then
+              if python3 - "$METADATA_FILE" "$VERSION" <<'PYEOF'
+          import json
+          import sys
+
+          try:
+              with open(sys.argv[1], encoding="utf-8") as stream:
+                  version = json.load(stream)["info"]["version"]
+          except (OSError, ValueError, KeyError, TypeError) as error:
+              print(f"Invalid PyPI metadata: {error}", file=sys.stderr)
+              sys.exit(1)
+          if version != sys.argv[2]:
+              print(f"Unexpected PyPI version: {version!r}; expected {sys.argv[2]!r}", file=sys.stderr)
+              sys.exit(1)
+          PYEOF
+              then
+                echo "OK: version $VERSION is available on PyPI (attempt $i)"
+                exit 0
+              fi
             fi
-            echo "Attempt $i: not yet available. Waiting 15s..."
-            sleep 15
+            if [ "$i" -lt 5 ]; then
+              echo "Attempt $i: valid metadata not yet available. Waiting 15s..."
+              sleep 15
+            fi
           done
-          echo "FAIL: version $VERSION not available on PyPI after 5 attempts (75s)" >&2
+          echo "FAIL: version $VERSION not available with valid metadata on PyPI after 5 attempts" >&2
           echo "The publish workflow may have failed. Check:" >&2
           echo "  https://github.com/Actenon/actenon-scan/actions/workflows/publish.yml" >&2
           exit 1
