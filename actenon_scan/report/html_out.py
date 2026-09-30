@@ -12,7 +12,8 @@ from collections import Counter
 from actenon_scan.engine import ScanResult
 from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_LIMITATIONS,
-    CLEAN_SCAN_STATEMENT,
+    clean_headline,
+    incomplete_scan_statement,
     consequence_label,
     group_by_consequence,
     select_most_exposed,
@@ -52,10 +53,21 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
     )
     parts.append("</header>")
 
+    incomplete = incomplete_scan_statement(result)
+    if incomplete is not None:
+        parts.append('<section class="incomplete">')
+        parts.append(f"<p><strong>{html.escape(incomplete)}</strong></p>")
+        parts.append("<ul>")
+        for rel, err in result.analysis_errors[:50]:
+            parts.append(f"<li><code>{html.escape(rel)}</code>: {html.escape(err)}</li>")
+        parts.append("</ul>")
+        parts.append("</section>")
+
     if not unsuppressed:
         # Clean scan
         parts.append('<section class="clean">')
-        parts.append(f"<p>{html.escape(CLEAN_SCAN_STATEMENT)}</p>")
+        for line in clean_headline(result).split("\n"):
+            parts.append(f"<p>{html.escape(line)}</p>")
         parts.append("</section>")
         parts.append('<section class="honesty">')
         parts.append("<h2>What this scan verified</h2>")

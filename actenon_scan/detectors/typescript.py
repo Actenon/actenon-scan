@@ -340,9 +340,27 @@ def analyze_typescript_file(
     except (UnicodeDecodeError, OSError) as e:
         return ([], [(str(filepath), f"{type(e).__name__}: {e}")])
 
-    parser = Parser(lang)
-    tree = parser.parse(source.encode("utf-8"))
     source_bytes = source.encode("utf-8")
+    parser = Parser(lang)
+    tree = parser.parse(source_bytes)
+    # Plain .js files often contain JSX; retry with the TSX grammar before
+    # declaring a parse failure.
+    if tree.root_node.has_error and suffix in (".js", ".mjs", ".cjs"):
+        alt_lang = Language(tsts.language_tsx())
+        alt_tree = Parser(alt_lang).parse(source_bytes)
+        if not alt_tree.root_node.has_error:
+            lang, tree = alt_lang, alt_tree
+    # tree-sitter recovers from syntax errors, so analysis continues — but
+    # a sink inside an unparsed region can be missed, so the file must be
+    # reported as not fully analysed rather than silently clean.
+    parse_errors: list[tuple[str, str]] = []
+    if tree.root_node.has_error:
+        parse_errors.append((
+            str(filepath),
+            f"SyntaxError: could not parse the file (first error near line "
+            f"{_first_error_line(tree.root_node)}); sinks in the unparsed "
+            f"region may be missed",
+        ))
 
     # Resolve effective guard patterns: user config + built-in TS vocab.
     effective_guards = list(guard_patterns) if guard_patterns else []
@@ -360,6 +378,12 @@ def analyze_typescript_file(
     # names imported from child_process (handling `import { exec }`,
     # `import { exec as runCommand }`, `import * as cp`, `import child_process`).
     child_process_bindings = _resolve_child_process_imports(tree.root_node, source_bytes)
+    # Fully-qualified origin of each imported binding, so aliased or bare
+    # named imports match the qualified sink patterns:
+    #   import { exec as run } from "child_process"  -> run  = child_process.exec
+    #   import { rmSync } from "fs"                   -> rmSync = fs.rmSync
+    #   import { unlink } from "node:fs/promises"     -> unlink = fs.promises.unlink
+    import_origins = _resolve_import_origins(tree.root_node, source_bytes)
 
     # Work Order 1.8: also build a map from call line/col to the actual
     # call_expression node, so we can inspect whether the function is a
@@ -392,6 +416,11 @@ def analyze_typescript_file(
             obj = func_node_at_pos.child_by_field_name("object")
             if obj is not None:
                 actual_receiver = _ts_node_text(obj, source_bytes)
+
+        head, dot, tail = call_name.partition(".")
+        resolved_name = call_name
+        if head in import_origins:
+            resolved_name = import_origins[head] + (f".{tail}" if dot else "")
 
         for rule in TS_SINK_RULES:
             bare_only = set(rule.get("bare_only_patterns", []))
@@ -452,7 +481,10 @@ def analyze_typescript_file(
                             continue
                     else:
                         continue  # no match — try next pattern
-                elif not _matches_pattern(call_name, pattern):
+                elif not (
+                    _matches_pattern(call_name, pattern)
+                    or (resolved_name != call_name and _matches_pattern(resolved_name, pattern))
+                ):
                     continue  # no match — try next pattern
                 # Match found — proceed to reachability + guard check
                 # PER-FUNCTION reachability check
@@ -507,7 +539,7 @@ def analyze_typescript_file(
                 continue  # no pattern matched — try next rule
             break  # pattern matched — stop checking rules (one finding per call)
 
-    return (findings, [])
+    return (findings, parse_errors)
 
 
 def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
@@ -1247,6 +1279,55 @@ def _ts_find_function_def(root_node, name: str, source: bytes):
                     if child_text == short_name or child_text == name:
                         return node
     return None
+
+
+def _first_error_line(root_node) -> int:
+    """1-based line of the first ERROR or MISSING node in a tree-sitter tree."""
+    for node in _ts_walk(root_node):
+        if node.type == "ERROR" or node.is_missing:
+            return node.start_point[0] + 1
+    return root_node.start_point[0] + 1
+
+
+def _resolve_import_origins(root_node, source: bytes) -> dict[str, str]:
+    """Map locally bound import names to ``module.imported`` origins.
+
+    Module specifiers are normalised: a ``node:`` prefix is dropped and
+    ``/`` becomes ``.`` (``node:fs/promises`` -> ``fs.promises``).
+    Relative specifiers (``./x``) name the project's own code and are
+    skipped. Namespace and default imports bind the module itself.
+    """
+    origins: dict[str, str] = {}
+    for node in _ts_walk(root_node):
+        if node.type != "import_statement":
+            continue
+        spec = ""
+        for child in node.children:
+            if child.type == "string":
+                spec = _ts_node_text(child, source).strip().strip('"').strip("'")
+                break
+        if not spec or spec.startswith("."):
+            continue
+        module = spec[len("node:"):] if spec.startswith("node:") else spec
+        module = module.replace("/", ".")
+        for child in node.children:
+            if child.type != "import_clause":
+                continue
+            for sub in _ts_walk(child):
+                if sub.type == "import_specifier":
+                    idents = [c for c in sub.children if c.type == "identifier"]
+                    if not idents:
+                        continue
+                    imported = _ts_node_text(idents[0], source)
+                    local = _ts_node_text(idents[-1], source)
+                    origins[local] = f"{module}.{imported}"
+                elif sub.type == "namespace_import":
+                    for c in sub.children:
+                        if c.type == "identifier":
+                            origins[_ts_node_text(c, source)] = module
+                elif sub.type == "identifier" and sub.parent == child:
+                    origins[_ts_node_text(sub, source)] = module
+    return origins
 
 
 def _resolve_child_process_imports(root_node, source: bytes) -> set[str]:

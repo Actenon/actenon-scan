@@ -14,7 +14,8 @@ from collections import Counter
 from actenon_scan.engine import ScanResult, Finding
 from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_LIMITATIONS,
-    CLEAN_SCAN_STATEMENT,
+    clean_headline,
+    incomplete_scan_statement,
     consequence_label,
     default_exclude_disclosure_line,
     group_by_consequence,
@@ -24,6 +25,16 @@ from actenon_scan.report.blast_radius import (
 
 
 def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
+    """Blast-radius summary; leads with an INCOMPLETE banner when some
+    supported files could not be analysed (see ``_format_pretty_body``)."""
+    body = _format_pretty_body(result, elapsed=elapsed)
+    banner = incomplete_scan_statement(result)
+    if banner is not None and banner not in body:
+        body = f"{banner}\n\n{body}"
+    return body
+
+
+def _format_pretty_body(result: ScanResult, *, elapsed: float | None = None) -> str:
     """Format scan results as a blast-radius summary.
 
     The summary leads with the consequence map, then spotlights the
@@ -211,7 +222,7 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
     timing = f" ({elapsed:.2f}s)" if elapsed is not None else ""
     lines.append(f"actenon-scan: scanned {result.files_scanned} file(s){timing}.")
     lines.append("")
-    lines.append(CLEAN_SCAN_STATEMENT)
+    lines.append(clean_headline(result))
     lines.append("")
     lines.append(CLEAN_SCAN_LIMITATIONS)
     lines.append("")

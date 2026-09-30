@@ -62,7 +62,9 @@ def main(argv: list[str] | None = None) -> int:
         "--fail-on",
         choices=["none", "low", "medium", "high"],
         default="medium",
-        help="Exit non-zero when findings meet this severity. Default: medium "
+        help="Exit non-zero when findings meet this severity (exit 1), or when the "
+             "scan is incomplete because supported files could not be analysed "
+             "(exit 3). Default: medium "
              "(findings at or above medium severity fail the build). Set to "
              "'high' to only fail on high-severity findings; 'none' to never "
              "fail (use with --baseline for triaged repos); 'low' is the strictest.",
@@ -692,6 +694,11 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         return 0
     if result.has_findings_at_or_above(args.fail_on):
         return 1
+    # Exit 3: the scan is incomplete — some supported files could not be
+    # analysed (syntax/encoding/parser errors). Without this, a repository
+    # whose only agent file fails to parse passes CI as "clean".
+    if result.analysis_errors:
+        return 3
     return 0
 
 
