@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actenon.dev/schema/aref-002c/effect_claim-contract-provenance-0.1.1.json",
+  "title": "AREF-002C: effect_claim with contract provenance",
+  "$comment": "All AREF-002B budget rules and inherited additionalProperties=false remain enforced.",
+  "allOf": [
+    {
+      "$ref": "https://actenon.dev/schema/aref-002b/effect-claim-budget-profile-0.1.1.json"
+    },
+    {
+      "properties": {
+        "evidence_packets": {
+          "items": {
+            "$ref": "https://actenon.dev/schema/aref-002c/evidence-contract-provenance-0.1.1.json"
+          }
+        }
+      }
+    }
+  ]
+}

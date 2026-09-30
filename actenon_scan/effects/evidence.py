@@ -273,6 +273,11 @@ class EvidencePacket:
         self._check_predicate(w)
         if self.is_probative and self.kind is PacketKind.DEPENDENCY_SOURCE_BODY and self.locator.version_resolution in (None, VersionResolution.UNPINNED):
             raise c.fail(w, "PROBATIVE dependency body requires pinned version provenance")
+        if self.is_probative and self.tier is LadderTier.L6 and (
+                self.locator.version is None or self.locator.version_resolution not in {
+                    VersionResolution.LOCKFILE, VersionResolution.EXACT_MANIFEST_PIN,
+                    VersionResolution.INSTALLED_TREE_METADATA}):
+            raise c.fail(w, "PROBATIVE L6 contract requires resolved version provenance")
 
     def _check_rule_provenance(self, w: str) -> None:
         is_rule_kind = self.kind in RULE_PACKET_KINDS

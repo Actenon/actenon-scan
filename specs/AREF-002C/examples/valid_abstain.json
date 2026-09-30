@@ -1,0 +1,77 @@
+{
+  "schema_version": "0.1.1",
+  "claim_id": "effect-731",
+  "capability_id": "cap-731",
+  "invocation_id": "site-731",
+  "effect_class": "EXTERNAL_PERSISTENT_STATE_EFFECT",
+  "invocation": {
+    "locator": {
+      "path": "review_proof_notes.txt",
+      "start_line": 10,
+      "end_line": 10
+    },
+    "callee_expression": "q8.z2",
+    "language": "python",
+    "matched_rule_ids": []
+  },
+  "genesis": {
+    "basis": "NON_REFUTATION_OF_INERTNESS",
+    "inertness_established": false
+  },
+  "implementation_candidates": [
+    {
+      "candidate_id": "kappa",
+      "kind": "OPAQUE_EXTERNAL",
+      "obligations": {
+        "IMPLEMENTATION": "UNKNOWN",
+        "ACTIVATION": "UNKNOWN",
+        "BOUNDARY": "UNKNOWN",
+        "OPERATION": "UNKNOWN",
+        "PERSISTENCE": "UNKNOWN"
+      }
+    }
+  ],
+  "selection_state": "UNRESOLVED_IDENTITY",
+  "obligations": {
+    "IMPLEMENTATION": "UNKNOWN",
+    "ACTIVATION": "UNKNOWN",
+    "BOUNDARY": "UNKNOWN",
+    "OPERATION": "UNKNOWN",
+    "PERSISTENCE": "UNKNOWN"
+  },
+  "descriptors": {
+    "target": {
+      "coordinates": [],
+      "scope": "unknown"
+    },
+    "control": {
+      "TRIGGER_CONTROL": "UNKNOWN",
+      "TARGET_CONTROL": "UNKNOWN",
+      "CONTENT_CONTROL": "UNKNOWN"
+    },
+    "authority": {
+      "state": "UNKNOWN"
+    },
+    "conditions": []
+  },
+  "evidence_packets": [],
+  "probe_outcomes": [],
+  "acquisition": {
+    "highest_tier_reached": "L0",
+    "stop_reason": "NO_FURTHER_TIER",
+    "tiers_attempted": [
+      "L0"
+    ],
+    "unresolved_obligations": [
+      "IMPLEMENTATION",
+      "ACTIVATION",
+      "BOUNDARY",
+      "OPERATION",
+      "PERSISTENCE"
+    ],
+    "frontier_size": 0,
+    "frontier": [],
+    "frontier_truncated": false
+  },
+  "verdict": "ABSTAIN"
+}

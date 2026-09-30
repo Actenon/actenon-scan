@@ -73,7 +73,7 @@ jobs:
 
 
   architecture-conformance:
-    name: Required AREF-002A/002B proof-model conformance
+    name: Required AREF-002A/002B/002C proof-model conformance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -90,6 +90,8 @@ jobs:
         run: python -B scripts/validate_aref002a.py
       - name: Validate unchanged budget amendment and its sealed examples
         run: python -B specs/AREF-002B/validate.py
+      - name: Validate adopted contract-provenance profile and its sealed examples
+        run: python -B specs/AREF-002C/validate.py --upstream .
       - name: Validate current runtime against the superseding frozen contracts
         run: python -B -m pytest tests/effect_claims -q
 
