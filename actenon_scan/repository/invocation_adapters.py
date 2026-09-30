@@ -23,6 +23,7 @@ from actenon_scan.repository.symbol_index import RepositoryIndex, ResolutionCert
 
 TS_SUFFIXES = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
 _FUNCTION_TYPES = {"function_declaration", "function_expression", "arrow_function",
+                   "generator_function_declaration", "generator_function",
                    "method_definition", "method_declaration", "func_literal"}
 _SKIP_DIRS = {".git", ".hg", ".svn", ".venv", "venv", "env", ".env", "node_modules",
               "bower_components", "__pycache__", "build", "dist", "target", ".eggs",
@@ -38,6 +39,7 @@ class _Site:
     node: object
     dynamic: bool = False
     lexical_scope: str | None = None
+    resumes_coroutine: bool = False
 
 
 @dataclass
@@ -51,6 +53,7 @@ class _Binding:
     receiver_class: str | None = None
     conditional: bool = False
     line: int = 0
+    column: int = 0
 
 
 @dataclass
@@ -132,11 +135,24 @@ def _collect_sources(target, entrypoints, include_globs, exclude_globs):
     return sorted(files)
 
 
+def _python_generator(node):
+    """Yield in this body, excluding separately owned nested bodies."""
+    pending = list(node.body)
+    while pending:
+        current = pending.pop()
+        if isinstance(current, (ast.Yield, ast.YieldFrom)):
+            return True
+        if not isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            pending.extend(ast.iter_child_nodes(current))
+    return False
+
+
 def _python_unit(file, source, tree, index, cfg):
     from actenon_scan.detectors.reachability import _reachability_for_func
     module = index._module_qualified_name(file)
     unit = _Unit("python", file, source, tree, module)
     module_sym = CallableSymbol("python", file, module or "<module>", 1, 1)
+    awaited_callees = set()
 
     class Collector(ast.NodeVisitor):
         owner = module_sym
@@ -160,7 +176,12 @@ def _python_unit(file, source, tree, index, cfg):
             previous, conditional, context, execution = self.owner, self.conditional, self.class_context, self.execution_owner
             name = previous.symbol + "." + node.name if previous.symbol != "<module>" else node.name
             sym = unit.symbol(name, node, previous.symbol)
-            self.bind(node.name, kind="callable", callable_key=sym.key, line=node.lineno)
+            # A decorator may replace the binding; a generator call does not
+            # establish resumption of its body. Keep the source candidate.
+            kind = "possible_callable" if node.decorator_list or _python_generator(node) else "callable"
+            if kind == "callable" and isinstance(node, ast.AsyncFunctionDef):
+                kind = "coroutine_callable"
+            self.bind(node.name, kind=kind, callable_key=sym.key, line=node.lineno)
             unit.scope_parents[sym.key] = context[1].key if context else previous.key
             signal = _reachability_for_func(tree, node, cfg, None, node.lineno)
             if signal.confidence == "high":
@@ -261,10 +282,18 @@ def _python_unit(file, source, tree, index, cfg):
         visit_If = visit_While = visit_For = visit_AsyncFor = visit_Try = visit_conditional
         visit_TryStar = visit_Match = visit_With = visit_AsyncWith = visit_conditional
 
+        def visit_Await(self, node):
+            # Only the call directly awaited is resumed. Calls passed as its
+            # arguments do not inherit this evidence.
+            if isinstance(node.value, ast.Call):
+                awaited_callees.add(node.value.func)
+            self.generic_visit(node)
+
         def visit_Call(self, node):
             unit.sites.append(_Site(self.execution_owner or self.owner, node.lineno, node.col_offset + 1,
                                     ast.unparse(node.func), node.func,
-                                    not isinstance(node.func, (ast.Name, ast.Attribute)), self.owner.key))
+                                    not isinstance(node.func, (ast.Name, ast.Attribute)), self.owner.key,
+                                    node.func in awaited_callees))
             self.generic_visit(node)
 
     Collector().visit(tree)
@@ -298,6 +327,8 @@ def _tree_unit(language, file, source, tree, index):
     unit = _Unit(language, file, source, tree, module)
     data = source.encode()
     module_sym = CallableSymbol(language, file, module or "<module>", 1, 1)
+    writes = []
+    member_writes = []
     if language == "go":
         package = next((n for n in tree.named_children if n.type == "package_clause"), None)
         unit.package_name = _text(package.named_children[0], data) if package and package.named_children else ""
@@ -307,9 +338,10 @@ def _tree_unit(language, file, source, tree, index):
             unit.class_scopes[name] = stable_id("class-scope", language, file, name)
         return unit.class_scopes[name]
 
-    def visit(node, owner, class_name="", conditional=False):
+    def visit(node, owner, class_name="", conditional=False, class_identity=""):
         if node.type in {"if_statement", "for_statement", "while_statement", "do_statement",
-                         "try_statement", "switch_statement", "switch_case", "conditional_expression"}:
+                         "try_statement", "switch_statement", "switch_case", "conditional_expression",
+                         "type_switch_statement", "type_case", "for_in_statement", "catch_clause"}:
             conditional = True
         if node.type in {"statement_block", "block"} and (not node.parent or node.parent.type not in _FUNCTION_TYPES):
             # Block scopes are summarized conservatively, so declarations in
@@ -319,10 +351,13 @@ def _tree_unit(language, file, source, tree, index):
             name = _text(node.child_by_field_name("name"), data)
             unit.bind(owner.key, name, _Binding(conditional=conditional, line=node.start_point[0] + 1))
             class_name = ".".join(x for x in (module, name) if x)
-            class_scope(class_name)
+            # Distinct declarations with the same spelling are not one class.
+            class_identity = stable_id("class-scope", language, file, node.start_point[0] + 1,
+                                       node.start_point[1] + 1, class_name)
         if node.type in _FUNCTION_TYPES:
             previous = owner
             name = _text(node.child_by_field_name("name"), data)
+            internal_name = name
             declarator = node.parent if node.parent and node.parent.type == "variable_declarator" else None
             variable = declarator.child_by_field_name("name") if declarator else None
             if not name and variable and variable.type == "identifier":
@@ -331,31 +366,44 @@ def _tree_unit(language, file, source, tree, index):
             if language == "go" and node.type == "method_declaration":
                 from actenon_scan.repository.go_symbol_index import _receiver_type_name
                 class_name = ".".join(x for x in (module, _receiver_type_name(node, data)) if x)
+                class_identity = class_scope(class_name)
             prefix = class_name or (owner.symbol if owner != module_sym else module)
             if not name:
                 name = f"<callback@{node.start_point[0] + 1}:{node.start_point[1] + 1}>"
             sym = unit.symbol(".".join(x for x in (prefix, name) if x), node, owner.symbol)
             unit.scope_parents[sym.key] = previous.key
+            static = any(child.type == "static" for child in node.children)
+            # Generator calls return suspended bodies. Accessors do not bind
+            # the returned value of a member call to the accessor's own body.
+            deferred = node.type in {"generator_function_declaration", "generator_function"}
+            deferred |= method and any(c.type in {"*", "get", "set", "decorator"} for c in node.children)
+            kind = "possible_callable" if deferred else "callable"
+            member_scope = stable_id("static-scope", class_identity) if static else class_identity
             if method and class_name:
-                unit.bind(class_scope(class_name), name, _Binding("callable", sym.key, conditional=conditional,
-                                                                 line=node.start_point[0] + 1))
-            elif node.type == "function_declaration" or (variable and variable.type == "identifier"):
+                unit.bind(member_scope, name, _Binding(kind, sym.key, conditional=conditional,
+                                                       line=node.start_point[0] + 1,
+                                                       column=node.start_point[1] + 1))
+            elif node.type in {"function_declaration", "generator_function_declaration"} or (variable and variable.type == "identifier"):
                 unit.bind(previous.key, _text(variable, data) if variable else name,
-                          _Binding("callable", sym.key, conditional=conditional, line=node.start_point[0] + 1))
+                          _Binding(kind, sym.key, conditional=conditional, line=node.start_point[0] + 1,
+                                   column=node.start_point[1] + 1))
             owner, conditional = sym, False
+            if node.type in {"function_expression", "generator_function"} and internal_name:
+                # The expression's self name lives inside it; the receiving
+                # variable name lives in the enclosing scope.
+                unit.bind(sym.key, internal_name, _Binding(kind, sym.key))
             for parameter in _pattern_names(node.child_by_field_name("parameters"), data):
                 unit.bind(sym.key, parameter)
             for parameter in _pattern_names(node.child_by_field_name("parameter"), data):
                 unit.bind(sym.key, parameter)
             # JavaScript's this is lexical in arrows and rebound in ordinary functions.
             if language == "typescript" and node.type != "arrow_function":
-                static = any(child.type == "static" for child in node.children)
-                unit.bind(sym.key, "this", _Binding("receiver", receiver_class=class_name)
+                unit.bind(sym.key, "this", _Binding("receiver", receiver_class=class_identity)
                           if method and class_name and not static else _Binding())
             if language == "go" and node.type == "method_declaration":
                 names = _pattern_names(node.child_by_field_name("receiver"), data)
                 if len(names) == 1:
-                    unit.bind(sym.key, names[0], _Binding("receiver", receiver_class=class_name))
+                    unit.bind(sym.key, names[0], _Binding("receiver", receiver_class=class_identity))
         if node.type in {"call_expression", "new_expression"}:
             callee = node.child_by_field_name("function") or node.child_by_field_name("constructor")
             if callee:
@@ -366,30 +414,35 @@ def _tree_unit(language, file, source, tree, index):
             name, value = node.child_by_field_name("name"), node.child_by_field_name("value")
             if not (name and name.type == "identifier" and value and value.type in _FUNCTION_TYPES):
                 for identifier in _pattern_names(name, data):
-                    unit.bind(owner.key, identifier)
-        if node.type in {"assignment_expression", "augmented_assignment_expression", "short_var_declaration",
-                         "assignment_statement", "range_clause", "for_in_statement"}:
-            left = node.child_by_field_name("left")
+                    unit.bind(owner.key, identifier, _Binding(conditional=conditional))
+        if node.type in {"short_var_declaration", "range_clause", "for_in_statement", "type_switch_statement"}:
+            left = node.child_by_field_name("alias") if node.type == "type_switch_statement" else node.child_by_field_name("left")
             for identifier in _pattern_names(left, data):
-                unit.bind(owner.key, identifier)
+                unit.bind(owner.key, identifier, _Binding(conditional=conditional))
+        if node.type in {"assignment_expression", "augmented_assignment_expression", "assignment_statement", "update_expression"}:
+            left = node.child_by_field_name("left")
+            if node.type == "update_expression":
+                left = node.child_by_field_name("argument")
+            for identifier in _pattern_names(left, data):
+                writes.append((owner.key, identifier))
             if left and left.type == "member_expression":
                 receiver = left.child_by_field_name("object")
-                _, bindings = _lexical_bindings(unit, owner.key, _text(receiver, data))
-                if len(bindings) == 1 and bindings[0].kind == "receiver":
-                    unit.bind(_receiver_scope(unit, bindings[0]), _text(left.child_by_field_name("property"), data))
+                member_writes.append((owner.key, _text(receiver, data), _text(left.child_by_field_name("property"), data)))
         if node.type in {"var_spec", "type_spec"}:
             for i, child in enumerate(node.children):
                 if node.field_name_for_child(i) == "name":
-                    unit.bind(owner.key, _text(child, data))
+                    unit.bind(owner.key, _text(child, data), _Binding(conditional=conditional))
         if node.type == "import_spec" and language == "go":
             name = _text(node.child_by_field_name("name"), data)
             if name:
                 unit.bind(owner.key, "*" if name == "." else name)
         if node.type == "catch_clause":
             for identifier in _pattern_names(node.child_by_field_name("parameter"), data):
-                unit.bind(owner.key, identifier)
+                unit.bind(owner.key, identifier, _Binding(conditional=conditional))
         if node.type in {"public_field_definition", "field_definition"} and class_name:
-            unit.bind(class_scope(class_name), _text(node.child_by_field_name("name"), data))
+            static = any(child.type == "static" for child in node.children)
+            field_scope = stable_id("static-scope", class_identity) if static else class_identity
+            unit.bind(field_scope, _text(node.child_by_field_name("name"), data))
         if node.type == "import_statement":
             specifier = _text(node.child_by_field_name("source"), data).strip("\"'")
             for child in _walk(node):
@@ -405,9 +458,28 @@ def _tree_unit(language, file, source, tree, index):
                                       member="default" if child.type == "import_clause" else None,
                                       conditional=conditional))
         for child in node.named_children:
-            visit(child, owner, class_name, conditional)
+            visit(child, owner, class_name, conditional, class_identity)
 
     visit(tree, module_sym)
+    # Stores resolve against the completed declaration set, independent of
+    # collection order. A store is never evidence of a new local declaration.
+    invalidations = set()
+    for scope, name in writes:
+        while scope:
+            destination, bindings = _lexical_bindings(unit, scope, name)
+            invalidations.add((destination, name))
+            # Summarised block declarations may not enclose this store.
+            # Keep every plausible outer destination in that case.
+            if not bindings or not all(b.conditional for b in bindings):
+                break
+            scope = unit.scope_parents.get(destination, "")
+    for scope, receiver, member in member_writes:
+        _, bindings = _lexical_bindings(unit, scope, receiver)
+        for binding in bindings:
+            if binding.kind == "receiver":
+                invalidations.add((_receiver_scope(unit, binding), member))
+    for scope, name in sorted(invalidations):
+        unit.bind(scope, name)
     if language == "typescript":
         for node in tree.named_children:
             if node.type == "export_statement" and not any(c.type == "default" for c in node.children):
@@ -479,7 +551,8 @@ def _receiver_scope(unit, binding):
     return unit.class_scopes.get(binding.receiver_class, binding.receiver_class)
 
 
-def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, seen=frozenset()):
+def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, seen=frozenset(),
+                     resumes_coroutine=False):
     """Follow declaration/import provenance, never flattened binding dictionaries."""
     coordinate = (unit.file, scope, name, tuple(tail))
     if coordinate in seen:
@@ -490,10 +563,11 @@ def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, s
     targets, complete = [], bool(bindings)
     for binding in bindings:
         complete &= not binding.conditional
-        if binding.kind == "callable" and not tail:
+        if binding.kind in {"callable", "possible_callable", "coroutine_callable"} and not tail:
             found = [s for s in symbols if s.key == binding.callable_key]
             targets.extend(found)
-            complete &= len(found) == 1
+            complete &= len(found) == 1 and (binding.kind == "callable"
+                                            or (binding.kind == "coroutine_callable" and resumes_coroutine))
         elif binding.kind in {"import", "ts_import"}:
             modules, member = [], binding.member
             if unit.language == "python":
@@ -512,7 +586,7 @@ def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, s
                         for other in bound_owners:
                             declarations = other.bindings[other.module_key].get(member, []) + other.bindings[other.module_key].get("*", [])
                             found, exact = _binding_targets(other, other.module_key, member, declarations, tail,
-                                                            index, units, symbols, seen)
+                                                            index, units, symbols, seen, resumes_coroutine)
                             targets.extend(found)
                             complete &= exact
                         continue
@@ -540,7 +614,7 @@ def _binding_targets(unit, scope, name, bindings, tail, index, units, symbols, s
                 if "*" in other.bindings.get(other.module_key, {}):
                     other_bindings = other_bindings + other.bindings[other.module_key]["*"]
                 found, exact = _binding_targets(other, other.module_key, member, other_bindings, [],
-                                                index, units, symbols, seen)
+                                                index, units, symbols, seen, resumes_coroutine)
                 targets.extend(found)
                 complete &= exact
         else:
@@ -568,7 +642,7 @@ def _resolve(unit, site, index, symbols, units):
         class_scope = _receiver_scope(unit, receiver)
         member_bindings = unit.bindings.get(class_scope, {}).get(name, [])
         candidates, complete = _binding_targets(unit, class_scope, name, member_bindings, [],
-                                                index, units, symbols)
+                                                index, units, symbols, resumes_coroutine=site.resumes_coroutine)
         complete &= not receiver.conditional
     elif simple and unit.language == "go" and len(parts) == 1 and scope == unit.module_key:
         # Package-level names span files, but not distinct package clauses.
@@ -582,9 +656,11 @@ def _resolve(unit, site, index, symbols, units):
             candidates.extend(found)
             complete &= exact
     elif simple and bindings:
-        candidates, complete = _binding_targets(unit, scope, head, bindings, parts[1:], index, units, symbols)
-        # A declaration later in the same callable/class has not executed yet.
-        if scope == lexical_scope and scope != unit.module_key and any(b.line > site.line for b in bindings):
+        candidates, complete = _binding_targets(unit, scope, head, bindings, parts[1:], index, units, symbols,
+                                                resumes_coroutine=site.resumes_coroutine)
+        # An initializer later in this or an enclosing callable is not
+        # established at this site. Include columns for same-line programs.
+        if scope != unit.module_key and any((b.line, b.column) > (site.line, site.column) for b in bindings):
             complete = False
     if complete and len(candidates) == 1:
         return ResolutionCertainty.RESOLVED, (ImplementationTarget.local(candidates[0]),), False
