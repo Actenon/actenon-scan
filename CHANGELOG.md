@@ -65,8 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scope: 26.1%-29.4%
 - LoadAndSearchToolSpec.load traced: load IS agent-facing but does NOT
   chain to drop_table_purge
-- Three recall figures kept separate: synthetic 9/10, corpus 3/10,
-  real-world ~26%-31%, precision 16/16
+- These are the historical Phase 4 labelled-sample brackets, not a fresh
+  measurement of the release candidate after the later reachability fixes.
+  Keep labelled-sample recall separate from synthetic benchmarks and the
+  corpus-demonstrated architecture count.
 
 ### LLM output to sink (Phase 5.3)
 
@@ -88,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Reconciliation ledger (Phase 3.1)
 
 - `docs/RECONCILIATION-disclose-analysis-gaps.md`: 14 commits
-  classified (3 PORTED, 2 SUPERSEDED, 9 NOT_PORTED)
+  classified at that stage (3 PORTED, 2 SUPERSEDED, 9 NOT_PORTED).
+  Later work shipped several of the items recorded there as unported.
 
 ### Bare-verb reconciliation (Task 4c, carried from main)
 
@@ -97,18 +100,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   collision with `@patch` from `unittest.mock`)
 - Qualified forms kept (`@app.get`, `@router.post`, `@org_router.get`)
 
-### NOT DONE in 1.5.0
+### Subsequent reachability and reporting fixes (Phases 3.2, 5.1-5.2)
 
-- Phase 5.1-5.2: 5 in-scope misses not resolved; callback/list
-  registration not derived
-- Phase 3.2: edge definition, per-edge detail, fixture exclusion with
-  --include-fixtures, headline dedup, _get_call_name fix,
-  depth-stratified benchmark, CHALLENGE-004 — NOT PORTED (requires
-  LocalCallEdge structure from unmerged branch)
-- Phase 7.1: corpus re-measurement with repaired gate not completed
-  (25-repo re-measurement takes 10-30 minutes in CI)
+- Recognise supported MCP callback and local tool-list registration
+  patterns, nested tool helpers, and bounded local helper chains.
+  Regression fixtures include `r15_mcp_callback_registration.py`,
+  `r16_local_list_registration.py`, and `r17_nested_tool_helper_call.py`.
+- Local call-edge detail and followed/unfollowed counts are exposed;
+  `--include-fixtures` permits an explicit fixture scan. Headline findings
+  are deduplicated, call-on-a-call spelling is handled, and synthetic
+  recall is reported by hop depth.
+- `CHALLENGE-004` records the fixed bare-decorator collision.
+- Corpus re-measurement is recorded with a 2026-09-21 measurement date.
+  The committed snapshot is historical evidence; it does not replace
+  the release checklist's verification of the current candidate.
+
+### Remaining limitations and unfinished work
+
+- General dynamic dispatch and cross-repository reasoning remain outside
+  the supported local reachability patterns. `LLM_OUTPUT_TO_SINK` remains
+  NOT COVERED, as described above.
+- Fresh release-candidate corpus and installed-package verification must
+  pass before publication; the historical recall brackets above have not
+  been reweighted here to claim gains from the later fixes.
 - Phase 7.3: branch report partially done (10 merged deleted, 67
-  non-merged listed for human decision)
+  non-merged listed for human decision at the time of that report)
 
 
 ## [Unreleased]
