@@ -1,0 +1,69 @@
+{
+  "milestone": "M1R2_BINDING_AND_CALLABLE_OWNERSHIP_REPAIR",
+  "parent_sha": "7d0e559396089492ba95a4f87007a57d2b5650a0",
+  "frozen_m0_sha": "641ea796a5114ac6f9a0940415f42dc25ed57889",
+  "production_file": "actenon_scan/repository/invocation_adapters.py",
+  "production_sha256": "13171fb193c49bcfc65d525a862aa34748c208163f6db25c688c3baaf139337c",
+  "test_first": {
+    "initial_six_failures_all_three_root_kinds": 18,
+    "initial_regression_run": {
+      "failed": 35,
+      "passed": 7
+    },
+    "additional_block_scope_failures": 2,
+    "additional_initializer_order_failures": 4,
+    "additional_coroutine_creation_failures": 3,
+    "class_execution_scope_failures": 8,
+    "class_ambiguity_failures": 5,
+    "python_class_decorator_failure": 1,
+    "computed_method_definition_ownership_failure": 1,
+    "typescript_method_decorator_failure": 1,
+    "ordinary_class_constructor_call_failure": 1
+  },
+  "new_regressions": {
+    "passed": 74
+  },
+  "repeat_independent_review_probes": {
+    "passed": 59
+  },
+  "M1R1_regressions": {
+    "passed": 69
+  },
+  "original_M1": {
+    "passed": 47
+  },
+  "effect_tests": {
+    "passed": 629,
+    "xfailed": 1
+  },
+  "focused_combined": {
+    "passed": 819,
+    "xfailed": 1
+  },
+  "legacy": {
+    "passed": 672,
+    "skipped": 12,
+    "xfailed": 3,
+    "subtests_passed": 89
+  },
+  "full": {
+    "passed": 1491,
+    "skipped": 12,
+    "xfailed": 4,
+    "subtests_passed": 89
+  },
+  "legacy_finding_comparison": {
+    "files": 263,
+    "individual_findings": 108,
+    "repository_findings": 24,
+    "identical": true,
+    "fresh_frozen_baseline_process": true
+  },
+  "R04_comparison": "R04-comparison.json",
+  "frozen_production_and_specs_unchanged": true,
+  "provider_specific_production_logic_added": false,
+  "held_out_repositories_accessed": false,
+  "remaining_limits": "Conservative block summarisation and unknown values may lose local resolution. Generator/constructor activation and arbitrary coroutine/value propagation remain frontiers. Direct awaits of exact Python coroutine bindings are supported. Instance initializer calls are enumerated separately from class-definition execution. Every unresolved reached invocation retains an UNKNOWN/ABSTAIN claim.",
+  "independent_review_status": "Repair validated locally; a new independent review of the descendant commit is still required.",
+  "previous_repair_sha": "b6a30525fc02509c667f05b5729ebe2f6e4e53c5"
+}

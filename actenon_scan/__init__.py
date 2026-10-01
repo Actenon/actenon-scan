@@ -12,6 +12,11 @@ from importlib.metadata import version as _pkg_version, PackageNotFoundError
 from actenon_scan.api import (
     scan_path,
     scan_path_parallel,
+    scan_effect_claims,
+    Entrypoint,
+    GraphLimits,
+    InvocationGraph,
+    RootKind,
     Finding,
     ScanResult,
     Ruleset,
@@ -53,6 +58,11 @@ __all__ = [
     # Public API (re-exported from actenon_scan.api)
     "scan_path",
     "scan_path_parallel",
+    "scan_effect_claims",
+    "Entrypoint",
+    "GraphLimits",
+    "InvocationGraph",
+    "RootKind",
     "Finding",
     "ScanResult",
     "Ruleset",

@@ -1,0 +1,4800 @@
+{
+  "families": {
+    "aliases": [
+      "identifier initializers",
+      "import/re-export paths",
+      "receiver captures"
+    ],
+    "binding_declarations": [
+      "parameters",
+      "function/class names",
+      "imports",
+      "variable/pattern declarations",
+      "Go short declarations"
+    ],
+    "binding_writes": [
+      "assignments",
+      "augmented updates",
+      "destructuring",
+      "loop/range targets",
+      "receive targets",
+      "global/nonlocal"
+    ],
+    "delayed_execution": [
+      "generators",
+      "generator expressions",
+      "lambdas",
+      "async callable bodies",
+      "uninvoked callback bodies"
+    ],
+    "deletion": [
+      "Python Delete",
+      "JavaScript delete"
+    ],
+    "execution_regions": [
+      "callable bodies",
+      "class definitions/initializers",
+      "default/decorator expressions",
+      "type/annotation metadata"
+    ],
+    "member_writes": [
+      "member/subscript lvalues",
+      "recursive patterns",
+      "computed targets",
+      "receiver/module aliases"
+    ]
+  },
+  "languages": {
+    "go": {
+      "abi": 15,
+      "nodes": {
+        "": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "!": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "!=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "\"": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "%": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "%=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&&": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&^": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&^=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "(": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ")": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "*": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "*=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "++": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ",": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "--": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ".": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "...": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "/": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "/=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ":": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ":=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ";": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<-": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<<": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<<=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "==": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "[": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "]": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "^": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "^=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_expression": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_simple_statement": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_simple_type": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_statement": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_type_switch_header": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "`": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "argument_list": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "argument_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "array_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "assignment_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "binary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "blank_identifier": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "block": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "break": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "break_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "call_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "case": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "chan": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "channel_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "comment": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "communication_case": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "composite_literal": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "const": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "const_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "const_declaration_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "const_spec": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "const_spec_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "continue": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "continue_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "dec_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "default": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "default_case": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "defer": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "defer_statement": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "dot": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "else": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "empty_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "end": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "escape_sequence": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "expression_case": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "expression_list": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "expression_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "expression_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "expression_switch_statement": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "expression_switch_statement_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "fallthrough": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "fallthrough_statement": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "false": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "field_declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "field_declaration_list": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "field_declaration_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "field_declaration_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "field_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "float_literal": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "for": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "for_clause": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "for_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "func": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "func_literal": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "function_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "function_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "generic_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "go": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "go_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "goto": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "goto_statement": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "if": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "if_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "imaginary_literal": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "implicit_length_array_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "import": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "import_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "import_spec": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "import_spec_list": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "import_spec_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "inc_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "index_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "int_literal": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "interface": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "interface_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "interface_type_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "interpreted_string_literal": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "interpreted_string_literal_content": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "interpreted_string_literal_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "iota": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "keyed_element": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "label_name": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "labeled_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "literal_element": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "literal_value": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "literal_value_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "map": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "map_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "method_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "method_elem": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "negated_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "nil": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "package": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "package_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "package_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "parameter_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "parameter_list": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "parameter_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "parenthesized_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "parenthesized_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "pointer_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "qualified_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "range": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "range_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "raw_string_literal": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "raw_string_literal_content": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "receive_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "return": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "return_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "rune_literal": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "select": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "select_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "select_statement_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "selector_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "send_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "short_var_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "slice_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "slice_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "source_file": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "source_file_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "source_file_token1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "statement_list": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "statement_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "struct": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "struct_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "switch": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "true": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_alias": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "type_arguments": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_arguments_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_assertion_expression": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "type_case": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "type_case_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_constraint": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "type_conversion_expression": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "type_declaration_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_elem": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_elem_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_instantiation_expression": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "type_parameter_declaration": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "type_parameter_list": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_parameter_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_spec": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "type_switch_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "type_switch_statement_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "unary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "var": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "var_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "var_spec": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "var_spec_list": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "var_spec_list_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "var_spec_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "variadic_argument": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "variadic_parameter_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "{": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "||": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "}": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "~": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        }
+      },
+      "parser": "tree-sitter"
+    },
+    "python": {
+      "nodes": {
+        "AST": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Add": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "And": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "AnnAssign": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "target",
+            "annotation",
+            "value",
+            "simple"
+          ]
+        },
+        "Assert": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "test",
+            "msg"
+          ]
+        },
+        "Assign": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "targets",
+            "value",
+            "type_comment"
+          ]
+        },
+        "AsyncFor": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "target",
+            "iter",
+            "body",
+            "orelse",
+            "type_comment"
+          ]
+        },
+        "AsyncFunctionDef": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "name",
+            "args",
+            "body",
+            "decorator_list",
+            "returns",
+            "type_comment",
+            "type_params"
+          ]
+        },
+        "AsyncWith": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "items",
+            "body",
+            "type_comment"
+          ]
+        },
+        "Attribute": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value",
+            "attr",
+            "ctx"
+          ]
+        },
+        "AugAssign": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "target",
+            "op",
+            "value"
+          ]
+        },
+        "AugLoad": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "AugStore": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "Await": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value"
+          ]
+        },
+        "BinOp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "left",
+            "op",
+            "right"
+          ]
+        },
+        "BitAnd": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "BitOr": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "BitXor": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "BoolOp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "op",
+            "values"
+          ]
+        },
+        "Break": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": []
+        },
+        "Call": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "func",
+            "args",
+            "keywords"
+          ]
+        },
+        "ClassDef": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "name",
+            "bases",
+            "keywords",
+            "body",
+            "decorator_list",
+            "type_params"
+          ]
+        },
+        "Compare": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "left",
+            "ops",
+            "comparators"
+          ]
+        },
+        "Constant": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value",
+            "kind"
+          ]
+        },
+        "Continue": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": []
+        },
+        "Del": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Delete": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "targets"
+          ]
+        },
+        "Dict": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "keys",
+            "values"
+          ]
+        },
+        "DictComp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "key",
+            "value",
+            "generators"
+          ]
+        },
+        "Div": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Eq": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "ExceptHandler": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "type",
+            "name",
+            "body"
+          ]
+        },
+        "Expr": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value"
+          ]
+        },
+        "Expression": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "body"
+          ]
+        },
+        "ExtSlice": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "FloorDiv": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "For": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "target",
+            "iter",
+            "body",
+            "orelse",
+            "type_comment"
+          ]
+        },
+        "FormattedValue": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value",
+            "conversion",
+            "format_spec"
+          ]
+        },
+        "FunctionDef": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "name",
+            "args",
+            "body",
+            "decorator_list",
+            "returns",
+            "type_comment",
+            "type_params"
+          ]
+        },
+        "FunctionType": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "argtypes",
+            "returns"
+          ]
+        },
+        "GeneratorExp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "elt",
+            "generators"
+          ]
+        },
+        "Global": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "names"
+          ]
+        },
+        "Gt": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "GtE": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "If": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "test",
+            "body",
+            "orelse"
+          ]
+        },
+        "IfExp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "test",
+            "body",
+            "orelse"
+          ]
+        },
+        "Import": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "names"
+          ]
+        },
+        "ImportFrom": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "module",
+            "names",
+            "level"
+          ]
+        },
+        "In": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Index": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "Interactive": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "body"
+          ]
+        },
+        "Interpolation": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "value",
+            "str",
+            "conversion",
+            "format_spec"
+          ]
+        },
+        "Invert": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Is": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "IsNot": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "JoinedStr": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "values"
+          ]
+        },
+        "LShift": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Lambda": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "args",
+            "body"
+          ]
+        },
+        "List": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "elts",
+            "ctx"
+          ]
+        },
+        "ListComp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "elt",
+            "generators"
+          ]
+        },
+        "Load": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Lt": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "LtE": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "MatMult": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Match": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "subject",
+            "cases"
+          ]
+        },
+        "MatchAs": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "pattern",
+            "name"
+          ]
+        },
+        "MatchClass": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "cls",
+            "patterns",
+            "kwd_attrs",
+            "kwd_patterns"
+          ]
+        },
+        "MatchMapping": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "keys",
+            "patterns",
+            "rest"
+          ]
+        },
+        "MatchOr": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "patterns"
+          ]
+        },
+        "MatchSequence": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "patterns"
+          ]
+        },
+        "MatchSingleton": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value"
+          ]
+        },
+        "MatchStar": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "name"
+          ]
+        },
+        "MatchValue": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value"
+          ]
+        },
+        "Mod": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Module": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "body",
+            "type_ignores"
+          ]
+        },
+        "Mult": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Name": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "id",
+            "ctx"
+          ]
+        },
+        "NamedExpr": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "target",
+            "value"
+          ]
+        },
+        "Nonlocal": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "names"
+          ]
+        },
+        "Not": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "NotEq": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "NotIn": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Or": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Param": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "ParamSpec": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "name",
+            "default_value"
+          ]
+        },
+        "Pass": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": []
+        },
+        "Pow": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "RShift": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Raise": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "exc",
+            "cause"
+          ]
+        },
+        "Return": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value"
+          ]
+        },
+        "Set": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "elts"
+          ]
+        },
+        "SetComp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "elt",
+            "generators"
+          ]
+        },
+        "Slice": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "lower",
+            "upper",
+            "step"
+          ]
+        },
+        "Starred": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value",
+            "ctx"
+          ]
+        },
+        "Store": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Sub": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "Subscript": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value",
+            "slice",
+            "ctx"
+          ]
+        },
+        "Suite": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "TemplateStr": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "values"
+          ]
+        },
+        "Try": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "body",
+            "handlers",
+            "orelse",
+            "finalbody"
+          ]
+        },
+        "TryStar": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "body",
+            "handlers",
+            "orelse",
+            "finalbody"
+          ]
+        },
+        "Tuple": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "elts",
+            "ctx"
+          ]
+        },
+        "TypeAlias": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "name",
+            "type_params",
+            "value"
+          ]
+        },
+        "TypeIgnore": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "lineno",
+            "tag"
+          ]
+        },
+        "TypeVar": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "name",
+            "bound",
+            "default_value"
+          ]
+        },
+        "TypeVarTuple": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": [
+            "name",
+            "default_value"
+          ]
+        },
+        "UAdd": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "USub": {
+          "abstract": false,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "UnaryOp": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "op",
+            "operand"
+          ]
+        },
+        "While": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "test",
+            "body",
+            "orelse"
+          ]
+        },
+        "With": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "items",
+            "body",
+            "type_comment"
+          ]
+        },
+        "Yield": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value"
+          ]
+        },
+        "YieldFrom": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "value"
+          ]
+        },
+        "alias": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "name",
+            "asname"
+          ]
+        },
+        "arg": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "arg",
+            "annotation",
+            "type_comment"
+          ]
+        },
+        "arguments": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "posonlyargs",
+            "args",
+            "vararg",
+            "kwonlyargs",
+            "kw_defaults",
+            "kwarg",
+            "defaults"
+          ]
+        },
+        "boolop": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "cmpop": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "comprehension": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "target",
+            "iter",
+            "ifs",
+            "is_async"
+          ]
+        },
+        "excepthandler": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "expr": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "expr_context": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "keyword": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "arg",
+            "value"
+          ]
+        },
+        "match_case": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "pattern",
+            "guard",
+            "body"
+          ]
+        },
+        "mod": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "operator": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "pattern": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "slice": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "stmt": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "type_ignore": {
+          "abstract": false,
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "fields": []
+        },
+        "type_param": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "unaryop": {
+          "abstract": true,
+          "classification": "NOT_RELEVANT",
+          "fields": []
+        },
+        "withitem": {
+          "abstract": false,
+          "classification": "SUPPORTED",
+          "fields": [
+            "context_expr",
+            "optional_vars"
+          ]
+        }
+      },
+      "parser": "stdlib ast",
+      "version": "3.14.6"
+    },
+    "tsx": {
+      "abi": 14,
+      "nodes": {
+        "!": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "!=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "!==": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "\"": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "${": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "%": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "%=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&&": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&&=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "'": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "(": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ")": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "*": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "**": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "**=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "*=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "++": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+?:": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ",": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "--": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-?:": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ".": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "...": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "/": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "/=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "/>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ":": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ";": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "</": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<<": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<<=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "==": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "===": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "=>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>>=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "?": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "?.": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "?:": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "??": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "??=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "@": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "[": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "]": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "^": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "^=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "__error_recovery": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_augmented_assignment_lhs": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_automatic_semicolon": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_call_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_destructuring_pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_extends_clause_single": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_for_header": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_formal_parameter": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_from_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_function_signature_automatic_semicolon": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_import_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_initializer": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_jsx_start_opening_element_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_jsx_string_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_jsx_string_repeat2": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_module": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_module_export_name": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_parameter_name": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_property_name": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_tuple_type_member": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "`": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "abstract": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "abstract_class_declaration": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "abstract_method_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "accessibility_modifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "accessor": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "adding_type_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "ambient_declaration": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "any": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "arguments": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "array": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "array_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "array_pattern_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "array_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "array_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "arrow_function": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "as": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "as_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "assert": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "asserts": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "asserts_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "assignment_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "assignment_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "async": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "augmented_assignment_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "await": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "await_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "binary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "boolean": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "break": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "break_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "call_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "call_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "case": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "catch": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "catch_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class_body": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class_body_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "class_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class_heritage": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "class_static_block": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "comment": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "computed_property_name": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "conditional_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "const": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "constraint": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "construct_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "constructor_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "continue": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "continue_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "debugger": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "debugger_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "declare": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "decorator": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "default": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "default_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "delete": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "do": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "do_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "else": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "else_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "empty_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "end": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "enum": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "enum_assignment": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "enum_body": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "enum_body_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "enum_declaration": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "escape_sequence": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "existential_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "export": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "export_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "export_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "export_specifier": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "export_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "export_statement_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "expression": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "expression_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "extends": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "extends_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "extends_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "extends_type_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "extends_type_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "false": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "finally": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "finally_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "flow_maybe_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "for": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "for_in_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "for_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "formal_parameters": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "formal_parameters_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "from": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "function": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "function_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "function_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "function_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "function_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "generator_function": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "generator_function_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "generic_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "get": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "global": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "hash_bang_line": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "html_character_reference": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "html_comment": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "if": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "if_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "implements": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "implements_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "implements_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "import": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "import_alias": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "import_attribute": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "import_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "import_require_clause": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "import_specifier": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "import_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "in": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "index_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "index_type_query": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "infer": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "infer_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "instanceof": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "instantiation_expression": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "interface": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "interface_body": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "interface_declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "internal_module": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "intersection_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "is": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "jsx_attribute": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "jsx_closing_element": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "jsx_element": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "jsx_element_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "jsx_expression": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "jsx_namespace_name": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "jsx_opening_element": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "jsx_self_closing_element": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "jsx_text": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "keyof": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "labeled_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "let": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "lexical_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "literal_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "lookup_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "mapped_type_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "member_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "meta": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "meta_property": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "method_definition": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "method_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "module": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "named_imports": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "named_imports_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "namespace": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "namespace_export": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "namespace_import": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "nested_identifier": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "nested_type_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "never": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "new": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "new_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "non_null_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "null": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "number": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "object": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "object_assignment_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "object_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "object_pattern_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "object_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "object_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "object_type_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "of": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "omitting_type_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "opting_type_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "optional_chain": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "optional_parameter": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "optional_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "override": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "override_modifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "pair": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "pair_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "parenthesized_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "parenthesized_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "predefined_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "primary_expression": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "primary_type": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "private": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "private_property_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "program": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "program_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "property_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "property_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "protected": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "public": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "public_field_definition": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "readonly": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "readonly_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "regex": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "regex_flags": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "regex_pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "require": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "required_parameter": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "rest_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "rest_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "return": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "return_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "satisfies": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "satisfies_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "sequence_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "sequence_expression_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "set": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "shorthand_property_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "shorthand_property_identifier_pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "spread_element": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "statement": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "statement_block": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "statement_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "static": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "string": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "string_fragment": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "string_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "string_repeat2": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "subscript_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "super": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "switch": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "switch_body": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "switch_body_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "switch_case": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "switch_default": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "switch_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "symbol": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "target": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "template_literal_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "template_literal_type_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "template_string": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "template_string_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "template_substitution": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "template_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "ternary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "this": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "this_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "throw": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "throw_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "true": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "try": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "try_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "tuple_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "tuple_type_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_alias_declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_annotation": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_arguments": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_parameter": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_parameters": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_parameters_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_predicate": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_predicate_annotation": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_query": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "typeof": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "unary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "undefined": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "union_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "unique symbol": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "unknown": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "update_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "using": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "var": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "variable_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "variable_declaration_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "variable_declarator": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "void": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "while": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "while_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "with": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "with_statement": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "yield": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "yield_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "{": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "{|": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "||": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "||=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|}": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "}": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "~": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        }
+      },
+      "parser": "tree-sitter"
+    },
+    "typescript": {
+      "abi": 14,
+      "nodes": {
+        "!": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "!=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "!==": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "\"": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "${": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "%": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "%=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&&": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&&=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "&=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "'": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "(": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ")": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "*": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "**": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "**=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "*=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "++": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "+?:": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ",": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "--": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "-?:": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ".": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "...": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "/": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "/=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ":": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ";": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<<": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<<=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "<=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "==": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "===": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "=>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>>": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        ">>>=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "?": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "?.": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "?:": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "??": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "??=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "@": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "[": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "]": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "^": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "^=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "__error_recovery": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_augmented_assignment_lhs": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_automatic_semicolon": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_call_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_destructuring_pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_extends_clause_single": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_for_header": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_formal_parameter": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_from_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_function_signature_automatic_semicolon": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_import_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_initializer": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_module": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_module_export_name": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_parameter_name": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_property_name": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "_tuple_type_member": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "`": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "abstract": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "abstract_class_declaration": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "abstract_method_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "accessibility_modifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "accessor": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "adding_type_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "ambient_declaration": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "any": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "arguments": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "array": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "array_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "array_pattern_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "array_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "array_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "arrow_function": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "as": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "as_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "assert": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "asserts": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "asserts_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "assignment_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "assignment_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "async": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "augmented_assignment_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "await": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "await_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "binary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "boolean": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "break": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "break_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "call_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "call_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "case": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "catch": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "catch_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class_body": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class_body_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "class_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "class_heritage": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "class_static_block": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "comment": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "computed_property_name": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "conditional_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "const": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "constraint": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "construct_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "constructor_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "continue": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "continue_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "debugger": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "debugger_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "declare": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "decorator": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "default": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "default_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "delete": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "do": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "do_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "else": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "else_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "empty_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "end": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "enum": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "enum_assignment": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "enum_body": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "enum_body_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "enum_declaration": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "escape_sequence": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "existential_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "export": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "export_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "export_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "export_specifier": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "export_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "export_statement_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "expression": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "expression_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "extends": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "extends_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "extends_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "extends_type_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "extends_type_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "false": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "finally": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "finally_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "flow_maybe_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "for": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "for_in_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "for_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "formal_parameters": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "formal_parameters_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "from": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "function": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "function_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "function_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "function_signature": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "function_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "generator_function": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "generator_function_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "generic_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "get": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "global": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "hash_bang_line": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "html_comment": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "if": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "if_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "implements": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "implements_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "implements_clause_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "import": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "import_alias": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "import_attribute": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "import_clause": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "import_require_clause": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "import_specifier": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "import_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "in": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "index_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "index_type_query": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "infer": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "infer_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "instanceof": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "instantiation_expression": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "interface": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "interface_body": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "interface_declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "internal_module": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "intersection_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "is": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "jsx_text": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "keyof": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "labeled_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "let": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "lexical_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "literal_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "lookup_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "mapped_type_clause": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "member_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "meta": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "meta_property": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "method_definition": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "method_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "module": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "named_imports": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "named_imports_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "namespace": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "namespace_export": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "namespace_import": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "nested_identifier": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "nested_type_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "never": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "new": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "new_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "non_null_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "null": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "number": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "object": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "object_assignment_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "object_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "object_pattern_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "object_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "object_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "object_type_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "of": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "omitting_type_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "opting_type_annotation": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "optional_chain": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "optional_parameter": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "optional_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "override": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "override_modifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "pair": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "pair_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "parenthesized_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "parenthesized_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "predefined_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "primary_expression": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "primary_type": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "private": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "private_property_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "program": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "program_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "property_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "property_signature": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "protected": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "public": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "public_field_definition": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "readonly": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "readonly_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "regex": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "regex_flags": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "regex_pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "require": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "required_parameter": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "rest_pattern": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "rest_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "return": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "return_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "satisfies": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "satisfies_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "sequence_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "sequence_expression_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "set": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "shorthand_property_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "shorthand_property_identifier_pattern": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "spread_element": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "statement": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "statement_block": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "statement_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "static": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "string": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "string_fragment": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "string_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "string_repeat2": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "subscript_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "super": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "switch": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "switch_body": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "switch_body_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "switch_case": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "switch_default": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "switch_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "symbol": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "target": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "template_literal_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "template_literal_type_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "template_string": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "template_string_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "template_substitution": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "template_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "ternary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "this": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "this_type": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "throw": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "throw_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "true": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "try": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "try_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "tuple_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "tuple_type_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_alias_declaration": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_annotation": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_arguments": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_assertion": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "type_identifier": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_parameter": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_parameters": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_parameters_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "type_predicate": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_predicate_annotation": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "type_query": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "typeof": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "unary_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "undefined": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "union_type": {
+          "classification": "NOT_RELEVANT",
+          "named": true
+        },
+        "unique symbol": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "unknown": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "update_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "using": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "var": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "variable_declaration": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "variable_declaration_repeat1": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "variable_declarator": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "void": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "while": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "while_statement": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "with": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "with_statement": {
+          "classification": "CONSERVATIVELY_UNKNOWN",
+          "named": true
+        },
+        "yield": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "yield_expression": {
+          "classification": "SUPPORTED",
+          "named": true
+        },
+        "{": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "{|": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "||": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "||=": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "|}": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "}": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        },
+        "~": {
+          "classification": "NOT_RELEVANT",
+          "named": false
+        }
+      },
+      "parser": "tree-sitter"
+    }
+  },
+  "model": "bounded syntactic execution/write/import/receiver closure; no dependency semantics",
+  "parser_versions": {
+    "tree-sitter": "0.26.0",
+    "tree-sitter-go": "0.25.0",
+    "tree-sitter-typescript": "0.23.2"
+  },
+  "unclassified_relevant_node_types": 0,
+  "unknown_default": "CONSERVATIVELY_UNKNOWN; opens closure and discloses coverage limitation"
+}

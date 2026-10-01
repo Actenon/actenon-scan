@@ -1,0 +1,302 @@
+[
+  {
+    "path": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+    "symbol": "apps.ai-gateway.src.tools.ai-gateway.tools.registerAIGatewayTools.<callback@21:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+    "symbol": "apps.ai-gateway.src.tools.ai-gateway.tools.registerAIGatewayTools.<callback@62:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+    "symbol": "apps.ai-gateway.src.tools.ai-gateway.tools.registerAIGatewayTools.<callback@107:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+    "symbol": "apps.ai-gateway.src.tools.ai-gateway.tools.registerAIGatewayTools.<callback@148:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/ai-gateway/src/tools/ai-gateway.tools.ts",
+    "symbol": "apps.ai-gateway.src.tools.ai-gateway.tools.registerAIGatewayTools.<callback@189:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/auditlogs/src/tools/auditlogs.tools.ts",
+    "symbol": "apps.auditlogs.src.tools.auditlogs.tools.registerAuditLogTools.<callback@259:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/autorag/src/tools/autorag.tools.ts",
+    "symbol": "apps.autorag.src.tools.autorag.tools.registerAutoRAGTools.<callback@20:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/autorag/src/tools/autorag.tools.ts",
+    "symbol": "apps.autorag.src.tools.autorag.tools.registerAutoRAGTools.<callback@71:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/autorag/src/tools/autorag.tools.ts",
+    "symbol": "apps.autorag.src.tools.autorag.tools.registerAutoRAGTools.<callback@128:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@31:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@76:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@126:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@176:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@228:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@288:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@340:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@388:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@442:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@502:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@540:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@576:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/browser-rendering/src/tools/browser.tools.ts",
+    "symbol": "apps.browser-rendering.src.tools.browser.tools.registerBrowserTools.<callback@618:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/cloudflare-one-casb/src/tools/integrations.tools.ts",
+    "symbol": "apps.cloudflare-one-casb.src.tools.integrations.tools.registerIntegrationsTools.<callback@246:26>.<callback@253:4>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/dex-analysis/src/tools/dex-analysis.tools.ts",
+    "symbol": "apps.dex-analysis.src.tools.dex-analysis.tools.registerTool.<callback@600:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/dns-analytics/src/tools/dex-analytics.tools.ts",
+    "symbol": "apps.dns-analytics.src.tools.dex-analytics.tools.registerAnalyticTools.<callback@70:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/graphql/src/tools/graphql.tools.ts",
+    "symbol": "apps.graphql.src.tools.graphql.tools.registerGraphQLTools.<callback@535:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/graphql/src/tools/graphql.tools.ts",
+    "symbol": "apps.graphql.src.tools.graphql.tools.registerGraphQLTools.<callback@650:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/graphql/src/tools/graphql.tools.ts",
+    "symbol": "apps.graphql.src.tools.graphql.tools.registerGraphQLTools.<callback@754:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/graphql/src/tools/graphql.tools.ts",
+    "symbol": "apps.graphql.src.tools.graphql.tools.registerGraphQLTools.<callback@867:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/graphql/src/tools/graphql.tools.ts",
+    "symbol": "apps.graphql.src.tools.graphql.tools.registerGraphQLTools.<callback@1019:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/logpush/src/tools/logpush.tools.ts",
+    "symbol": "apps.logpush.src.tools.logpush.tools.registerLogsTools.<callback@119:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/radar/src/tools/url-scanner.tools.ts",
+    "symbol": "apps.radar.src.tools.url-scanner.tools.registerUrlScannerTools.<callback@32:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/radar/src/tools/url-scanner.tools.ts",
+    "symbol": "apps.radar.src.tools.url-scanner.tools.registerUrlScannerTools.<callback@83:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/radar/src/tools/url-scanner.tools.ts",
+    "symbol": "apps.radar.src.tools.url-scanner.tools.registerUrlScannerTools.<callback@143:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/radar/src/tools/url-scanner.tools.ts",
+    "symbol": "apps.radar.src.tools.url-scanner.tools.registerUrlScannerTools.<callback@210:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/radar/src/tools/url-scanner.tools.ts",
+    "symbol": "apps.radar.src.tools.url-scanner.tools.registerUrlScannerTools.<callback@262:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/d1.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.d1.tools.registerD1Tools.<callback@31:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/d1.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.d1.tools.registerD1Tools.<callback@81:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/d1.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.d1.tools.registerD1Tools.<callback@124:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/d1.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.d1.tools.registerD1Tools.<callback@163:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/d1.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.d1.tools.registerD1Tools.<callback@208:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.hyperdrive.tools.registerHyperdriveTools.<callback@53:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.hyperdrive.tools.registerHyperdriveTools.<callback@108:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.hyperdrive.tools.registerHyperdriveTools.<callback@150:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/hyperdrive.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.hyperdrive.tools.registerHyperdriveTools.<callback@205:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.kv_namespace.tools.registerKVTools.<callback@42:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.kv_namespace.tools.registerKVTools.<callback@98:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.kv_namespace.tools.registerKVTools.<callback@141:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.kv_namespace.tools.registerKVTools.<callback@190:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/kv_namespace.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.kv_namespace.tools.registerKVTools.<callback@234:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.r2_bucket.tools.registerR2BucketTools.<callback@34:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.r2_bucket.tools.registerR2BucketTools.<callback@83:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.r2_bucket.tools.registerR2BucketTools.<callback@123:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-bindings/src/tools/r2_bucket.tools.ts",
+    "symbol": "apps.workers-bindings.src.tools.r2_bucket.tools.registerR2BucketTools.<callback@161:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-builds/src/tools/workers-builds.tools.ts",
+    "symbol": "apps.workers-builds.src.tools.workers-builds.tools.registerBuildsTools.<callback@28:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-builds/src/tools/workers-builds.tools.ts",
+    "symbol": "apps.workers-builds.src.tools.workers-builds.tools.registerBuildsTools.<callback@90:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-builds/src/tools/workers-builds.tools.ts",
+    "symbol": "apps.workers-builds.src.tools.workers-builds.tools.registerBuildsTools.<callback@140:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-observability/src/tools/workers-observability.tools.ts",
+    "symbol": "apps.workers-observability.src.tools.workers-observability.tools.registerObservabilityTools.<callback@60:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-observability/src/tools/workers-observability.tools.ts",
+    "symbol": "apps.workers-observability.src.tools.workers-observability.tools.registerObservabilityTools.<callback@208:3>",
+    "kind": "MODEL_CALLABLE"
+  },
+  {
+    "path": "apps/workers-observability/src/tools/workers-observability.tools.ts",
+    "symbol": "apps.workers-observability.src.tools.workers-observability.tools.registerObservabilityTools.<callback@251:3>",
+    "kind": "MODEL_CALLABLE"
+  }
+]

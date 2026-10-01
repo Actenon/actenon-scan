@@ -1,0 +1,39 @@
+{
+  "parent_sha": "7d0e559396089492ba95a4f87007a57d2b5650a0",
+  "R04_sha": "1d7a16b25db74ed44539cd5079e2db46b42f08db",
+  "before": {
+    "roots_discovered": 81,
+    "roots_supplied": 60,
+    "roots_selected": 141,
+    "invocations_enumerated": 5081,
+    "invocations_reached": 839,
+    "root_invocation_occurrences": 1661,
+    "resolved_local_calls": 105,
+    "unresolved_calls": 734,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 0,
+    "claims_instantiated": 1661,
+    "claims_without_rule_match": 1605
+  },
+  "after": {
+    "roots_discovered": 81,
+    "roots_supplied": 60,
+    "roots_selected": 141,
+    "invocations_enumerated": 5081,
+    "invocations_reached": 839,
+    "root_invocation_occurrences": 1661,
+    "resolved_local_calls": 105,
+    "unresolved_calls": 734,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 0,
+    "claims_instantiated": 1661,
+    "claims_without_rule_match": 1605
+  },
+  "graph_identical": true,
+  "claims_identical": true,
+  "explanation": "The repaired constructs do not change any root-reachable R04 invocation or candidate binding. No development-data-specific logic was added."
+}

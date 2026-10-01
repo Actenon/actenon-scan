@@ -1,0 +1,210 @@
+{
+  "milestone": "M1R3 proof-carrying semantic frontends",
+  "parent_candidate": "33e7dd57bd3201531393acbdeb25d3192ddc2a63",
+  "frozen_M0_baseline": "641ea796a5114ac6f9a0940415f42dc25ed57889",
+  "audited_production_sha256": {
+    "actenon_scan/semantic_ir.py": "641070a15b06d3a575ae3dfc61661dd14b24a3b82418f7a1f01e81eda31f0e47",
+    "actenon_scan/binding_claims.py": "995d5a27c07e83b5cfa818e05a2e72802081978e11e40c870ff9b0c2f3e552d4",
+    "actenon_scan/invocation_graph.py": "f97f869a00ebc9c079b989eb55fd33e0d293c47b4604b4c0d20057b0b72fd24a",
+    "actenon_scan/repository/semantic_frontends.py": "22715229b9a5f16ba2d5260683985356571bf9586ce137a1667be6a4cf7e7885",
+    "actenon_scan/repository/invocation_adapters.py": "13f91dae77cac2e3bd7646dc3f69dc16c8af5b51ad17da5adab437a13b4efc37"
+  },
+  "third_review_failures": {
+    "red_on_parent": 52,
+    "green_after": 52,
+    "forms": 13,
+    "root_kinds": 4,
+    "red_log_sha256": "6d8bde1d08f11ec14f740ddf72594b1c2a9263505d5dbc953a78f81eeecef7e1"
+  },
+  "additional_callable_stability_failures": {
+    "red": 3,
+    "green": 3
+  },
+  "additional_receiver_stability_failures": {
+    "red": 2,
+    "green_root_alias_combinations": 16,
+    "red_log_sha256": "61d5a7a563b31dad12991211e2a0cd71b20ee2a807a6d7597cfaf2b22d9daa7a"
+  },
+  "proof_obligations": [
+    "TARGET_EXACT",
+    "EXECUTION_OWNER_EXACT",
+    "EVALUATION_EAGER",
+    "WRITE_SET_CLOSED",
+    "RECEIVER_COMPATIBLE",
+    "IMPORT_PROVENANCE_EXACT"
+  ],
+  "rule": "One unique local candidate, every required obligation SUPPORTED, no relevant counter-fact or unresolved competitor. No certificate means UNKNOWN.",
+  "original_nine": {
+    "passed": 9
+  },
+  "second_review_six": {
+    "forms": 6,
+    "root_combinations_passed": 18
+  },
+  "M1R2_matrix": {
+    "lexical": 192,
+    "receiver": 24,
+    "false_established": 0
+  },
+  "M1R2A_import_suite": {
+    "passed": 177
+  },
+  "original_M1_suite": {
+    "passed": 47
+  },
+  "M1R3_proof_suite": {
+    "passed": 87
+  },
+  "metamorphic_invariants": {
+    "SAME_NAME_ADDITION": "PASS",
+    "SHADOW_MONOTONICITY": "PASS",
+    "REASSIGNMENT_MONOTONICITY": "PASS",
+    "IMPORT_MUTATION_MONOTONICITY": "PASS",
+    "DECORATOR_MONOTONICITY": "PASS",
+    "RECEIVER_COMPATIBILITY": "PASS",
+    "UNCALLED_BODY_ISOLATION": "PASS",
+    "ORDER_INVARIANCE": "PASS",
+    "DEFERRED_REGION_ISOLATION": "PASS",
+    "NON_RUNTIME_SYNTAX_ISOLATION": "PASS",
+    "LVALUE_DECOMPOSITION_INVARIANCE": "PASS",
+    "WRITE_SYNTAX_CONSERVATISM": "PASS",
+    "DECLARE_VS_ASSIGN_DISTINCTION": "PASS"
+  },
+  "semantic_closure_monotonicity": "PASS",
+  "generated_runtime_differential": {
+    "programs": 1296,
+    "unique_source_hashes": 1296,
+    "runtime_differential_programs": 1296,
+    "invalid_oracles": 0,
+    "false_established": 0,
+    "false_unresolved": 14,
+    "languages": {
+      "python": 440,
+      "typescript": 440,
+      "go": 416
+    }
+  },
+  "false_unresolved_explanation": "14 Go receiver capture/reassignment cases: changing a value of the same receiver type leaves the declared method body valid, while the bounded binding model conservatively declines exactness.",
+  "grammar_coverage": {
+    "go": {
+      "NOT_RELEVANT": 141,
+      "SUPPORTED": 54,
+      "CONSERVATIVELY_UNKNOWN": 19
+    },
+    "python": {
+      "NOT_RELEVANT": 44,
+      "SUPPORTED": 71,
+      "CONSERVATIVELY_UNKNOWN": 18
+    },
+    "tsx": {
+      "NOT_RELEVANT": 250,
+      "CONSERVATIVELY_UNKNOWN": 41,
+      "SUPPORTED": 81
+    },
+    "typescript": {
+      "NOT_RELEVANT": 244,
+      "CONSERVATIVELY_UNKNOWN": 33,
+      "SUPPORTED": 82
+    }
+  },
+  "unclassified_relevant_node_types": 0,
+  "unknown_node_policy": "CONSERVATIVELY_UNKNOWN: closure opens; execution gets a separate UNKNOWN region. Classified UNKNOWN is an explicit limitation, not complete language support.",
+  "tests": {
+    "focused_M1": 2076,
+    "inherited_independent": 59,
+    "inherited_state_properties": 978,
+    "focused_and_inherited": 3113,
+    "effects": {
+      "passed": 629,
+      "xfailed": 1
+    },
+    "legacy": {
+      "passed": 672,
+      "skipped": 12,
+      "xfailed": 3,
+      "subtests_passed": 89
+    },
+    "full": {
+      "passed": 3377,
+      "skipped": 12,
+      "xfailed": 4,
+      "subtests_passed": 89
+    }
+  },
+  "legacy_findings": {
+    "identical": true,
+    "inputs": 263,
+    "individual_findings": 108,
+    "repository_findings": 24,
+    "serialized_sha256": "5286f71a8bab789850d3ea3a3da9f57356cf277dad4ec6d9f6cf2dda0543c6b9"
+  },
+  "R04": {
+    "commit": "1d7a16b25db74ed44539cd5079e2db46b42f08db",
+    "before": {
+      "roots_discovered": 81,
+      "roots_supplied": 60,
+      "roots_selected": 141,
+      "invocations_enumerated": 5081,
+      "invocations_reached": 839,
+      "root_invocation_occurrences": 1661,
+      "resolved_local_calls": 105,
+      "established_edges": 105,
+      "possible_edges": 45,
+      "unknown_edges": 734,
+      "refuted_edges": 0,
+      "unresolved_calls": 734,
+      "analysis_errors": 0,
+      "unsupported_files": 0,
+      "unsupported_languages": [],
+      "coverage_gaps": 0,
+      "claims_instantiated": 1661,
+      "claims_without_rule_match": 1605
+    },
+    "after": {
+      "roots_discovered": 81,
+      "roots_supplied": 60,
+      "roots_selected": 141,
+      "invocations_enumerated": 5054,
+      "invocations_reached": 748,
+      "root_invocation_occurrences": 1524,
+      "resolved_local_calls": 62,
+      "established_edges": 62,
+      "possible_edges": 77,
+      "unknown_edges": 686,
+      "refuted_edges": 0,
+      "unresolved_calls": 686,
+      "analysis_errors": 0,
+      "unsupported_files": 0,
+      "unsupported_languages": [],
+      "coverage_gaps": 659,
+      "claims_instantiated": 1524,
+      "claims_without_rule_match": 1469
+    },
+    "all_verdicts": "ABSTAIN",
+    "all_effect_obligations": "UNKNOWN",
+    "rule_annotations_do_not_gate_genesis": true
+  },
+  "protected_source_delta": [],
+  "M0_modified": false,
+  "AREF_modified": false,
+  "M2_implemented": false,
+  "provider_specific_production_logic_added": false,
+  "held_out_repositories_accessed": false,
+  "reproduction": [
+    "python -m pytest tests",
+    "python -m pytest tests/test_m1*.py",
+    "python scripts/audit_m1r3_frontends.py",
+    "python scripts/validate_m1r3_differential.py /outside-checkout/output",
+    "python scripts/evaluate_m1_development.py /pinned-R04 /outside-checkout/R04-output"
+  ],
+  "limitations": [
+    "Completeness is relative to the bounded frontend inventory; it does not establish arbitrary dynamic language or dependency semantics.",
+    "Python global/nonlocal redirects, dynamic reflection, unresolved write aliases, inherited receiver dispatch and uncertain annotation semantics decline exactness.",
+    "Go nested/control-block short declaration scope and defer activation decline completeness.",
+    "Workspace namespace/receiver limitations may conservatively downgrade unrelated exact candidates.",
+    "Coverage gaps are explicit frontend limitations; parser/index/resolver failures remain separate analysis errors.",
+    "Expected legacy skips and xfails are retained; all feasible installed-language suites ran."
+  ],
+  "ready_for_fresh_independent_M1_review": true,
+  "runtime_harness_repeatability": "PASS: scanner inputs/results and runtime traces byte-identical over two executions; runtime helpers outside source directory"
+}

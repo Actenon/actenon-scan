@@ -1,0 +1,331 @@
+{
+  "architecture": {
+    "caller_required_is_not_authority": true,
+    "compiler_symtable": "production",
+    "generic_escape_invalidation": true,
+    "lexical_environment_exact": true,
+    "trusted_obligation_derivation": true,
+    "witnessless_or_legacy_resolution_cannot_authorize": true
+  },
+  "author_suite_counts": {
+    "tests.test_m1_claim_genesis": 47,
+    "tests.test_m1r1_binding_soundness": 69,
+    "tests.test_m1r2_binding_soundness": 74,
+    "tests.test_m1r2_lexical_engine": 261,
+    "tests.test_m1r2a_import_stability": 177,
+    "tests.test_m1r3_generated": 1296,
+    "tests.test_m1r3_metamorphic": 13,
+    "tests.test_m1r3_review_regressions": 52,
+    "tests.test_m1r3_semantic_proofs": 89,
+    "tests.test_m1r4_kernel": 89,
+    "tests.test_m1r4_metamorphic": 12,
+    "tests.test_m1r4_review_regressions": 400,
+    "tests.test_m1r4_scopes": 144
+  },
+  "branch": "feat/m1-universal-claim-genesis",
+  "compiler_runtime_differentials": 144,
+  "contamination_ledger": "research/contamination-ledger.json",
+  "false_unresolved_explanation": {
+    "javascript_deleting_absent_own_property": 120,
+    "javascript_prototype_mutation_with_unchanged_own_method": 120,
+    "python_class_outer_lookup_conservatism": 48
+  },
+  "frozen_m0": "641ea796a5114ac6f9a0940415f42dc25ed57889",
+  "legacy_finding_equality": {
+    "byte_identical": true,
+    "individual_findings": 108,
+    "inputs": 263,
+    "repository_findings": 24,
+    "sha256": "5286f71a8bab789850d3ea3a3da9f57356cf277dad4ec6d9f6cf2dda0543c6b9"
+  },
+  "local_evidence_sha256": {
+    "R04-audit.json": "7eac13c2c7a34bc2959f7b957ce4eba6fb9d327291f461ef2f323cb22ca7b751",
+    "R04-determinism.json": "fcfcd1d87e52d0a7abb5285f8a21fe15e7338223b9c7d2ed89ea832575312df0",
+    "R04-final/R04-claims.json": "a76d258295e12bd46eb1f037f81bfc3c28e2086f3d4f7959df14b2cc82fa4aef",
+    "R04-final/R04-summary.json": "f5220cb743bd6d48097daa6feaa12631990eada50f6dc596b33ad2a6af4bf599",
+    "canonical-binding-red.log": "4fc46de8dd696fa1ef3b59bbde4ac3143e4d9a992220ad366e407f45b2843398",
+    "effects-final.log": "d74db4f324ac4ce87d062924cc4b1b1644c78b8b9f2f08af0f8e549f28cca39b",
+    "focused-final.log": "d4e06aedbe5d857e09dee4d1a2184d03cfc173cdfa1eb818785964aaac5ca2bf",
+    "focused-final.xml": "8651b12318b80467561b105ae01bb9761293b2015151c5d94f66a553c47f2771",
+    "full-final.log": "cd59cc5c8e34c1ef1b68055104dff784695b3eb0135d61b3e55c3eb6e1146823",
+    "full-final.xml": "8831edfa77d3d515bea6458cdba158bb3dd5a4c0d660c27c7b0f9396a7c336ce",
+    "inherited-adapted.log": "3fd35f30e0912f8f40b5b315932adebe697d62270e7e86a7889e9a23a963533a",
+    "inherited-contract.log": "188204d0b35b848427ae74717e428aae6e884b72b75004c9f3c486f022dfecaf",
+    "inherited-parent.log": "f31febfed96b534bb76e2a4c2283167736c79b8459375366e1f804ba736e75f1",
+    "inherited-raw-final.log": "1fcc8beb2e38e4131c679cb2e94096bc3e0c4422f9968cf5705b9f8db3786201",
+    "legacy-baseline-final.json": "5286f71a8bab789850d3ea3a3da9f57356cf277dad4ec6d9f6cf2dda0543c6b9",
+    "legacy-final.json": "5286f71a8bab789850d3ea3a3da9f57356cf277dad4ec6d9f6cf2dda0543c6b9",
+    "legacy-final.log": "0c1922420506000b1a5aab3cfb01828712a328729a0e500011e792812a710501",
+    "proof-mutations.json": "2a95512bb4557141d45902936b7fbf8f1223b07fce34a8b7602440ef425c3401",
+    "red-regressions.log": "e0a6d7983faf7596258b575cf3fe3f7afad95224f7f720a6458163610457692a",
+    "runtime-final/summary.json": "91c6b621da04c9b826b62e03bc58d1a89bf8b93a56617edab89eb8b1caf45572",
+    "runtime-parent/summary.json": "0d185a46517db6b353b71b0011253bc104fed6ac7e71700a981e0f78417e7323",
+    "source-site-red.log": "9230d710245567c6a4602e11712192b934f6b0104549ba8337814d6fc6a354ae",
+    "test_adapted_inherited59.py": "ae57e90b5277d8a73f9d9be819661d4b02b68b0c8477cd0da74226afae4e18de",
+    "unknown-environment-red.log": "9ccb3755110be324d9f5d377c23af6d19458b8dc702aefa5a0ae15edf4272e06",
+    "unrelated-gap-parent.log": "11e7cfd6407d79c6f4ed7cf2d3ed7589e55d29287ed4f4e6e28dcc66e245500d"
+  },
+  "metamorphic_invariants": [
+    {
+      "name": "same-name addition",
+      "number": 1,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "shadow monotonicity",
+      "number": 2,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "reassignment monotonicity",
+      "number": 3,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "import mutation monotonicity",
+      "number": 4,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "decorator monotonicity",
+      "number": 5,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "receiver compatibility",
+      "number": 6,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "uncalled body isolation",
+      "number": 7,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "order invariance",
+      "number": 8,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "deferred-region isolation",
+      "number": 9,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "non-runtime syntax isolation",
+      "number": 10,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "lvalue decomposition invariance",
+      "number": 11,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "write-syntax conservatism",
+      "number": 12,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "declare-versus-assign distinction",
+      "number": 13,
+      "result": "PASS",
+      "test": "tests/test_m1r3_metamorphic.py"
+    },
+    {
+      "name": "obligation derivation invariance",
+      "number": 14,
+      "result": "PASS",
+      "test": "tests/test_m1r4_kernel.py and tests/test_m1r4_metamorphic.py"
+    },
+    {
+      "name": "resolution-path monotonicity",
+      "number": 15,
+      "result": "PASS",
+      "test": "tests/test_m1r4_kernel.py and tests/test_m1r4_metamorphic.py"
+    },
+    {
+      "name": "escape monotonicity",
+      "number": 16,
+      "result": "PASS",
+      "test": "tests/test_m1r4_kernel.py and tests/test_m1r4_metamorphic.py"
+    },
+    {
+      "name": "alias-invariant mutation",
+      "number": 17,
+      "result": "PASS",
+      "test": "tests/test_m1r4_kernel.py and tests/test_m1r4_metamorphic.py"
+    },
+    {
+      "name": "lexical-environment soundness",
+      "number": 18,
+      "result": "PASS",
+      "test": "tests/test_m1r4_kernel.py and tests/test_m1r4_metamorphic.py"
+    }
+  ],
+  "milestone": "M1R4 trusted reachability proof kernel",
+  "parent": "1430f7839fa6e771a463892dbfb3fdafc052773a",
+  "proof_mutations": {
+    "forged_or_partial_accepted": 0,
+    "inventory_mutation_cases": 384,
+    "inventory_mutations_accepted": 0,
+    "mutation_cases": 1044,
+    "positives": 12
+  },
+  "protected": {
+    "aref_changed": false,
+    "held_out_repositories_accessed": false,
+    "m0_changed": false,
+    "m2_implemented": false,
+    "provider_specific_logic": false,
+    "sibling_experiment_changed": false
+  },
+  "r04": {
+    "added_gap_classes": {
+      "escape": 599,
+      "escape_bound": 1
+    },
+    "all_retained_proofs_checked": 62,
+    "commit": "1d7a16b25db74ed44539cd5079e2db46b42f08db",
+    "coverage": {
+      "analysis_errors": 0,
+      "claims_instantiated": 1524,
+      "claims_without_rule_match": 1469,
+      "coverage_gaps": 1259,
+      "established_edges": 62,
+      "invocations_enumerated": 5054,
+      "invocations_reached": 748,
+      "possible_edges": 77,
+      "refuted_edges": 0,
+      "resolved_local_calls": 62,
+      "root_invocation_occurrences": 1524,
+      "roots_discovered": 81,
+      "roots_selected": 141,
+      "roots_supplied": 60,
+      "unknown_edges": 686,
+      "unresolved_calls": 686,
+      "unsupported_files": 0,
+      "unsupported_languages": []
+    },
+    "distinct_targets_audited": 8,
+    "gap_count": 1259,
+    "source_edges_audited": 25,
+    "unique_gaps": 1259
+  },
+  "r04_repeat": [
+    {
+      "file": "R04-claims.json",
+      "identical": true,
+      "sha256": "a76d258295e12bd46eb1f037f81bfc3c28e2086f3d4f7959df14b2cc82fa4aef"
+    },
+    {
+      "file": "R04-summary.json",
+      "identical": true,
+      "sha256": "f5220cb743bd6d48097daa6feaa12631990eada50f6dc596b33ad2a6af4bf599"
+    },
+    {
+      "file": "R04-entrypoints.json",
+      "identical": true,
+      "sha256": "c50957295082cb633c4dfbd1c4319ebac7d4e2d7a9f44788f33c44e40445ae7a"
+    }
+  ],
+  "ready_for_independent_kernel_review": true,
+  "reproduced_red": {
+    "additional_canonical_binding_forgery": 5,
+    "additional_site_activation_forgery": 2,
+    "additional_unknown_environment_collision": 1,
+    "captured_mutation": 216,
+    "class_comprehension": 180,
+    "contextual_proof_omissions": 4,
+    "runtime_parent": {
+      "false_established": 1464,
+      "false_unresolved": 48,
+      "languages": {
+        "go": 72,
+        "javascript": 1200,
+        "python": 960
+      },
+      "programs": 2232,
+      "runtime_programs": 2232,
+      "unique_programs": 2232
+    },
+    "total_original_review_failures": 400
+  },
+  "runtime": {
+    "all_language_extras": true,
+    "go": "1.26.4",
+    "node": "24.16.0",
+    "python": "3.14.6"
+  },
+  "runtime_matrix": {
+    "false_established": 0,
+    "false_unresolved": 288,
+    "languages": {
+      "go": 72,
+      "javascript": 1200,
+      "python": 960
+    },
+    "programs": 2232,
+    "runtime_programs": 2232,
+    "unique_programs": 2232
+  },
+  "source_gates": {
+    "effects": {
+      "passed": 629,
+      "xfailed": 1
+    },
+    "focused": {
+      "passed": 2723
+    },
+    "full": {
+      "passed": 4024,
+      "skipped": 12,
+      "subtests_passed": 89,
+      "xfailed": 4
+    },
+    "legacy": {
+      "passed": 672,
+      "skipped": 12,
+      "subtests_passed": 89,
+      "xfailed": 3
+    }
+  },
+  "source_sha256": {
+    "actenon_scan/binding_claims.py": "bb378277b7427673845e79d3df0da1df0755f83b49507dc584b5c0ea1f4eb8cf",
+    "actenon_scan/invocation_graph.py": "5cd68231b5274a48cb6bee77553f3927a1da1f99476a11d24cf45e51d24743b5",
+    "actenon_scan/reachability_kernel.py": "a526676cb029c27e832e69e3f151b5a99c461b6dc754ccb2872268e877a6a220",
+    "actenon_scan/repository/invocation_adapters.py": "1e42575f3ac189e1d10ac3979ca7ede21e3409a37c06a88186f98c2ab8ba4ca8",
+    "actenon_scan/repository/lexical_environments.py": "b01346fd9a940153922a3be15d1d38c9cd7f1e7e59342d60886761838b5078cf",
+    "actenon_scan/repository/semantic_frontends.py": "7a05f3833e65ab094254609e1fca47ee2d05e3af1cc458c2da7ac8fb9fd7930d",
+    "actenon_scan/semantic_ir.py": "5823f30a50760137d855228847e0ee3cb427728c29cf4fb899ac90134b423dd8"
+  },
+  "supplementary": {
+    "inherited_adapted_and_properties": {
+      "passed": 1037
+    },
+    "proof_and_coverage_probes": {
+      "explanation": "Unrelated sibling/nested/separate-file Python unsupported type-alias constructs conservatively reduce otherwise useful exactness; no invented reachability. These remain precision limitations.",
+      "failed": 3,
+      "passed": 68,
+      "preexisting_on_parent": true
+    },
+    "raw_inherited59": {
+      "explanation": "Two Go local-function probes required UNRESOLVED although the exact actual empty local body is safely established (also fail on parent). One source-order probe compared newly source-bound witness hashes byte for byte after changing source. Adapted copy preserves causal assertions and only normalizes changed source hashes.",
+      "failed": 3,
+      "passed": 56
+    }
+  },
+  "validation_date": "2026-10-02"
+}

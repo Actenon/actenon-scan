@@ -382,10 +382,24 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to an actenon-scan config file (JSON or YAML).",
     )
 
+    claims_parser = subparsers.add_parser("claims", help="Create M1 effect claims from root-reachable invocations.")
+    claims_parser.add_argument("path", help="Workspace directory or source file.")
+    claims_parser.add_argument("--entrypoint", action="append", default=[], metavar="PATH:SYMBOL[:KIND]",
+                               help="Explicit callable root (repeatable); default kind PROGRAM_ENTRY.")
+    claims_parser.add_argument("--no-discover-roots", action="store_true")
+    claims_parser.add_argument("--config")
+    claims_parser.add_argument("--include", action="append")
+    claims_parser.add_argument("--exclude", action="append")
+    claims_parser.add_argument("--max-depth", type=int, default=32)
+    claims_parser.add_argument("--max-invocations", type=int, default=50000)
+    claims_parser.add_argument("--output", "-o")
+
     args = parser.parse_args(argv)
 
     if args.command == "scan":
         return _cmd_scan(args)
+    elif args.command == "claims":
+        return _cmd_claims(args)
     elif args.command == "rules":
         return _cmd_rules(args)
     elif args.command == "init":
@@ -405,6 +419,30 @@ def main(argv: list[str] | None = None) -> int:
     else:
         parser.print_help()
         return 0
+
+
+def _cmd_claims(args: argparse.Namespace) -> int:
+    from actenon_scan.api import Entrypoint, GraphLimits, RootKind, scan_effect_claims
+    from actenon_scan.rules.loader import ConfigError
+    try:
+        roots = []
+        for value in args.entrypoint:
+            parts = value.split(":")
+            if len(parts) not in (2, 3):
+                raise ValueError("--entrypoint expects PATH:SYMBOL[:KIND]")
+            roots.append(Entrypoint(parts[0], parts[1], RootKind(parts[2]) if len(parts) == 3 else RootKind.PROGRAM_ENTRY))
+        result = scan_effect_claims(args.path, entrypoints=roots, discover_roots=not args.no_discover_roots,
+                                    config=args.config, include_globs=args.include, exclude_globs=args.exclude,
+                                    limits=GraphLimits(max_depth=args.max_depth, max_invocations=args.max_invocations))
+        report = json.dumps(result.to_dict(), indent=2) + "\n"
+        if args.output:
+            Path(args.output).write_text(report, encoding="utf-8")
+        else:
+            print(report, end="")
+        return 2 if result.analysis_errors or result.unsupported_files or result.coverage_gaps else 0
+    except (ValueError, OSError, ConfigError) as exc:
+        print(f"actenon-scan claims: {exc}", file=sys.stderr)
+        return 2
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:

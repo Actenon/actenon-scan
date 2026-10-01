@@ -1,0 +1,154 @@
+{
+  "milestone": "M1R2_EVIDENCE_MONOTONIC_LEXICAL_BINDING_ENGINE",
+  "parent_sha": "1b4edf1c6c982d4afbe9f9c72450770efea956ac",
+  "reviewed_failure_baseline_sha": "7d0e559396089492ba95a4f87007a57d2b5650a0",
+  "frozen_m0_sha": "641ea796a5114ac6f9a0940415f42dc25ed57889",
+  "production_sha256": {
+    "actenon_scan/binding_claims.py": "c06de5d542ba36dd26b67aea29a083a028e3e3c9e0f53a5d2f44a499b3d4daed",
+    "actenon_scan/invocation_graph.py": "ecab741ac162c9d425f571f9fab54c08b6b5e2205ea54c5c7ffd79e509dba216",
+    "actenon_scan/repository/invocation_adapters.py": "33ff67889227434a4d74425f20534a6a72848200d9ec8200d63e0e4df7c31b96"
+  },
+  "passes": [
+    "Scope and Binding Construction",
+    "Callable Execution Ownership",
+    "Binding Claim Resolution"
+  ],
+  "six_high_failures_reproduced_red": {
+    "cases": 6,
+    "root_kinds": 3,
+    "failed": 18,
+    "log": "six-failures-red.log"
+  },
+  "architectural_tests_before_production": {
+    "failed": 253,
+    "passed": 3,
+    "log": "architecture-red.log"
+  },
+  "additional_red_controls": {
+    "nonlocal_write": 1,
+    "namespace_alias_writes": 3,
+    "ambiguous_traversal_authority": 1,
+    "declaration_forms": 2,
+    "Go_signature_bindings": 2,
+    "re_traversal": 1
+  },
+  "six_high_failures_after": "PASS",
+  "original_nine_M1R1_failures": "PASS",
+  "new_engine_tests": {
+    "passed": 261
+  },
+  "original_M1": {
+    "passed": 47
+  },
+  "M1R1": {
+    "passed": 69
+  },
+  "previous_M1R2_controls": {
+    "passed": 74
+  },
+  "focused": {
+    "passed": 451
+  },
+  "external_independent_probes": {
+    "passed": 59
+  },
+  "effects": {
+    "passed": 629,
+    "xfailed": 1
+  },
+  "legacy": {
+    "passed": 672,
+    "skipped": 12,
+    "xfailed": 3,
+    "subtests_passed": 89
+  },
+  "full": {
+    "passed": 1752,
+    "skipped": 12,
+    "xfailed": 4,
+    "subtests_passed": 89
+  },
+  "legacy_finding_comparison": {
+    "files": 263,
+    "individual_findings": 108,
+    "repository_findings": 24,
+    "serialized_identical": true
+  },
+  "generated_matrix": {
+    "binding_cases": 192,
+    "receiver_cases": 24,
+    "cases": 216,
+    "false_established_cases": 0,
+    "dimensions": [
+      "scope",
+      "binding_kind",
+      "callable_kind",
+      "shadow",
+      "reassignment",
+      "receiver"
+    ],
+    "limits": "Go literal value dispatch stays a frontier; captured Go literal bodies are selected explicitly to test lexical scope. Unsupported local Go declared-function syntax is excluded."
+  },
+  "metamorphic_invariants": {
+    "1": "PASS",
+    "2": "PASS",
+    "3": "PASS",
+    "4": "PASS",
+    "5": "PASS",
+    "6": "PASS",
+    "7": "PASS"
+  },
+  "R04": {
+    "commit": "1d7a16b25db74ed44539cd5079e2db46b42f08db",
+    "before": {
+      "roots_discovered": 81,
+      "roots_supplied": 60,
+      "roots_selected": 141,
+      "invocations_enumerated": 5081,
+      "invocations_reached": 839,
+      "root_invocation_occurrences": 1661,
+      "resolved_local_calls": 105,
+      "unresolved_calls": 734,
+      "analysis_errors": 0,
+      "unsupported_files": 0,
+      "unsupported_languages": [],
+      "coverage_gaps": 0,
+      "claims_instantiated": 1661,
+      "claims_without_rule_match": 1605
+    },
+    "after": {
+      "roots_discovered": 81,
+      "roots_supplied": 60,
+      "roots_selected": 141,
+      "invocations_enumerated": 5081,
+      "invocations_reached": 839,
+      "root_invocation_occurrences": 1661,
+      "resolved_local_calls": 105,
+      "established_edges": 105,
+      "possible_edges": 45,
+      "unknown_edges": 734,
+      "refuted_edges": 0,
+      "unresolved_calls": 734,
+      "analysis_errors": 0,
+      "unsupported_files": 0,
+      "unsupported_languages": [],
+      "coverage_gaps": 0,
+      "claims_instantiated": 1661,
+      "claims_without_rule_match": 1605
+    },
+    "previous_RESOLVED_is_ESTABLISHED_proxy": true,
+    "claim_ids_preserved": true,
+    "root_invocation_provenance_preserved": true,
+    "explanation": "No reached calls, claims, established bindings or root provenance changed. New evidence discloses 45 possible candidate edges and 734 unknown frontier edges. All semantic obligations remain UNKNOWN."
+  },
+  "effect_predicates_added": false,
+  "frozen_production_and_specs_unchanged": true,
+  "provider_specific_production_logic_added": false,
+  "held_out_repositories_accessed": false,
+  "limitations": [
+    "Conservative block/type-namespace summaries can lose exact value resolution.",
+    "Go literal value dispatch and richer alias/dynamic activation semantics remain frontiers.",
+    "The model is lexical, not a complete language/type checker; no M2 acquisition is implemented."
+  ],
+  "ready_for_third_independent_review": true
+}

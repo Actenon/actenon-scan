@@ -1,0 +1,3005 @@
+{
+  "parent_candidate": "33e7dd57bd3201531393acbdeb25d3192ddc2a63",
+  "development_commit": "1d7a16b25db74ed44539cd5079e2db46b42f08db",
+  "before": {
+    "roots_discovered": 81,
+    "roots_supplied": 60,
+    "roots_selected": 141,
+    "invocations_enumerated": 5081,
+    "invocations_reached": 839,
+    "root_invocation_occurrences": 1661,
+    "resolved_local_calls": 105,
+    "established_edges": 105,
+    "possible_edges": 45,
+    "unknown_edges": 734,
+    "refuted_edges": 0,
+    "unresolved_calls": 734,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 0,
+    "claims_instantiated": 1661,
+    "claims_without_rule_match": 1605
+  },
+  "after": {
+    "roots_discovered": 81,
+    "roots_supplied": 60,
+    "roots_selected": 141,
+    "invocations_enumerated": 5054,
+    "invocations_reached": 748,
+    "root_invocation_occurrences": 1524,
+    "resolved_local_calls": 62,
+    "established_edges": 62,
+    "possible_edges": 77,
+    "unknown_edges": 686,
+    "refuted_edges": 0,
+    "unresolved_calls": 686,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 659,
+    "claims_instantiated": 1524,
+    "claims_without_rule_match": 1469
+  },
+  "all_verdicts": "ABSTAIN",
+  "all_effect_obligations": "UNKNOWN",
+  "material_downgrade_classes": [
+    "Unsupported or unclassified grammar opens the audited lexical/namespace closure.",
+    "Unresolved namespace write destinations cannot prove that workspace members stay unchanged.",
+    "Import closure accumulates incomplete source-module semantics, including three previously exact relative imports.",
+    "Inheritance, custom lookup and receiver mutation do not carry dispatch-stability proof."
+  ],
+  "present_prior_established_edges_downgraded": 37,
+  "prior_established_edges_behind_new_frontiers": 6,
+  "prior_root_reachable_calls_behind_new_frontiers": 91,
+  "downgraded_edges": [
+    {
+      "invocation": "invocation-102fcd2fb2cce53041183b00",
+      "file": "apps/workers-observability/src/tools/workers-observability.tools.ts",
+      "line": 211,
+      "callee": "handleWorkerLogsKeys",
+      "binding_claims": [
+        {
+          "subject": "invocation-102fcd2fb2cce53041183b00",
+          "candidate": "candidate-10d29bec3d98bcb3d9c81888",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-102fcd2fb2cce53041183b00",
+          "candidate": "candidate-ec8c5b1d7628ae5af793627f",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/workers-observability/src/api/workers-observability.api.ts:symbol-63e10aa9192b53226e690c05",
+              "apps/workers-observability/src/tools/workers-observability.tools.ts:symbol-142916c790536496303f9635",
+              "apps/workers-observability/src/tools/workers-observability.tools.ts:symbol-7dc6665140c408ce098ff9fb"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-117e91c65a2200b79af68897",
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 392,
+      "callee": "browserSearch",
+      "binding_claims": [
+        {
+          "subject": "invocation-117e91c65a2200b79af68897",
+          "candidate": "candidate-70864ffe6e69852aed7fa668",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4be889e920b4af24e8ce5623",
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-6e608fd0a4776643cc15cfe1"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-117e91c65a2200b79af68897",
+          "candidate": "candidate-df6bbfd02c675bc85a8fdd46",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-12864abcc1e2e0fc6b5dde5d",
+      "file": "apps/cloudflare-blog/src/tools/blog.tools.ts",
+      "line": 125,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-12864abcc1e2e0fc6b5dde5d",
+          "candidate": "candidate-75fa0708a9155dec89bbc279",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-57681d0ae028e64d40078813",
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-985a25eb2892640d35edb728"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-12864abcc1e2e0fc6b5dde5d",
+          "candidate": "candidate-8c5af0a819462487b0bfc19f",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-23f2d6666757c47a34e6434f",
+      "file": "apps/graphql/src/tools/graphql.tools.ts",
+      "line": 955,
+      "callee": "fetchTypeDetails",
+      "binding_claims": [
+        {
+          "subject": "invocation-23f2d6666757c47a34e6434f",
+          "candidate": "candidate-3f207d2c8c4ff93b1f2cc5dc",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-23f2d6666757c47a34e6434f",
+          "candidate": "candidate-47012fb7090b11ba8716c334",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-be6224561edfeb12a0550da2",
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-c1a4d7e45861cd4a5bb0c821"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-276d377d5313aefc50baf986",
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 640,
+      "callee": "resolveAndInvoke",
+      "binding_claims": [
+        {
+          "subject": "invocation-276d377d5313aefc50baf986",
+          "candidate": "candidate-430a58543de68055a7b467a7",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/radar/src/tools/radar.tools.ts:symbol-8460cc4202dfe2ada5f7f61b",
+              "apps/radar/src/tools/radar.tools.ts:symbol-88c07c74ed3e62ebec8d83b5",
+              "apps/radar/src/utils.ts:symbol-032555cd9bc6e8b58f3941f6"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-276d377d5313aefc50baf986",
+          "candidate": "candidate-a138a41d1219173925c8eb6f",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-30ff85db68f7d26d5b374156",
+      "file": "apps/cloudflare-blog/src/tools/blog.tools.ts",
+      "line": 247,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-30ff85db68f7d26d5b374156",
+          "candidate": "candidate-3c4f6cde693a34eb9f6fc1cf",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-30ff85db68f7d26d5b374156",
+          "candidate": "candidate-75fa0708a9155dec89bbc279",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-545c73ea66782545c1229bbf",
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-985a25eb2892640d35edb728"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-34a1b4251af5a043c30b0dee",
+      "file": "apps/cloudflare-blog/src/tools/blog.tools.ts",
+      "line": 86,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-34a1b4251af5a043c30b0dee",
+          "candidate": "candidate-75fa0708a9155dec89bbc279",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-57681d0ae028e64d40078813",
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-985a25eb2892640d35edb728"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-34a1b4251af5a043c30b0dee",
+          "candidate": "candidate-9cbfdc738a76de0301434709",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-3703ecc2ec50b021f8359341",
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 793,
+      "callee": "resolveAndInvoke",
+      "binding_claims": [
+        {
+          "subject": "invocation-3703ecc2ec50b021f8359341",
+          "candidate": "candidate-430a58543de68055a7b467a7",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/radar/src/tools/radar.tools.ts:symbol-88c07c74ed3e62ebec8d83b5",
+              "apps/radar/src/tools/radar.tools.ts:symbol-c304e078ac92d66182d6bfe0",
+              "apps/radar/src/utils.ts:symbol-032555cd9bc6e8b58f3941f6"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-3703ecc2ec50b021f8359341",
+          "candidate": "candidate-e7d26bee51fecf9b8210b18c",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-3fb8d1f29f9f0ca3b93d1ee7",
+      "file": "apps/cloudflare-blog/src/tools/blog.tools.ts",
+      "line": 213,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-3fb8d1f29f9f0ca3b93d1ee7",
+          "candidate": "candidate-55d4b4d755622ee9741e1910",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-3fb8d1f29f9f0ca3b93d1ee7",
+          "candidate": "candidate-75fa0708a9155dec89bbc279",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-214fed1e8fa17a9c84e3ff1a",
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-985a25eb2892640d35edb728"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-4645c8c071d1ad57a0864024",
+      "file": "apps/stack-mcp/src/tools/stack.tools.ts",
+      "line": 150,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-4645c8c071d1ad57a0864024",
+          "candidate": "candidate-2064eb687d6f5257f68f9199",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-4645c8c071d1ad57a0864024",
+          "candidate": "candidate-a805221dc01e4766318d9654",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/stack-mcp/src/tools/stack.tools.ts:symbol-5e452551bd056705b9b4da1b",
+              "apps/stack-mcp/src/tools/stack.tools.ts:symbol-7eeecb88a0d6c25fe3d1b234"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-4dafb88b303c49a7eb24b1ea",
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 232,
+      "callee": "browserSearch",
+      "binding_claims": [
+        {
+          "subject": "invocation-4dafb88b303c49a7eb24b1ea",
+          "candidate": "candidate-70864ffe6e69852aed7fa668",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4be889e920b4af24e8ce5623",
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-eaf7d31a902eeebb2075fce8"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-4dafb88b303c49a7eb24b1ea",
+          "candidate": "candidate-c841b268b61da9453a1875a8",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-60549794781539fbbb63feeb",
+      "file": "apps/auditlogs/src/tools/auditlogs.tools.ts",
+      "line": 262,
+      "callee": "handleGetAuditLogs",
+      "binding_claims": [
+        {
+          "subject": "invocation-60549794781539fbbb63feeb",
+          "candidate": "candidate-00525d0b663eaad1e7075c33",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-60549794781539fbbb63feeb",
+          "candidate": "candidate-b6e628653f78b70a00556acc",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/auditlogs/src/tools/auditlogs.tools.ts:symbol-65e0bb75b63d99ceb552945c",
+              "apps/auditlogs/src/tools/auditlogs.tools.ts:symbol-90fa0349f337f9321128a19e"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-61da886c76cac632ff73b0de",
+      "file": "apps/graphql/src/tools/graphql.tools.ts",
+      "line": 1025,
+      "callee": "executeGraphQLQuery",
+      "binding_claims": [
+        {
+          "subject": "invocation-61da886c76cac632ff73b0de",
+          "candidate": "candidate-052c2c53333e1d2318bf0699",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-61da886c76cac632ff73b0de",
+          "candidate": "candidate-07eacd940c3a4722853c6284",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-90a994eb63187ab70d01982c",
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-be6224561edfeb12a0550da2"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-62247f6981fce2fa52544ec8",
+      "file": "apps/workers-builds/src/tools/workers-builds.tools.ts",
+      "line": 31,
+      "callee": "listBuilds",
+      "binding_claims": [
+        {
+          "subject": "invocation-62247f6981fce2fa52544ec8",
+          "candidate": "candidate-108222df6f7f2e9c884a4d31",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-62247f6981fce2fa52544ec8",
+          "candidate": "candidate-cb3b1b22d342499dad9c50aa",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/workers-builds/src/api/workers-builds.api.ts:symbol-dc05431587c52cf126e229e6",
+              "apps/workers-builds/src/tools/workers-builds.tools.ts:symbol-758651a2c361052dceaa005a",
+              "apps/workers-builds/src/tools/workers-builds.tools.ts:symbol-cb1c3351782a29ec2a9b7fc0"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-635bc045db678f3d75b09e10",
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 701,
+      "callee": "resolveAndInvoke",
+      "binding_claims": [
+        {
+          "subject": "invocation-635bc045db678f3d75b09e10",
+          "candidate": "candidate-430a58543de68055a7b467a7",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/radar/src/tools/radar.tools.ts:symbol-281a9174edb47e486499703f",
+              "apps/radar/src/tools/radar.tools.ts:symbol-88c07c74ed3e62ebec8d83b5",
+              "apps/radar/src/utils.ts:symbol-032555cd9bc6e8b58f3941f6"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-635bc045db678f3d75b09e10",
+          "candidate": "candidate-43706fd4fc796b45f51b05c4",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-78b781b1fa1fb4956c750a68",
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 749,
+      "callee": "resolveAndInvoke",
+      "binding_claims": [
+        {
+          "subject": "invocation-78b781b1fa1fb4956c750a68",
+          "candidate": "candidate-430a58543de68055a7b467a7",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/radar/src/tools/radar.tools.ts:symbol-88c07c74ed3e62ebec8d83b5",
+              "apps/radar/src/tools/radar.tools.ts:symbol-b03a4d1c74526aa5c72355cf",
+              "apps/radar/src/utils.ts:symbol-032555cd9bc6e8b58f3941f6"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-78b781b1fa1fb4956c750a68",
+          "candidate": "candidate-db55bb6af451d89ed985c5ec",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-793af5bc939bb2b54f3212de",
+      "file": "apps/graphql/src/tools/graphql.tools.ts",
+      "line": 549,
+      "callee": "searchGraphQLSchema",
+      "binding_claims": [
+        {
+          "subject": "invocation-793af5bc939bb2b54f3212de",
+          "candidate": "candidate-c90c156045b4e4e86b5fd084",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-793af5bc939bb2b54f3212de",
+          "candidate": "candidate-f68589ef0e2354c30504259f",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-7937d119f7a0046c357309ac",
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-be6224561edfeb12a0550da2"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-8f995e6a1042b9952f79011c",
+      "file": "apps/workers-observability/src/tools/workers-observability.tools.ts",
+      "line": 73,
+      "callee": "queryWorkersObservability",
+      "binding_claims": [
+        {
+          "subject": "invocation-8f995e6a1042b9952f79011c",
+          "candidate": "candidate-2165f1e88a58969df8e98d22",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/workers-observability/src/api/workers-observability.api.ts:symbol-63e10aa9192b53226e690c05",
+              "apps/workers-observability/src/tools/workers-observability.tools.ts:symbol-142916c790536496303f9635",
+              "apps/workers-observability/src/tools/workers-observability.tools.ts:symbol-f87c659961050537fc121e47"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-8f995e6a1042b9952f79011c",
+          "candidate": "candidate-a45c97f1f4ed7a06bc3533f7",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-98b72a3b0f2e0817fd0e1132",
+      "file": "apps/radar/src/tools/radar.tools.ts",
+      "line": 844,
+      "callee": "resolveAndInvoke",
+      "binding_claims": [
+        {
+          "subject": "invocation-98b72a3b0f2e0817fd0e1132",
+          "candidate": "candidate-430a58543de68055a7b467a7",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/radar/src/tools/radar.tools.ts:symbol-1debcc47285e7bb015fb2ad1",
+              "apps/radar/src/tools/radar.tools.ts:symbol-88c07c74ed3e62ebec8d83b5",
+              "apps/radar/src/utils.ts:symbol-032555cd9bc6e8b58f3941f6"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-98b72a3b0f2e0817fd0e1132",
+          "candidate": "candidate-933fa2b4b82cc5754572ae6f",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-a4732b8d2c34dd3df21dfad8",
+      "file": "apps/workers-builds/src/tools/workers-builds.tools.ts",
+      "line": 93,
+      "callee": "getBuild",
+      "binding_claims": [
+        {
+          "subject": "invocation-a4732b8d2c34dd3df21dfad8",
+          "candidate": "candidate-17792e71124056f5e8026019",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-a4732b8d2c34dd3df21dfad8",
+          "candidate": "candidate-48d9dda249446c8f0000a72d",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/workers-builds/src/api/workers-builds.api.ts:symbol-dc05431587c52cf126e229e6",
+              "apps/workers-builds/src/tools/workers-builds.tools.ts:symbol-9156f726af4d33423d18f54f",
+              "apps/workers-builds/src/tools/workers-builds.tools.ts:symbol-cb1c3351782a29ec2a9b7fc0"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-a9ce1bfd7b11946e3d7ac6e6",
+      "file": "apps/graphql/src/tools/graphql.tools.ts",
+      "line": 655,
+      "callee": "fetchSchemaOverview",
+      "binding_claims": [
+        {
+          "subject": "invocation-a9ce1bfd7b11946e3d7ac6e6",
+          "candidate": "candidate-4c6e44c1fb3ce14ab29e7a6e",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-620f3161fb276524c0f1c1cf",
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-be6224561edfeb12a0550da2"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-a9ce1bfd7b11946e3d7ac6e6",
+          "candidate": "candidate-a478d093e47f881b2e641ed6",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-ba95077242fc5221a90e1acf",
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 80,
+      "callee": "browserSearch",
+      "binding_claims": [
+        {
+          "subject": "invocation-ba95077242fc5221a90e1acf",
+          "candidate": "candidate-21c7a56076c66869709117c0",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-ba95077242fc5221a90e1acf",
+          "candidate": "candidate-70864ffe6e69852aed7fa668",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4be889e920b4af24e8ce5623",
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-83ca5c02f6823fe74609df1e"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-bdd813980e02a12e60d3bd2d",
+      "file": "apps/graphql/src/tools/graphql.tools.ts",
+      "line": 765,
+      "callee": "fetchTypeDetails",
+      "binding_claims": [
+        {
+          "subject": "invocation-bdd813980e02a12e60d3bd2d",
+          "candidate": "candidate-47012fb7090b11ba8716c334",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-619c55474ff2fdde5366bcf4",
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-be6224561edfeb12a0550da2"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-bdd813980e02a12e60d3bd2d",
+          "candidate": "candidate-5340cc4fd7f5a8f190d1d497",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-be733f39ed84010969e83355",
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 344,
+      "callee": "browserSearch",
+      "binding_claims": [
+        {
+          "subject": "invocation-be733f39ed84010969e83355",
+          "candidate": "candidate-386c0b165ef08ad3d2a58d08",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-be733f39ed84010969e83355",
+          "candidate": "candidate-70864ffe6e69852aed7fa668",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4be889e920b4af24e8ce5623",
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-8733d0ddf3d9add0147c4510"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-c26b589e77d825fcbcf292bb",
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 292,
+      "callee": "browserSearch",
+      "binding_claims": [
+        {
+          "subject": "invocation-c26b589e77d825fcbcf292bb",
+          "candidate": "candidate-5f6b46cafb32806c2da5b07d",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-c26b589e77d825fcbcf292bb",
+          "candidate": "candidate-70864ffe6e69852aed7fa668",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-165372ba3baeec81642f9f2e",
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4be889e920b4af24e8ce5623"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-c2a32633999f38150f2d2e16",
+      "file": "apps/sandbox-container/server/container-tools.ts",
+      "line": 93,
+      "callee": "stripProtocolFromFilePath",
+      "binding_claims": [
+        {
+          "subject": "invocation-c2a32633999f38150f2d2e16",
+          "candidate": "candidate-0fdd36eaa9202f4836ee1cda",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-c2a32633999f38150f2d2e16",
+          "candidate": "candidate-49ab193d99bf6e6d5841bcbd",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/sandbox-container/server/container-tools.ts:symbol-557f2811274189ffa67c1846",
+              "apps/sandbox-container/server/container-tools.ts:symbol-cac69fdf79809ea4658bd678",
+              "apps/sandbox-container/server/utils.ts:symbol-d86871dd3f27795aa18ec4f9"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-cb8b62077fcfeeb29f789085",
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 130,
+      "callee": "browserSearch",
+      "binding_claims": [
+        {
+          "subject": "invocation-cb8b62077fcfeeb29f789085",
+          "candidate": "candidate-493caa1480b5c43e57f41386",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-cb8b62077fcfeeb29f789085",
+          "candidate": "candidate-70864ffe6e69852aed7fa668",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4b44a0418ee8b3129ef7289b",
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4be889e920b4af24e8ce5623"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-cbc9e424ee98fcaa00ba7226",
+      "file": "apps/stack-mcp/src/tools/stack.tools.ts",
+      "line": 124,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-cbc9e424ee98fcaa00ba7226",
+          "candidate": "candidate-9f6b213a3652e3f6ee69cf46",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-cbc9e424ee98fcaa00ba7226",
+          "candidate": "candidate-a805221dc01e4766318d9654",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/stack-mcp/src/tools/stack.tools.ts:symbol-5e452551bd056705b9b4da1b",
+              "apps/stack-mcp/src/tools/stack.tools.ts:symbol-7eeecb88a0d6c25fe3d1b234"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-ce73014ea7f7229ea3981b2d",
+      "file": "apps/browser-rendering/src/tools/browser.tools.ts",
+      "line": 180,
+      "callee": "browserSearch",
+      "binding_claims": [
+        {
+          "subject": "invocation-ce73014ea7f7229ea3981b2d",
+          "candidate": "candidate-1aecf3f8cce0a923a1c59dc7",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-ce73014ea7f7229ea3981b2d",
+          "candidate": "candidate-70864ffe6e69852aed7fa668",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-4be889e920b4af24e8ce5623",
+              "apps/browser-rendering/src/tools/browser.tools.ts:symbol-75be5f4b7449f91412e29d93"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-d0d3a6554a40359394dc6b02",
+      "file": "apps/cloudflare-blog/src/tools/blog.tools.ts",
+      "line": 73,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-d0d3a6554a40359394dc6b02",
+          "candidate": "candidate-75fa0708a9155dec89bbc279",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-57681d0ae028e64d40078813",
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-985a25eb2892640d35edb728"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-d0d3a6554a40359394dc6b02",
+          "candidate": "candidate-a16e8df3b2d53ce7f0a71cf6",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-dea0b714f3da370c426591f3",
+      "file": "apps/graphql/src/tools/graphql.tools.ts",
+      "line": 878,
+      "callee": "fetchSchemaOverview",
+      "binding_claims": [
+        {
+          "subject": "invocation-dea0b714f3da370c426591f3",
+          "candidate": "candidate-093e848bbfd846fd359ec4b9",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        },
+        {
+          "subject": "invocation-dea0b714f3da370c426591f3",
+          "candidate": "candidate-4c6e44c1fb3ce14ab29e7a6e",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-be6224561edfeb12a0550da2",
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-c1a4d7e45861cd4a5bb0c821"
+            ]
+          },
+          "state": "POSSIBLE"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-dfce29cbafaa9ad982acb553",
+      "file": "apps/workers-observability/src/tools/workers-observability.tools.ts",
+      "line": 254,
+      "callee": "handleWorkerLogsValues",
+      "binding_claims": [
+        {
+          "subject": "invocation-dfce29cbafaa9ad982acb553",
+          "candidate": "candidate-2d5ff730e263491a12116384",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/workers-observability/src/api/workers-observability.api.ts:symbol-63e10aa9192b53226e690c05",
+              "apps/workers-observability/src/tools/workers-observability.tools.ts:symbol-091d5a5fa72ed456f15714a4",
+              "apps/workers-observability/src/tools/workers-observability.tools.ts:symbol-142916c790536496303f9635"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-dfce29cbafaa9ad982acb553",
+          "candidate": "candidate-95070600a4a5d771bdfd59ea",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-eed8bd75a17314c879ec9169",
+      "file": "apps/graphql/src/tools/graphql.tools.ts",
+      "line": 546,
+      "callee": "fetchSchemaOverview",
+      "binding_claims": [
+        {
+          "subject": "invocation-eed8bd75a17314c879ec9169",
+          "candidate": "candidate-4c6e44c1fb3ce14ab29e7a6e",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-7937d119f7a0046c357309ac",
+              "apps/graphql/src/tools/graphql.tools.ts:symbol-be6224561edfeb12a0550da2"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-eed8bd75a17314c879ec9169",
+          "candidate": "candidate-ea3fb2f703e895db5768c469",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-f21bfb24fe6df143733a26b7",
+      "file": "apps/workers-builds/src/tools/workers-builds.tools.ts",
+      "line": 143,
+      "callee": "getBuildLogs",
+      "binding_claims": [
+        {
+          "subject": "invocation-f21bfb24fe6df143733a26b7",
+          "candidate": "candidate-1eb862d5e6ca5cb0da6eca89",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/workers-builds/src/api/workers-builds.api.ts:symbol-dc05431587c52cf126e229e6",
+              "apps/workers-builds/src/tools/workers-builds.tools.ts:symbol-97c8af2dd2cca3ee02f1ecce",
+              "apps/workers-builds/src/tools/workers-builds.tools.ts:symbol-cb1c3351782a29ec2a9b7fc0"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-f21bfb24fe6df143733a26b7",
+          "candidate": "candidate-2374dbee24673851630acc45",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-f2bbb1eec3990a5a16ad4607",
+      "file": "apps/sandbox-container/server/container-tools.ts",
+      "line": 134,
+      "callee": "stripProtocolFromFilePath",
+      "binding_claims": [
+        {
+          "subject": "invocation-f2bbb1eec3990a5a16ad4607",
+          "candidate": "candidate-49ab193d99bf6e6d5841bcbd",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/sandbox-container/server/container-tools.ts:symbol-cac69fdf79809ea4658bd678",
+              "apps/sandbox-container/server/container-tools.ts:symbol-d2b303dc31957715030d5b4f",
+              "apps/sandbox-container/server/utils.ts:symbol-d86871dd3f27795aa18ec4f9"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-f2bbb1eec3990a5a16ad4607",
+          "candidate": "candidate-f50fdd25f8e8cc94fe7a3d3c",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-f6e39311a79957a230159d8a",
+      "file": "apps/cloudflare-blog/src/tools/blog.tools.ts",
+      "line": 175,
+      "callee": "formatError",
+      "binding_claims": [
+        {
+          "subject": "invocation-f6e39311a79957a230159d8a",
+          "candidate": "candidate-75fa0708a9155dec89bbc279",
+          "positive_evidence": [
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-985a25eb2892640d35edb728",
+              "apps/cloudflare-blog/src/tools/blog.tools.ts:symbol-ef92501db0e71e1b1a42ee11"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-f6e39311a79957a230159d8a",
+          "candidate": "candidate-beb77734f6b027fe70071d51",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "invocation": "invocation-ff52db8f040bf3d2ed190280",
+      "file": "apps/sandbox-container/server/container-tools.ts",
+      "line": 79,
+      "callee": "stripProtocolFromFilePath",
+      "binding_claims": [
+        {
+          "subject": "invocation-ff52db8f040bf3d2ed190280",
+          "candidate": "candidate-49ab193d99bf6e6d5841bcbd",
+          "positive_evidence": [
+            "IMPORT_PROVENANCE",
+            "LEXICAL_DECLARATION"
+          ],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "IMPORT_PROVENANCE_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "SUPPORTED",
+              "EXECUTION_OWNER_EXACT": "SUPPORTED",
+              "IMPORT_PROVENANCE_EXACT": "SUPPORTED",
+              "TARGET_EXACT": "SUPPORTED",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": [
+              "apps/sandbox-container/server/container-tools.ts:symbol-8b0d8f660ad3d2637df8e3a4",
+              "apps/sandbox-container/server/container-tools.ts:symbol-cac69fdf79809ea4658bd678",
+              "apps/sandbox-container/server/utils.ts:symbol-d86871dd3f27795aa18ec4f9"
+            ]
+          },
+          "state": "POSSIBLE"
+        },
+        {
+          "subject": "invocation-ff52db8f040bf3d2ed190280",
+          "candidate": "candidate-6b3cc08c40c75a5c8dc3bb07",
+          "positive_evidence": [],
+          "counter_evidence": [
+            "SEMANTIC_CLOSURE_UNKNOWN"
+          ],
+          "edge_proof": {
+            "required": [
+              "EVALUATION_EAGER",
+              "EXECUTION_OWNER_EXACT",
+              "TARGET_EXACT",
+              "WRITE_SET_CLOSED"
+            ],
+            "obligations": {
+              "EVALUATION_EAGER": "UNKNOWN",
+              "EXECUTION_OWNER_EXACT": "UNKNOWN",
+              "TARGET_EXACT": "UNKNOWN",
+              "WRITE_SET_CLOSED": "UNKNOWN"
+            },
+            "provenance": []
+          },
+          "state": "UNKNOWN"
+        }
+      ]
+    }
+  ],
+  "removed_root_reachability": [
+    {
+      "invocation": "invocation-00aa72e2c16e476faf1390e5",
+      "blocking_frontiers": [
+        "invocation-276d377d5313aefc50baf986",
+        "invocation-3703ecc2ec50b021f8359341",
+        "invocation-635bc045db678f3d75b09e10",
+        "invocation-78b781b1fa1fb4956c750a68",
+        "invocation-98b72a3b0f2e0817fd0e1132"
+      ]
+    },
+    {
+      "invocation": "invocation-0bec20147ab18be3c5fb295b",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-111cdaf58db99dc12bb4b857",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-1998e4a2067b139671245b54",
+      "blocking_frontiers": [
+        "invocation-f21bfb24fe6df143733a26b7"
+      ]
+    },
+    {
+      "invocation": "invocation-206011e5b8daf6190b0c4935",
+      "blocking_frontiers": [
+        "invocation-a9ce1bfd7b11946e3d7ac6e6",
+        "invocation-dea0b714f3da370c426591f3",
+        "invocation-eed8bd75a17314c879ec9169"
+      ]
+    },
+    {
+      "invocation": "invocation-22074ac7669a3b72a0bcabc5",
+      "blocking_frontiers": [
+        "invocation-62247f6981fce2fa52544ec8"
+      ]
+    },
+    {
+      "invocation": "invocation-23ff2fc38e1ac31b57aacf27",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-24749014705fba5c1799df8f",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-26383ab93518a015d258e905",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-282a3866776a2daa112bc192",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-2d343fc6ba8931dcf15eedba",
+      "blocking_frontiers": [
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-2f0c3e87502f8caf13511a1b",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-35c3ca105bcb349af623116e",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-3b7bcb91209decbc28ec3396",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-3c688663e2851a560a79de67",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-3ed740c76f5b43c1baea1924",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-472f5b0792fa7dcce78f47dc",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-4ab597c8292bebee8940544c",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-4b181e638157dad063947716",
+      "blocking_frontiers": [
+        "invocation-276d377d5313aefc50baf986",
+        "invocation-3703ecc2ec50b021f8359341",
+        "invocation-635bc045db678f3d75b09e10",
+        "invocation-78b781b1fa1fb4956c750a68",
+        "invocation-98b72a3b0f2e0817fd0e1132"
+      ]
+    },
+    {
+      "invocation": "invocation-4b9271f40861c32e7e772641",
+      "blocking_frontiers": [
+        "invocation-8f995e6a1042b9952f79011c"
+      ]
+    },
+    {
+      "invocation": "invocation-4ccc1cf49ccb2bae8301774d",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-5182b6eab843b7a591990487",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-521f2ea5c655bc5dd9a835d5",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-52e3f3334d304af50c018ea0",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00",
+        "invocation-8f995e6a1042b9952f79011c",
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-5490417a6c51b8143032ef61",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-5545f2237ba3231a4aa6fa0a",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-5a5447f8061dfa52da172c6b",
+      "blocking_frontiers": [
+        "invocation-f21bfb24fe6df143733a26b7"
+      ]
+    },
+    {
+      "invocation": "invocation-5a5581faf20848e8132d7cd6",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00",
+        "invocation-8f995e6a1042b9952f79011c",
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-5dc9568a068cc0199d2a08d5",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-5ecc2a894c1d179e9e656bad",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-616b763a2c01d3469d67e80b",
+      "blocking_frontiers": [
+        "invocation-276d377d5313aefc50baf986",
+        "invocation-3703ecc2ec50b021f8359341",
+        "invocation-635bc045db678f3d75b09e10",
+        "invocation-78b781b1fa1fb4956c750a68",
+        "invocation-98b72a3b0f2e0817fd0e1132"
+      ]
+    },
+    {
+      "invocation": "invocation-67d29a53ebd227d6f29d9e4c",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-6b4cbbc73a3067da14403b4e",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-6bb8f0e6f2cafb317f4498ee",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00"
+      ]
+    },
+    {
+      "invocation": "invocation-6bb9bcadb6290b4d34f544c1",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-6c26d4b0526cc31819abd24a",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-6cf47b9c875be26ef34d7f49",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-6d97475e4868da8932a3b1da",
+      "blocking_frontiers": [
+        "invocation-23f2d6666757c47a34e6434f",
+        "invocation-793af5bc939bb2b54f3212de",
+        "invocation-bdd813980e02a12e60d3bd2d"
+      ]
+    },
+    {
+      "invocation": "invocation-6f3d44cc7ea93e630e75d650",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-74957b94d511bf10758c3502",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-7859d27c0a921e4d43215b63",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-7a5e2761db799fed71751779",
+      "blocking_frontiers": [
+        "invocation-8f995e6a1042b9952f79011c"
+      ]
+    },
+    {
+      "invocation": "invocation-7b83b202f425d29227464449",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-83642c6d7c48c44133718b02",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-8390a17f93b29ae886e94dee",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-873b80330a2355a2c2c5bb3c",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00",
+        "invocation-8f995e6a1042b9952f79011c",
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-88a33b01e1ddc95ce165b6aa",
+      "blocking_frontiers": [
+        "invocation-8f995e6a1042b9952f79011c"
+      ]
+    },
+    {
+      "invocation": "invocation-88a4b9aa012d0c0797d55b62",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00"
+      ]
+    },
+    {
+      "invocation": "invocation-89cd6e9e5d32c4133d2dfd17",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-8db6e5599aff15493d9ec994",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-8f9a80c647ad127943f97c6f",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-93fd65c12700dabf7589e99e",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-9737860780efdf6b5723d3d4",
+      "blocking_frontiers": [
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-98a690643208cd99399ef952",
+      "blocking_frontiers": [
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-99f950201697bb8c40ae9b9a",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00",
+        "invocation-8f995e6a1042b9952f79011c",
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-9ad1325dd20c286454f55441",
+      "blocking_frontiers": [
+        "invocation-c2a32633999f38150f2d2e16",
+        "invocation-f2bbb1eec3990a5a16ad4607",
+        "invocation-ff52db8f040bf3d2ed190280"
+      ]
+    },
+    {
+      "invocation": "invocation-9cad5243cd1465eb50f04398",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-9cc3f78319ce33d53875ea74",
+      "blocking_frontiers": [
+        "invocation-a4732b8d2c34dd3df21dfad8"
+      ]
+    },
+    {
+      "invocation": "invocation-9f2189ef37fc1b6b9bc40008",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-a34bfacdae0f5683e5c47ad9",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-a4e9eea9e5d1f2446fadaf6b",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-a9b1d5416a5bf97b838a9c95",
+      "blocking_frontiers": [
+        "invocation-276d377d5313aefc50baf986",
+        "invocation-3703ecc2ec50b021f8359341",
+        "invocation-635bc045db678f3d75b09e10",
+        "invocation-78b781b1fa1fb4956c750a68",
+        "invocation-98b72a3b0f2e0817fd0e1132"
+      ]
+    },
+    {
+      "invocation": "invocation-ac6ca25bdab4d24d6627a47f",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-b2c96b65a3454fe5cba39d4a",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-bb81e76465aa257a91b950d0",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-bcec21755ddb90d4b9467037",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-beb5b915dd2db1016218cc03",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-c06d2ecc54a7c91338056347",
+      "blocking_frontiers": [
+        "invocation-f21bfb24fe6df143733a26b7"
+      ]
+    },
+    {
+      "invocation": "invocation-c27466b944235b7a1e6d4d25",
+      "blocking_frontiers": [
+        "invocation-276d377d5313aefc50baf986",
+        "invocation-3703ecc2ec50b021f8359341",
+        "invocation-635bc045db678f3d75b09e10",
+        "invocation-78b781b1fa1fb4956c750a68",
+        "invocation-98b72a3b0f2e0817fd0e1132"
+      ]
+    },
+    {
+      "invocation": "invocation-c4bc40bbdf06309575667937",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-c592f3a3c783509c1198f876",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00"
+      ]
+    },
+    {
+      "invocation": "invocation-c6f535bd30ee28f5a13d2b5d",
+      "blocking_frontiers": [
+        "invocation-a4732b8d2c34dd3df21dfad8"
+      ]
+    },
+    {
+      "invocation": "invocation-cb13ebe64023b52bff4cd75e",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-d0fafec53ec9e61abf03adf5",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-d62d14d0e883d0cc3980375a",
+      "blocking_frontiers": [
+        "invocation-60549794781539fbbb63feeb"
+      ]
+    },
+    {
+      "invocation": "invocation-daac9c13da03a0f25f04e353",
+      "blocking_frontiers": [
+        "invocation-dfce29cbafaa9ad982acb553"
+      ]
+    },
+    {
+      "invocation": "invocation-dae4c3a98a8c0b720679eeb4",
+      "blocking_frontiers": [
+        "invocation-8f995e6a1042b9952f79011c"
+      ]
+    },
+    {
+      "invocation": "invocation-de7011ffde8ce19094c610b0",
+      "blocking_frontiers": [
+        "invocation-62247f6981fce2fa52544ec8"
+      ]
+    },
+    {
+      "invocation": "invocation-e1cfb3a398499994442f13d9",
+      "blocking_frontiers": [
+        "invocation-117e91c65a2200b79af68897",
+        "invocation-4dafb88b303c49a7eb24b1ea",
+        "invocation-ba95077242fc5221a90e1acf",
+        "invocation-be733f39ed84010969e83355",
+        "invocation-c26b589e77d825fcbcf292bb",
+        "invocation-cb8b62077fcfeeb29f789085",
+        "invocation-ce73014ea7f7229ea3981b2d"
+      ]
+    },
+    {
+      "invocation": "invocation-e46977d814613d4bfdfee8b8",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-e8beef0fbe251e398c4bd9af",
+      "blocking_frontiers": [
+        "invocation-102fcd2fb2cce53041183b00"
+      ]
+    },
+    {
+      "invocation": "invocation-ea38025c312f4e0562803630",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-ea65b2a66bb9e891c80814d6",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-ecafb4a65ade670fcb45a464",
+      "blocking_frontiers": [
+        "invocation-c2a32633999f38150f2d2e16",
+        "invocation-f2bbb1eec3990a5a16ad4607",
+        "invocation-ff52db8f040bf3d2ed190280"
+      ]
+    },
+    {
+      "invocation": "invocation-ef59c72b751b86c448c5d5e1",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-f15e305d39ee4578e85846ff",
+      "blocking_frontiers": [
+        "invocation-61da886c76cac632ff73b0de"
+      ]
+    },
+    {
+      "invocation": "invocation-f7215a984a650eee25bbd52d",
+      "blocking_frontiers": [
+        "invocation-276d377d5313aefc50baf986",
+        "invocation-3703ecc2ec50b021f8359341",
+        "invocation-635bc045db678f3d75b09e10",
+        "invocation-78b781b1fa1fb4956c750a68",
+        "invocation-98b72a3b0f2e0817fd0e1132"
+      ]
+    },
+    {
+      "invocation": "invocation-f912c68f9635ed4765dfe2ce",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-fb675a1a7bc5ce9e8cdaf4ec",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-fc88047bfba87366d352afb9",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    },
+    {
+      "invocation": "invocation-fe5cda35b002b67266183ad3",
+      "blocking_frontiers": [
+        "invocation-793af5bc939bb2b54f3212de"
+      ]
+    }
+  ],
+  "disclosed_limitations": {
+    "class receiver dispatch outside bounded model": 27,
+    "receiver mutation lacks dispatch-stability proof": 12,
+    "unclassified deferred syntax: abstract_class_declaration": 19,
+    "unclassified deferred syntax: call_signature": 1,
+    "unclassified deferred syntax: class_heritage": 19,
+    "unclassified deferred syntax: construct_signature": 19,
+    "unclassified deferred syntax: function_signature": 19,
+    "unclassified deferred syntax: import": 18,
+    "unclassified deferred syntax: index_type_query": 19,
+    "unclassified deferred syntax: internal_module": 21,
+    "unclassified deferred syntax: module": 35,
+    "unclassified deferred syntax: nested_identifier": 2,
+    "unclassified deferred syntax: opting_type_annotation": 20,
+    "unclassified deferred syntax: template_literal_type": 20,
+    "unclassified deferred syntax: template_type": 20,
+    "unclassified deferred syntax: this_type": 19,
+    "unclassified semantic syntax: abstract_class_declaration": 20,
+    "unclassified semantic syntax: abstract_method_signature": 1,
+    "unclassified semantic syntax: ambient_declaration": 37,
+    "unclassified semantic syntax: call_signature": 1,
+    "unclassified semantic syntax: class_heritage": 27,
+    "unclassified semantic syntax: construct_signature": 19,
+    "unclassified semantic syntax: enum_assignment": 1,
+    "unclassified semantic syntax: enum_body": 1,
+    "unclassified semantic syntax: enum_declaration": 1,
+    "unclassified semantic syntax: function_signature": 20,
+    "unclassified semantic syntax: import": 20,
+    "unclassified semantic syntax: index_type_query": 21,
+    "unclassified semantic syntax: internal_module": 21,
+    "unclassified semantic syntax: module": 35,
+    "unclassified semantic syntax: nested_identifier": 2,
+    "unclassified semantic syntax: opting_type_annotation": 20,
+    "unclassified semantic syntax: optional_chain": 23,
+    "unclassified semantic syntax: template_literal_type": 20,
+    "unclassified semantic syntax: template_type": 20,
+    "unclassified semantic syntax: this_type": 19,
+    "unresolved namespace write destination": 39,
+    "unresolved write base: (ctx as { props: AuthProps })": 1
+  },
+  "note": "All 91 calls removed from root reachability have a newly unestablished ancestor frontier. Their bodies are no longer justified for traversal; the calling frontier remains represented."
+}

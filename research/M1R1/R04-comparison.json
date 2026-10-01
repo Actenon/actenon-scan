@@ -1,0 +1,132 @@
+{
+  "development_evidence": "R04",
+  "repository_commit": "1d7a16b25db74ed44539cd5079e2db46b42f08db",
+  "repair_parent_sha": "cb02ba862c7014ec2c673dcc61e9188f7b5004ad",
+  "root_configuration": "existing automatic discovery plus 60 explicit MODEL_CALLABLE registration handlers",
+  "before": {
+    "roots_discovered": 81,
+    "roots_supplied": 60,
+    "roots_selected": 141,
+    "invocations_enumerated": 5081,
+    "invocations_reached": 837,
+    "root_invocation_occurrences": 1655,
+    "resolved_local_calls": 102,
+    "unresolved_calls": 735,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 0,
+    "claims_instantiated": 1655,
+    "claims_without_rule_match": 1599,
+    "resolution_certainty_counts": {
+      "unresolved": 529,
+      "heuristic": 206,
+      "resolved": 102
+    },
+    "automatic_only": {
+      "roots_discovered": 81,
+      "roots_supplied": 0,
+      "roots_selected": 81,
+      "invocations_enumerated": 5081,
+      "invocations_reached": 398,
+      "root_invocation_occurrences": 1198,
+      "resolved_local_calls": 74,
+      "unresolved_calls": 324,
+      "analysis_errors": 0,
+      "unsupported_files": 0,
+      "unsupported_languages": [],
+      "coverage_gaps": 0,
+      "claims_instantiated": 1198,
+      "claims_without_rule_match": 1148
+    }
+  },
+  "after": {
+    "roots_discovered": 81,
+    "roots_supplied": 60,
+    "roots_selected": 141,
+    "invocations_enumerated": 5081,
+    "invocations_reached": 839,
+    "root_invocation_occurrences": 1661,
+    "resolved_local_calls": 105,
+    "unresolved_calls": 734,
+    "analysis_errors": 0,
+    "unsupported_files": 0,
+    "unsupported_languages": [],
+    "coverage_gaps": 0,
+    "claims_instantiated": 1661,
+    "claims_without_rule_match": 1605,
+    "resolution_certainty_counts": {
+      "unresolved": 725,
+      "resolved": 105,
+      "heuristic": 9
+    },
+    "automatic_only": {
+      "roots_discovered": 81,
+      "roots_supplied": 0,
+      "roots_selected": 81,
+      "invocations_enumerated": 5081,
+      "invocations_reached": 400,
+      "root_invocation_occurrences": 1204,
+      "resolved_local_calls": 77,
+      "unresolved_calls": 323,
+      "analysis_errors": 0,
+      "unsupported_files": 0,
+      "unsupported_languages": [],
+      "coverage_gaps": 0,
+      "claims_instantiated": 1204,
+      "claims_without_rule_match": 1154
+    }
+  },
+  "root_ids_unchanged": true,
+  "old_claim_ids_preserved": true,
+  "claims_added": 6,
+  "claims_removed": 0,
+  "all_claim_verdicts": "ABSTAIN",
+  "all_semantic_obligations": "UNKNOWN",
+  "legacy_findings_before": 1,
+  "legacy_findings_after": 1,
+  "production_provider_logic_added": false,
+  "held_out_repositories_accessed": false,
+  "newly_resolved_edges": [
+    {
+      "file": "apps/sandbox-container/server/container-tools.ts",
+      "line": 93,
+      "callee": "stripProtocolFromFilePath",
+      "before": {
+        "certainty": "heuristic",
+        "identity": null
+      },
+      "after": {
+        "certainty": "resolved",
+        "identity": "apps.sandbox-container.server.utils.stripProtocolFromFilePath"
+      }
+    },
+    {
+      "file": "apps/sandbox-container/server/container-tools.ts",
+      "line": 134,
+      "callee": "stripProtocolFromFilePath",
+      "before": {
+        "certainty": "heuristic",
+        "identity": null
+      },
+      "after": {
+        "certainty": "resolved",
+        "identity": "apps.sandbox-container.server.utils.stripProtocolFromFilePath"
+      }
+    },
+    {
+      "file": "apps/sandbox-container/server/container-tools.ts",
+      "line": 79,
+      "callee": "stripProtocolFromFilePath",
+      "before": {
+        "certainty": "heuristic",
+        "identity": null
+      },
+      "after": {
+        "certainty": "resolved",
+        "identity": "apps.sandbox-container.server.utils.stripProtocolFromFilePath"
+      }
+    }
+  ],
+  "resolution_change_explanation": "Three existing local named export imports now use the actual importer directory. Their exact declarations add two unique reached body calls and six root-scoped claims. Other unsupported imports remain unresolved; no provider or SDK names drive resolution."
+}
