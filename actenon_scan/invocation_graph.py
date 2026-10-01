@@ -125,6 +125,7 @@ class InvocationNode:
 
     binding_claims: tuple[BindingClaim, ...] = ()
     lexical_scope_id: str | None = None
+    execution_region: object = None
 
     @property
     def execution_owner_key(self):
@@ -132,6 +133,8 @@ class InvocationNode:
 
     @property
     def established_targets(self):
+        if {t.candidate_id for t in self.possible_implementations} != {b.candidate_id for b in self.binding_claims}:
+            return ()
         if any(b.subject != self.invocation_id or b.state in {BindingState.POSSIBLE, BindingState.UNKNOWN}
                for b in self.binding_claims):
             return ()
@@ -151,6 +154,7 @@ class InvocationNode:
                 "possible_implementations": [c.to_dict() for c in self.possible_implementations],
                 "matched_rule_ids": list(self.matched_rule_ids),
                 "binding_claims": [b.to_dict() for b in self.binding_claims],
+                "execution_region": self.execution_region.to_dict() if self.execution_region else None,
                 "execution_owner_key": self.execution_owner_key,
                 "root_ids": list(self.root_ids),
                 "root_paths": {r: list(p) for r, p in sorted(self.root_paths.items())}}
@@ -167,6 +171,7 @@ class InvocationGraph:
     analysis_errors: list[tuple[str, str]] = field(default_factory=list)
     unsupported_files: list[tuple[str, str]] = field(default_factory=list)
     coverage_gaps: list[tuple[str, str]] = field(default_factory=list)
+    frontend_facts: dict = field(default_factory=dict)
 
     def traverse(self, calls: list[InvocationNode], limits: GraphLimits):
         self.invocations.clear()
@@ -226,4 +231,5 @@ class InvocationGraph:
 
     def to_dict(self):
         return {"roots": [r.to_dict() for r in self.roots],
-                "invocations": [c.to_dict() for _, c in sorted(self.invocations.items())]}
+                "invocations": [c.to_dict() for _, c in sorted(self.invocations.items())],
+                "frontend_facts": self.frontend_facts}

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+from actenon_scan.semantic_ir import BindingEdgeProof
 
 
 class BindingState(str, Enum):
@@ -32,6 +33,7 @@ class BindingEvidence(str, Enum):
     EXECUTION_NOT_ESTABLISHED = "EXECUTION_NOT_ESTABLISHED"
     NO_BINDING_PROOF = "NO_BINDING_PROOF"
     INITIALIZATION_NOT_ESTABLISHED = "INITIALIZATION_NOT_ESTABLISHED"
+    SEMANTIC_CLOSURE_UNKNOWN = "SEMANTIC_CLOSURE_UNKNOWN"
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,7 @@ class BindingClaim:
     positive_evidence: frozenset[BindingEvidence] = frozenset()
     counter_evidence: frozenset[BindingEvidence] = frozenset()
     candidate_is_local: bool = False
+    edge_proof: BindingEdgeProof = BindingEdgeProof()
 
     def __post_init__(self):
         positive = frozenset(BindingEvidence(e) for e in self.positive_evidence)
@@ -55,12 +58,15 @@ class BindingClaim:
 
     @property
     def state(self) -> BindingState:
+        if self.edge_proof.refuted:
+            return BindingState.REFUTED
         if self.candidate_is_local and self.counter_evidence & {BindingEvidence.INCOMPATIBLE_RECEIVER,
                                     BindingEvidence.LEXICAL_SHADOW}:
             return BindingState.REFUTED
         if self.counter_evidence:
             return BindingState.POSSIBLE if self.candidate_is_local or self.positive_evidence else BindingState.UNKNOWN
-        if self.positive_evidence & {BindingEvidence.LEXICAL_DECLARATION, BindingEvidence.CALLABLE_SELF_BINDING}:
+        if (self.candidate_is_local and self.edge_proof.closed and self.positive_evidence &
+                {BindingEvidence.LEXICAL_DECLARATION, BindingEvidence.CALLABLE_SELF_BINDING}):
             return BindingState.ESTABLISHED
         return BindingState.POSSIBLE if self.positive_evidence or self.candidate_is_local else BindingState.UNKNOWN
 
@@ -73,4 +79,5 @@ class BindingClaim:
         return {"subject": self.subject, "candidate": self.candidate_id,
                 "positive_evidence": sorted(e.value for e in self.positive_evidence),
                 "counter_evidence": sorted(e.value for e in self.counter_evidence),
+                "edge_proof": self.edge_proof.to_dict(),
                 "state": self.state.value}

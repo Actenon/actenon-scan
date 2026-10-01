@@ -19,13 +19,19 @@ def scan(tmp_path, file, source, symbol='entry'):
  return scan_effect_claims(tmp_path,entrypoints=[Entrypoint(file,symbol)],discover_roots=False)
 
 
-def assert_honest_call(result, spelling):
+def assert_honest_call(result, spelling, exact_local_literal=False):
  assert result.analysis_errors == []
  calls=[c for c in result.graph.invocations.values() if c.callee_spelling==spelling]
  assert len(calls)==1
  call=calls[0]
- assert call.resolution_certainty != ResolutionCertainty.RESOLVED
- assert call.resolved_callee_identity is None
+ if exact_local_literal:
+  # M1R3 can establish the actual lexical literal, never the package helper.
+  assert call.resolution_certainty == ResolutionCertainty.RESOLVED
+  assert '<callback@' in call.resolved_callee_identity
+  assert call.established_targets[0].symbol != 'helper'
+ else:
+  assert call.resolution_certainty != ResolutionCertainty.RESOLVED
+  assert call.resolved_callee_identity is None
  assert any(c.invocation_id==call.invocation_id for c in result.claims)
  assert all(c.verdict==Verdict.ABSTAIN for c in result.claims)
  assert all(all(s==ProofState.UNKNOWN for _,s in c.obligations.items()) for c in result.claims)
@@ -34,7 +40,7 @@ def assert_honest_call(result, spelling):
 
 @pytest.mark.parametrize('label,file,symbol,source,spelling',REVIEW_CASES,ids=[c[0] for c in REVIEW_CASES])
 def test_reviewer_false_edges_keep_the_call_without_following_body(tmp_path,label,file,symbol,source,spelling):
- assert_honest_call(scan(tmp_path,file,source,symbol),spelling)
+ assert_honest_call(scan(tmp_path,file,source,symbol),spelling,label=='go_local_function')
 
 
 def test_reviewer_nested_import_scope(tmp_path):

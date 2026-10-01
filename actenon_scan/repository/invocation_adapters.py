@@ -21,6 +21,10 @@ from actenon_scan.invocation_graph import (
 )
 from actenon_scan.repository.symbol_index import RepositoryIndex, ResolutionCertainty
 from actenon_scan.binding_claims import BindingClaim, BindingEvidence as E, BindingState
+from actenon_scan.semantic_ir import (
+    BindingEdgeProof, EdgeObligation as O, SemanticState as S, EvaluationMode,
+    TargetKind, WriteOperation, WriteCertainty, WriteEvent, meet,
+)
 
 TS_SUFFIXES = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
 _FUNCTION_TYPES = {"function_declaration", "function_expression", "arrow_function",
@@ -41,6 +45,7 @@ class _Site:
     dynamic: bool = False
     lexical_scope: str | None = None
     resumes_coroutine: bool = False
+    region: object = None
 
 
 @dataclass
@@ -79,7 +84,11 @@ class _Unit:
     # Pass 1 syntax coordinates and execution-region boundaries. No calls yet.
     node_scopes: dict[object, str] = field(default_factory=dict)
     execution_scopes: dict[str, CallableSymbol] = field(default_factory=dict)
-    member_writes: list[tuple[str, str, str]] = field(default_factory=list)
+    write_events: list[WriteEvent] = field(default_factory=list)
+    regions: dict = field(default_factory=dict)
+    node_regions: dict = field(default_factory=dict)
+    certificates: dict = field(default_factory=dict)
+    semantic_gaps: set = field(default_factory=set)
     package_name: str = ""
     exports: set[str] = field(default_factory=set)
     discovered: dict[str, tuple[str, ...]] = field(default_factory=dict)
@@ -91,6 +100,12 @@ class _Unit:
     def bind(self, scope, name, binding=None):
         if name and name != "_":
             self.bindings.setdefault(scope, {}).setdefault(name, []).append(binding or _Binding())
+            invalidation = binding is not None and binding.kind == "write"
+            self.write_events.append(WriteEvent(scope, TargetKind.LEXICAL_BINDING,
+                WriteOperation.MAY_WRITE if invalidation else WriteOperation.DECLARE,
+                binding=name, certainty=WriteCertainty.POSSIBLE if invalidation else WriteCertainty.EXACT,
+                line=binding.line if binding else 0,
+                syntax="accumulated binding counter-evidence" if invalidation else "lexical declaration"))
 
     def symbol(self, name, node, scope=""):
         if self.language == "python":
@@ -274,7 +289,6 @@ def _python_unit(file, source, tree, index, cfg, *, enumerate_calls=True):
             self.assignment(node, node.targets, node.value)
 
         def visit_AnnAssign(self, node):
-            self.visit(node.annotation)
             self.assignment(node, [node.target], node.value)
 
         def visit_Name(self, node):
@@ -282,14 +296,9 @@ def _python_unit(file, source, tree, index, cfg, *, enumerate_calls=True):
                 self.bind(node.id, line=node.lineno)
 
         def visit_Attribute(self, node):
-            if isinstance(node.ctx, (ast.Store, ast.Del)):
-                unit.member_writes.append((self.owner.key, ast.unparse(node.value), node.attr))
             self.generic_visit(node)
 
         def visit_Subscript(self, node):
-            if isinstance(node.ctx, (ast.Store, ast.Del)):
-                member = node.slice.value if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str) else "*"
-                unit.member_writes.append((self.owner.key, ast.unparse(node.value), member))
             self.generic_visit(node)
 
         def visit_ExceptHandler(self, node):
@@ -386,8 +395,6 @@ def _tree_unit(language, file, source, tree, index, *, enumerate_calls=True):
     data = source.encode()
     module_sym = CallableSymbol(language, file, module or "<module>", 1, 1)
     unit.execution_scopes[unit.module_key] = module_sym
-    writes = []
-    member_writes = unit.member_writes
     if language == "go":
         package = next((n for n in tree.named_children if n.type == "package_clause"), None)
         unit.package_name = _text(package.named_children[0], data) if package and package.named_children else ""
@@ -535,11 +542,8 @@ def _tree_unit(language, file, source, tree, index, *, enumerate_calls=True):
                           _Binding(kind, sym.key, conditional=conditional, line=node.start_point[0] + 1,
                                    column=node.start_point[1] + 1, counter_evidence=binding_counter))
             if go_value:
-                # This bounded model preserves literal candidates without
-                # proving all Go short-declaration/value stability semantics.
                 unit.bind(previous_scope, go_value, _Binding("callable", sym.key,
-                          conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
-                          counter_evidence=frozenset({E.NO_BINDING_PROOF})))
+                          conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1))
             owner, conditional = sym, False
             scope = sym.key
             if node.type in {"function_expression", "generator_function"} and internal_name:
@@ -564,37 +568,33 @@ def _tree_unit(language, file, source, tree, index, *, enumerate_calls=True):
         if node.type == "variable_declarator":
             name, value = node.child_by_field_name("name"), node.child_by_field_name("value")
             if not (name and name.type == "identifier" and value and value.type in _FUNCTION_TYPES):
+                from actenon_scan.repository.semantic_frontends import literal_pattern_aliases
+                literal_aliases = literal_pattern_aliases(name, value, data)
                 for identifier in _pattern_names(name, data):
-                    unit.bind(scope, identifier, _Binding("alias" if value and value.type in {"identifier", "this"} and name.type == "identifier" else "unknown",
+                    alias_name = literal_aliases.get(identifier) or (_text(value, data) if value and value.type in {"identifier", "this"} and name.type == "identifier" else None)
+                    unit.bind(scope, identifier, _Binding("alias" if alias_name else "unknown",
                               conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
-                              alias_name=_text(value, data) if value and value.type in {"identifier", "this"} else None,
+                              alias_name=alias_name,
                               alias_scope=scope))
         if node.type in {"short_var_declaration", "range_clause", "for_in_statement", "type_switch_statement"}:
             left = node.child_by_field_name("alias") if node.type == "type_switch_statement" else node.child_by_field_name("left")
             right = node.child_by_field_name("right")
             names = _pattern_names(left, data)
             alias = right.named_children[0] if right and len(right.named_children) == 1 and right.named_children[0].type == "identifier" else None
-            for identifier in names:
+            is_declaration = (node.type == "type_switch_statement" or node.type == "short_var_declaration" or
+                any(c.type in {":=", "let", "const", "var"} for c in node.children))
+            literal = bool(right and len(right.named_children) == 1 and right.named_children[0].type == "func_literal")
+            for identifier in names if is_declaration and not literal else []:
                 unit.bind(scope, identifier, _Binding("alias" if alias and len(names) == 1 else "unknown",
                           conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
                           alias_name=_text(alias, data) if alias else None, alias_scope=scope))
-        if node.type in {"assignment_expression", "augmented_assignment_expression", "assignment_statement", "update_expression"}:
-            left = node.child_by_field_name("left")
-            if node.type == "update_expression":
-                left = node.child_by_field_name("argument")
-            for identifier in _pattern_names(left, data):
-                writes.append((scope, identifier))
-            destinations = left.named_children if left and left.type == "expression_list" else [left]
-            for destination in destinations:
-                if destination and destination.type in {"member_expression", "subscript_expression", "selector_expression"}:
-                    receiver = destination.child_by_field_name("object") or destination.child_by_field_name("operand")
-                    member = "*" if destination.type == "subscript_expression" else _text(destination.child_by_field_name("property") or destination.child_by_field_name("field"), data)
-                    member_writes.append((scope, _text(receiver, data), member))
         if node.type in {"var_spec", "const_spec", "type_spec"}:
             for i, child in enumerate(node.children):
                 if node.field_name_for_child(i) == "name":
                     value = node.child_by_field_name("value")
                     alias = value.named_children[0] if value and len(value.named_children) == 1 and value.named_children[0].type == "identifier" else None
+                    if value and len(value.named_children) == 1 and value.named_children[0].type == "func_literal":
+                        continue
                     unit.bind(scope, _text(child, data), _Binding("alias" if alias else "unknown",
                               conditional=conditional, line=node.start_point[0] + 1, column=node.start_point[1] + 1,
                               alias_name=_text(alias, data) if alias else None, alias_scope=scope))
@@ -624,20 +624,6 @@ def _tree_unit(language, file, source, tree, index, *, enumerate_calls=True):
                 visit(child, owner, class_name, conditional, class_identity, scope)
 
     visit(tree, module_sym)
-    # Stores resolve against the completed declaration set, independent of
-    # collection order. A store is never evidence of a new local declaration.
-    invalidations = set()
-    for scope, name in writes:
-        while scope:
-            destination, bindings = _lexical_bindings(unit, scope, name)
-            invalidations.add((destination, name))
-            # Summarised block declarations may not enclose this store.
-            # Keep every plausible outer destination in that case.
-            if not bindings or not all(b.conditional for b in bindings):
-                break
-            scope = unit.scope_parents.get(destination, "")
-    for scope, name in sorted(invalidations):
-        unit.bind(scope, name, _Binding("write", counter_evidence=frozenset({E.REASSIGNMENT_WRITE})))
     if language == "typescript":
         for node in tree.named_children:
             if node.type == "export_statement" and not any(c.type == "default" for c in node.children):
@@ -660,36 +646,8 @@ def _construct_execution_ownership(unit):
     Nested callable syntax is enumerated in its own execution region. It is
     never collected as outgoing syntax of the lexical enclosing callable.
     """
-    unit.sites.clear()
-    pending = [unit.tree]
-    data = unit.source.encode()
-    resumed_calls = {n.value for n in ast.walk(unit.tree) if isinstance(n, ast.Await)
-                     and isinstance(n.value, ast.Call)} if unit.language == "python" else set()
-    while pending:
-        node = pending.pop()
-        scope = unit.node_scopes.get(node)
-        if unit.language == "python":
-            pending.extend(reversed(list(ast.iter_child_nodes(node))))
-            if not isinstance(node, ast.Call):
-                continue
-            callee, line, column = node.func, node.lineno, node.col_offset + 1
-            spelling = ast.unparse(callee)
-            dynamic = not isinstance(callee, (ast.Name, ast.Attribute))
-            resumed = node in resumed_calls
-        else:
-            pending.extend(reversed(node.named_children))
-            if node.type not in {"call_expression", "new_expression"}:
-                continue
-            callee = node.child_by_field_name("function") or node.child_by_field_name("constructor")
-            if not callee:
-                continue
-            line, column = node.start_point[0] + 1, node.start_point[1] + 1
-            spelling = _text(callee, data)
-            dynamic, resumed = bool(re.search(r"[\[\]()?]", spelling)), False
-        if scope not in unit.execution_scopes:
-            raise RuntimeError("invocation lacks a constructed execution owner")
-        unit.sites.append(_Site(unit.execution_scopes[scope], line, column, spelling,
-                                callee, dynamic, scope, resumed))
+    from actenon_scan.repository.semantic_frontends import lower_semantics
+    lower_semantics(unit, _Site)
 
 
 def _registered_roots(unit, index, symbols, units):
@@ -728,7 +686,7 @@ def _registered_roots(unit, index, symbols, units):
             if registration:
                 reference = _Site(registration.owner, handler.start_point[0] + 1,
                                   handler.start_point[1] + 1, _text(handler, data), handler,
-                                  lexical_scope=registration.lexical_scope)
+                                  lexical_scope=registration.lexical_scope, region=registration.region)
                 certainty, targets, _ = _resolve(unit, reference, index, symbols, units)
                 if certainty == ResolutionCertainty.RESOLVED:
                     (selected,) = targets
@@ -758,26 +716,61 @@ def _apply_namespace_writes(units, indexes):
         if coordinate in seen or len(seen) >= 32:
             return []
         seen = seen | {coordinate}
-        _, bindings = _lexical_bindings(unit, scope, name)
+        parts = name.split(".")
+        _, bindings = _lexical_bindings(unit, scope, parts[0])
         destinations = []
         for binding in bindings:
-            if binding.kind == "receiver":
+            if binding.kind == "receiver" and len(parts) == 1:
                 destinations.append((unit.file, _receiver_scope(unit, binding)))
             elif binding.kind == "alias" and binding.alias_name:
-                destinations.extend(namespaces(unit, binding.alias_scope or scope, binding.alias_name, seen))
+                destinations.extend(namespaces(unit, binding.alias_scope or scope,
+                    ".".join([binding.alias_name] + parts[1:]), seen))
             elif binding.kind == "import" and unit.language == "python":
                 module = indexes[unit.language]._resolve_module_dotted(
-                    ".".join(x for x in (binding.module, binding.member) if x), binding.level, unit.file)
+                    ".".join(x for x in [binding.module, binding.member, *parts[1:]] if x), binding.level, unit.file)
                 destinations.extend((other.file, other.module_key) for other in units
                                     if other.language == "python" and other.module == module)
         return destinations
 
     invalidations = set()
     by_file = {u.file: u for u in units}
+    mutated_callables = set()
     for unit in units:
-        for scope, receiver, member in unit.member_writes:
+        for event in unit.write_events:
+            if event.target_kind not in {TargetKind.MEMBER, TargetKind.NAMESPACE_MEMBER}:
+                continue
+            scope, receiver, member = event.scope, event.base, event.member
+            # Mutating a callable object (including an imported/captured one)
+            # is outside our body-identity model. Preserve its candidate while
+            # opening stability. This is object identity, not a catalogue of
+            # special member names such as __code__.
+            parts = receiver.split(".")
+            origin, declarations = _lexical_bindings(unit, scope, parts[0])
+            language_units = [u for u in units if u.language == unit.language]
+            symbols = [s for u in language_units for s in u.symbols]
+            if re.fullmatch(r"[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*", receiver):
+                for length in range(len(parts)):
+                    possible = _binding_provenance(unit, origin, parts[0], declarations, parts[1:length+1],
+                        indexes[unit.language], language_units, symbols)
+                    mutated_callables.update(possible.targets)
+                if declarations and declarations[0].kind == "receiver" and len(parts) > 1:
+                    namespace = _receiver_scope(unit, declarations[0])
+                    members = unit.bindings.get(namespace, {})
+                    possible = _binding_provenance(unit, namespace, parts[1], members.get(parts[1], []), [],
+                        indexes[unit.language], language_units, symbols)
+                    mutated_callables.update(possible.targets)
+            else:
+                certificate = unit.certificates.get(scope)
+                if certificate:
+                    certificate.open(("lexical_writes_complete", "member_writes_complete"), "unresolved write base: " + receiver)
+                    unit.semantic_gaps.add((unit.file, "unresolved write base: " + receiver))
             destinations = namespaces(unit, scope, receiver)
             if not destinations:
+                certificate = unit.certificates.get(scope)
+                if certificate:
+                    certificate.open(("lexical_writes_complete", "member_writes_complete"),
+                                     "unresolved namespace write destination")
+                    unit.semantic_gaps.add((unit.file, "unresolved namespace write destination"))
                 for other in units:
                     if other.language != unit.language:
                         continue
@@ -787,7 +780,52 @@ def _apply_namespace_writes(units, indexes):
                                        for declarations in names.values() for b in declarations if b.kind == "receiver"}
                     destinations.extend((other.file, namespace) for namespace in receiver_scopes)
             invalidations.update((file, namespace, member) for file, namespace in destinations)
+    for other in units:
+        for scope, names in other.bindings.items():
+            for name, declarations in names.items():
+                if any(b.callable_key in mutated_callables for b in declarations):
+                    invalidations.add((other.file, scope, name))
+                    certificate = other.certificates.get(scope)
+                    if certificate:
+                        certificate.open(("lexical_writes_complete",), "callable object stability not modeled")
+                        other.semantic_gaps.add((other.file, "callable object stability not modeled"))
     # Compute all destinations first: writes cannot change another write's lookup.
+    for file, scope, name in sorted(invalidations):
+        by_file[file].bind(scope, name, _Binding("write", counter_evidence=frozenset({E.REASSIGNMENT_WRITE})))
+
+
+def _apply_lexical_writes(units):
+    """Consume normalized stores against lexical destinations, never raw AST."""
+    invalidations = set()
+    by_file = {u.file: u for u in units}
+    for unit in units:
+        for event in unit.write_events:
+            if event.target_kind == TargetKind.UNKNOWN_TARGET:
+                # Open syntax is not an empty write set. Its certificate was
+                # opened during lowering and will be required by provenance.
+                continue
+            if event.target_kind != TargetKind.LEXICAL_BINDING or event.operation == WriteOperation.DECLARE:
+                continue
+            destination, declarations = _lexical_bindings(unit, event.scope, event.binding)
+            # Python assignment introduces a function-local name unless a
+            # global/nonlocal directive says otherwise (already collected).
+            # An exact initializer is the initial store, not a later write.
+            initial = (unit.language == "python" and
+                event.operation == WriteOperation.ASSIGN and len(declarations) == 1 and
+                declarations[0].line == event.line and declarations[0].kind not in {"receiver", "write"})
+            if initial:
+                continue
+            if declarations:
+                invalidations.add((unit.file, destination, event.binding))
+                # Existing conservative block summaries can describe several
+                # lexical destinations; a store must account for each one.
+                while declarations and all(b.conditional for b in declarations):
+                    parent = unit.scope_parents.get(destination, "")
+                    if not parent:
+                        break
+                    destination, declarations = _lexical_bindings(unit, parent, event.binding)
+                    if declarations:
+                        invalidations.add((unit.file, destination, event.binding))
     for file, scope, name in sorted(invalidations):
         by_file[file].bind(scope, name, _Binding("write", counter_evidence=frozenset({E.REASSIGNMENT_WRITE})))
 
@@ -796,12 +834,62 @@ def _receiver_scope(unit, binding):
     return unit.class_scopes.get(binding.receiver_class, binding.receiver_class)
 
 
+def _propagate_open_certificates(units):
+    """An unmodeled store cannot disappear at a lexical/namespace boundary."""
+    for unit in units:
+        for scope, certificate in list(unit.certificates.items()):
+            open_facets = [f for f in ("lexical_writes_complete", "member_writes_complete",
+                          "import_semantics_complete", "receiver_semantics_complete")
+                          if certificate.state(f) != S.SUPPORTED]
+            if not open_facets:
+                continue
+            parent = unit.scope_parents.get(scope, "")
+            seen = set()
+            while parent and parent not in seen:
+                seen.add(parent)
+                if parent in unit.certificates:
+                    unit.certificates[parent].open(open_facets, "open nested semantic scope: " + scope)
+                parent = unit.scope_parents.get(parent, "")
+            if "member_writes_complete" in open_facets:
+                # A namespace alias not modeled by the frontend may refer to
+                # another workspace module or receiver. Do not claim closure
+                # from the failure to identify its destination.
+                for other in units:
+                    if other.language != unit.language:
+                        continue
+                    for target in other.certificates.values():
+                        target.open(("member_writes_complete",), "open workspace namespace mutation: " + unit.file)
+            if "receiver_semantics_complete" in open_facets:
+                # Workspace inheritance/custom lookup can introduce competing
+                # receiver implementations. This model proves no hierarchy or
+                # dynamic descriptor identity, so it declines receiver closure.
+                for other in units:
+                    if other.language == unit.language:
+                        for target in other.certificates.values():
+                            target.open(("receiver_semantics_complete",), "open workspace receiver dispatch: " + unit.file)
+
+
 @dataclass
 class _Provenance:
     """Accumulate facts across every possible binding path; never overwrite."""
     targets: dict[str, CallableSymbol] = field(default_factory=dict)
     positive: dict[str, set[E]] = field(default_factory=dict)
     counter: set[E] = field(default_factory=set)
+    required: set[O] = field(default_factory=set)
+    closure: list[S] = field(default_factory=list)
+    certificates: set[str] = field(default_factory=set)
+    import_closure: list[S] = field(default_factory=list)
+    receiver_closure: list[S] = field(default_factory=list)
+
+    def certificate(self, unit, scope, *, member=False, imported=False):
+        certificate = unit.certificates.get(scope)
+        self.certificates.add(unit.file + ":" + scope)
+        self.closure.append(certificate.state("lexical_writes_complete") if certificate else S.UNKNOWN)
+        if member:
+            self.closure.append(certificate.state("member_writes_complete") if certificate else S.UNKNOWN)
+        if imported:
+            self.required.add(O.IMPORT_PROVENANCE_EXACT)
+            self.import_closure.append(certificate.state("import_semantics_complete") if certificate else S.UNKNOWN)
 
     def add(self, symbol, evidence):
         self.targets[symbol.key] = symbol
@@ -809,6 +897,11 @@ class _Provenance:
 
     def merge(self, other, evidence=()):
         self.counter.update(other.counter)
+        self.required.update(other.required)
+        self.closure.extend(other.closure)
+        self.import_closure.extend(other.import_closure)
+        self.receiver_closure.extend(other.receiver_closure)
+        self.certificates.update(other.certificates)
         for key, symbol in other.targets.items():
             self.add(symbol, other.positive[key] | set(evidence))
 
@@ -849,6 +942,9 @@ def _binding_provenance(unit, scope, name, bindings, tail, index, units, symbols
     """Pass 3: bounded, set-valued lexical evidence, independent of sink rules."""
     coordinate = (unit.file, scope, name, tuple(tail), implicit_import)
     result = _Provenance()
+    # Python function objects have mutable body/descriptor identity. Unknown
+    # object writes therefore also defeat their local body-stability proof.
+    result.certificate(unit, scope, member=unit.language == "python")
     if coordinate in seen:
         result.counter.add(E.UNRESOLVED_ALIAS)
         return result
@@ -882,6 +978,7 @@ def _binding_provenance(unit, scope, name, bindings, tail, index, units, symbols
             if not child.targets:
                 result.counter.add(E.UNRESOLVED_ALIAS)
         elif binding.kind in {"import", "ts_import"}:
+            result.certificate(unit, scope, member=True, imported=True)
             modules, member = [], binding.member
             if unit.language == "python":
                 module = index._resolve_module_dotted(binding.module, binding.level, unit.file)
@@ -926,17 +1023,15 @@ def _binding_provenance(unit, scope, name, bindings, tail, index, units, symbols
 
 
 def _resolve_binding_claims(unit, site, identity, index, symbols, units):
-    # The legacy resolver remains a diagnostic source, never binding authority.
-    if unit.language == "python":
-        index.resolve_call_target(site.node, in_module=unit.file)
-    else:
-        index.resolve_call_target(site.spelling, in_module=unit.file)
+    # This pass consumes lowered sites/declarations/certificates only. Parser
+    # diagnostics are executed separately, never used as binding authority.
     simple = bool(re.fullmatch(r"[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*", site.spelling))
     parts = site.spelling.split(".")
     head, name = parts[0], parts[-1]
     lexical_scope = site.lexical_scope or site.owner.key
     scope, bindings = _lexical_bindings(unit, lexical_scope, head)
     result = _Provenance()
+    result.certificate(unit, lexical_scope)
     if simple and len(parts) == 2 and len(bindings) == 1 and bindings[0].kind == "receiver":
         receiver = bindings[0]
         class_scope = _receiver_scope(unit, receiver)
@@ -944,6 +1039,13 @@ def _resolve_binding_claims(unit, site, identity, index, symbols, units):
         declarations = members.get(name, []) + members.get("*", [])
         result = _binding_provenance(unit, class_scope, name, declarations, [], index, units, symbols,
                                      resumes_coroutine=site.resumes_coroutine)
+        result.certificate(unit, lexical_scope, member=True)
+        result.certificate(unit, class_scope, member=True)
+        result.required.add(O.RECEIVER_COMPATIBLE)
+        receiver_certificate = unit.certificates.get(lexical_scope)
+        result.receiver_closure.append(receiver_certificate.state("receiver_semantics_complete") if receiver_certificate else S.UNKNOWN)
+        class_certificate = unit.certificates.get(class_scope)
+        result.receiver_closure.append(class_certificate.state("receiver_semantics_complete") if class_certificate else S.UNKNOWN)
         for evidence in result.positive.values():
             evidence.add(E.RECEIVER_IDENTITY)
         if receiver.conditional:
@@ -985,13 +1087,30 @@ def _resolve_binding_claims(unit, site, identity, index, symbols, units):
         if excluded.targets:
             result.counter.add(E.LEXICAL_SHADOW)
     targets = [ImplementationTarget.local(s) for s in result.targets.values()]
+    # The executing scope's closure is needed even when lookup finds an outer
+    # binding: reflection or an unmodeled store in this scope can affect it.
+    result.certificate(unit, lexical_scope)
+    result.certificate(unit, scope)
+    region = site.region
+    proof = BindingEdgeProof(required=frozenset(result.required), facts=tuple({
+        O.TARGET_EXACT: S.SUPPORTED if len(result.targets) == 1 and not result.counter else S.UNKNOWN,
+        O.EXECUTION_OWNER_EXACT: region.owner_exact if region else S.UNKNOWN,
+        O.EVALUATION_EAGER: region.eager if region and not result.counter &
+            {E.DEFERRED_EXECUTION, E.EXECUTION_NOT_ESTABLISHED} else S.UNKNOWN,
+        O.WRITE_SET_CLOSED: meet(result.closure),
+        O.RECEIVER_COMPATIBLE: S.REFUTED if E.INCOMPATIBLE_RECEIVER in result.counter else meet(result.receiver_closure),
+        O.IMPORT_PROVENANCE_EXACT: meet(result.import_closure) if not result.counter &
+            {E.CONDITIONAL_IMPORT, E.UNRESOLVED_IMPORT, E.AMBIGUOUS_DECLARATION} else S.UNKNOWN,
+    }.items()), provenance=tuple(sorted(result.certificates)))
+    if not proof.closed:
+        result.counter.add(E.SEMANTIC_CLOSURE_UNKNOWN)
     claims = [BindingClaim(identity, t.candidate_id, frozenset(result.positive[t.callable_key]),
-                           frozenset(result.counter), True) for t in targets]
+                           frozenset(result.counter), True, proof) for t in targets]
     for symbol in excluded.targets.values():
         target = ImplementationTarget.local(symbol)
         targets.append(target)
         claims.append(BindingClaim(identity, target.candidate_id, frozenset(excluded.positive[symbol.key]),
-                                   frozenset(excluded.counter | {E.LEXICAL_SHADOW}), True))
+                                   frozenset(excluded.counter | {E.LEXICAL_SHADOW}), True, proof))
     exact = [b for b in claims if b.state == BindingState.ESTABLISHED]
     if len(exact) == len(claims) == 1:
         return ResolutionCertainty.RESOLVED, tuple(targets), False, tuple(claims)
@@ -1080,12 +1199,6 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
             failed_indexes.add(language)
             graph.analysis_errors.append((language, f"index finalization: {exc}"))
     units = [u for u in units if u.language not in failed_indexes]
-    try:
-        _apply_namespace_writes(units, indexes)
-    except Exception as exc:
-        # Failed stability construction cannot leave partially trusted edges.
-        graph.analysis_errors.append(("binding construction", f"namespace writes: {type(exc).__name__}: {exc}"))
-        units = []
     # Pass 2 is independent of binding resolution and repository-name lookup.
     owned_units = []
     for unit in units:
@@ -1095,6 +1208,29 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
         except Exception as exc:
             graph.analysis_errors.append((unit.file, f"execution ownership: {exc}"))
     units = owned_units
+    if graph.analysis_errors or any(reason.startswith(("max_files", "max_bytes", "source path"))
+                                    for _, reason in graph.coverage_gaps):
+        # A truncated/failed inventory is not a complete search for workspace
+        # writes. Keep known sites/candidates, but decline closure authority.
+        for unit in units:
+            for certificate in unit.certificates.values():
+                certificate.open(("lexical_writes_complete", "member_writes_complete",
+                                  "import_semantics_complete"), "workspace source inventory incomplete")
+            unit.semantic_gaps.add((unit.file, "workspace source inventory incomplete"))
+    try:
+        _apply_lexical_writes(units)
+        _apply_namespace_writes(units, indexes)
+        _propagate_open_certificates(units)
+    except Exception as exc:
+        graph.analysis_errors.append(("semantic construction", f"write closure: {type(exc).__name__}: {exc}"))
+        units = []
+    for unit in units:
+        graph.coverage_gaps.extend(sorted(unit.semantic_gaps))
+        graph.frontend_facts[unit.file] = {
+            "certificates": [c.to_dict() for _, c in sorted(unit.certificates.items())],
+            "write_events": [e.to_dict() for e in unit.write_events],
+            "execution_regions": [r.to_dict() for _, r in sorted(unit.regions.items())],
+        }
     symbols = [s for u in units for s in u.symbols]
     roots = {}
     for unit in units:
@@ -1138,6 +1274,10 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
             error = None
             binding_claims = ()
             try:
+                # Existing index diagnostics are retained as error accounting.
+                # Their result is never passed to binding claim resolution.
+                indexes[unit.language].resolve_call_target(
+                    site.node if unit.language == "python" else site.spelling, in_module=unit.file)
                 certainty, candidates, leaves, binding_claims = _resolve_binding_claims(
                     unit, site, identity, indexes[unit.language], language_symbols,
                     [u for u in units if u.language == unit.language])
@@ -1155,7 +1295,8 @@ def build_invocation_graph(target: Path, *, entrypoints: tuple[Entrypoint, ...],
                                         site.owner.symbol, site.owner.key, site.spelling, certainty, candidates,
                                         resolved_identity,
                                         leaves, rules, error, binding_claims=binding_claims,
-                                        lexical_scope_id=site.lexical_scope or site.owner.key))
+                                        lexical_scope_id=site.lexical_scope or site.owner.key,
+                                        execution_region=site.region))
     graph.traverse(calls, limits)
     return graph
 

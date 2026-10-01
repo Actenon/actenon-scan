@@ -96,7 +96,8 @@ def test_adversarial_matrix(tmp_path, language, scope, binding, callable_kind, s
         column = offset - source.rfind("\n", 0, offset)
         symbol = f"entry.<callback@{line}:{column}>"
     result = scan(tmp_path, file, source, symbol)
-    expected = binding != "dynamic" and not shadow and not write and not (language == "go" and callable_kind == "expression")
+    # M1R3 now proves stable literal initializers with normalized write closure.
+    expected = binding != "dynamic" and not shadow and not write
     honest(result, "helper", expected)
 
 
@@ -179,7 +180,9 @@ def test_metamorphic_incompatible_static(tmp_path):
 
 def test_counter_evidence_is_monotonic():
     from actenon_scan.binding_claims import BindingClaim, BindingEvidence, BindingState
-    claim = BindingClaim("site", "target", frozenset({BindingEvidence.LEXICAL_DECLARATION}))
+    from actenon_scan.semantic_ir import BindingEdgeProof, BASE_OBLIGATIONS, SemanticState
+    proof = BindingEdgeProof(facts=tuple((k, SemanticState.SUPPORTED) for k in BASE_OBLIGATIONS))
+    claim = BindingClaim("site", "target", frozenset({BindingEvidence.LEXICAL_DECLARATION}), candidate_is_local=True, edge_proof=proof)
     assert claim.state == BindingState.ESTABLISHED
     unstable = claim.with_evidence(counter={BindingEvidence.REASSIGNMENT_WRITE})
     assert unstable.state == BindingState.POSSIBLE
