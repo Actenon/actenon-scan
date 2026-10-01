@@ -13,6 +13,7 @@ class SemanticState(str, Enum):
 
 class EdgeObligation(str, Enum):
     TARGET_EXACT = "TARGET_EXACT"
+    LEXICAL_ENVIRONMENT_EXACT = "LEXICAL_ENVIRONMENT_EXACT"
     EXECUTION_OWNER_EXACT = "EXECUTION_OWNER_EXACT"
     EVALUATION_EAGER = "EVALUATION_EAGER"
     WRITE_SET_CLOSED = "WRITE_SET_CLOSED"
@@ -21,6 +22,7 @@ class EdgeObligation(str, Enum):
 
 
 BASE_OBLIGATIONS = frozenset({EdgeObligation.TARGET_EXACT,
+    EdgeObligation.LEXICAL_ENVIRONMENT_EXACT,
     EdgeObligation.EXECUTION_OWNER_EXACT, EdgeObligation.EVALUATION_EAGER,
     EdgeObligation.WRITE_SET_CLOSED})
 
@@ -37,6 +39,10 @@ class BindingEdgeProof:
     required: frozenset[EdgeObligation] = BASE_OBLIGATIONS
     facts: tuple[tuple[EdgeObligation, SemanticState], ...] = ()
     provenance: tuple[str, ...] = ()
+    # Diagnostic construction is legal, but never grants traversal authority.
+    context: object = None
+    witnesses: tuple = ()
+    _attestation: object = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         object.__setattr__(self, "required", BASE_OBLIGATIONS | frozenset(EdgeObligation(x) for x in self.required))
@@ -59,10 +65,19 @@ class BindingEdgeProof:
         return BindingEdgeProof(self.required | other.required, self.facts + other.facts,
                                 tuple(sorted(set(self.provenance + other.provenance))))
 
+    def authorizes(self, subject, candidate, evidence):
+        from actenon_scan.reachability_kernel import authorizes
+        return authorizes(self, subject, candidate, evidence)
+
     def to_dict(self):
         return {"required": sorted(k.value for k in self.required),
                 "obligations": {k.value: self.state(k).value for k in sorted(self.required, key=lambda k: k.value)},
-                "provenance": list(self.provenance)}
+                "provenance": list(self.provenance),
+                "context": self.context.to_dict() if self.context else None,
+                "witnesses": [w.to_dict() for w in self.witnesses],
+                "kernel_validated": self.authorizes(
+                    self.context.subject, self.context.candidate, self.context.evidence)
+                    if self.context else False}
 
 
 class EvaluationMode(str, Enum):

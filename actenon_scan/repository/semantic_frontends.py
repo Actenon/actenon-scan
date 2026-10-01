@@ -56,6 +56,51 @@ def _line(unit, node):
     return getattr(node, "lineno", 0) if unit.language == "python" else node.start_point[0] + 1
 
 
+def call_operands(unit, node):
+    """Normalized object captures; containers do not hide escaping identities."""
+    if unit.language == 'python':
+        roots = node.args + [k.value for k in node.keywords]
+        def operands(value):
+            if isinstance(value, ast.Lambda):
+                key=next((k for k,n in unit.nodes.items() if n is value),None)
+                return ['@callable:'+key] if key else []
+            if isinstance(value, (ast.Name, ast.Attribute, ast.Subscript)):
+                return [_text(unit, value)]
+            if isinstance(value, (ast.Tuple, ast.List, ast.Set, ast.Dict, ast.Starred)):
+                return [name for child in ast.iter_child_nodes(value) for name in operands(child)]
+            return []
+    else:
+        args = node.child_by_field_name('arguments')
+        roots = args.named_children if args else []
+        def operands(value):
+            if value.type in {'function_expression','arrow_function','generator_function','func_literal'}:
+                key=next((k for k,n in unit.nodes.items() if n==value),None)
+                return ['@callable:'+key] if key else []
+            if value.type in {'identifier','this','member_expression','selector_expression','subscript_expression'}:
+                return [_text(unit, value)]
+            if value.type in {'array','object','pair','spread_element','argument','keyed_element','literal_value','composite_literal','parenthesized_expression','as_expression'}:
+                return [name for child in value.named_children for name in operands(child)]
+            return []
+    return tuple(sorted({name for value in roots for name in operands(value)}))
+
+
+def callable_operands(unit,node):
+    """Normalize captured callable/receiver identities, including computed reads.
+
+    Whether these observations open closure is the common escape policy's
+    decision. A callable alias is not erased just because its spelling is bare.
+    """
+    if unit.language=='python':
+        # Invocation sites normally store the callee expression itself.
+        function=node.func if isinstance(node,ast.Call) else node
+        base=function.value if isinstance(function,(ast.Attribute,ast.Subscript)) else function
+        return (_text(unit,base),)
+    function=(node.child_by_field_name('function') or node.child_by_field_name('constructor')) if node.type in {'call_expression','new_expression'} else node
+    if function is None:return ()
+    base=function.child_by_field_name('object') or function.child_by_field_name('operand') or function
+    return (_text(unit,base),)
+
+
 def _open(unit, scope, facets, reason):
     unit.certificates[scope].open(facets, reason)
     unit.semantic_gaps.add((unit.file, reason))
@@ -283,7 +328,8 @@ def lower_semantics(unit, make_site):
                 r = unit.node_regions[node]
                 resumed = isinstance(getattr(node, "_semantic_parent", None), ast.Await)
                 unit.sites.append(make_site(owner, node.lineno, node.col_offset+1, ast.unparse(node.func),
-                    node.func, not isinstance(node.func, (ast.Name, ast.Attribute)), scope, resumed, r))
+                    node.func, not isinstance(node.func, (ast.Name, ast.Attribute)), scope, resumed, r,
+                    arguments=call_operands(unit, node)))
             for child in _children(unit, node):
                 if isinstance(node, ast.Await) and isinstance(child, ast.Call):
                     child._semantic_parent = node
@@ -347,7 +393,8 @@ def lower_semantics(unit, make_site):
                 if callee:
                     spelling = _text(unit, callee)
                     unit.sites.append(make_site(owner, node.start_point[0]+1, node.start_point[1]+1,
-                        spelling, callee, any(c in spelling for c in "[]()?"), scope, False, unit.node_regions[node]))
+                        spelling, callee, any(c in spelling for c in "[]()?"), scope, False, unit.node_regions[node],
+                        arguments=call_operands(unit, node)))
             for child in node.named_children:
                 walk(child, scope, owner, mode, reason)
 
@@ -367,7 +414,7 @@ def lower_semantics(unit, make_site):
             if callee:
                 unit.sites.append(make_site(owner, line, column, _text(unit, callee), callee, True, lexical, False, value))
         for child in _children(unit, node):
-            walk_deferred(child, lexical, owner, reason, mode)
+            walk_deferred(child, unit.node_scopes.get(child, lexical), owner, reason, mode)
 
     def annotation(node, scope, owner):
         # Local annotations are never evaluated. Other annotation semantics vary

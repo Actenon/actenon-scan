@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "date": "2026-10-01",
+      "milestone": "final independent M1R3 review",
+      "material": [
+        "tests/benchmark/recall/r05_custom_agent_loop.py",
+        "tests/benchmark/recall/r06_action_observation.py",
+        "tests/benchmark/recall/r07_raw_tool_schema.py"
+      ],
+      "exposure": "Inadvertently reconstructed and scanned while archiving frozen M0 legacy fixtures outside the candidate checkout.",
+      "used_in_conclusions": false,
+      "remediation": "Removed from the eligible legacy comparison; final comparison used the original 263-input inventory.",
+      "new_status": "DEVELOPMENT_DATA",
+      "blind_evidence_eligible": false,
+      "actual_held_out_repositories_opened": false
+    }
+  ],
+  "future_blind_protocol": "After M1 freezes/merges, use fresh unambiguous sealed identifiers; do not reuse R05/R06/R07. No future blind repositories have been selected or opened in M1R4."
+}

@@ -45,8 +45,9 @@ def test_each_required_unknown_or_refutation_blocks_establishment(obligation, st
 
 @pytest.mark.parametrize("counter", [e for e in E if e not in {E.LEXICAL_DECLARATION,
     E.IMPORT_PROVENANCE, E.RECEIVER_IDENTITY, E.CALLABLE_SELF_BINDING, E.STRUCTURALLY_EXACT_ALIAS}])
-def test_counter_facts_survive_complete_proofs(counter):
-    b = BindingClaim("site", "body", frozenset({E.LEXICAL_DECLARATION}), candidate_is_local=True, edge_proof=proof())
+def test_counter_facts_survive_complete_proofs(counter, tmp_path):
+    r = scan(tmp_path, "def helper():\n    marker.hit()\ndef entry():\n    helper()")
+    b = calls(r, "helper")[0].binding_claims[0]
     assert b.state == BindingState.ESTABLISHED
     b = b.with_evidence(counter={counter})
     assert b.with_evidence(positive={E.IMPORT_PROVENANCE}).state != BindingState.ESTABLISHED

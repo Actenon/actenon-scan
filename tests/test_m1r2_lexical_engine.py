@@ -178,11 +178,10 @@ def test_metamorphic_incompatible_static(tmp_path):
     assert any(b.state.value == "REFUTED" for b in calls(result, "this.helper")[0].binding_claims)
 
 
-def test_counter_evidence_is_monotonic():
-    from actenon_scan.binding_claims import BindingClaim, BindingEvidence, BindingState
-    from actenon_scan.semantic_ir import BindingEdgeProof, BASE_OBLIGATIONS, SemanticState
-    proof = BindingEdgeProof(facts=tuple((k, SemanticState.SUPPORTED) for k in BASE_OBLIGATIONS))
-    claim = BindingClaim("site", "target", frozenset({BindingEvidence.LEXICAL_DECLARATION}), candidate_is_local=True, edge_proof=proof)
+def test_counter_evidence_is_monotonic(tmp_path):
+    from actenon_scan.binding_claims import BindingEvidence, BindingState
+    result = scan(tmp_path, "app.py", "def helper():\n    marker.hit()\ndef entry():\n    helper()")
+    claim = calls(result, "helper")[0].binding_claims[0]
     assert claim.state == BindingState.ESTABLISHED
     unstable = claim.with_evidence(counter={BindingEvidence.REASSIGNMENT_WRITE})
     assert unstable.state == BindingState.POSSIBLE

@@ -65,7 +65,8 @@ class BindingClaim:
             return BindingState.REFUTED
         if self.counter_evidence:
             return BindingState.POSSIBLE if self.candidate_is_local or self.positive_evidence else BindingState.UNKNOWN
-        if (self.candidate_is_local and self.edge_proof.closed and self.positive_evidence &
+        if (self.candidate_is_local and self.edge_proof.authorizes(
+                self.subject, self.candidate_id, self.positive_evidence) and self.positive_evidence &
                 {BindingEvidence.LEXICAL_DECLARATION, BindingEvidence.CALLABLE_SELF_BINDING}):
             return BindingState.ESTABLISHED
         return BindingState.POSSIBLE if self.positive_evidence or self.candidate_is_local else BindingState.UNKNOWN

@@ -143,7 +143,21 @@ class InvocationNode:
         # Unique binding authority is required even for externally constructed graphs.
         targets = [t for t in self.possible_implementations
                    if t.candidate_id in established and t.callable_key]
-        return tuple(targets) if len(established) == len(targets) == 1 and not self.resolution_error else ()
+        if len(established) != len(targets) or len(targets)!=1 or self.resolution_error:return ()
+        target=targets[0]
+        claim=next(b for b in self.binding_claims if b.candidate_id==target.candidate_id)
+        context=claim.edge_proof.context
+        region=self.execution_region
+        # An issued proof belongs to one source site and one implementation.
+        # Reusing it on forged node/target metadata cannot rewire causal edges.
+        from actenon_scan.semantic_ir import ExecutionRegion,SemanticState
+        if context is None or not isinstance(region,ExecutionRegion):return ()
+        if region.eager!=SemanticState.SUPPORTED or region.owner_exact!=SemanticState.SUPPORTED or region.owner_key!=context.owner or region.lexical_scope!=context.environment:return ()
+        if (context.language,context.file,context.line,context.column,context.owner,context.callee,
+            context.environment,context.execution_region,context.candidate_key,context.candidate_file) != (
+            self.language,self.file,self.line,self.column,self.caller_key,self.callee_spelling,
+            self.lexical_scope_id,region.region_id,target.callable_key,target.file):return ()
+        return tuple(targets)
 
     @property
     def root_ids(self):
