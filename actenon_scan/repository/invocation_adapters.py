@@ -49,6 +49,9 @@ class _Binding:
     kind: str = "unknown"
     callable_key: str | None = None
     module: str = ""
+    # `import a.b` binds a, while explicitly loading the a.b attribute path.
+    # `import a.b as saved` instead captures the a.b module object directly.
+    qualified_import: str = ""
     member: str | None = None
     level: int = 0
     receiver_class: str | None = None
@@ -297,7 +300,8 @@ def _python_unit(file, source, tree, index, cfg, *, enumerate_calls=True):
         def visit_Import(self, node):
             for alias in node.names:
                 self.bind(alias.asname or alias.name.split(".")[0], kind="import",
-                          module=alias.name if alias.asname else alias.name.split(".")[0], line=node.lineno)
+                          module=alias.name if alias.asname else alias.name.split(".")[0],
+                          qualified_import=alias.name if not alias.asname else "", line=node.lineno)
 
         def visit_ImportFrom(self, node):
             for alias in node.names:
@@ -809,10 +813,41 @@ class _Provenance:
             self.add(symbol, other.positive[key] | set(evidence))
 
 
+def _python_namespace_provenance(module, tail, index, units, symbols, seen,
+                                 resumes_coroutine, implicit_import=""):
+    """Read one namespace member at a time, accumulating every prefix's facts.
+
+    A module file is not evidence that a package attribute is bound. Only an
+    explicit import can supply an implicit submodule declaration. Completed
+    lexical declarations and writes still counter that original provenance.
+    """
+    result = _Provenance()
+    owners = [u for u in units if u.language == "python" and u.module == module]
+    if len(owners) != 1 or not tail:
+        result.counter.add(E.UNRESOLVED_IMPORT)
+    for other in owners:
+        if not tail:
+            continue
+        member = tail[0]
+        namespace = other.bindings.get(other.module_key, {})
+        declarations = namespace.get(member, []) + namespace.get("*", [])
+        submodule = ".".join(x for x in (module, member) if x)
+        if (len(tail) > 1 and (implicit_import == submodule or implicit_import.startswith(submodule + "."))
+                and not any(b.kind != "write" for b in declarations)):
+            # Preserve the loaded module candidate even if this attribute has
+            # possible later writes. The writes feed the same BindingClaim.
+            declarations = [_Binding("import", module=submodule,
+                                     qualified_import=implicit_import)] + declarations
+        child = _binding_provenance(other, other.module_key, member, declarations, tail[1:],
+                                    index, units, symbols, seen, resumes_coroutine, implicit_import)
+        result.merge(child, {E.IMPORT_PROVENANCE})
+    return result
+
+
 def _binding_provenance(unit, scope, name, bindings, tail, index, units, symbols,
-                        seen=frozenset(), resumes_coroutine=False):
+                        seen=frozenset(), resumes_coroutine=False, implicit_import=""):
     """Pass 3: bounded, set-valued lexical evidence, independent of sink rules."""
-    coordinate = (unit.file, scope, name, tuple(tail))
+    coordinate = (unit.file, scope, name, tuple(tail), implicit_import)
     result = _Provenance()
     if coordinate in seen:
         result.counter.add(E.UNRESOLVED_ALIAS)
@@ -842,38 +877,29 @@ def _binding_provenance(unit, scope, name, bindings, tail, index, units, symbols
             if any((b.line, b.column) > (binding.line, binding.column) for b in declarations):
                 result.counter.add(E.INITIALIZATION_NOT_ESTABLISHED)
             child = _binding_provenance(unit, origin, binding.alias_name, declarations, tail,
-                                        index, units, symbols, seen, resumes_coroutine)
+                                        index, units, symbols, seen, resumes_coroutine, implicit_import)
             result.merge(child, {E.STRUCTURALLY_EXACT_ALIAS})
             if not child.targets:
                 result.counter.add(E.UNRESOLVED_ALIAS)
         elif binding.kind in {"import", "ts_import"}:
             modules, member = [], binding.member
             if unit.language == "python":
-                if member is not None and not tail:
-                    module = index._resolve_module_dotted(binding.module, binding.level, unit.file)
-                elif member is None and tail:
-                    module = index._resolve_module_dotted(".".join([binding.module] + tail[:-1]), binding.level, unit.file)
-                    member = tail[-1]
-                elif member is not None and tail:
-                    base = index._resolve_module_dotted(binding.module, binding.level, unit.file)
-                    owners = [u for u in units if u.module == base] if base is not None else []
-                    bound_owners = [u for u in owners if member in u.bindings.get(u.module_key, {})
-                                    or "*" in u.bindings.get(u.module_key, {})]
-                    if bound_owners:
-                        if len(owners) != 1:
-                            result.counter.add(E.AMBIGUOUS_DECLARATION)
-                        for other in bound_owners:
-                            declarations = other.bindings[other.module_key].get(member, []) + other.bindings[other.module_key].get("*", [])
-                            child = _binding_provenance(other, other.module_key, member, declarations, tail,
-                                                        index, units, symbols, seen, resumes_coroutine)
-                            result.merge(child, {E.IMPORT_PROVENANCE})
-                        continue
-                    module = index._resolve_module_dotted(".".join(x for x in (binding.module, member, *tail[:-1]) if x),
-                                                          binding.level, unit.file)
-                    member = tail[-1]
-                else:
-                    module = None
-                modules = [u for u in units if u.module == module] if module is not None else []
+                module = index._resolve_module_dotted(binding.module, binding.level, unit.file)
+                loaded = binding.qualified_import or implicit_import
+                members = ([member] if member is not None else []) + tail
+                if member is not None and tail and module is not None:
+                    submodule = ".".join(x for x in (module, member) if x)
+                    if scope == unit.module_key and module == unit.module and name == member:
+                        # A package's `from . import child` loads child before
+                        # binding its own name. Do not recurse into itself or
+                        # skip counter-facts already gathered for that binding.
+                        module, members = submodule, tail
+                    elif not (loaded == submodule or loaded.startswith(submodule + ".")):
+                        loaded = submodule  # explicit `from package import child`
+                child = _python_namespace_provenance(module, members, index, units, symbols,
+                                                      seen, resumes_coroutine, loaded)
+                result.merge(child, {E.IMPORT_PROVENANCE})
+                continue
             elif binding.kind == "ts_import" and binding.module.startswith(("./", "../")):
                 relative = posixpath.normpath(posixpath.join(posixpath.dirname(unit.file), binding.module))
                 if Path(relative).suffix in TS_SUFFIXES:
