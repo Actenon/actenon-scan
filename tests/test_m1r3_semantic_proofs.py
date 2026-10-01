@@ -236,3 +236,23 @@ def test_unproved_receiver_dispatch_cannot_use_absent_counter_facts(tmp_path,fil
     assert any('receiver dispatch' in reason for _,reason in r.graph.coverage_gaps)
     local=[b for c in r.graph.invocations.values() for b in c.binding_claims if b.candidate_is_local]
     assert local and all(b.edge_proof.state(O.RECEIVER_COMPATIBLE)==S.UNKNOWN for b in local)
+
+
+@pytest.mark.parametrize('kind', list(RootKind))
+@pytest.mark.parametrize('alias', [False, True])
+@pytest.mark.parametrize('file', ['app.py', 'app.js'])
+def test_receiver_write_needs_dispatch_stability_not_just_member_identity(tmp_path,kind,alias,file):
+    receiver = 'captured' if alias else ('self' if file == 'app.py' else 'this')
+    if file == 'app.py':
+        source = 'class Changed:\n    def route(self):\n        live_probe.signal()\nclass Original:\n    def route(self):\n        old_probe.signal()\n    def entry(self):\n'
+        source += ('        captured=self\n' if alias else '') + '        '+receiver+'.__class__=Changed\n        self.route()'
+    else:
+        source = 'class Original{route(){old_probe.signal()}entry(){'
+        source += ('const captured=this;' if alias else '') + receiver+'.__proto__={route(){live_probe.signal()}};this.route()}}'
+    (tmp_path/file).write_text(source)
+    r=scan_effect_claims(tmp_path,entrypoints=[Entrypoint(file,'Original.entry',kind)],discover_roots=False)
+    assert not r.analysis_errors and not calls(r,'old_probe.signal')
+    call=calls(r,'self.route' if file=='app.py' else 'this.route')[0]
+    assert any(b.edge_proof.state(O.RECEIVER_COMPATIBLE)==S.UNKNOWN for b in call.binding_claims if b.candidate_is_local)
+    assert any(c.invocation_id==call.invocation_id for c in r.claims)
+    assert any('dispatch-stability' in reason for _,reason in r.graph.coverage_gaps)

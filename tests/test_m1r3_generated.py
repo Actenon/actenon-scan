@@ -1,4 +1,4 @@
-"""1,280 valid programs over execution, scope, alias, write and conditionality.
+"""1,296 valid programs over execution, scope, alias, write and conditionality.
 
 The companion differential runner executes every program. Oracles use definite
 replacement/deletion or uninvoked bodies, never a sample of an unknown branch.
@@ -23,7 +23,7 @@ CASES=[(lang,context,scope,alias,write,conditional)
 CASES += [(lang,context,'receiver',alias,write,conditional)
           for lang in CONTEXTS for context,alias,write,conditional in product(
               ['eager','uncalled'],[False,True],
-              ['none','assign','range','select'] if lang=='go' else ['none','assign','pattern','delete','computed','escaped'],[False,True])]
+              ['none','assign','range','select'] if lang=='go' else ['none','assign','pattern','delete','computed','escaped','identity'],[False,True])]
 
 
 def program(case):
@@ -111,19 +111,21 @@ def receiver_program(case):
         statement={'none':'','assign':base+'.route='+base+'.live',
                    'pattern':'[['+base+'.route]]=[['+base+'.live]]',
                    'delete':'del Receiver.route',
+                   'identity':base+'.__class__=Changed',
                    'computed':'setattr('+base+',"route",'+base+'.live)',
                    'escaped':'setattr('+base+',"r\\x6fute",'+base+'.live)'}[write]
         body=(statement+'\n' if statement else '')+'self.route()'
         if conditional:body='if True:\n'+indent(body)
         if context=='uncalled':body='def uncalled():\n'+indent(body)
         if alias:body='captured=self\n'+body
-        source='class Receiver:\n    def route(self):\n        old_probe.signal()\n    def live(self):\n        live_probe.signal()\n    def entry(self):\n'+indent(indent(body))
+        source='class Changed:\n    def route(self):\n        live_probe.signal()\nclass Receiver:\n    def route(self):\n        old_probe.signal()\n    def live(self):\n        live_probe.signal()\n    def entry(self):\n'+indent(indent(body))
         return 'app.py',source,'Receiver.entry',context=='eager' and write=='none'
     if lang=='typescript':
         base='captured' if alias else 'this'
         statement={'none':'','assign':base+'.route='+base+'.live;',
                    'pattern':'[['+base+'.route]]=[['+base+'.live]];',
                    'delete':'delete Receiver.prototype["route"];',
+                   'identity':base+'.__proto__={route(){live_probe.signal()}};',
                    'computed':base+'["route"]='+base+'.live;',
                    'escaped':base+'["r\\x6fute"]='+base+'.live;'}[write]
         body=statement+'this.route();'

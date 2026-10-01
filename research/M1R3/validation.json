@@ -7,7 +7,7 @@
     "actenon_scan/binding_claims.py": "995d5a27c07e83b5cfa818e05a2e72802081978e11e40c870ff9b0c2f3e552d4",
     "actenon_scan/invocation_graph.py": "f97f869a00ebc9c079b989eb55fd33e0d293c47b4604b4c0d20057b0b72fd24a",
     "actenon_scan/repository/semantic_frontends.py": "22715229b9a5f16ba2d5260683985356571bf9586ce137a1667be6a4cf7e7885",
-    "actenon_scan/repository/invocation_adapters.py": "b9cf9d46b64e4aa61b64910dccd93f2f5353c8621b811d08165d7517ed7be52e"
+    "actenon_scan/repository/invocation_adapters.py": "13f91dae77cac2e3bd7646dc3f69dc16c8af5b51ad17da5adab437a13b4efc37"
   },
   "third_review_failures": {
     "red_on_parent": 52,
@@ -19,6 +19,11 @@
   "additional_callable_stability_failures": {
     "red": 3,
     "green": 3
+  },
+  "additional_receiver_stability_failures": {
+    "red": 2,
+    "green_root_alias_combinations": 16,
+    "red_log_sha256": "61d5a7a563b31dad12991211e2a0cd71b20ee2a807a6d7597cfaf2b22d9daa7a"
   },
   "proof_obligations": [
     "TARGET_EXACT",
@@ -48,7 +53,7 @@
     "passed": 47
   },
   "M1R3_proof_suite": {
-    "passed": 71
+    "passed": 87
   },
   "metamorphic_invariants": {
     "SAME_NAME_ADDITION": "PASS",
@@ -67,15 +72,15 @@
   },
   "semantic_closure_monotonicity": "PASS",
   "generated_runtime_differential": {
-    "programs": 1280,
-    "unique_source_hashes": 1280,
-    "runtime_differential_programs": 1280,
+    "programs": 1296,
+    "unique_source_hashes": 1296,
+    "runtime_differential_programs": 1296,
     "invalid_oracles": 0,
     "false_established": 0,
     "false_unresolved": 14,
     "languages": {
-      "python": 432,
-      "typescript": 432,
+      "python": 440,
+      "typescript": 440,
       "go": 416
     }
   },
@@ -105,10 +110,10 @@
   "unclassified_relevant_node_types": 0,
   "unknown_node_policy": "CONSERVATIVELY_UNKNOWN: closure opens; execution gets a separate UNKNOWN region. Classified UNKNOWN is an explicit limitation, not complete language support.",
   "tests": {
-    "focused_M1": 2044,
+    "focused_M1": 2076,
     "inherited_independent": 59,
     "inherited_state_properties": 978,
-    "focused_and_inherited": 3081,
+    "focused_and_inherited": 3113,
     "effects": {
       "passed": 629,
       "xfailed": 1
@@ -120,7 +125,7 @@
       "subtests_passed": 89
     },
     "full": {
-      "passed": 3345,
+      "passed": 3377,
       "skipped": 12,
       "xfailed": 4,
       "subtests_passed": 89
@@ -171,7 +176,7 @@
       "analysis_errors": 0,
       "unsupported_files": 0,
       "unsupported_languages": [],
-      "coverage_gaps": 647,
+      "coverage_gaps": 659,
       "claims_instantiated": 1524,
       "claims_without_rule_match": 1469
     },
@@ -200,5 +205,6 @@
     "Coverage gaps are explicit frontend limitations; parser/index/resolver failures remain separate analysis errors.",
     "Expected legacy skips and xfails are retained; all feasible installed-language suites ran."
   ],
-  "ready_for_fresh_independent_M1_review": true
+  "ready_for_fresh_independent_M1_review": true,
+  "runtime_harness_repeatability": "PASS: scanner inputs/results and runtime traces byte-identical over two executions; runtime helpers outside source directory"
 }

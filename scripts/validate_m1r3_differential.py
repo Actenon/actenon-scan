@@ -27,9 +27,13 @@ def main():
     rows=[];go=[]
     for i,case in enumerate(matrix.CASES):
         file,source,symbol,expected=matrix.program(case)
-        folder=out/f'case-{i:04d}';folder.mkdir(exist_ok=True);(folder/file).write_text(source)
+        folder=out/f'case-{i:04d}';folder.mkdir(exist_ok=True)
+        # Runtime helpers from a previous run are not part of the program
+        # being analysed. Keep the scanner input in its own source directory.
+        source_dir=folder/'source';source_dir.mkdir(exist_ok=True)
+        (source_dir/file).write_text(source)
         kind=list(RootKind)[i%len(RootKind)]
-        result=scan_effect_claims(folder,entrypoints=[Entrypoint(file,symbol,kind)],discover_roots=False)
+        result=scan_effect_claims(source_dir,entrypoints=[Entrypoint(file,symbol,kind)],discover_roots=False)
         if result.analysis_errors:raise AssertionError((case,result.analysis_errors))
         old=any(c.callee_spelling=='old_probe.signal' for c in result.graph.invocations.values())
         row={'case':case,'root_kind':kind.value,'source_sha256':sha256(source.encode()).hexdigest(),'expected_old':expected,

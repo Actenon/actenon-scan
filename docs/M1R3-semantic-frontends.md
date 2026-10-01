@@ -46,3 +46,11 @@ lookup. Such constructs may introduce competing implementations; the bounded
 model does not establish a receiver hierarchy or descriptor identity. These
 limitations propagate to receiver proofs rather than preserving exactness from
 an original method declaration.
+
+Member write events also require a receiver dispatch-stability proof. Exact
+lvalue identity does not prove that a legal object store leaves lookup, setters
+or object identity unchanged. In Python and JavaScript, the current bounded
+model declines receiver closure after such mutation, including known aliases.
+It does not classify special member spellings to decide this; all receiver
+mutation follows the same proof rule. Go receiver values retain their separate
+language semantics.

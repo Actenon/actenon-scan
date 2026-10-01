@@ -37,7 +37,7 @@
     "analysis_errors": 0,
     "unsupported_files": 0,
     "unsupported_languages": [],
-    "coverage_gaps": 647,
+    "coverage_gaps": 659,
     "claims_instantiated": 1524,
     "claims_without_rule_match": 1469
   },
@@ -47,7 +47,7 @@
     "Unsupported or unclassified grammar opens the audited lexical/namespace closure.",
     "Unresolved namespace write destinations cannot prove that workspace members stay unchanged.",
     "Import closure accumulates incomplete source-module semantics, including three previously exact relative imports.",
-    "Inheritance and custom receiver dispatch do not carry a receiver completeness certificate."
+    "Inheritance, custom lookup and receiver mutation do not carry dispatch-stability proof."
   ],
   "present_prior_established_edges_downgraded": 37,
   "prior_established_edges_behind_new_frontiers": 6,
@@ -2963,6 +2963,7 @@
   ],
   "disclosed_limitations": {
     "class receiver dispatch outside bounded model": 27,
+    "receiver mutation lacks dispatch-stability proof": 12,
     "unclassified deferred syntax: abstract_class_declaration": 19,
     "unclassified deferred syntax: call_signature": 1,
     "unclassified deferred syntax: class_heritage": 19,

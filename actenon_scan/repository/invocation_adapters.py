@@ -734,6 +734,12 @@ def _apply_namespace_writes(units, indexes):
 
     invalidations = set()
     by_file = {u.file: u for u in units}
+    receiver_namespaces = {
+        (u.file, _receiver_scope(u, binding))
+        for u in units if u.language in {"python", "typescript"}
+        for names in u.bindings.values() for declarations in names.values()
+        for binding in declarations if binding.kind == "receiver"
+    }
     mutated_callables = set()
     for unit in units:
         for event in unit.write_events:
@@ -780,6 +786,17 @@ def _apply_namespace_writes(units, indexes):
                                        for declarations in names.values() for b in declarations if b.kind == "receiver"}
                     destinations.extend((other.file, namespace) for namespace in receiver_scopes)
             invalidations.update((file, namespace, member) for file, namespace in destinations)
+            for file, namespace in destinations:
+                if (file, namespace) in receiver_namespaces:
+                    # Knowing the lvalue's member is not a proof that a store
+                    # leaves receiver dispatch stable. Setters and mutable
+                    # lookup/identity can affect other members in these
+                    # languages; this bounded frontend proves no such frame.
+                    certificate = by_file[file].certificates.get(namespace)
+                    if certificate:
+                        reason = "receiver mutation lacks dispatch-stability proof"
+                        certificate.open(("receiver_semantics_complete",), reason)
+                        by_file[file].semantic_gaps.add((file, reason))
     for other in units:
         for scope, names in other.bindings.items():
             for name, declarations in names.items():
