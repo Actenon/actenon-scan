@@ -431,3 +431,26 @@ def test_unknown_segments_before_the_last_are_unresolved_not_templates(tmp_path)
     assert ("http.delete", "api.example.com/sessions/{}", "TEMPLATE", ()) in states
     assert ("filesystem.write", None, "UNRESOLVED", ("path",)) in states
     assert all("{}" not in (e.resource or "")[:-2] for e in r.evidence)
+
+
+def test_factory_returning_different_model_clients_has_each_alternative(tmp_path):
+    r = scan(tmp_path, {"ai.py": """
+        from langchain_openai import ChatOpenAI, AzureChatOpenAI
+        from langchain_anthropic import ChatAnthropic
+        class AI:
+            def __init__(self, model):
+                self.model = model
+                self.llm = self._create()
+            def _create(self):
+                if self.model.startswith("claude"):
+                    return ChatAnthropic(model=self.model)
+                if self.model.startswith("azure"):
+                    return AzureChatOpenAI(azure_deployment=self.model)
+                return ChatOpenAI(model=self.model)
+            def next(self, messages):
+                return self.llm.invoke(messages)
+    """})
+    got = entries(r)
+    assert ("http.post", "api.openai.com/v1/chat/completions", "RESOLVED") in got
+    assert ("http.post", "api.anthropic.com/v1/messages", "RESOLVED") in got
+    assert ("http.post", None, "UNRESOLVED") in got  # Azure: the customer's endpoint is not configured

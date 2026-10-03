@@ -491,22 +491,20 @@ class Extractor:
                 if not isinstance(node, ast.Call):
                     continue
                 base_ctx = _Ctx(self, mod, owner, {})
-                effect = base_ctx.effect_of(node)
-                if effect is None:
+                effects = base_ctx.effects_of(node)
+                if not effects:
                     continue
-                if self._depends_on_params(effect, owner):
+                if any(self._depends_on_params(eff, owner) for eff in effects):
                     contexts = self.contexts(owner)
                 else:
                     contexts = [({}, (owner.qualname,) if owner else ("<module>",))]
                 for bind, chain in contexts:
-                    eff = _Ctx(self, mod, owner, bind).effect_of(node) if bind else effect
-                    if eff is None:
-                        continue
-                    ev = self._evidence(eff, node, mod, owner, chain)
-                    k = (ev.action, ev.resource, ev.file, ev.line, ev.col, ev.call_path)
-                    if k not in seen:
-                        seen.add(k)
-                        self.report.evidence.append(ev)
+                    for eff in (_Ctx(self, mod, owner, bind).effects_of(node) if bind else effects):
+                        ev = self._evidence(eff, node, mod, owner, chain)
+                        k = (ev.action, ev.resource, ev.file, ev.line, ev.col, ev.call_path)
+                        if k not in seen:
+                            seen.add(k)
+                            self.report.evidence.append(ev)
         return self.report
 
     @staticmethod
@@ -831,6 +829,13 @@ class _Ctx:
             if suffix is not None:
                 number = Str((Unknown("number", "number"),))
                 return Str.lit("https://api.github.com/repos/") + repo + (Str.lit(suffix) + number if suffix else Str(()))
+        if isinstance(base, Obj) and base.kind == "alt":
+            alts = []
+            for k, alt in base.attrs:
+                if isinstance(alt, Obj):
+                    kept = tuple((ak, av) for ak, av in alt.attrs if ak != "_attr_path")
+                    alts.append((k, alt.get(e.attr) or Obj(alt.kind, kept + (("_attr_path", Str.lit(_attr_path(alt) + "." + e.attr)),))))
+            return Obj("alt", tuple(alts))
         if isinstance(base, Obj):
             v = base.get(e.attr)
             if v is not None:
@@ -956,7 +961,22 @@ class _Ctx:
         return Unknown(f"result of {canon or ast.unparse(e.func)}()")
 
     # effects -----------------------------------------------------------------------------------------
-    def effect_of(self, call: ast.Call) -> _Effect | None:
+    def effects_of(self, call: ast.Call) -> list[_Effect]:
+        """The effects of one call. A receiver that may be one of several client objects (a factory returning
+        ChatOpenAI or ChatAnthropic) has the effects of each alternative."""
+        if isinstance(call.func, ast.Attribute):
+            recv = self.eval(call.func.value)
+            if isinstance(recv, Obj) and recv.kind == "alt":
+                out = []
+                for _k, alt in recv.attrs:
+                    e = self.effect_of(call, recv_override=alt)
+                    if e is not None:
+                        out.append(e)
+                return out
+        e = self.effect_of(call)
+        return [e] if e is not None else []
+
+    def effect_of(self, call: ast.Call, recv_override: Value | None = None) -> _Effect | None:
         canon = self.canonical(call.func)
         args = call.args
         kw = {k.arg: k.value for k in call.keywords if k.arg}
@@ -1021,7 +1041,7 @@ class _Ctx:
             return _Effect("http", "", url, method, f"PyGithub requester.{call.func.attr}")
         if isinstance(call.func, ast.Attribute):
             attr = call.func.attr
-            recv = self.eval(call.func.value)
+            recv = recv_override if recv_override is not None else self.eval(call.func.value)
             if isinstance(recv, Obj):
                 kind = recv.kind
                 if kind in ("requests.Session", "requests.sessions.Session", "httpx.Client", "httpx.AsyncClient", "aiohttp.ClientSession"):
@@ -1132,6 +1152,14 @@ def _join(vals: list[Value], what: str) -> Value:
     first = vals[0]
     if all(v == first for v in vals):
         return first
+    if all(isinstance(v, Obj) for v in vals) and len({v.kind for v in vals}) > 1:  # type: ignore[union-attr]
+        flat: list[Obj] = []
+        for v in vals:
+            for alt in ([a for _k, a in v.attrs] if v.kind == "alt" else [v]):  # type: ignore[union-attr]
+                if isinstance(alt, Obj) and alt not in flat:
+                    flat.append(alt)
+        if len(flat) <= 8:
+            return Obj("alt", tuple((f"alt{i}", a) for i, a in enumerate(flat)))
     if all(isinstance(v, Obj) for v in vals) and len({v.kind for v in vals}) == 1:  # type: ignore[union-attr]
         keys = [k for k, _ in first.attrs]  # type: ignore[union-attr]
         attrs = []

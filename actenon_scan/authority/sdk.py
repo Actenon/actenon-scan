@@ -39,6 +39,9 @@ LLM_CLIENTS: dict[str, tuple[str, str, str]] = {
     "langchain_openai.ChatOpenAI": ("https://api.openai.com/v1", "OPENAI_BASE_URL", "base_url"),
     "langchain_openai.OpenAIEmbeddings": ("https://api.openai.com/v1", "OPENAI_BASE_URL", "base_url"),
     "langchain_anthropic.ChatAnthropic": ("https://api.anthropic.com", "ANTHROPIC_BASE_URL", "base_url"),
+    # Azure OpenAI: the resource endpoint is the customer's own (no public default).
+    "langchain_openai.AzureChatOpenAI": ("", "AZURE_OPENAI_ENDPOINT", "azure_endpoint"),
+    "openai.AzureOpenAI": ("", "AZURE_OPENAI_ENDPOINT", "azure_endpoint"),
 }
 # Methods on those clients: attribute path after the client -> (HTTP method, path appended to the base).
 LLM_METHODS: dict[str, dict[str, tuple[str, str]]] = {
@@ -63,6 +66,7 @@ LLM_METHODS: dict[str, dict[str, tuple[str, str]]] = {
     "langchain_openai.ChatOpenAI": {m: ("post", "/chat/completions") for m in ("invoke", "ainvoke", "stream", "astream", "batch", "abatch", "predict", "__call__")},
     "langchain_openai.OpenAIEmbeddings": {m: ("post", "/embeddings") for m in ("embed_documents", "embed_query", "aembed_documents", "aembed_query")},
     "langchain_anthropic.ChatAnthropic": {m: ("post", "/v1/messages") for m in ("invoke", "ainvoke", "stream", "astream", "batch", "abatch")},
+    "langchain_openai.AzureChatOpenAI": {m: ("post", "/openai/deployments/{}/chat/completions") for m in ("invoke", "ainvoke", "stream", "astream", "batch", "abatch")},
 }
 
 # PyGithub object model. Constructors and accessor methods produce typed objects; mutating methods map to
