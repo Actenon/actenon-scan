@@ -1361,8 +1361,9 @@ def _get_attr_chain(node: ast.Attribute) -> str:
 
 
 def _call_to_text(node: ast.Call) -> str:
-    """Get a short text representation of the call for reporting."""
+    """The complete source text of the call (never truncated: authority compilation reads targets from
+    structured evidence, and reporting layers shorten for display themselves)."""
     try:
-        return ast.unparse(node)[:120]
+        return ast.unparse(node)
     except Exception:
         return "<call>"

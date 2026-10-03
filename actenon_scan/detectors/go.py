@@ -1276,7 +1276,7 @@ def _get_call_name(call_node, source: bytes) -> str:
 def _get_call_text(call_node, source: bytes) -> str:
     """Get a short text representation of the call."""
     text = source[call_node.start_byte:call_node.end_byte].decode("utf-8", errors="replace")
-    return text[:120]
+    return text
 
 
 def _walk(node):

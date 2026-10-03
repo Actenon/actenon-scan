@@ -69,6 +69,7 @@ actenon-scan = "actenon_scan.cli:main"
 [tool.setuptools]
 packages = [
     "actenon_scan",
+    "actenon_scan.authority",
     "actenon_scan.detectors",
     "actenon_scan.effects",
     "actenon_scan.report",
