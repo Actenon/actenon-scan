@@ -1788,7 +1788,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
             if matched:
                 call_text = ""
                 if call_node is not None:
-                    call_text = _ts_node_text(call_node, source_bytes)[:120]
+                    call_text = _ts_node_text(call_node, source_bytes)
                 results.append({
                     "file": str(filepath),
                     "line": line,

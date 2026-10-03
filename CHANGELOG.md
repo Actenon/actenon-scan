@@ -26,6 +26,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing repos; this is NOT a breaking change (the ruleset version in
   `default_rules.json` is bumped instead).
 
+## [1.6.0] — unreleased (release candidate)
+
+### Added
+- `actenon_scan.authority`: structured authority evidence for Python projects. Every consequential call
+  (HTTP requests, OpenAI/Anthropic/LangChain model calls, PyGithub operations, file writes and deletes,
+  process execution, SMTP) becomes an `AuthorityEvidence` record with `action`, `resource`,
+  `resource_state` (RESOLVED / TEMPLATE / UNRESOLVED), unresolved parts, provenance of every input
+  (literal, constant, `.env`/environment value, parameter), source location, the complete call, the API
+  that performs it, and whether the enclosing function is an agent tool. Resources are resolved through
+  constants, `self.` attributes, f-strings and helper-function call sites; dynamic parts stay unresolved
+  and secret-looking configuration values are never inlined. `routes.classify_http` is the
+  request-to-authority vocabulary shared with runtime enforcement (Airlock); GitHub REST routes map to
+  `github.*` actions on `github.com/<owner>/<repo>`.
+- `actenon-scan authority PATH [--format json|text]`.
+
+### Fixed
+- `requests.request(...)`, `httpx.request(...)` and `session.request(...)` were invisible to the
+  `NET-EGRESS` rule.
+- `call_text` was truncated to 120 characters (80 for some chains in the Python, TypeScript and Go
+  detectors), cutting long URLs mid-way. It now holds the complete call; snippet hashes (baselines) are
+  computed from the source line and are unchanged.
+
 ## [1.5.0] — 2026-09-20
 
 ### Public corrections (Phase 1)

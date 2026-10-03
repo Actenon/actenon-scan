@@ -341,6 +341,15 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # install
+    authority_parser = subparsers.add_parser(
+        "authority",
+        help="List every consequential capability as structured evidence (action, resource, provenance).",
+    )
+    authority_parser.add_argument("path", help="Project directory to analyse (Python).")
+    authority_parser.add_argument("--format", choices=["json", "text"], default="text")
+    authority_parser.add_argument("--include-tests", action="store_true", help="Also analyse test files.")
+    authority_parser.add_argument("--no-env-files", action="store_true", help="Do not read .env / .env.local.")
+
     install_parser = subparsers.add_parser(
         "install",
         help="Install actenon-scan into a project (GitHub Actions, pre-commit).",
@@ -402,9 +411,29 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_fix(args)
     elif args.command == "install":
         return _cmd_install(args)
+    elif args.command == "authority":
+        return _cmd_authority(args)
     else:
         parser.print_help()
         return 0
+
+
+def _cmd_authority(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from .authority import extract_authority
+
+    report = extract_authority(args.path, include_tests=args.include_tests, read_env_files=not args.no_env_files)
+    if args.format == "json":
+        print(_json.dumps(report.to_dict(), indent=2))
+        return 0
+    for ev in report.evidence:
+        where = ev.resource if ev.resource is not None else "UNRESOLVED (" + ", ".join(ev.unresolved_parts) + ")"
+        print(f"{ev.action:28} {where}")
+        print(f"{'':28} {ev.resource_state.value.lower()} · {ev.file}:{ev.line} in {ev.function} · via {ev.via}")
+    print(f"\n{len(report.evidence)} consequential capabilities in {report.files_analysed} files"
+          + (f"; {len(report.parse_errors)} files could not be parsed" if report.parse_errors else ""))
+    return 0
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:

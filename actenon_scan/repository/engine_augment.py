@@ -529,7 +529,7 @@ def analyze_repository(
                     for node in ast.walk(tree_for_loc):
                         if isinstance(node, ast.Call) and getattr(node, "lineno", None) == loc[1]:
                             try:
-                                call_text = ast.unparse(node)[:120]
+                                call_text = ast.unparse(node)
                             except Exception:
                                 call_text = ""
                             break
