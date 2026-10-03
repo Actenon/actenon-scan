@@ -114,6 +114,10 @@ PYGITHUB_EFFECTS: dict[tuple[str, str], str] = {
     ("Issue", "set_labels"): "github.issue.label",
     ("Issue", "remove_from_labels"): "github.issue.label",
     ("Issue", "add_to_assignees"): "github.issue.assign",
+    ("PullRequest", "set_labels"): "github.issue.label",
+    ("PullRequest", "add_to_labels"): "github.issue.label",
+    ("PullRequest", "remove_from_labels"): "github.issue.label",
+    ("PullRequest", "add_to_assignees"): "github.issue.assign",
     ("Issue", "lock"): "github.issue.lock",
     ("PullRequest", "merge"): "github.pull.merge",
     ("PullRequest", "edit"): "github.pull.update",
@@ -170,3 +174,13 @@ LITELLM_PROVIDERS: tuple[tuple[tuple[str, ...], str, str], ...] = (
     (("together_ai/",), "https://api.together.xyz/v1/chat/completions", ""),
     (("cohere/", "command-"), "https://api.cohere.com/v2/chat", "https://api.cohere.com/v2/embed"),
 )
+
+# PyGithub's raw requester (``obj._requester.requestJsonAndCheck(verb, url)``), and the API URL attributes of
+# its objects: attribute -> {object kind: path appended after repos/<owner>/<repo>} ("" = the repository).
+PYGITHUB_REQUESTER_METHODS = {"requestJsonAndCheck", "requestJson", "requestBlobAndCheck", "requestMultipartAndCheck",
+                              "requestMemoryBlobAndCheck"}
+PYGITHUB_REQUESTER_ATTRS = {"_requester", "_Github__requester", "requester", "_Requester"}
+PYGITHUB_URL_ATTRS = {
+    "url": {"PullRequest": "/pulls/", "Issue": "/issues/", "Repository": ""},
+    "issue_url": {"PullRequest": "/issues/", "Issue": "/issues/"},
+}

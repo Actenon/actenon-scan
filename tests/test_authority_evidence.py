@@ -22,8 +22,13 @@ def scan(tmp_path: Path, files: dict[str, str], env: dict[str, str] | None = Non
     return extract_authority(tmp_path, env=env or {}, **kw)
 
 
-def entries(report):
-    return {(e.action, e.resource, e.resource_state.value) for e in report.evidence}
+def entries(report, *, reads=True):
+    return {(e.action, e.resource, e.resource_state.value) for e in report.evidence
+            if reads or e.action != "github.repo.read"}
+
+
+def writes(report):
+    return [e for e in report.evidence if e.action != "github.repo.read"]
 
 
 # --- the four limitations of the finding-oriented scanner -------------------------------------------
@@ -92,7 +97,9 @@ def test_pygithub_capabilities_map_to_github_actions(tmp_path):
             gh.get_organization("acme").create_repo("new")
             gh.get_user().create_repo("mine")
     """})
-    assert entries(r) == {
+    assert {e for e in entries(r) if e[0] == "github.repo.read"} == {
+        ("github.repo.read", "github.com/acme/support", "RESOLVED"), ("github.repo.read", "github.com/acme/project", "RESOLVED")}
+    assert entries(r, reads=False) == {
         ("github.issue.create", "github.com/acme/support", "RESOLVED"),
         ("github.issue.comment", "github.com/acme/support", "RESOLVED"),
         ("github.pull.merge", "github.com/acme/support", "RESOLVED"),
@@ -127,7 +134,7 @@ def test_unknown_repository_is_unresolved(tmp_path):
             Github().get_repo(name).create_issue(title="x")
         act_ref = act
     """})
-    (ev,) = r.evidence
+    (ev,) = writes(r)
     assert ev.action == "github.issue.create" and ev.resource is None and ev.unresolved_parts == ("repository",)
 
 
@@ -208,7 +215,7 @@ def test_env_values_resolve_with_provenance(tmp_path):
         def go():
             Github().get_repo(os.environ["GITHUB_REPOSITORY"]).create_issue(title="t")
     """, ".env": "GITHUB_REPOSITORY=acme/support\n"})
-    (ev,) = r.evidence
+    (ev,) = writes(r)
     assert ev.resource == "github.com/acme/support"
     assert any(s.kind == "env" and s.name == "GITHUB_REPOSITORY" for s in ev.sources)
     assert r.env_files == [".env"]
@@ -376,6 +383,51 @@ def test_object_kinds_join_across_assignments_and_factory_methods(tmp_path):
             def comment(self, n, body):
                 self._repo().get_pull(n).create_issue_comment(body)
     """})
-    (ev,) = r.evidence
+    (ev,) = writes(r)
     assert ev.action == "github.issue.comment" and ev.resource_state is ResourceState.UNRESOLVED
     assert ev.unresolved_parts == ("repository",)
+
+
+def test_pygithub_reads_need_repo_read(tmp_path):
+    r = scan(tmp_path, {"a.py": """
+        from github import Github
+        def go(n):
+            repo = Github().get_repo("acme/support")
+            repo.get_pull(n).get_files()
+        h = [go]
+    """})
+    assert ("github.repo.read", "github.com/acme/support", "RESOLVED") in entries(r)
+
+
+def test_pygithub_raw_requester_and_object_urls(tmp_path):
+    r = scan(tmp_path, {"a.py": """
+        from github import Github
+        REPO = "acme/support"
+        def label(n, kinds):
+            pr = Github().get_repo(REPO).get_pull(n)
+            pr._requester.requestJsonAndCheck("PUT", f"{pr.issue_url}/labels", input=kinds)
+            pr._requester.requestJsonAndCheck("POST", "/graphql", input={})
+        h = [label]
+    """})
+    assert ("github.issue.label", "github.com/acme/support", "RESOLVED") in entries(r)
+    assert ("github.graphql", "github.com", "RESOLVED") in entries(r)
+
+
+def test_unknown_segments_before_the_last_are_unresolved_not_templates(tmp_path):
+    r = scan(tmp_path, {"a.py": """
+        import requests
+        def go(ws, repo, item):
+            requests.post(f"https://api.bitbucket.org/2.0/repositories/{ws}/{repo}/src")
+            requests.delete(f"https://api.github.com/repos/{repo}/pulls/1/reviews/{item}")
+            requests.delete(f"https://api.example.com/sessions/{item}")
+            open(f"out/{ws}/report.txt", "w")
+        h = [go]
+    """})
+    by = {(e.action, e.url.split('/')[2] if e.url else e.via): e for e in r.evidence}
+    states = sorted((e.action, e.resource, e.resource_state.value, e.unresolved_parts) for e in r.evidence)
+    assert ("http.post", None, "UNRESOLVED", ("path",)) in states
+    assert ("github.pull.review", None, "UNRESOLVED", ("owner", "repository")) in states or \
+           ("http.delete", None, "UNRESOLVED", ("repository",)) in states
+    assert ("http.delete", "api.example.com/sessions/{}", "TEMPLATE", ()) in states
+    assert ("filesystem.write", None, "UNRESOLVED", ("path",)) in states
+    assert all("{}" not in (e.resource or "")[:-2] for e in r.evidence)

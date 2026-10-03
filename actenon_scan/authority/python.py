@@ -560,7 +560,7 @@ class Extractor:
                 reasons_unknown = f"'{known}' is not an owner/repository name"
             return AuthorityEvidence(action=eff.action, resource=None, resource_state=ResourceState.UNRESOLVED, confidence="medium",
                                      reason=f"{reason}; repository unknown: {reasons_unknown}", unresolved_parts=parts,
-                                     sources=tuple(sources), **common)
+                                     sources=tuple(sources), url=target.template().replace(HOLE, TEMPLATE_SEGMENT), **common)
         if eff.kind == "fs":
             return self._path_evidence(eff, target, unknowns, reasons_unknown, sources, common)
         if eff.kind == "llm":
@@ -640,7 +640,7 @@ def _normalise_path(tmpl: str) -> str | None:
     if ".." in segs:
         return None
     for s in segs[:-1]:
-        if HOLE in s and s != HOLE:
+        if HOLE in s:  # only the file name may be unknown; an unknown directory is unresolved
             return None
     body = "/".join(segs)
     return prefix + body if prefix else "./" + body
@@ -824,6 +824,13 @@ class _Ctx:
         if canon == "os.environ":
             return Obj("os.environ")
         base = self.eval(e.value)
+        if isinstance(base, Obj) and base.kind in ("gh:PullRequest", "gh:Issue", "gh:Repository") and e.attr in sdk.PYGITHUB_URL_ATTRS:
+            # PyGithub objects' API URLs, as used with the raw requester: derived from the tracked repository.
+            repo = _as_str(base.get("repo") or Unknown("repository"))
+            suffix = sdk.PYGITHUB_URL_ATTRS[e.attr].get(base.kind[3:])
+            if suffix is not None:
+                number = Str((Unknown("number", "number"),))
+                return Str.lit("https://api.github.com/repos/") + repo + (Str.lit(suffix) + number if suffix else Str(()))
         if isinstance(base, Obj):
             v = base.get(e.attr)
             if v is not None:
@@ -1002,6 +1009,16 @@ class _Ctx:
         if canon in sdk.PROCESS_FUNCS:
             return _Effect("exec", "process.exec", self._program_value(arg(0, "args")), via=canon)
 
+        if isinstance(call.func, ast.Attribute) and call.func.attr in sdk.PYGITHUB_REQUESTER_METHODS \
+                and isinstance(call.func.value, ast.Attribute) and call.func.value.attr in sdk.PYGITHUB_REQUESTER_ATTRS:
+            # PyGithub's raw requester: requestJsonAndCheck(verb, url, ...); relative URLs are API paths.
+            mv = self.eval(arg(0, "verb"))
+            method = (mv.known() or "").lower() if isinstance(mv, Str) else ""
+            url = _as_str(self.eval(arg(1, "url")))
+            first = url.parts[0] if url.parts else ""
+            if isinstance(first, str) and first.startswith("/"):
+                url = Str.lit("https://api.github.com") + url
+            return _Effect("http", "", url, method, f"PyGithub requester.{call.func.attr}")
         if isinstance(call.func, ast.Attribute):
             attr = call.func.attr
             recv = self.eval(call.func.value)
@@ -1028,6 +1045,12 @@ class _Ctx:
                 if kind.startswith("gh:"):
                     gk = kind[3:]
                     action = sdk.PYGITHUB_EFFECTS.get((gk, attr))
+                    if action is None and gk == "Github" and attr == "get_repo":
+                        repo = self.eval(arg(0, "full_name_or_id"))
+                        return _Effect("github", "github.repo.read", _as_str(repo), via="PyGithub Github.get_repo")
+                    if action is None and gk in ("Repository", "PullRequest", "Issue") and attr.startswith(("get_", "compare")):
+                        # authenticated reads release the token too: they need github.repo.read on the repository
+                        return _Effect("github", "github.repo.read", recv.get("repo") or Unknown("repository"), via=f"PyGithub {gk}.{attr}")
                     if action:
                         via = f"PyGithub {gk}.{attr}"
                         if gk == "AuthenticatedUser":

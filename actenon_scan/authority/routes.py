@@ -51,6 +51,9 @@ _GITHUB_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("patch", "repos/{owner}/{repo}/pulls/{number}", "github.pull.update"),
     ("put", "repos/{owner}/{repo}/pulls/{number}/merge", "github.pull.merge"),
     ("post", "repos/{owner}/{repo}/pulls/{number}/reviews", "github.pull.review"),
+    ("put", "repos/{owner}/{repo}/pulls/{number}/reviews/{id}", "github.pull.review"),
+    ("delete", "repos/{owner}/{repo}/pulls/{number}/reviews/{id}", "github.pull.review"),
+    ("post", "repos/{owner}/{repo}/pulls/{number}/reviews/{id}/events", "github.pull.review"),
     ("post", "repos/{owner}/{repo}/pulls/{number}/comments", "github.pull.comment"),
     ("post", "repos/{owner}/{repo}/pulls/{number}/requested_reviewers", "github.pull.request_review"),
     ("put", "repos/{owner}/{repo}/contents/{path+}", "github.contents.write"),
@@ -84,6 +87,7 @@ _GITHUB_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("delete", "repos/{owner}/{repo}/branches/{branch}/protection", "github.branch_protection.delete"),
     ("post", "repos/{owner}/{repo}/statuses/{sha}", "github.status.create"),
     ("post", "repos/{owner}/{repo}/check-runs", "github.check.create"),
+    ("patch", "repos/{owner}/{repo}/check-runs/{id}", "github.check.update"),
     ("post", "repos/{owner}/{repo}/deployments", "github.deployment.create"),
     ("post", "orgs/{org}/repos", "github.repo.create"),
     ("post", "user/repos", "github.repo.create"),
@@ -190,7 +194,12 @@ def classify_http(method: str, url: str, *, hole_names: tuple[str, ...] = ()) ->
                 "github.repo.read", {"owner": segs[1], "repo": segs[2]}, read_only=True, pattern="repos/{owner}/{repo}/..."
             )
 
-    # Generic HTTP: exact host, exact path; unknown whole segments become "{}".
+    # Generic HTTP: exact host, exact path. Only the final segment may be unknown ("{}": an item of that
+    # collection). An unknown earlier segment chooses *which* collection, account or repository the request acts
+    # on: that is unresolved, never a template (a "{}" there would cover every tenant the credential can reach).
+    if any(HOLE in s for s in segs[:-1]):
+        parts = ("repository",) if host == "api.github.com" and segs and segs[0] == "repos" and any(HOLE in s for s in segs[1:3]) else ("path",)
+        return HttpAuthority(action_prefix, None, ResourceState.UNRESOLVED, read_only, parts, (), host, "")
     tsegs = [_template_segment(s) for s in segs]
     resource = host + ("/" + "/".join(tsegs) if tsegs else "")
     if any(HOLE in s for s in segs):
