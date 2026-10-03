@@ -151,3 +151,22 @@ SMTP_SEND_METHODS = ("sendmail", "send_message")
 TOOL_DECORATOR_HINTS = ("tool", "function_tool", "action", "kernel_function", "skill")
 
 SECRET_NAME_HINTS = ("TOKEN", "SECRET", "PASSWORD", "PASSWD", "API_KEY", "APIKEY", "PRIVATE", "CREDENTIAL", "WEBHOOK", "AUTH")
+
+# LiteLLM: the provider (and so the host) is chosen by the model string.
+LITELLM_FUNCS = {
+    "litellm.completion", "litellm.acompletion", "litellm.text_completion", "litellm.atext_completion",
+    "litellm.main.completion", "litellm.main.acompletion", "litellm.responses", "litellm.aresponses",
+}
+LITELLM_EMBED_FUNCS = {"litellm.embedding", "litellm.aembedding"}
+# model prefix -> (chat completion URL, embedding URL)
+LITELLM_PROVIDERS: tuple[tuple[tuple[str, ...], str, str], ...] = (
+    (("openai/", "gpt-", "o1", "o3", "o4", "chatgpt-", "text-embedding-"), "https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/embeddings"),
+    (("anthropic/", "claude"), "https://api.anthropic.com/v1/messages", ""),
+    (("gemini/",), "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", "https://generativelanguage.googleapis.com/v1beta/models/{}:embedContent"),
+    (("groq/",), "https://api.groq.com/openai/v1/chat/completions", ""),
+    (("mistral/",), "https://api.mistral.ai/v1/chat/completions", "https://api.mistral.ai/v1/embeddings"),
+    (("deepseek/",), "https://api.deepseek.com/chat/completions", ""),
+    (("openrouter/",), "https://openrouter.ai/api/v1/chat/completions", ""),
+    (("together_ai/",), "https://api.together.xyz/v1/chat/completions", ""),
+    (("cohere/", "command-"), "https://api.cohere.com/v2/chat", "https://api.cohere.com/v2/embed"),
+)

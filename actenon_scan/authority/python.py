@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ast
 import os
+import warnings
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,7 +32,8 @@ from .model import AuthorityEvidence, AuthorityReport, ResourceState, ValueSourc
 from .routes import HOLE, TEMPLATE_SEGMENT, classify_http
 
 MAX_DEPTH = 3
-_EXCLUDED_DIRS = {".git", ".hg", ".svn", "node_modules", "__pycache__", ".venv", "venv", "env", ".tox", ".nox",
+_BUILD_FILES = {"setup.py", "noxfile.py", "fabfile.py", "tasks.py", "conf.py"}  # packaging/build tooling, not agent code
+_EXCLUDED_DIRS = {"docs", ".git", ".hg", ".svn", "node_modules", "__pycache__", ".venv", "venv", "env", ".tox", ".nox",
                   "build", "dist", "site-packages", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".airlock"}
 
 # ---------------------------------------------------------------------------------------------------------
@@ -68,7 +70,10 @@ class Str:
         return [p for p in self.parts if isinstance(p, Unknown)]
 
     def __add__(self, other: Str) -> Str:
-        return Str(_merge_parts(self.parts + other.parts), self.sources + other.sources)
+        parts = _merge_parts(self.parts + other.parts)
+        if len(parts) > 64:
+            return Str((Unknown("string built from too many parts"),))
+        return Str(parts, (self.sources + other.sources)[:16])
 
 
 def _merge_parts(parts: tuple) -> tuple:
@@ -128,7 +133,7 @@ class FunctionInfo:
 class ClassInfo:
     name: str
     module: ModuleInfo
-    attrs: dict[str, tuple[ast.expr, FunctionInfo | None]] = field(default_factory=dict)  # attr -> (expr, defining fn)
+    attrs: dict[str, list[tuple[ast.expr, FunctionInfo | None]]] = field(default_factory=dict)  # attr -> [(expr, defining fn)]
     bases: list[str] = field(default_factory=list)
 
 
@@ -158,6 +163,8 @@ def _iter_py_files(root: Path, include_tests: bool) -> Iterator[Path]:
         if not include_tests:
             dirnames[:] = [d for d in dirnames if d not in ("tests", "test", "testing")]
         for f in sorted(filenames):
+            if f in _BUILD_FILES:
+                continue
             if f.endswith(".py") and (include_tests or not (f.startswith("test_") or f.endswith("_test.py") or f == "conftest.py")):
                 yield Path(dirpath) / f
 
@@ -214,9 +221,9 @@ class _Indexer(ast.NodeVisitor):
             if isinstance(stmt, ast.Assign):
                 for t in stmt.targets:
                     if isinstance(t, ast.Name):
-                        info.attrs.setdefault(t.id, (stmt.value, None))
+                        info.attrs.setdefault(t.id, []).append((stmt.value, None))
             elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and stmt.value is not None:
-                info.attrs.setdefault(stmt.target.id, (stmt.value, None))
+                info.attrs.setdefault(stmt.target.id, []).append((stmt.value, None))
         self.cls_stack.append(info)
         for stmt in node.body:
             self.visit(stmt)
@@ -259,9 +266,7 @@ class _Indexer(ast.NodeVisitor):
               and self.fn_stack and self.fn_stack[-1].class_name):
             cls = self.mod.classes.get(self.fn_stack[-1].class_name)
             if cls is not None:
-                # __init__ assignments win over assignments in other methods
-                if self.fn_stack[-1].node.name == "__init__" or target.attr not in cls.attrs:
-                    cls.attrs[target.attr] = (value, self.fn_stack[-1])
+                cls.attrs.setdefault(target.attr, []).append((value, self.fn_stack[-1]))
         elif isinstance(target, (ast.Tuple, ast.List)):
             for elt in target.elts:
                 self._record_assign(elt, ast.Constant(value=None))  # unpacking: value unknown
@@ -327,6 +332,8 @@ class Extractor:
         self.report = AuthorityReport(root=str(root))
         self._ctx_cache: dict[str, list[tuple[dict[str, Value], tuple[str, ...]]]] = {}
         self._in_progress: set[str] = set()
+        self._memo: dict[tuple, Value] = {}  # (scope, bindings, name) -> value
+        self._active: set[tuple] = set()  # evaluations in progress (cycle guard)
 
     # indexing ----------------------------------------------------------------------------------------
     def index(self) -> None:
@@ -334,7 +341,9 @@ class Extractor:
             rel = str(path.relative_to(self.root))
             try:
                 src = path.read_text(encoding="utf-8")
-                tree = ast.parse(src, filename=rel)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")  # the agent's own SyntaxWarnings are not ours to print
+                    tree = ast.parse(src, filename=rel)
             except (SyntaxError, UnicodeDecodeError, ValueError) as exc:
                 self.report.parse_errors.append({"file": rel, "error": f"{type(exc).__name__}: {exc}"})
                 continue
@@ -554,6 +563,23 @@ class Extractor:
                                      sources=tuple(sources), **common)
         if eff.kind == "fs":
             return self._path_evidence(eff, target, unknowns, reasons_unknown, sources, common)
+        if eff.kind == "llm":
+            model = target.known()
+            if model is not None:
+                for prefixes, chat_url, embed_url in sdk.LITELLM_PROVIDERS:
+                    if model.lower().startswith(prefixes):
+                        url = embed_url if eff.action == "embed" else chat_url
+                        if url:
+                            auth = classify_http("post", url.replace("{}", HOLE), hole_names=("model",))
+                            return AuthorityEvidence(
+                                action=auth.action, resource=auth.resource, resource_state=auth.state, confidence="high",
+                                reason=f"{eff.via} sends model '{model}' to its provider", template_params=auth.template_params,
+                                sources=tuple(sources), method="post", url=url, **common)
+            return AuthorityEvidence(
+                action="http.post", resource=None, resource_state=ResourceState.UNRESOLVED, confidence="medium",
+                reason=f"{eff.via} calls the model provider chosen by the model configuration"
+                       + (f" ('{model}' is not a known provider prefix)" if model else f": {reasons_unknown or 'model not statically known'}"),
+                unresolved_parts=("provider",), sources=tuple(sources), method="post", **common)
         if eff.kind == "exec":
             known = target.known()
             if known:
@@ -656,7 +682,33 @@ class _Ctx:
             f = f.parent
         return False
 
+    def _bkey(self) -> tuple:
+        try:
+            k = tuple(sorted(self.bind.items()))
+            hash(k)
+            return k
+        except TypeError:
+            return (("<unhashable>", id(self.bind)),)
+
+    def _memoised(self, key: tuple, compute, cyclic: str) -> Value:
+        memo = self.ex._memo
+        if key in memo:
+            return memo[key]
+        if key in self.ex._active:
+            return Unknown(cyclic)
+        self.ex._active.add(key)
+        try:
+            value = compute()
+        finally:
+            self.ex._active.discard(key)
+        memo[key] = value
+        return value
+
     def lookup(self, name: str, node: ast.AST) -> Value:
+        key = ("name", self.mod.name, self.fn.key if self.fn else None, self._bkey(), name)
+        return self._memoised(key, lambda: self._lookup(name, node), f"'{name}' is defined in terms of itself")
+
+    def _lookup(self, name: str, node: ast.AST) -> Value:
         f = self.fn
         bind = self.bind
         while f is not None:
@@ -682,12 +734,9 @@ class _Ctx:
         if ctx.depth > 12:
             return Unknown(f"'{name}' is defined through too many indirections", name)
         vals = [ctx.eval(d) for d in defs]
-        first = vals[0]
         if len(vals) == 1:
-            return _with_source(first, ValueSource("constant", name, ctx.mod.rel, getattr(defs[0], "lineno", 0)))
-        if all(v == first for v in vals) and not isinstance(first, Unknown):
-            return first
-        return Unknown(f"'{name}' is assigned more than once with different values", name)
+            return _with_source(vals[0], ValueSource("constant", name, ctx.mod.rel, getattr(defs[0], "lineno", 0)))
+        return _join(vals, f"'{name}'")
 
     # evaluation --------------------------------------------------------------------------------------
     def eval(self, e: ast.expr | None) -> Value:
@@ -755,17 +804,22 @@ class _Ctx:
             cls_name = self.fn.class_name or (self.fn.parent.class_name if self.fn.parent else None)
             cls = self.mod.classes.get(cls_name or "")
             if cls is not None and e.attr in cls.attrs:
-                expr, definer = cls.attrs[e.attr]
-                if definer is None:
-                    return _Ctx(self.ex, self.mod, None, {}, self.depth + 1).eval(expr)
-                # evaluate in every construction context; one value only
-                vals = []
+                return self._memoised(("self", self.mod.name, cls.name, e.attr), lambda: self._self_attr(cls, e),
+                                      f"self.{e.attr} is defined in terms of itself")
+            return Unknown(f"self.{e.attr} is not statically known", e.attr)
+        return self._eval_attribute_rest(e)
+
+    def _self_attr(self, cls: ClassInfo, e: ast.Attribute) -> Value:
+        vals: list[Value] = []
+        for expr, definer in cls.attrs[e.attr]:
+            if definer is None:
+                vals.append(_Ctx(self.ex, self.mod, None, {}, self.depth + 1).eval(expr))
+            else:
                 for bind, _chain in self.ex.contexts(definer):
                     vals.append(_Ctx(self.ex, self.mod, definer, bind, self.depth + 1).eval(expr))
-                if vals and all(v == vals[0] for v in vals):
-                    return vals[0]
-                return Unknown(f"self.{e.attr} is set from values that differ between constructions", e.attr)
-            return Unknown(f"self.{e.attr} is not statically known", e.attr)
+        return _join(vals, f"self.{e.attr}")
+
+    def _eval_attribute_rest(self, e: ast.Attribute) -> Value:
         canon = self.canonical(e)
         if canon == "os.environ":
             return Obj("os.environ")
@@ -876,10 +930,12 @@ class _Ctx:
         # local function returning a constant
         target = self.ex._local_callee(e.func, self.mod, self.fn)
         if target is not None and self.depth < 6:
-            rets = [n.value for n in ast.walk(target.node) if isinstance(n, ast.Return) and n.value is not None]
-            if len(rets) == 1:
+            rets = [n.value for n in _own_returns(target.node)]
+            if 1 <= len(rets) <= 12:
                 ctx = _Ctx(self.ex, target.module, target, self.ex._bind_args(target, e, self), self.depth + 1)
-                return ctx.eval(rets[0])
+                return self._memoised(("return", target.key, ctx._bkey()),
+                                      lambda: _join([ctx.eval(r) for r in rets], f"result of {target.qualname}()"),
+                                      f"recursive call to {target.qualname}")
         if isinstance(e.func, ast.Attribute) and e.func.attr in ("format",):
             fmt = self.eval(e.func.value)
             if isinstance(fmt, Str) and fmt.known() is not None:
@@ -924,6 +980,13 @@ class _Ctx:
             if m:
                 base = _as_str(self._env("OPENAI_BASE_URL", Str.lit("https://api.openai.com/v1"), call))
                 return _Effect("http", "", base + Str.lit(m[1]), m[0], canon)
+        if canon in sdk.LITELLM_FUNCS or canon in sdk.LITELLM_EMBED_FUNCS:
+            model = self.eval(arg(0, "model")) if arg(0, "model") is not None else Unknown("model passed through **kwargs")
+            base = arg(None, "api_base") or arg(None, "base_url")
+            if base is not None:
+                path = "/embeddings" if canon in sdk.LITELLM_EMBED_FUNCS else "/chat/completions"
+                return _Effect("http", "", _join_url(_as_str(self.eval(base)), path), "post", canon)
+            return _Effect("llm", "embed" if canon in sdk.LITELLM_EMBED_FUNCS else "chat", model, "post", canon)
         if canon in ("builtins.open", "io.open", "codecs.open"):
             mode = self.eval(arg(1, "mode"))
             mode_s = mode.known() if isinstance(mode, Str) else None
@@ -1030,6 +1093,44 @@ def _join_url(base: Str, path: Str | str) -> Str:
         elif not bk.endswith("/") and not pk.startswith("/") and pk:
             p = Str.lit("/") + p
     return base + p
+
+
+def _is_none(v: Value) -> bool:
+    return isinstance(v, Unknown) and v.reason == "None"
+
+
+def _join(vals: list[Value], what: str) -> Value:
+    """One value from several definitions. Equal values join to that value; objects of one kind join to that
+    kind (attributes kept only where every definition agrees); ``None`` is ignored for objects. Different
+    strings never join: the result is unknown, never an alternative widened into authority."""
+    vals = [v for v in vals if not _is_none(v)] or vals
+    if not vals:
+        return Unknown(f"{what} has no definition")
+    first = vals[0]
+    if all(v == first for v in vals):
+        return first
+    if all(isinstance(v, Obj) for v in vals) and len({v.kind for v in vals}) == 1:  # type: ignore[union-attr]
+        keys = [k for k, _ in first.attrs]  # type: ignore[union-attr]
+        attrs = []
+        for k in keys:
+            got = [v.get(k) for v in vals]  # type: ignore[union-attr]
+            attrs.append((k, got[0] if all(g == got[0] for g in got) else Unknown(f"{what}.{k} differs between definitions", k)))
+        return Obj(first.kind, tuple(attrs))  # type: ignore[union-attr]
+    return Unknown(f"{what} is assigned more than once with different values", what.strip("'"))
+
+
+def _own_returns(fn: ast.AST) -> list[ast.Return]:
+    """Return statements of ``fn`` itself (not of nested functions or classes)."""
+    out: list[ast.Return] = []
+    stack = list(ast.iter_child_nodes(fn))
+    while stack:
+        n = stack.pop()
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        if isinstance(n, ast.Return) and n.value is not None:
+            out.append(n)
+        stack.extend(ast.iter_child_nodes(n))
+    return out
 
 
 def _with_source(v: Value, src: ValueSource) -> Value:

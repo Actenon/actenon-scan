@@ -337,3 +337,45 @@ def test_resource_matching_is_exact_or_single_segment_template():
     assert not resource_matches("github.com/acme/support", "github.com/acme/support-evil")
     assert resource_matches("./reports/{}.txt", "./reports/june.txt")
     assert not resource_matches("./reports/{}.txt", "./reports/.txt")
+
+
+def test_litellm_known_model_maps_to_provider_and_unknown_stays_unresolved(tmp_path):
+    r = scan(tmp_path, {"a.py": """
+        import litellm
+        def ask(messages, model):
+            litellm.completion(model="gpt-4o", messages=messages)
+            litellm.completion(model="anthropic/claude-sonnet-4", messages=messages)
+            litellm.acompletion(model=model, messages=messages)
+        handlers = [ask]
+    """})
+    assert entries(r) == {
+        ("http.post", "api.openai.com/v1/chat/completions", "RESOLVED"),
+        ("http.post", "api.anthropic.com/v1/messages", "RESOLVED"),
+        ("http.post", None, "UNRESOLVED"),
+    }
+    (u,) = [e for e in r.evidence if e.resource is None]
+    assert u.unresolved_parts == ("provider",) and u.via == "litellm.acompletion"
+
+
+def test_object_kinds_join_across_assignments_and_factory_methods(tmp_path):
+    r = scan(tmp_path, {"p.py": """
+        from github import Github, Auth
+        class Provider:
+            def __init__(self, url):
+                self.repo_obj = None
+                self.client = self._client()
+                self.repo = url.split("/")[-2]
+            def _client(self):
+                if True:
+                    return Github(auth=Auth.Token("t"))
+                return Github()
+            def _repo(self):
+                if self.repo_obj is None:
+                    self.repo_obj = self.client.get_repo(self.repo)
+                return self.repo_obj
+            def comment(self, n, body):
+                self._repo().get_pull(n).create_issue_comment(body)
+    """})
+    (ev,) = r.evidence
+    assert ev.action == "github.issue.comment" and ev.resource_state is ResourceState.UNRESOLVED
+    assert ev.unresolved_parts == ("repository",)
