@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing repos; this is NOT a breaking change (the ruleset version in
   `default_rules.json` is bumped instead).
 
-## [Unreleased]
+## [1.6.0] — unreleased (release candidate)
 
 ### Added
 - `actenon_scan.authority`: structured authority evidence for Python projects. Every consequential call
