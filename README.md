@@ -507,11 +507,11 @@ Scan is one of the independent repositories that together close the **execution 
 | **`actenon-kernel`** | The open verifier — defines what a valid proof is | `actenon-protocol` | `actenon-kernel` (PyPI) |
 | **`actenon-permit`** | The developer on-ramp and authority broker | `actenon-kernel`, `actenon-protocol` | `actenon-permit` (PyPI) · `@actenon/sdk` (npm) |
 | **`actenon-scan`** ← you are here | The independent static-analysis scanner | — | `actenon-scan` (PyPI) |
+| **`sdk-go`** | Go verifier SDK — protected-endpoint proof verification in Go | `actenon-protocol` | [repo](https://github.com/Actenon/sdk-go) |
+| **`sdk-rust`** | Rust verifier SDK — protected-endpoint proof verification in Rust | `actenon-protocol` | [repo](https://github.com/Actenon/sdk-rust) |
 
-**Optional:** [`actenon-cloud`](https://github.com/Actenon/actenon-cloud) — a managed control plane (source-available; see its LICENSE). Not required by any component above; every capability in this ecosystem works without it.
+**Optional:** `actenon-cloud` — a managed control plane (private repository, not publicly available). Not required by any component above; every capability in this ecosystem works without it.
 <!-- ECOSYSTEM-TABLE:END -->
-
-**Also available:** [`sdk-go`](https://github.com/Actenon/sdk-go) (Go verifier SDK) and [`sdk-rust`](https://github.com/Actenon/sdk-rust) (Rust verifier SDK) for non-Python integrations.
 
 ## Performance
 

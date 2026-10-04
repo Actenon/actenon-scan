@@ -10,7 +10,7 @@ enforcement.
 """
 
 from .model import AuthorityEvidence, AuthorityReport, ResourceState, ValueSource
-from .python import extract_authority, load_env_files
+from .python import extract_authority, load_env_files, normalise_path
 from .routes import HOLE, HttpAuthority, classify_http, resource_matches
 
 __all__ = [
@@ -23,5 +23,6 @@ __all__ = [
     "classify_http",
     "extract_authority",
     "load_env_files",
+    "normalise_path",
     "resource_matches",
 ]

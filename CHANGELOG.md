@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.6.0] — unreleased (release candidate)
 
 ### Added
+- `normalise_path` is exported from `actenon_scan.authority` so runtime enforcement can spell filesystem
+  resources the same way the extractor does. The private `_normalise_path` name remains.
+- `tiktoken.get_encoding` and `tiktoken.encoding_for_model` are named as `http.get` of
+  `https://openaipublic.blob.core.windows.net/encodings/<encoding>.tiktoken`. A literal encoding or a
+  known model prefix resolves; any other encoding or model stays `UNRESOLVED`. This is static naming,
+  not an OS jail, and it does not change finding-scanner output, labelled-sample recall, or corpus triage.
 - `actenon_scan.authority`: structured authority evidence for Python projects. Every consequential call
   (HTTP requests, OpenAI/Anthropic/LangChain model calls, PyGithub operations, file writes and deletes,
   process execution, SMTP) becomes an `AuthorityEvidence` record with `action`, `resource`,
@@ -42,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `actenon-scan authority PATH [--format json|text]`.
 
 ### Fixed
+- `classify_http` ended the host at `/`, so `https://host?query` was named `host?query` while the same
+  request with a `/` path was named `host`. The authority now ends at the first `/`, `?` or `#` (RFC 3986).
+- `corpus-triage.json` records `scanner_version_measured_with` 1.6.0 so the claims staleness check matches
+  this unreleased package. The hand-triaged entries, totals, and 2026-09-21 measurement are unchanged.
 - `requests.request(...)`, `httpx.request(...)` and `session.request(...)` were invisible to the
   `NET-EGRESS` rule.
 - `call_text` was truncated to 120 characters (80 for some chains in the Python, TypeScript and Go
