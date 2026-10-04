@@ -454,3 +454,39 @@ def test_factory_returning_different_model_clients_has_each_alternative(tmp_path
     assert ("http.post", "api.openai.com/v1/chat/completions", "RESOLVED") in got
     assert ("http.post", "api.anthropic.com/v1/messages", "RESOLVED") in got
     assert ("http.post", None, "UNRESOLVED") in got  # Azure: the customer's endpoint is not configured
+
+
+def test_tiktoken_encoding_download_is_named_and_unknown_model_stays_unresolved(tmp_path):
+    r = scan(tmp_path, {"a.py": """
+        import tiktoken
+        from tiktoken import encoding_for_model, get_encoding
+        def go(model):
+            tiktoken.get_encoding("cl100k_base")
+            get_encoding("o200k_base")
+            encoding_for_model("gpt-4o-mini")
+            encoding_for_model(model)
+    """})
+    blob = "openaipublic.blob.core.windows.net/encodings/"
+    assert entries(r) == {
+        ("http.get", blob + "cl100k_base.tiktoken", "RESOLVED"),
+        ("http.get", blob + "o200k_base.tiktoken", "RESOLVED"),
+        ("http.get", None, "UNRESOLVED"),
+    }
+    assert {e.url for e in r.evidence if e.resource} == {"https://" + blob + "cl100k_base.tiktoken",
+                                                         "https://" + blob + "o200k_base.tiktoken"}
+
+
+def test_query_without_path_names_the_host():
+    a = classify_http("GET", "https://api.ipify.org?format=json")
+    assert (a.action, a.resource) == ("http.get", "api.ipify.org")
+    assert classify_http("GET", "https://api.ipify.org/?format=json").resource == "api.ipify.org"
+    assert classify_http("GET", "https://h.example#frag").resource == "h.example"
+
+
+def test_normalise_path_is_the_runtime_spelling():
+    from actenon_scan.authority import normalise_path
+
+    assert normalise_path("out/report.txt") == "./out/report.txt"
+    assert normalise_path("~/notes.md") == "~/notes.md"
+    assert normalise_path("/var/log/x") == "/var/log/x"
+    assert normalise_path("../escape") is None

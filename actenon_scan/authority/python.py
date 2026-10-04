@@ -624,6 +624,11 @@ class Extractor:
                                  template_params=tuple(u.name or "value" for u in unknowns), sources=tuple(sources), **common)
 
 
+def normalise_path(path: str) -> str | None:
+    """The filesystem resource Scan names for ``path``; runtime enforcement uses the same spelling."""
+    return _normalise_path(path)
+
+
 def _normalise_path(tmpl: str) -> str | None:
     """Project-relative paths become ``./x/y``; absolute (``/``) and home (``~/``) paths keep their root.
     An unknown part may be a whole directory segment or any part of the final segment, never part of a
@@ -1014,6 +1019,13 @@ class _Ctx:
                 path = "/embeddings" if canon in sdk.LITELLM_EMBED_FUNCS else "/chat/completions"
                 return _Effect("http", "", _join_url(_as_str(self.eval(base)), path), "post", canon)
             return _Effect("llm", "embed" if canon in sdk.LITELLM_EMBED_FUNCS else "chat", model, "post", canon)
+        if canon in sdk.TIKTOKEN_GET_ENCODING or canon in sdk.TIKTOKEN_FOR_MODEL:
+            v = self.eval(arg(0, "encoding_name" if canon in sdk.TIKTOKEN_GET_ENCODING else "model_name"))
+            name = v.known() if isinstance(v, Str) else None
+            if name is not None and canon in sdk.TIKTOKEN_FOR_MODEL:
+                name = next((enc for prefix, enc in sdk.TIKTOKEN_MODEL_PREFIXES if name.startswith(prefix)), None)
+            url = sdk.TIKTOKEN_ENCODINGS.get(name or "")
+            return _Effect("http", "", Str.lit(url) if url else Str((Unknown("tiktoken encoding"),)), "get", canon)
         if canon in ("builtins.open", "io.open", "codecs.open"):
             mode = self.eval(arg(1, "mode"))
             mode_s = mode.known() if isinstance(mode, Str) else None
