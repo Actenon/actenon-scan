@@ -101,8 +101,10 @@ def _split_url(url: str) -> tuple[str, str, str, str]:
     if "://" not in url:
         return "", "", url, ""
     scheme, rest = url.split("://", 1)
-    host, sep, path = rest.partition("/")
-    path = "/" + path if sep else "/"
+    # The authority ends at the first "/", "?" or "#" (RFC 3986), so "https://h?q" names host "h".
+    end = min([i for i in (rest.find("/"), rest.find("?"), rest.find("#")) if i >= 0] or [len(rest)])
+    host, path = rest[:end], rest[end:]
+    path = path if path.startswith("/") else "/" + path
     path, _, query = path.partition("?")
     path = path.split("#", 1)[0]
     return scheme.lower(), host.lower(), path, query

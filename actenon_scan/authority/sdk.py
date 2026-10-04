@@ -154,6 +154,27 @@ PROCESS_FUNCS = {
 }
 
 SMTP_CONSTRUCTORS = ("smtplib.SMTP", "smtplib.SMTP_SSL")
+
+# tiktoken downloads an encoding's ranks on first use (cached afterwards). Encoding -> URL fetched.
+_TIKTOKEN_BLOB = "https://openaipublic.blob.core.windows.net/encodings/"
+TIKTOKEN_ENCODINGS: dict[str, str] = {
+    "r50k_base": _TIKTOKEN_BLOB + "r50k_base.tiktoken",
+    "p50k_base": _TIKTOKEN_BLOB + "p50k_base.tiktoken",
+    "p50k_edit": _TIKTOKEN_BLOB + "p50k_base.tiktoken",
+    "cl100k_base": _TIKTOKEN_BLOB + "cl100k_base.tiktoken",
+    "o200k_base": _TIKTOKEN_BLOB + "o200k_base.tiktoken",
+    "o200k_harmony": _TIKTOKEN_BLOB + "o200k_base.tiktoken",
+}
+TIKTOKEN_GET_ENCODING = {"tiktoken.get_encoding", "tiktoken.registry.get_encoding"}
+TIKTOKEN_FOR_MODEL = {"tiktoken.encoding_for_model", "tiktoken.model.encoding_for_model"}
+# encoding_for_model: model prefix -> encoding (most specific first; mirrors tiktoken.model).
+TIKTOKEN_MODEL_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("gpt-oss-", "o200k_harmony"),
+    ("gpt-5", "o200k_base"), ("gpt-4.5", "o200k_base"), ("gpt-4.1", "o200k_base"), ("gpt-4o", "o200k_base"),
+    ("chatgpt-4o", "o200k_base"), ("o1", "o200k_base"), ("o3", "o200k_base"), ("o4", "o200k_base"),
+    ("gpt-4", "cl100k_base"), ("gpt-3.5-turbo", "cl100k_base"), ("gpt-35-turbo", "cl100k_base"),
+    ("text-embedding-3", "cl100k_base"), ("text-embedding-ada-002", "cl100k_base"),
+)
 SMTP_SEND_METHODS = ("sendmail", "send_message")
 
 TOOL_DECORATOR_HINTS = ("tool", "function_tool", "action", "kernel_function", "skill")
