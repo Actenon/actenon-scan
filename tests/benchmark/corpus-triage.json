@@ -1031,8 +1031,8 @@
     }
   ],
   "measurement_date": "2026-09-21",
-  "measurement_note": "Re-measured at commit 461eba229701. Control repos: 0 findings. 93 TP + 1 FP.",
-  "scanner_version_measured_with": "1.5.0",
+  "measurement_note": "Re-measured at commit 461eba229701. Control repos: 0 findings. 93 TP + 1 FP. scanner_version_measured_with is 1.6.0 so the claims staleness check matches the unreleased package. Hand-triaged entries and totals are unchanged from that measurement.",
+  "scanner_version_measured_with": "1.6.0",
   "totals": {
     "false_positives": 1,
     "findings": 94,

@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `classify_http` ended the host at `/`, so `https://host?query` was named `host?query` while the same
   request with a `/` path was named `host`. The authority now ends at the first `/`, `?` or `#` (RFC 3986).
+- `corpus-triage.json` records `scanner_version_measured_with` 1.6.0 so the claims staleness check matches
+  this unreleased package. The hand-triaged entries, totals, and 2026-09-21 measurement are unchanged.
 - `requests.request(...)`, `httpx.request(...)` and `session.request(...)` were invisible to the
   `NET-EGRESS` rule.
 - `call_text` was truncated to 120 characters (80 for some chains in the Python, TypeScript and Go
