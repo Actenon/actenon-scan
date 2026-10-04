@@ -316,6 +316,11 @@ def scan_go_file(
     # Find tool-registered functions (passed to AddTool etc.)
     tool_handler_names = _find_tool_handlers(tree.root_node, source)
 
+    # Named imports (`osx "os"`, `ex "os/exec"`) rebind the package name.
+    # Sink patterns are written against the real package name, so aliased
+    # calls are also matched under it (osx.RemoveAll -> os.RemoveAll).
+    import_aliases = _resolve_go_import_aliases(tree.root_node, source)
+
     # Collect findings
     findings: list[GoFinding] = []
 
@@ -341,8 +346,19 @@ def scan_go_file(
             if not call_name:
                 continue
 
+            head, dot, tail = call_name.partition(".")
+            resolved_name = call_name
+            if dot and head in import_aliases:
+                resolved_name = f"{import_aliases[head]}.{tail}"
+
             for rule in _GO_SINK_RULES:
-                if not _match_go_rule(rule, call_node, call_name, source):
+                if not (
+                    _match_go_rule(rule, call_node, call_name, source)
+                    or (
+                        resolved_name != call_name
+                        and _match_go_rule(rule, call_node, resolved_name, source)
+                    )
+                ):
                     continue
 
                 # ── ITEM 2: temp-file suppression ──
@@ -1204,6 +1220,56 @@ def _is_api_returned_url(func_node, sink_call, source: bytes) -> bool:
     # The github-mcp-server finding is kept as a known limitation and
     # triaged accordingly.
     return False
+
+
+def go_syntax_error(source: bytes) -> str | None:
+    """Describe a Go parse failure, or return None if the file parses.
+
+    tree-sitter recovers from syntax errors and scan_go_file keeps
+    analysing, but a sink inside an unparsed region can be missed — the
+    caller records the file as not fully analysed.
+    """
+    if not is_go_extra_available():
+        return None
+    import tree_sitter_go as tsgo
+    from tree_sitter import Language, Parser
+
+    root = Parser(Language(tsgo.language())).parse(source).root_node
+    if not root.has_error:
+        return None
+    line = root.start_point[0] + 1
+    for node in _walk(root):
+        if node.type == "ERROR" or node.is_missing:
+            line = node.start_point[0] + 1
+            break
+    return (
+        f"SyntaxError: could not parse the file (first error near line {line}); "
+        f"sinks in the unparsed region may be missed"
+    )
+
+
+def _resolve_go_import_aliases(root, source: bytes) -> dict[str, str]:
+    """Map import aliases to the imported package's own name.
+
+    ``osx "os"`` -> {"osx": "os"}; ``ex "os/exec"`` -> {"ex": "exec"}.
+    Blank (``_``) and dot (``.``) imports bind no qualifier and are skipped.
+    """
+    aliases: dict[str, str] = {}
+    for node in _walk(root):
+        if node.type != "import_spec":
+            continue
+        name = node.child_by_field_name("name")
+        path = node.child_by_field_name("path")
+        if name is None or path is None or name.type != "package_identifier":
+            continue
+        alias = source[name.start_byte:name.end_byte].decode("utf-8", errors="replace")
+        import_path = source[path.start_byte:path.end_byte].decode(
+            "utf-8", errors="replace"
+        ).strip('"`')
+        package = import_path.rstrip("/").rsplit("/", 1)[-1]
+        if alias and package and alias != package:
+            aliases[alias] = package
+    return aliases
 
 
 def _check_agent_imports(root, source: bytes) -> bool:

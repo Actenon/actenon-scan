@@ -98,6 +98,9 @@ def format_json(result: ScanResult) -> str:
                 for rel, lang in result.unsupported_files
             ],
         },
+        # False when any supported file could not be analysed: an empty
+        # findings list then does not cover those files.
+        "scan_complete": not result.analysis_errors,
         "errored": {
             "count": len(result.analysis_errors),
             "files": [
