@@ -1322,9 +1322,15 @@ def _cmd_fix(args: argparse.Namespace) -> int:
 
     if fix.diff:
         print(fix.diff)
-        if fix.applied:
+        if fix.applied and fix.enforced:
             print(f"# Applied {fix.mode} fix to {file_path}")
             state = "PATCH APPLIED"
+        elif args.apply and fix.status == "scaffold":
+            print(
+                f"# Wrote {fix.mode} scaffold to {file_path} "
+                f"(NOT ENFORCED — uncomment and wire {fix.mode} primitive to enforce)"
+            )
+            state = "SCAFFOLD WRITTEN — NOT ENFORCED"
         else:
             print(f"# Mode: {fix.mode}. Use --apply to write this change.")
             state = "PATCH GENERATED — REVIEW REQUIRED"

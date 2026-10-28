@@ -39,6 +39,8 @@ class FixResult:
     diff: str
     mode: str
     applied: bool = False
+    enforced: bool = False
+    status: str = "proposal"
     note: str = ""
 
 
@@ -125,9 +127,39 @@ def generate_fix(
 
     if apply:
         file_path.write_text("".join(patched_lines), encoding="utf-8")
-        return FixResult(diff=diff, mode=mode, applied=True, note=note)
+        if mode in ("guard", "approval"):
+            # Commented-out scaffolds do NOT enforce runtime security until
+            # uncommented and wired by the developer. Never report applied=True
+            # or enforced=True for a comment-only scaffold.
+            scaffold_note = (
+                f"{note} Wrote commented {mode} scaffold only (NOT ENFORCED until "
+                f"uncommented and wired to a real {mode} function)."
+            )
+            return FixResult(
+                diff=diff,
+                mode=mode,
+                applied=False,
+                enforced=False,
+                status="scaffold",
+                note=scaffold_note,
+            )
+        return FixResult(
+            diff=diff,
+            mode=mode,
+            applied=True,
+            enforced=True,
+            status="applied",
+            note=note,
+        )
 
-    return FixResult(diff=diff, mode=mode, note=note)
+    return FixResult(
+        diff=diff,
+        mode=mode,
+        applied=False,
+        enforced=False,
+        status="scaffold" if mode in ("guard", "approval") else "proposal",
+        note=note,
+    )
 
 
 def _auto_select_mode(file_path: Path, source_lines: list[str]) -> str:
@@ -383,10 +415,10 @@ def _build_actenon_call(finding, indent: str) -> tuple[str, list[str]]:
     action = finding.category
     guard_lines = [
         f"verify_pccb(",
-        f"    # proof=...,    # PCCB proof blob from actenon-permit",
-        f"    # intent=...,   # the user's authorisation intent",
+        f"    proof=locals().get(\"pccb\"),",
+        f"    intent=locals().get(\"intent\"),",
         f"    action=\"{action}\",",
-        f")  # raises typed Refusal if authority is not established",
+        f")  # fails closed (PermissionError) unless a verified PCCB + intent are supplied",
     ]
     guard_call = "\n".join(indent + l for l in guard_lines)
     import_lines = ["from actenon_kernel import verify_pccb  # pip install actenon-kernel"]

@@ -39,7 +39,9 @@ relevant assertion is skipped with a printed note.
 from __future__ import annotations
 
 import argparse
+from datetime import UTC, date, datetime, timedelta
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -48,22 +50,17 @@ import tomllib
 import urllib.error
 import urllib.request
 
-from pathlib import Path
 from packaging.version import InvalidVersion, Version
 
 RELEASE_TAG_RE = re.compile(r"^v(\d+\.\d+\.\d+)$")
 STALE_BUMP_SECONDS = 7 * 24 * 3600  # ASSERT C escalates past this age
+MAX_WAIVER_DAYS = 14
+WAIVER_BLOCK_RE = re.compile(
+    r"```version-waiver\s*\n(.*?)\n```",
+    re.DOTALL,
+)
 
 ZERO = Version("0.0.0")
-
-
-def findings_explains_version(version: Version) -> bool:
-    """Return True if FINDINGS.md documents the staged version bump."""
-    findings = Path("FINDINGS.md")
-    if not findings.is_file():
-        return False
-    text = findings.read_text(encoding="utf-8", errors="replace")
-    return str(version) in text
 
 
 def read_pyproject() -> tuple[str, Version]:
@@ -122,15 +119,128 @@ def version_bump_age_seconds(version: Version) -> int | None:
     return int(time.time()) - int(out)
 
 
-def main() -> int:
+def validate_staged_candidate_waiver(
+    package: str,
+    staged_version: Version,
+    published_version: Version | None,
+    *,
+    findings_path: str | Path = "FINDINGS.md",
+    today: date | None = None,
+) -> tuple[bool, dict[str, str] | str]:
+    """Validate a structured, bounded candidate-only version waiver in FINDINGS.md.
+
+    Prose substring matches (e.g. ``"Do not publish 1.6.0"`` or ``"11.6.0"``) are
+    rejected. A valid waiver must be a fenced ``version-waiver`` JSON block with:
+      - ``package`` == exact package name
+      - ``staged_version`` == exact pyproject version
+      - ``published_version`` == exact current PyPI version (or ``"<none>"``)
+      - ``status`` == ``"RELEASE_BLOCKED"``
+      - non-empty ``owner`` and ``reason``
+      - ``expires_at`` (ISO-8601 ``YYYY-MM-DD``) in ``[today, today + 14 days]``
+    """
+    ref_day = today or datetime.now(UTC).date()
+    try:
+        text = Path(findings_path).read_text(encoding="utf-8")
+    except OSError as exc:
+        return False, f"unable to read {findings_path}: {exc}"
+
+    blocks = WAIVER_BLOCK_RE.findall(text)
+    if not blocks:
+        return False, "no structured ```version-waiver JSON block found in FINDINGS.md"
+
+    expected_published = str(published_version) if published_version is not None else "<none>"
+    last_error = "no matching package/staged_version block found"
+
+    for raw_block in blocks:
+        try:
+            entry = json.loads(raw_block.strip())
+        except json.JSONDecodeError as exc:
+            last_error = f"invalid JSON in version-waiver block: {exc}"
+            continue
+        if not isinstance(entry, dict):
+            last_error = "version-waiver block must be a JSON object"
+            continue
+
+        if entry.get("package") != package:
+            continue
+        raw_staged = entry.get("staged_version")
+        if not isinstance(raw_staged, str) or raw_staged != str(staged_version):
+            last_error = (
+                f"staged_version {raw_staged!r} does not exactly match {str(staged_version)!r}"
+            )
+            continue
+        try:
+            if Version(raw_staged) != staged_version:
+                last_error = f"parsed staged_version {raw_staged!r} != {staged_version}"
+                continue
+        except InvalidVersion:
+            last_error = f"invalid staged_version {raw_staged!r}"
+            continue
+
+        raw_published = entry.get("published_version")
+        if raw_published != expected_published:
+            last_error = (
+                f"published_version {raw_published!r} does not match PyPI {expected_published!r}"
+            )
+            continue
+
+        if entry.get("status") != "RELEASE_BLOCKED":
+            last_error = (
+                f"waiver status must be 'RELEASE_BLOCKED', got {entry.get('status')!r}"
+            )
+            continue
+
+        owner = str(entry.get("owner") or "").strip()
+        reason = str(entry.get("reason") or "").strip()
+        if not owner or not reason:
+            last_error = "waiver must specify non-empty 'owner' and 'reason'"
+            continue
+
+        raw_expires = str(entry.get("expires_at") or "").strip()
+        try:
+            expires_day = date.fromisoformat(raw_expires)
+        except ValueError:
+            last_error = f"invalid expires_at date {raw_expires!r} (expected YYYY-MM-DD)"
+            continue
+
+        if expires_day < ref_day:
+            last_error = f"waiver expired on {expires_day.isoformat()} (today is {ref_day.isoformat()})"
+            continue
+        if expires_day > ref_day + timedelta(days=MAX_WAIVER_DAYS):
+            last_error = (
+                f"waiver expiry {expires_day.isoformat()} exceeds {MAX_WAIVER_DAYS}-day bound"
+            )
+            continue
+
+        return True, {
+            "package": package,
+            "staged_version": str(staged_version),
+            "published_version": expected_published,
+            "status": "RELEASE_BLOCKED",
+            "owner": owner,
+            "reason": reason,
+            "expires_at": expires_day.isoformat(),
+        }
+
+    return False, last_error
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--mode",
-        choices=["pr", "main"],
+        choices=["pr", "main", "release"],
         required=True,
-        help="pr: ASSERT A only. main: ASSERT A + B + C.",
+        help="pr: ASSERT A only. main: candidate stage (ASSERT A + B + C with structured waiver). release: strict release gate (no waivers permitted).",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--stage",
+        choices=["candidate", "release"],
+        default=None,
+        help="Explicit stage override ('release' disallows any staged candidate waiver).",
+    )
+    args = parser.parse_args(argv)
+    require_release = args.mode == "release" or args.stage == "release"
 
     name, py_version = read_pyproject()
     tag_version = newest_release_tag()
@@ -140,6 +250,7 @@ def main() -> int:
     print(f"pyproject.toml: {py_version}")
     print(f"newest tag:     {'v' + str(tag_version) if tag_version else '<none>'}")
     print(f"PyPI latest:    {pypi_version if pypi_version else '<none>'}")
+    print(f"check stage:    {'release' if require_release else args.mode}")
 
     failed = False
 
@@ -156,8 +267,8 @@ def main() -> int:
         )
         failed = True
 
-    if args.mode == "main":
-        # ASSERT B — newest tag == PyPI latest (main only).
+    if args.mode in ("main", "release"):
+        # ASSERT B — newest tag == PyPI latest (main and release).
         if tag_version is None and pypi_version is None:
             print("note: no release tags and no PyPI release; skipping ASSERT B")
         elif tag_version is None:
@@ -184,43 +295,59 @@ def main() -> int:
             )
             failed = True
 
-        # ASSERT C — pyproject == newest tag (main only; warn, escalate at 7 days).
+        # ASSERT C — pyproject == newest tag.
         effective_tag = tag_version if tag_version is not None else ZERO
         if tag_version is None:
             print("note: no release tags; comparing pyproject against 0.0.0 for ASSERT C")
         if py_version == effective_tag:
-            print(f"ASSERT C OK: pyproject ({py_version}) == newest tag")
+            print(f"ASSERT C OK: pyproject ({py_version}) == newest tag (v{effective_tag})")
+        elif require_release:
+            print(
+                f"::error::RELEASE_BLOCKED: pyproject ({py_version}) != newest tag "
+                f"(v{effective_tag}) and PyPI ({pypi_version}). Candidate waivers are "
+                f"not valid for release readiness."
+            )
+            failed = True
         else:
             age = version_bump_age_seconds(py_version)
             age_days = (age / 86400) if age is not None else None
-            if age is not None and age > STALE_BUMP_SECONDS and not findings_explains_version(py_version):
+            waiver_ok, waiver_info = validate_staged_candidate_waiver(
+                name, py_version, pypi_version
+            )
+            if age is not None and age > STALE_BUMP_SECONDS and not waiver_ok:
                 print(
                     f"::error::ASSERT C FAILED: pyproject ({py_version}) != newest tag "
-                    f"(v{effective_tag}) and the bump commit is {age_days:.1f} days "
-                    f"old. An untagged bump is fine during a release, not for a week "
-                    f"— tag and publish {py_version}, or explain in FINDINGS.md."
+                    f"(v{effective_tag}), bump commit is {age_days:.1f} days old, and "
+                    f"no valid structured version-waiver was found ({waiver_info})."
                 )
                 failed = True
+            elif waiver_ok and isinstance(waiver_info, dict):
+                print(
+                    f"::warning::CANDIDATE_STAGE_OK [RELEASE_BLOCKED]: "
+                    f"package={waiver_info['package']} staged={waiver_info['staged_version']} "
+                    f"published={waiver_info['published_version']} owner={waiver_info['owner']} "
+                    f"expires_at={waiver_info['expires_at']} — source candidate is staged; "
+                    f"public release remains BLOCKED until tag v{py_version} and PyPI match."
+                )
             else:
                 age_note = (
                     f"bump is {age_days:.1f} days old"
                     if age_days is not None
                     else "bump commit not found in history"
                 )
-                explained_note = (
-                    " (explained in FINDINGS.md)"
-                    if findings_explains_version(py_version)
-                    else "; escalates to a failure after 7 days"
-                )
                 print(
-                    f"::warning::ASSERT C: pyproject ({py_version}) != newest tag "
-                    f"(v{effective_tag}) — {age_note}. Legitimate mid-release state"
-                    f"{explained_note}."
+                    f"::warning::ASSERT C [RELEASE_BLOCKED]: pyproject ({py_version}) != newest tag "
+                    f"(v{effective_tag}) — {age_note}. Legitimate mid-release state; "
+                    f"escalates to a failure after 7 days unless a valid structured "
+                    f"version-waiver is present."
                 )
 
     if failed:
         return 1
-    print("version coherence: all assertions passed")
+    if args.mode in ("main", "release") and py_version != (tag_version if tag_version is not None else ZERO):
+        print(f"version coherence: CANDIDATE_STAGE_OK (release status: RELEASE_BLOCKED for {name}=={py_version})")
+    else:
+        print("version coherence: all assertions passed")
     return 0
 
 
