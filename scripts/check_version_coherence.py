@@ -39,17 +39,17 @@ relevant assertion is skipped with a printed note.
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, date, datetime, timedelta
 import json
-from pathlib import Path
 import re
 import subprocess
 import sys
 import time
-import tomllib
 import urllib.error
 import urllib.request
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
+import tomllib
 from packaging.version import InvalidVersion, Version
 
 RELEASE_TAG_RE = re.compile(r"^v(\d+\.\d+\.\d+)$")
@@ -138,7 +138,7 @@ def validate_staged_candidate_waiver(
       - non-empty ``owner`` and ``reason``
       - ``expires_at`` (ISO-8601 ``YYYY-MM-DD``) in ``[today, today + 14 days]``
     """
-    ref_day = today or datetime.now(UTC).date()
+    ref_day = today or datetime.now(timezone.utc).date()
     try:
         text = Path(findings_path).read_text(encoding="utf-8")
     except OSError as exc:
