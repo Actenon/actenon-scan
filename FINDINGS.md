@@ -869,3 +869,11 @@ findings; they are precision failures by the corpus's own definition. (2) Make
 the gate scan rather than read, or add a scheduled job that fails when the
 committed evidence drifts from a fresh scan — otherwise the evidence ages
 silently, exactly as it has here.
+
+---
+
+## Staged Version Bump — `actenon-scan 1.6.0` (Coordinated Unicorn Release)
+
+- `pyproject.toml` is staged at `1.6.0` ahead of the `v1.6.0` release tag and PyPI publication (`v1.5.0` remains the latest tagged/published release on PyPI).
+- Tagging `v1.6.0` is intentionally deferred until all downstream repositories (`actenon-protocol`, `actenon-kernel`, `actenon-scan`, `sdk-go`, `sdk-rust`, `actenon-permit`, `actenon-airlock`) pass cross-repo verification on `main`, so `ASSERT B` (`newest_tag == pypi_latest`) and `ASSERT C` (`pyproject_version` documented in `FINDINGS.md`) remain coherent throughout staging.
+

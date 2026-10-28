@@ -155,6 +155,19 @@ PROCESS_FUNCS = {
 
 SMTP_CONSTRUCTORS = ("smtplib.SMTP", "smtplib.SMTP_SSL")
 
+DB_CONSTRUCTORS = (
+    "sqlite3.connect",
+    "psycopg.connect",
+    "psycopg.AsyncConnection.connect",
+    "psycopg2.connect",
+    "asyncpg.connect",
+    "sqlalchemy.create_engine",
+    "sqlalchemy.engine.create_engine",
+)
+DB_EXECUTE_METHODS = ("execute", "executemany", "executescript")
+DB_RECEIVER_HINTS = ("db", "cursor", "cur", "conn", "connection", "session", "engine", "tx")
+
+
 # tiktoken downloads an encoding's ranks on first use (cached afterwards). Encoding -> URL fetched.
 _TIKTOKEN_BLOB = "https://openaipublic.blob.core.windows.net/encodings/"
 TIKTOKEN_ENCODINGS: dict[str, str] = {
