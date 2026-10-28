@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import warnings
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
@@ -578,6 +579,8 @@ class Extractor:
                 reason=f"{eff.via} calls the model provider chosen by the model configuration"
                        + (f" ('{model}' is not a known provider prefix)" if model else f": {reasons_unknown or 'model not statically known'}"),
                 unresolved_parts=("provider",), sources=tuple(sources), method="post", **common)
+        if eff.kind == "db":
+            return self._db_evidence(eff, target, unknowns, reasons_unknown, sources, common)
         if eff.kind == "exec":
             known = target.known()
             if known:
@@ -622,6 +625,31 @@ class Extractor:
                                  confidence="high" if state is ResourceState.RESOLVED else "medium",
                                  reason=f"{eff.via} {verb} {norm.replace(HOLE, TEMPLATE_SEGMENT)}",
                                  template_params=tuple(u.name or "value" for u in unknowns), sources=tuple(sources), **common)
+
+    def _db_evidence(self, eff: _Effect, target: Str, unknowns: list[Unknown], reasons_unknown: str,
+                     sources: list[ValueSource], common: dict) -> AuthorityEvidence:
+        known = target.known()
+        confidence = "medium" if any(s.kind == "heuristic" for s in sources) else "high"
+        if known and HOLE not in known:
+            return AuthorityEvidence(
+                action=eff.action,
+                resource=known,
+                resource_state=ResourceState.RESOLVED,
+                confidence=confidence,
+                reason=f"{eff.via} executes SQL {eff.action} on {known}",
+                sources=tuple(sources),
+                **common,
+            )
+        return AuthorityEvidence(
+            action=eff.action,
+            resource=None,
+            resource_state=ResourceState.UNRESOLVED,
+            confidence="medium",
+            reason=f"{eff.via} executes SQL with a target table that is not statically known: {reasons_unknown or 'dynamic SQL'}",
+            unresolved_parts=("table",),
+            sources=tuple(sources),
+            **common,
+        )
 
 
 def normalise_path(path: str) -> str | None:
@@ -921,15 +949,20 @@ class _Ctx:
         if canon in sdk.SMTP_CONSTRUCTORS:
             host = self.eval(args[0]) if args else (self.eval(kw["host"]) if "host" in kw else Unknown("SMTP host"))
             return Obj("smtp", (("host", _as_str(host)),))
+        if canon in sdk.DB_CONSTRUCTORS:
+            dsn = self.eval(args[0]) if args else (self.eval(kw["dsn"]) if "dsn" in kw else self.eval(kw.get("database")))
+            return Obj("db:conn", (("dsn", _as_str(dsn)), ("_via", Str.lit(canon))))
         if canon == "urllib.request.Request":
             url = self.eval(args[0]) if args else self.eval(kw.get("url"))
             method = kw.get("method")
             has_data = len(args) > 1 or "data" in kw
             m = self.eval(method) if method is not None else Str.lit("POST" if has_data else "GET")
             return Obj("urllib.Request", (("url", _as_str(url)), ("method", _as_str(m))))
-        # accessors on tracked objects (PyGithub)
+        # accessors on tracked objects (PyGithub / DB)
         if isinstance(e.func, ast.Attribute):
             recv = self.eval(e.func.value)
+            if isinstance(recv, Obj) and recv.kind == "db:conn" and e.func.attr in ("cursor", "connect", "begin"):
+                return Obj("db:cursor", recv.attrs)
             if isinstance(recv, Obj) and recv.kind.startswith("gh:"):
                 kind = recv.kind[3:]
                 nxt = sdk.PYGITHUB_ACCESSORS.get((kind, e.func.attr))
@@ -1097,6 +1130,16 @@ class _Ctx:
                         return _Effect("fs", "filesystem.delete", recv.get("path") or Unknown("path"), via=f"pathlib.Path.{attr}")
                 if kind == "smtp" and attr in sdk.SMTP_SEND_METHODS:
                     return _Effect("email", "email.send", recv.get("host") or Unknown("host"), via=f"smtplib.SMTP.{attr}")
+                if kind in ("db:conn", "db:cursor") and attr in sdk.DB_EXECUTE_METHODS:
+                    via_base = (_as_str(recv.get("_via")).known() or "database") if recv.get("_via") else "database"
+                    return self._db_effect(arg(0, "sql") or arg(0, "query") or arg(0, "statement"), recv.get("dsn"), f"{via_base}.{attr}", heuristic=False)
+            elif attr in sdk.DB_EXECUTE_METHODS:
+                recv_name = _receiver_tail_name(call.func.value)
+                sql_expr = arg(0, "sql") or arg(0, "query") or arg(0, "statement")
+                if recv_name in sdk.DB_RECEIVER_HINTS and sql_expr is not None:
+                    eff = self._db_effect(sql_expr, None, f"{recv_name}.{attr}", heuristic=True, recv_node=call.func.value)
+                    if eff is not None:
+                        return eff
         return None
 
     def _open_mode_writes(self, call: ast.Call) -> bool:
@@ -1131,6 +1174,100 @@ class _Ctx:
             return self.eval(e.elts[0])
         v = self.eval(e)
         return v
+
+    def _db_effect(
+        self,
+        sql_expr: ast.expr | None,
+        dsn: Value | None,
+        via: str,
+        *,
+        heuristic: bool,
+        recv_node: ast.AST | None = None,
+    ) -> _Effect | None:
+        sql_val = _as_str(self.eval(sql_expr))
+        tmpl = sql_val.template().strip()
+        db_prefix = _dsn_database_name(dsn)
+        parsed = _parse_sql_mutation(tmpl, db_prefix)
+        if parsed is None:
+            if not heuristic and not sql_val.known():
+                return _Effect("db", "database.write", Str(sql_val.parts or (Unknown("SQL query"),), sql_val.sources), via=via)
+            if heuristic and not sql_val.known() and isinstance(sql_expr, ast.Name) and any(
+                tok in sql_expr.id.lower() for tok in ("sql", "query", "stmt", "statement", "delete", "drop")
+            ):
+                h_src = (self._src("heuristic", _receiver_tail_name(recv_node), recv_node, "untracked DB receiver"),)
+                return _Effect("db", "database.write", Str(sql_val.parts or (Unknown("SQL query"),), sql_val.sources + h_src), via=via)
+            return None
+        action, resource_or_none = parsed
+        extra_src = (self._src("heuristic", _receiver_tail_name(recv_node), recv_node, "untracked DB receiver"),) if heuristic else ()
+        if resource_or_none is None:
+            return _Effect(
+                "db",
+                action,
+                Str((Unknown("SQL target table"),) + tuple(sql_val.unknowns()), sql_val.sources + extra_src),
+                via=via,
+            )
+        return _Effect("db", action, Str((resource_or_none,), sql_val.sources + extra_src), via=via)
+
+
+_SQL_DELETE_RE = re.compile(
+    r"^\s*(?:DELETE\s+FROM|DROP\s+TABLE(?:\s+IF\s+EXISTS)?|TRUNCATE(?:\s+TABLE)?)\s+([^\s;(,]+)",
+    re.IGNORECASE,
+)
+_SQL_WRITE_RE = re.compile(
+    r"^\s*(?:INSERT\s+(?:OR\s+\w+\s+)?INTO|REPLACE\s+INTO|UPDATE)\s+([^\s;(,]+)",
+    re.IGNORECASE,
+)
+
+
+def _receiver_tail_name(expr: ast.AST | None) -> str:
+    if isinstance(expr, ast.Name):
+        return expr.id
+    if isinstance(expr, ast.Attribute):
+        return expr.attr
+    if isinstance(expr, ast.Call):
+        return _receiver_tail_name(expr.func)
+    return ""
+
+
+def _dsn_database_name(dsn: Value | None) -> str:
+    if not isinstance(dsn, Str):
+        return ""
+    known = dsn.known()
+    if not known:
+        return ""
+    cleaned = known.strip()
+    if "://" in cleaned:
+        tail = cleaned.split("://", 1)[1].split("?", 1)[0].rstrip("/")
+        if "/" in tail:
+            return tail.rsplit("/", 1)[-1].removesuffix(".db").removesuffix(".sqlite").removesuffix(".sqlite3")
+        return ""
+    base = os.path.basename(cleaned.rstrip("/"))
+    for ext in (".db", ".sqlite", ".sqlite3"):
+        if base.endswith(ext):
+            base = base[: -len(ext)]
+    return base if base and base != ":memory:" else ""
+
+
+def _parse_sql_mutation(tmpl: str, db_prefix: str = "") -> tuple[str, str | None] | None:
+    m_del = _SQL_DELETE_RE.match(tmpl)
+    if m_del:
+        action = "database.delete"
+        raw_target = m_del.group(1)
+    else:
+        m_write = _SQL_WRITE_RE.match(tmpl)
+        if not m_write:
+            return None
+        action = "database.write"
+        raw_target = m_write.group(1)
+    raw_target = raw_target.strip("\"`'[]")
+    if not raw_target or HOLE in raw_target or "*" in raw_target:
+        return action, None
+    norm_target = raw_target.replace(".", "/").strip("/")
+    if not norm_target:
+        return action, None
+    if "/" not in norm_target and db_prefix:
+        norm_target = f"{db_prefix}/{norm_target}"
+    return action, norm_target
 
 
 def _attr_path(obj: Obj) -> str:

@@ -9,19 +9,23 @@ See ``model.py`` for the evidence fields and ``routes.py`` for the action vocabu
 enforcement.
 """
 
+from .diff import AuthorityDiff, diff_authority, format_authority_diff
 from .model import AuthorityEvidence, AuthorityReport, ResourceState, ValueSource
 from .python import extract_authority, load_env_files, normalise_path
 from .routes import HOLE, HttpAuthority, classify_http, resource_matches
 
 __all__ = [
     "HOLE",
+    "AuthorityDiff",
     "AuthorityEvidence",
     "AuthorityReport",
     "HttpAuthority",
     "ResourceState",
     "ValueSource",
     "classify_http",
+    "diff_authority",
     "extract_authority",
+    "format_authority_diff",
     "load_env_files",
     "normalise_path",
     "resource_matches",

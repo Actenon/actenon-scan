@@ -346,9 +346,17 @@ def main(argv: list[str] | None = None) -> int:
         help="List every consequential capability as structured evidence (action, resource, provenance).",
     )
     authority_parser.add_argument("path", help="Project directory to analyse (Python).")
-    authority_parser.add_argument("--format", choices=["json", "text"], default="text")
+    authority_parser.add_argument("--format", choices=["json", "text", "diff"], default="text")
     authority_parser.add_argument("--include-tests", action="store_true", help="Also analyse test files.")
     authority_parser.add_argument("--no-env-files", action="store_true", help="Do not read .env / .env.local.")
+    authority_parser.add_argument(
+        "--diff",
+        nargs="?",
+        const="__EMPTY__",
+        default=None,
+        metavar="BASE_PATH",
+        help="Render an AIRLOCK AUTHORITY DIFF against BASE_PATH (or against an empty baseline when omitted).",
+    )
 
     install_parser = subparsers.add_parser(
         "install",
@@ -421,9 +429,23 @@ def main(argv: list[str] | None = None) -> int:
 def _cmd_authority(args: argparse.Namespace) -> int:
     import json as _json
 
-    from .authority import extract_authority
+    from .authority import diff_authority, extract_authority, format_authority_diff
 
     report = extract_authority(args.path, include_tests=args.include_tests, read_env_files=not args.no_env_files)
+    if getattr(args, "diff", None) is not None or args.format == "diff":
+        base_arg = getattr(args, "diff", None)
+        before = None if base_arg in (None, "__EMPTY__") else base_arg
+        diff = diff_authority(
+            before,
+            report,
+            include_tests=args.include_tests,
+            read_env_files=not args.no_env_files,
+        )
+        if args.format == "json":
+            print(_json.dumps(diff.to_dict(), indent=2))
+        else:
+            print(format_authority_diff(diff))
+        return 0
     if args.format == "json":
         print(_json.dumps(report.to_dict(), indent=2))
         return 0

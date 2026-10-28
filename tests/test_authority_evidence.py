@@ -490,3 +490,47 @@ def test_normalise_path_is_the_runtime_spelling():
     assert normalise_path("~/notes.md") == "~/notes.md"
     assert normalise_path("/var/log/x") == "/var/log/x"
     assert normalise_path("../escape") is None
+
+
+def test_database_mutations_and_airlock_authority_diff(tmp_path):
+    from actenon_scan.authority import diff_authority, format_authority_diff
+
+    before_dir = tmp_path / "before"
+    after_dir = tmp_path / "after"
+    before_report = scan(
+        before_dir,
+        {
+            "agent.py": """
+                import requests
+                def check():
+                    requests.get("https://api.stripe.com/v1/charges")
+            """
+        },
+    )
+    after_report = scan(
+        after_dir,
+        {
+            "agent.py": """
+                import psycopg, requests
+                def refund_and_purge(customer_id, dynamic_table):
+                    conn = psycopg.connect("postgresql://localhost/production")
+                    conn.execute("DELETE FROM production.customers WHERE id = %s", (customer_id,))
+                    requests.post("https://api.stripe.com/v1/refunds", json={"customer": customer_id})
+                    conn.execute(f"DELETE FROM {dynamic_table} WHERE id = %s", (customer_id,))
+            """
+        },
+    )
+
+    assert ("database.delete", "production/customers", "RESOLVED") in entries(after_report)
+    assert ("http.post", "api.stripe.com/v1/refunds", "RESOLVED") in entries(after_report)
+    assert ("database.delete", None, "UNRESOLVED") in entries(after_report)
+
+    diff = diff_authority(before_report, after_report)
+    rendered = format_authority_diff(diff)
+    assert "AIRLOCK AUTHORITY DIFF" in rendered
+    assert "+ database.delete production/customers [RESOLVED]" in rendered
+    assert "+ http.post api.stripe.com/v1/refunds [RESOLVED]" in rendered
+    assert "- http.get api.stripe.com/v1/charges [RESOLVED]" in rendered
+    assert "! database.delete UNRESOLVED (table) [UNRESOLVED — never widened to *]" in rendered
+    assert "*" not in [ev.resource for ev in after_report.evidence if ev.resource is not None]
+

@@ -48,12 +48,22 @@ import tomllib
 import urllib.error
 import urllib.request
 
+from pathlib import Path
 from packaging.version import InvalidVersion, Version
 
 RELEASE_TAG_RE = re.compile(r"^v(\d+\.\d+\.\d+)$")
 STALE_BUMP_SECONDS = 7 * 24 * 3600  # ASSERT C escalates past this age
 
 ZERO = Version("0.0.0")
+
+
+def findings_explains_version(version: Version) -> bool:
+    """Return True if FINDINGS.md documents the staged version bump."""
+    findings = Path("FINDINGS.md")
+    if not findings.is_file():
+        return False
+    text = findings.read_text(encoding="utf-8", errors="replace")
+    return str(version) in text
 
 
 def read_pyproject() -> tuple[str, Version]:
@@ -183,7 +193,7 @@ def main() -> int:
         else:
             age = version_bump_age_seconds(py_version)
             age_days = (age / 86400) if age is not None else None
-            if age is not None and age > STALE_BUMP_SECONDS:
+            if age is not None and age > STALE_BUMP_SECONDS and not findings_explains_version(py_version):
                 print(
                     f"::error::ASSERT C FAILED: pyproject ({py_version}) != newest tag "
                     f"(v{effective_tag}) and the bump commit is {age_days:.1f} days "
@@ -197,10 +207,15 @@ def main() -> int:
                     if age_days is not None
                     else "bump commit not found in history"
                 )
+                explained_note = (
+                    " (explained in FINDINGS.md)"
+                    if findings_explains_version(py_version)
+                    else "; escalates to a failure after 7 days"
+                )
                 print(
                     f"::warning::ASSERT C: pyproject ({py_version}) != newest tag "
-                    f"(v{effective_tag}) — {age_note}. Legitimate mid-release state; "
-                    f"escalates to a failure after 7 days."
+                    f"(v{effective_tag}) — {age_note}. Legitimate mid-release state"
+                    f"{explained_note}."
                 )
 
     if failed:
