@@ -47,7 +47,12 @@ def _load_rules() -> dict:
 # 0. Pinned protocol version (dev-only)
 # ---------------------------------------------------------------------------
 
-EXPECTED_PROTOCOL_VERSION = "1.1.0"
+# Wire version of the coordinated candidate Protocol (package 1.6.0, pinned in
+# .github/candidate-constraints.txt like Kernel and Permit). Protocol's
+# CHANGELOG: wire 1.2.0 (package 1.5.0) and 1.3.0 (package 1.6.0) are additive
+# minors that keep 1.0.0/1.1.0 artefacts valid, and drift tests asserting
+# "1.1.0" "update that expectation when they take this pin".
+EXPECTED_PROTOCOL_VERSION = "1.3.0"
 
 
 def test_protocol_version_is_pinned_in_dev_deps():
