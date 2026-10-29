@@ -877,3 +877,15 @@ silently, exactly as it has here.
 - `pyproject.toml` is staged at `1.6.0` ahead of the `v1.6.0` release tag and PyPI publication (`v1.5.0` remains the latest tagged/published release on PyPI).
 - Tagging `v1.6.0` is intentionally deferred until all downstream repositories (`actenon-protocol`, `actenon-kernel`, `actenon-scan`, `sdk-go`, `sdk-rust`, `actenon-permit`, `actenon-airlock`) pass cross-repo verification on `main`, so `ASSERT B` (`newest_tag == pypi_latest`) and `ASSERT C` (`pyproject_version` documented in `FINDINGS.md`) remain coherent throughout staging.
 
+```version-waiver
+{
+  "package": "actenon-scan",
+  "staged_version": "1.6.0",
+  "published_version": "1.5.0",
+  "status": "RELEASE_BLOCKED",
+  "owner": "rossbuckley1990-hash",
+  "reason": "Staged candidate awaiting owner-authorised v1.6.0 tag and PyPI publication after cross-repo acceptance gates pass.",
+  "expires_at": "2026-11-08"
+}
+```
+
