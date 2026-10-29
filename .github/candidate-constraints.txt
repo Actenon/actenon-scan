@@ -1,5 +1,5 @@
 # Coordinated candidate testing only. Remove before registry release.
-# Same Protocol commit Kernel and Permit pin (wire 1.3.0, package 1.6.0,
+# Protocol PR #26 head, as Kernel and Permit pin (wire 1.3.0, package 1.6.0,
 # unpublished). Scan's runtime has zero dependencies; this constrains only
 # the dev-only drift gate. Published PyPI 1.4.0 still reports wire 1.1.0.
-actenon-protocol @ git+https://github.com/Actenon/actenon-protocol.git@d79af481be6badc99b13e15118026b96883fa171
+actenon-protocol @ git+https://github.com/Actenon/actenon-protocol.git@a2e0e08fcd24b71eb1668204ba6bed00e4c63551
