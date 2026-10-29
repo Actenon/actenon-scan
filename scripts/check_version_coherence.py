@@ -49,8 +49,12 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-import tomllib
 from packaging.version import InvalidVersion, Version
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10: tomllib joined the stdlib in 3.11
+    import tomli as tomllib
 
 RELEASE_TAG_RE = re.compile(r"^v(\d+\.\d+\.\d+)$")
 STALE_BUMP_SECONDS = 7 * 24 * 3600  # ASSERT C escalates past this age
