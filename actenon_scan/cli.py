@@ -10,6 +10,7 @@ from pathlib import Path
 
 from actenon_scan.engine import scan_path, scan_path_parallel
 from actenon_scan.report.json_out import format_json
+from actenon_scan.report.airlock_handoff import scan_command
 from actenon_scan.report.pretty import format_pretty, format_list
 from actenon_scan.report.sarif import format_sarif
 from actenon_scan.suppress import collect_suppressions_from_file
@@ -746,6 +747,20 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _airlock_handoff_for(args: argparse.Namespace, result):
+    """Airlock handoff for the most-exposed finding of a single-directory scan, or None."""
+    from actenon_scan.report.airlock_handoff import find_airlock_handoff
+    from actenon_scan.report.blast_radius import select_most_exposed
+
+    paths = [Path(p) for p in getattr(args, "path", []) or []]
+    if len(paths) != 1 or not paths[0].is_dir():
+        return None
+    most_exposed = select_most_exposed([f for f in result.findings if not f.suppressed])
+    if most_exposed is None:
+        return None
+    return find_airlock_handoff(paths[0], most_exposed.file, most_exposed.line, category=most_exposed.category)
+
+
 def _emit_scan_output(args: argparse.Namespace, result, elapsed) -> None:
     """Render ``result`` in ``args.format`` to ``args.output`` or stdout."""
     if args.format == "json":
@@ -762,7 +777,12 @@ def _emit_scan_output(args: argparse.Namespace, result, elapsed) -> None:
         output = format_markdown(result, elapsed=elapsed)
     else:
         # Default: blast-radius summary
-        output = format_pretty(result, elapsed=elapsed)
+        output = format_pretty(
+            result,
+            elapsed=elapsed,
+            command=scan_command(),
+            handoff=_airlock_handoff_for(args, result),
+        )
 
     if args.output:
         Path(args.output).write_text(output)
@@ -1020,11 +1040,14 @@ def _cmd_adopt(args: argparse.Namespace) -> int:
         print("       -> pip install actenon-kernel")
         print("       -> verify_pccb() before the sink call")
         print("    4. Use brokered Actenon protection (local):")
-        print("       -> pip install actenon-permit")
-        print("       -> Actenon.local() + register_adapter_tool()")
+        print("       -> Python agents: Actenon Airlock (pre-release) packages discovery,")
+        print("          approval and the broker; see docs/AIRLOCK.md in actenon-scan")
+        print("       -> Or use Permit directly: pip install actenon-permit,")
+        print("          Actenon.local() + register_adapter_tool()")
         print("       -> The broker resolves the credential; agent never sees it")
         print("    5. Use Cloud-managed Actenon:")
-        print("       -> Deploy actenon-cloud")
+        print("       -> Deploy actenon-cloud (source-available to Actenon org members;")
+        print("          not publicly installable)")
         print("       -> Cloud issues grants, manages credentials, runs the broker")
         print("       -> Evidence bundle with 9 independent layers")
         print("    6. Use resource-owned verification:")
@@ -1273,12 +1296,27 @@ def _cmd_explain(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    output = format_explain(brief)
+    output = format_explain(brief, handoff=_explain_handoff(file_path, line, brief.sink.category))
     if args.output:
         Path(args.output).write_text(output, encoding="utf-8")
     else:
         print(output)
     return 0
+
+
+def _explain_handoff(file_path: Path, line: int, category: str):
+    """Airlock handoff for ``explain``: the project root is the current directory when the
+    finding's file is under it, otherwise the file's own directory."""
+    from actenon_scan.report.airlock_handoff import find_airlock_handoff
+
+    resolved = file_path.resolve()
+    cwd = Path.cwd().resolve()
+    try:
+        rel = resolved.relative_to(cwd)
+        root = cwd
+    except ValueError:
+        root, rel = resolved.parent, Path(resolved.name)
+    return find_airlock_handoff(root, rel.as_posix(), line, category=category)
 
 
 def _cmd_fix(args: argparse.Namespace) -> int:
