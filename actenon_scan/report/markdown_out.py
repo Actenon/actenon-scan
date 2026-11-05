@@ -12,10 +12,13 @@ from actenon_scan.engine import ScanResult
 from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_LIMITATIONS,
     CLEAN_SCAN_STATEMENT,
+    analysis_incomplete_statement,
     consequence_label,
     group_by_consequence,
+    parse_failures,
     select_most_exposed,
     transitive_disclosure_line,
+    verified_statement,
 )
 
 
@@ -30,16 +33,19 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
     lines.append(f"**Files scanned:** {result.files_scanned}  ")
     lines.append(f"**Findings:** {len(unsuppressed)}{timing}")
     lines.append("")
+    incomplete = analysis_incomplete_statement(result)
+    if incomplete is not None:
+        # First thing after the counts, in both the clean and findings
+        # reports: "Files scanned" includes files that could not be parsed.
+        lines.append(f"> **{incomplete}**")
+        lines.append("")
 
     if not unsuppressed:
         lines.append(f"> {CLEAN_SCAN_STATEMENT}")
         lines.append("")
         lines.append("## What this scan verified")
         lines.append("")
-        lines.append(
-            "Supported source files were parsed and analysed for agent-reachable "
-            "consequential actions without a dominating authority check."
-        )
+        lines.append(_capitalised(verified_statement(result)))
         lines.append("")
         lines.append("## What this scan did not verify")
         lines.append("")
@@ -48,6 +54,9 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
             "the analysed path, external reachability, or practical exploitability. "
             "See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits."
         )
+        # The clean report returned before listing these; a clean result
+        # must still say which files it never analysed.
+        lines.extend(_coverage_gap_lines(result))
         # Task 5-A1: transitive-reachability disclosure. Only rendered
         # when the repo layer actually ran. Omitted when the user passed
         # --no-repository-analysis to preserve pre-5-A1 output shape.
@@ -112,17 +121,13 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
     # Honesty statement
     lines.append("## What this scan verified / did not verify")
     lines.append("")
-    lines.append("**Verified:** supported source files were parsed and analysed for agent-reachable consequential actions without a dominating authority check.")
+    lines.append(f"**Verified:** {verified_statement(result)}")
     lines.append("")
     lines.append("**Not verified:** unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.")
     lines.append("")
     lines.append("See [docs/COVERAGE.md](https://github.com/Actenon/actenon-scan/blob/main/docs/COVERAGE.md) for supported architectures and analysis limits.")
 
-    # Unsupported files
-    if result.unsupported_files:
-        lines.append("")
-        lang_counts = Counter(lang for _, lang in result.unsupported_files)
-        lines.append(f"**Note:** {len(result.unsupported_files)} file(s) NOT scanned — unsupported: {dict(lang_counts)}")
+    lines.extend(_coverage_gap_lines(result))
 
     # Task 1b: transitive disclosure in findings case too.
     disclosure = transitive_disclosure_line(result)
@@ -133,3 +138,26 @@ def format_markdown(result: ScanResult, *, elapsed: float | None = None) -> str:
         lines.append(disclosure)
 
     return "\n".join(lines) + "\n"
+
+
+def _capitalised(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _coverage_gap_lines(result: ScanResult) -> list[str]:
+    """Files that were not analysed: parse failures (listed) and unsupported languages."""
+    lines: list[str] = []
+    failures = parse_failures(result)
+    if failures:
+        lines.append("")
+        lines.append(f"**Not analysed:** {len(failures)} supported file(s) could not be parsed:")
+        lines.append("")
+        for rel, err in failures[:20]:
+            lines.append(f"- `{rel}`: {err}")
+        if len(failures) > 20:
+            lines.append(f"- ... and {len(failures) - 20} more")
+    if result.unsupported_files:
+        lines.append("")
+        lang_counts = Counter(lang for _, lang in result.unsupported_files)
+        lines.append(f"**Note:** {len(result.unsupported_files)} file(s) NOT scanned — unsupported: {dict(lang_counts)}")
+    return lines

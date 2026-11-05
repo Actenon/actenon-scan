@@ -167,8 +167,10 @@ runs:
           HIGH=$(python3 -c "import json; d=json.load(open('results.json')); print(len([f for f in d.get('findings',[]) if f.get('severity')=='high' and not f.get('suppressed')]))" 2>/dev/null || echo "0")
           MEDIUM=$(python3 -c "import json; d=json.load(open('results.json')); print(len([f for f in d.get('findings',[]) if f.get('severity')=='medium' and not f.get('suppressed')]))" 2>/dev/null || echo "0")
           LOW=$(python3 -c "import json; d=json.load(open('results.json')); print(len([f for f in d.get('findings',[]) if f.get('severity')=='low' and not f.get('suppressed')]))" 2>/dev/null || echo "0")
+          ERRORED=$(python3 -c "import json; d=json.load(open('results.json')); print(int((d.get('errored') or {}).get('count', 0)))" 2>/dev/null || echo "0")
+          UNSUPPORTED=$(python3 -c "import json; d=json.load(open('results.json')); print(int((d.get('unsupported') or {}).get('count', 0)))" 2>/dev/null || echo "0")
         else
-          FINDINGS=0; HIGH=0; MEDIUM=0; LOW=0
+          FINDINGS=0; HIGH=0; MEDIUM=0; LOW=0; ERRORED=0; UNSUPPORTED=0
         fi
         echo "findings-count=$FINDINGS" >> "$GITHUB_OUTPUT"
         echo "high-count=$HIGH" >> "$GITHUB_OUTPUT"
@@ -177,9 +179,14 @@ runs:
         echo "sarif-path=results.sarif" >> "$GITHUB_OUTPUT"
         echo "Findings: $FINDINGS (high=$HIGH, medium=$MEDIUM, low=$LOW)"
 
-        # Check for unsupported files (RULE 7 — never silently scan nothing)
-        if grep -q "NOT scanned" scan-output.txt 2>/dev/null; then
-          echo "⚠️  Some files were NOT scanned (unsupported language). See output above." >&2
+        # Never let a clean-looking result hide files that were not analysed
+        # (RULE 7). Read from results.json: the JSON and SARIF passes write to
+        # files, so their console output never contains the report text.
+        if [ "$ERRORED" != "0" ]; then
+          echo "::warning title=Actenon Scan analysis incomplete::$ERRORED supported file(s) could not be parsed and were NOT analysed; findings in them are unknown. See 'errored' in results.json."
+        fi
+        if [ "$UNSUPPORTED" != "0" ]; then
+          echo "::warning title=Actenon Scan::$UNSUPPORTED file(s) NOT scanned (unsupported language). See 'unsupported' in results.json."
         fi
         exit 0
 
@@ -265,6 +272,10 @@ runs:
         lines.append(">")
         lines.append("> These are scanner **candidates**, not confirmed vulnerabilities. Each must be manually reviewed for reachability, caller control, and guard dominance.")
         lines.append("")
+        errored = int((data.get("errored") or {}).get("count", 0))
+        if errored:
+            lines.append(f"> **ANALYSIS INCOMPLETE:** {errored} supported file(s) could not be parsed and were NOT analysed; anything in them is unknown.")
+            lines.append("")
 
         # Consequence map
         cat_labels = {

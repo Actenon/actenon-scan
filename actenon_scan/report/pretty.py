@@ -13,8 +13,9 @@ from collections import Counter
 
 from actenon_scan.engine import ScanResult, Finding
 from actenon_scan.report.blast_radius import (
-    CLEAN_SCAN_LIMITATIONS,
     CLEAN_SCAN_STATEMENT,
+    analysis_incomplete_statement,
+    clean_scan_limitations,
     consequence_label,
     default_exclude_disclosure_line,
     group_by_consequence,
@@ -46,6 +47,9 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
             cap_lines.append("")
             timing = f" ({elapsed:.2f}s)" if elapsed is not None else ""
             cap_lines.append(f"{result.files_scanned} files scanned{timing}")
+            # No other part of the all-guarded summary lists files that
+            # failed to parse, so list them here, not only the count.
+            cap_lines.extend(_incomplete_lines(result, list_files=True))
             if result.unsupported_files:
                 cap_lines.append("")
                 cap_lines.extend(_format_unsupported(result))
@@ -122,6 +126,8 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     lines.append(
         f"{len(unsuppressed)} findings in {result.files_scanned} files{timing}"
     )
+    # The failed files themselves are listed under "analysis errors" below.
+    lines.extend(_incomplete_lines(result, list_files=False))
 
     # Next steps
     if most_exposed is not None:
@@ -182,6 +188,36 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _format_unsupported(result: ScanResult) -> list[str]:
+    """The NOT-scanned notice for files in languages Scan cannot analyse.
+
+    Used by the all-guarded capability summary, which previously called
+    this helper without it existing (a NameError for any repository whose
+    capabilities were all guarded and which contained an unsupported file).
+    """
+    lines: list[str] = []
+    lang_counts = Counter(lang for _, lang in result.unsupported_files)
+    lines.append(
+        f"  {len(result.unsupported_files)} file(s) NOT scanned — "
+        f"unsupported language(s): {dict(lang_counts)}."
+    )
+    extras = set()
+    has_unsupported = False
+    for _, lang in result.unsupported_files:
+        if "TypeScript" in lang or "JavaScript" in lang:
+            extras.add("typescript")
+        elif "Go" in lang:
+            extras.add("go")
+        else:
+            has_unsupported = True
+    if extras:
+        install_hint = " or ".join(f'"actenon-scan[{e}]"' for e in sorted(extras))
+        lines.append(f"  Install with:  pip install {install_hint}")
+    if has_unsupported:
+        lines.append("  actenon-scan parses Python, TypeScript, and Go. Other languages are not supported.")
+    return lines
+
+
 def _format_capability_summary(result: ScanResult) -> list[str]:
     """Format the capability summary for the blast-radius output.
 
@@ -212,8 +248,10 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
     lines.append(f"actenon-scan: scanned {result.files_scanned} file(s){timing}.")
     lines.append("")
     lines.append(CLEAN_SCAN_STATEMENT)
+    # Right under the "nothing found" line, so it cannot be read alone.
+    lines.extend(_incomplete_lines(result, list_files=False))
     lines.append("")
-    lines.append(CLEAN_SCAN_LIMITATIONS)
+    lines.append(clean_scan_limitations(result))
     lines.append("")
     # Task 5-A1: transitive-reachability disclosure. Only rendered when
     # the repo layer actually ran (``repository_analysis_enabled=True``).
@@ -283,6 +321,10 @@ def format_list(result: ScanResult) -> str:
         f"actenon-scan: {len(unsuppressed)} finding(s) in {len(by_file)} file(s) "
         f"(scanned {result.files_scanned} file(s))"
     )
+    # Analysis errors are listed at the end; state the gap up front too.
+    statement = analysis_incomplete_statement(result)
+    if statement is not None:
+        lines.append(statement)
     lines.append("")
 
     for filepath in sorted(by_file):
@@ -330,6 +372,24 @@ def format_list(result: ScanResult) -> str:
         lines.append("")
 
     return "\n".join(lines) + "\n"
+
+
+def _incomplete_lines(result: ScanResult, *, list_files: bool) -> list[str]:
+    """The ANALYSIS INCOMPLETE statement (and optionally the failed files), or nothing.
+
+    Starts with a blank separator line. ``list_files`` is for report paths
+    that do not list analysis errors anywhere else.
+    """
+    statement = analysis_incomplete_statement(result)
+    if statement is None:
+        return []
+    lines = ["", statement]
+    if list_files:
+        for rel, err in result.analysis_errors[:10]:
+            lines.append(f"  {rel}: {err}")
+        if len(result.analysis_errors) > 10:
+            lines.append(f"  ... and {len(result.analysis_errors) - 10} more")
+    return lines
 
 
 def _short_call_name(call_text: str) -> str:
