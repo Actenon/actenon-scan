@@ -264,6 +264,21 @@ Remediation is offered in neutral order: repository-native guard first,
 framework-native approval second, Actenon proof verification third.
 Actenon is not forced into every recommendation.
 
+## Optional: runtime control with Airlock
+
+**Discover with Scan. Protect and verify with Airlock. Built on Permit, Kernel and Protocol.**
+
+Scan is complete on its own. For one consequence, a GitHub file write from a Python agent
+(`github.contents.write`, e.g. PyGithub `create_file`), the default report also shows what
+[Actenon Airlock](https://github.com/Actenon/actenon-airlock) would do at runtime. If the
+repository is fixed in code, you can review and approve exactly that power, and Airlock refuses
+calls outside it. If the model chooses the repository, Scan says plainly that Airlock would keep
+the call blocked, and the repository-native guard stays the answer.
+
+Airlock is pre-release and not on a package registry. Local Mode enforces approval but does not
+verify the outcome on GitHub. Scan never installs, imports or approves anything in Airlock. What is
+and is not supported, with a checked walkthrough: [docs/AIRLOCK.md](docs/AIRLOCK.md).
+
 ## How to add it to a PR
 
 ### GitHub Action (sticky comment + SARIF, zero config)
@@ -606,12 +621,12 @@ Each finding ships with seven remediation routes. Scan does not pretend Actenon 
 1. **Add an existing internal guard.** If your codebase already has a guard function Scan didn't recognise, just add it via `actenon-scan init` and the finding disappears.
 2. **Register the guard with Scan.** Same as above — Scan treats your guards as first-class.
 3. **Use Actenon Kernel (proof verification).** For when you want proof-bound execution at the resource boundary. The Kernel is the trust anchor; it works without Permit or Cloud.
-4. **Use brokered Actenon protection (Permit + adapter).** For when you control the agent framework and want credentials never to reach the agent. The recommended developer on-ramp.
+4. **Use brokered Actenon protection.** For when you want credentials never to reach the agent. For Python agents, [Airlock](docs/AIRLOCK.md) packages discovery, approval and the broker into one CLI (pre-release). [Permit](https://github.com/Actenon/actenon-permit) is the underlying broker library, usable directly from your own framework code.
 5. **Use resource-owned verification.** For when the resource itself is the protected endpoint (FastAPI route, Express endpoint, Go handler). The Boundary Kit automates this.
-6. **Use Cloud-managed Actenon.** For when you want a hosted control plane with 9-layer evidence bundles. Optional.
+6. **Use Cloud-managed Actenon.** For when you want a hosted control plane with 9-layer evidence bundles. Optional; `actenon-cloud` is source-available to Actenon organisation members and not publicly installable.
 7. **Redesign the boundary.** Sometimes the right answer is to remove the consequential action from the agent's reachable tool surface entirely.
 
-**Cloud is optional.** Local brokered protection (route 4) works without any Cloud login.
+**Cloud is optional.** Local brokered protection (route 4) works without any Cloud login or account.
 
 ## What's in this repo
 
