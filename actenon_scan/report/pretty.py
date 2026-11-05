@@ -182,6 +182,36 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _format_unsupported(result: ScanResult) -> list[str]:
+    """The NOT-scanned notice for files in languages Scan cannot analyse.
+
+    Used by the all-guarded capability summary, which previously called
+    this helper without it existing (a NameError for any repository whose
+    capabilities were all guarded and which contained an unsupported file).
+    """
+    lines: list[str] = []
+    lang_counts = Counter(lang for _, lang in result.unsupported_files)
+    lines.append(
+        f"  {len(result.unsupported_files)} file(s) NOT scanned — "
+        f"unsupported language(s): {dict(lang_counts)}."
+    )
+    extras = set()
+    has_unsupported = False
+    for _, lang in result.unsupported_files:
+        if "TypeScript" in lang or "JavaScript" in lang:
+            extras.add("typescript")
+        elif "Go" in lang:
+            extras.add("go")
+        else:
+            has_unsupported = True
+    if extras:
+        install_hint = " or ".join(f'"actenon-scan[{e}]"' for e in sorted(extras))
+        lines.append(f"  Install with:  pip install {install_hint}")
+    if has_unsupported:
+        lines.append("  actenon-scan parses Python, TypeScript, and Go. Other languages are not supported.")
+    return lines
+
+
 def _format_capability_summary(result: ScanResult) -> list[str]:
     """Format the capability summary for the blast-radius output.
 
