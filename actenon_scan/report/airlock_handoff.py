@@ -39,8 +39,13 @@ SUPPORTED_ACTIONS = frozenset({"github.contents.write"})
 #: for findings the handoff could never apply to.
 SUPPORTED_FINDING_CATEGORIES = frozenset({"repository_mutation"})
 
-#: Airlock is not published to a package registry yet. Keep this in step with the Airlock README.
-AIRLOCK_INSTALL = 'pip install "git+https://github.com/Actenon/actenon-airlock.git"'
+#: Airlock is not published to a package registry yet, so this installs one exact, reviewed
+#: commit: the same one the Airlock README installs. An unpinned install would follow Airlock's
+#: default branch, which can be an older product than the one these commands describe. Local
+#: Mode runs inside the agent's own interpreter, so this goes into the agent's virtual
+#: environment (pipx would isolate Airlock from the agent's dependencies).
+AIRLOCK_COMMIT = "15f5db3234f48062c894f57df65b3e17971b92f1"
+AIRLOCK_INSTALL = f'python -m pip install "git+https://github.com/Actenon/actenon-airlock.git@{AIRLOCK_COMMIT}"'
 AIRLOCK_GUIDE = "https://github.com/Actenon/actenon-scan/blob/main/docs/AIRLOCK.md"
 
 _ENTRY_PLACEHOLDER = "<entry>"
@@ -212,7 +217,7 @@ def format_handoff(h: AirlockHandoff, *, indent: str = "  ") -> list[str]:
         commands = [(AIRLOCK_INSTALL, ""), (f"airlock init --command {script}", "review only; approves nothing")]
     if h.entry_script is None:
         lines.append(f"{indent}(Replace {_ENTRY_PLACEHOLDER} with the script that starts your agent.)")
-    lines.append(f"{indent}In your agent's Python environment:")
+    lines.append(f"{indent}In your agent's Python environment (its virtual environment, not the system Python):")
     width = max(len(cmd) for cmd, note in commands if note)
     for cmd, note in commands:
         lines.append(f"{indent}  {cmd.ljust(width)}  # {note}" if note else f"{indent}  {cmd}")

@@ -174,7 +174,7 @@ def test_fixed_repository_gets_review_approve_run(tmp_path):
     assert "airlock init --command app/server.py" in text
     assert "airlock init --approve --command app/server.py" in text
     assert "airlock run -- app/server.py" in text
-    assert "In your agent's Python environment:" in text
+    assert "In your agent's Python environment (its virtual environment, not the system Python):" in text
     assert "Keep GITHUB_TOKEN in the shell that runs airlock" in text
     assert "<entry>" not in text
 
@@ -376,3 +376,18 @@ def test_next_steps_default_to_plain_command_outside_uv(monkeypatch, tmp_path):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.setattr(sys, "prefix", str(tmp_path / "cache" / "archive-v0" / "x"))
     assert ah.scan_command() == "actenon-scan"
+
+
+def test_the_airlock_install_pins_one_exact_commit():
+    """An unpinned install follows Airlock's default branch, which may be an older product."""
+    import re
+
+    from actenon_scan.report import airlock_handoff
+
+    assert re.fullmatch(r"[0-9a-f]{40}", airlock_handoff.AIRLOCK_COMMIT)
+    assert airlock_handoff.AIRLOCK_INSTALL.endswith(f'@{airlock_handoff.AIRLOCK_COMMIT}"')
+    assert airlock_handoff.AIRLOCK_INSTALL.startswith("python -m pip install ")
+    docs = (Path(__file__).resolve().parents[1] / "docs" / "AIRLOCK.md").read_text()
+    pinned = set(re.findall(r"actenon-airlock\.git@([0-9a-f]{40})", docs))
+    assert pinned == {airlock_handoff.AIRLOCK_COMMIT}
+    assert 'actenon-airlock.git"' not in docs
