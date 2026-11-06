@@ -98,7 +98,7 @@ and scan again. Scan now prints the exact power and the commands. Run them in th
 Python environment (its dependencies must be installed there):
 
 ```console
-$ python -m pip install "git+https://github.com/Actenon/actenon-airlock.git@15f5db3234f48062c894f57df65b3e17971b92f1"
+$ python -m pip install "git+https://github.com/Actenon/actenon-airlock.git@733bd48bb391cc4e7fee1c3810bc22b79d0d2c9a"
 $ airlock init --command app/server.py
 + github.contents.write @ github.com/acme/release-notes
   Scope: GitHub contents.write on github.com/acme/release-notes through https://api.github.com
@@ -161,7 +161,7 @@ and [Protected Mode](https://github.com/Actenon/actenon-airlock/blob/main/docs/p
 ## Status
 
 - Airlock is **not published to a package registry**, and not released. The install command above
-  pins one exact, reviewed commit (`15f5db3234f4`), the same one the Airlock README installs, so it
+  pins one exact, reviewed commit (`733bd48bb391`), the same one the Airlock README installs, so it
   does not change under you. Install it into the agent's virtual environment: a system Python
   such as Homebrew's refuses `pip install` (PEP 668), and Local Mode needs the agent's own
   dependencies next to Airlock.

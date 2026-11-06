@@ -44,7 +44,7 @@ SUPPORTED_FINDING_CATEGORIES = frozenset({"repository_mutation"})
 #: default branch, which can be an older product than the one these commands describe. Local
 #: Mode runs inside the agent's own interpreter, so this goes into the agent's virtual
 #: environment (pipx would isolate Airlock from the agent's dependencies).
-AIRLOCK_COMMIT = "15f5db3234f48062c894f57df65b3e17971b92f1"
+AIRLOCK_COMMIT = "733bd48bb391cc4e7fee1c3810bc22b79d0d2c9a"
 AIRLOCK_INSTALL = f'python -m pip install "git+https://github.com/Actenon/actenon-airlock.git@{AIRLOCK_COMMIT}"'
 AIRLOCK_GUIDE = "https://github.com/Actenon/actenon-scan/blob/main/docs/AIRLOCK.md"
 
