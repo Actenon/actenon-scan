@@ -161,7 +161,7 @@ and [Protected Mode](https://github.com/Actenon/actenon-airlock/blob/main/docs/p
 ## Status
 
 - Airlock is **not published to a package registry**, and not released. The install command above
-  pins one exact, reviewed commit (`733bd48bb391`), the same one the Airlock README installs, so it
+  pins one exact commit (`733bd48bb391`), the same one the Airlock README installs, so it
   does not change under you. Install it into the agent's virtual environment: a system Python
   such as Homebrew's refuses `pip install` (PEP 668), and Local Mode needs the agent's own
   dependencies next to Airlock.

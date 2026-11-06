@@ -39,7 +39,7 @@ SUPPORTED_ACTIONS = frozenset({"github.contents.write"})
 #: for findings the handoff could never apply to.
 SUPPORTED_FINDING_CATEGORIES = frozenset({"repository_mutation"})
 
-#: Airlock is not published to a package registry yet, so this installs one exact, reviewed
+#: Airlock is not published to a package registry yet, so this installs one exact
 #: commit: the same one the Airlock README installs. An unpinned install would follow Airlock's
 #: default branch, which can be an older product than the one these commands describe. Local
 #: Mode runs inside the agent's own interpreter, so this goes into the agent's virtual
