@@ -889,3 +889,25 @@ silently, exactly as it has here.
 }
 ```
 
+### Waiver renewal — 2026-11-09 (release hardening)
+
+The waiver above expired on 2026-11-08 and is kept unchanged as the record of
+the original staging decision; `check_version_coherence.py` skips an expired
+block and validates the next one. This renewal keeps the same bounded rules
+(exact `staged_version`, exact `published_version`, `RELEASE_BLOCKED`, at most
+14 days). It is still not a release approval. `--mode release` and the publish
+workflow's release gate reject any waiver, and the gate also refuses to
+publish while `.github/candidate-constraints.txt` pins the unpublished
+Protocol candidate.
+
+```version-waiver
+{
+  "package": "actenon-scan",
+  "staged_version": "1.6.0",
+  "published_version": "1.5.0",
+  "status": "RELEASE_BLOCKED",
+  "owner": "rossbuckley1990-hash",
+  "reason": "Staged candidate with the hardened release gate, awaiting Protocol 1.6.0 on PyPI, removal of the candidate Protocol pin, the repository release controls, and an owner-authorised v1.6.0 tag.",
+  "expires_at": "2026-11-23"
+}
+```

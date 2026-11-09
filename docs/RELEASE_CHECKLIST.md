@@ -13,11 +13,53 @@ Lessons from WO1.9 (v1.3.0 release) and WO1.10-1.11.
 7. **Scratch repo negative test** — run the release gate against v1.1.0 (known-bad, no Go guard recognition). Must FAIL.
    - Scratch repo: https://github.com/rossbuckley1990-hash/actenon-scan-v1-verification
 
+## Release controls (owner applies once)
+
+`scripts/release_gate.py gate` reads the three GitHub settings below (environment, tag rulesets,
+`main` protection) through the public API on every release, and fails closed if any is missing.
+PyPI's trusted publisher cannot be read from GitHub. Without it, upload fails, because there is
+no other credential:
+
+- **PyPI trusted publisher** for `actenon-scan`: owner `Actenon`, repository `actenon-scan`,
+  workflow `publish.yml`, environment `pypi`. Then delete the `PYPI_API_TOKEN` repository secret
+  and revoke that token on PyPI. `publish.yml` has no token route, and its `verify-registry` job
+  fails unless each uploaded file carries a trusted-publishing attestation from this workflow.
+- **`pypi` environment**: required reviewer = the release owner, deployments from tags matching
+  `v*.*.*` only, and "Allow administrators to bypass configured protection rules" **off**.
+  `python scripts/release_gate.py print-environment --reviewer-id "$(gh api users/<login> --jq .id)"`
+  prints the settings.
+- **Release-tag rulesets**: `python scripts/release_gate.py print-tag-rulesets` prints them. Only
+  repository admins can create `refs/tags/v*.*.*`, and nobody can update or delete one. The
+  pattern deliberately does not match the moving Action tag `v1`, which `release-v1-tag.yml`
+  advances.
+- **`main` branch protection**: `python scripts/release_gate.py print-protection | gh api -X PUT
+  repos/Actenon/actenon-scan/branches/main/protection --input -`. This requires every
+  `pull_request` check from GitHub Actions (app 15368) and applies to admins.
+- **Merge method**: merge release PRs with a merge commit (not squash or rebase), so the commit
+  whose checks passed is the commit that lands on `main` and gets tagged.
+
 ## Release sequence
 
-8. **Push branch, open PR, merge to main.** All CI must be green.
-9. **Push the tag** (e.g. `v1.4.0`). This triggers `publish.yml` (PyPI via trusted publishing/OIDC). **First irreversible step.**
-10. **STOP.** Verify from fresh PyPI venv:
+8. **Open the release PR and merge it to `main` with a merge commit.** Every check in
+   `.github/required-checks.json` must be green on the PR head. The head must contain no
+   `.github/candidate-constraints.txt` and no `PIP_CONSTRAINT`, because the gate refuses any
+   candidate source pin.
+9. **Tag the PR head commit**, which is now on `main`: `git tag -a v<version> <sha> -m "v<version>"`
+   and `git push origin v<version>`. This triggers `publish.yml`:
+   - `release-gate` checks the tag, `main` ancestry, the required checks on that exact commit, and
+     the release controls.
+   - `build` builds once, reproducibly (`SOURCE_DATE_EPOCH` = commit time), smoke-tests the wheel,
+     and records `SHA256SUMS`.
+   - `publish` **waits for the owner to approve the `pypi` deployment**. Approve only after reading
+     the gate log and the recorded hashes. **This approval is the first irreversible step.**
+   - `verify-registry` checks that PyPI serves exactly the approved, attested files, installs them
+     with `--require-hashes` into a clean venv, compares the installed files to the approved wheel
+     byte for byte, runs a real scan, and runs `check_version_coherence.py --mode release`.
+
+   There is no manual dispatch. If a job fails, re-run it on the same tag, or fix forward with a
+   new version.
+10. **STOP.** Check `verify-registry`'s `registry-verification` artifact. Then verify from a fresh
+    PyPI venv:
     - `pip install 'actenon-scan[typescript,go]==<version>'` — no warnings
     - `actenon-scan --version` — reports the new version
     - Go fixture: guarded case suppresses

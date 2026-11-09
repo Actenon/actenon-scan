@@ -12,14 +12,9 @@ name: actenon-scan-sarif
 on:
   push:
     branches: [main]
+  # Unfiltered: a required release check must be produced on every commit
+  # (.github/required-checks.json; scripts/release_gate.py validate).
   pull_request:
-    paths:
-      - '**/*.py'
-      - '**/*.ts'
-      - '**/*.tsx'
-      - '**/*.js'
-      - '**/*.jsx'
-      - '**/*.go'
   schedule:
     # Run nightly at 02:00 UTC to catch new findings from rule updates.
     - cron: '0 2 * * *'
