@@ -67,17 +67,110 @@ def test_repository_contract_and_publish_workflow_validate():
     assert rg.validate(ROOT) == 0
 
 
+# publish.yml as of 16388227 (Scan PR #103 head), verbatim: dispatchable, ungated, with an
+# API-token fallback. Embedded rather than read from git history, so this test also runs in
+# CI's shallow checkout.
+OLD_PUBLISH_WORKFLOW = """\
+name: Publish to PyPI
+
+# Publishes actenon-scan to PyPI on tag pushes (v*).
+#
+# Two publishing modes:
+# 1. Trusted publishing (OIDC) — preferred. No API token needed.
+#    Configure at: https://pypi.org/manage/project/actenon-scan/settings/publishing/
+# 2. API token — fallback. Set the PYPI_API_TOKEN secret in this repo
+#    (or make it an org-wide secret).
+#
+# To publish v0.1.4+:
+#   git tag -a v0.1.4 -m "v0.1.4"
+#   git push origin v0.1.4
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: pip install build twine
+
+      - name: Build sdist + wheel
+        run: python -m build --sdist --wheel --outdir dist/
+
+      - name: Verify the wheel installs in a clean venv
+        run: |
+          python -m venv /tmp/test-install
+          /tmp/test-install/bin/pip install --upgrade pip
+          /tmp/test-install/bin/pip install dist/actenon_scan-*.whl
+          /tmp/test-install/bin/actenon-scan --version
+          # --version never imports the repository layer. A directory scan
+          # does: a wheel missing actenon_scan.repository crashed here with
+          # ModuleNotFoundError while --version still passed.
+          /tmp/test-install/bin/actenon-scan scan tests/benchmark/recall --fail-on none --no-cache > /dev/null
+
+      - name: Run regression tests before publishing
+        run: |
+          pip install -e ".[dev]"
+          python -m pytest tests/test_root_level_files.py tests/test_regression.py -v
+
+      - name: Twine check
+        run: twine check dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI (trusted publishing)
+        if: ${{ !env.PYPI_API_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+
+      - name: Publish to PyPI (API token fallback)
+        if: ${{ env.PYPI_API_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          print-hash: true
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+"""
+
+
 def test_old_token_publish_workflow_is_refused():
-    """The workflow this PR replaces (dispatchable, ungated, token fallback)."""
-    old = subprocess.run(["git", "show", "16388227a55a3b5a3ec392d1c70f3940b0c291c1:.github/workflows/publish.yml"],
-                         cwd=ROOT, capture_output=True, text=True)
-    if old.returncode:
-        pytest.skip("history before the release-hardening commit is not available in this checkout")
+    """The workflow this PR replaces is refused on every count that let it publish around a gate."""
+    old = yaml.safe_load(OLD_PUBLISH_WORKFLOW)
+    assert "workflow_dispatch" in on(old) and "PYPI_API_TOKEN" in OLD_PUBLISH_WORKFLOW  # it is the real one
     wfs = copy.deepcopy(WORKFLOWS)
-    wfs["publish.yml"] = yaml.safe_load(old.stdout)
-    found = " ".join(problems(wfs))
-    assert "workflow_dispatch" in found or "must trigger only on push of tags" in found
-    assert "jobs must be exactly" in found
+    wfs["publish.yml"] = old
+    found = rg.publish_workflow_problems(wfs)
+    assert any("must trigger only on push of tags" in p and "workflow_dispatch" in p for p in found)
+    assert "publish.yml must set top-level 'permissions: {}'" in found
+    assert any("jobs must be exactly" in p for p in found)
 
 
 # --------------------------------------------------------------------------- #
