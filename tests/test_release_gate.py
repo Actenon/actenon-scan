@@ -132,7 +132,8 @@ class FakeGitHub:
         if "/rulesets?" in path:
             return [{"id": i} for i in self.rulesets]
         if "/rulesets/" in path:
-            return self.rulesets[int(path.rsplit("/", 1)[1])]
+            assert path.endswith("?includes_parents=true")  # organisation rulesets are readable too
+            return self.rulesets[int(path.split("?")[0].rsplit("/", 1)[1])]
         if path.endswith("/deployment-branch-policies?per_page=100&page=1"):
             return {"branch_policies": self.policies}
         if path.endswith("/environments/pypi"):

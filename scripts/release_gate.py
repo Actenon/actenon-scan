@@ -489,7 +489,9 @@ def controls_problems(github: Any, repo: str, cfg: dict[str, Any], tag: str) -> 
     try:
         seen = {"creation": False, "update": False, "deletion": False}
         for summary in github.get(f"repos/{repo}/rulesets?targets=tag&includes_parents=true") or []:
-            rs = github.get(f"repos/{repo}/rulesets/{summary['id']}")
+            # includes_parents: an organisation-level ruleset is listed here too, and its detail
+            # is readable through the repository only with this flag.
+            rs = github.get(f"repos/{repo}/rulesets/{summary['id']}?includes_parents=true")
             if rs.get("target") != "tag" or rs.get("enforcement") != "active":
                 continue
             cond = (rs.get("conditions") or {}).get("ref_name") or {}
