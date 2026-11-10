@@ -98,6 +98,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `call_text` was truncated to 120 characters (80 for some chains in the Python, TypeScript and Go
   detectors), cutting long URLs mid-way. It now holds the complete call; snippet hashes (baselines) are
   computed from the source line and are unchanged.
+- Reports no longer imply complete analysis when supported files failed to parse. The all-guarded summary
+  printed only "N files scanned"; the Markdown (PR comment) and HTML reports said "Supported source files
+  were parsed and analysed" and, on clean scans, omitted unsupported-language files; SARIF reported
+  neither. Every human-readable format now opens with `ANALYSIS INCOMPLETE: N supported file(s) could not
+  be parsed and were NOT analysed` and lists the files; the "verified" sentence is qualified; SARIF adds an
+  `error` tool notification per failed file (with its location), a `warning` per unsupported language and
+  `analysis_error_count` / `unsupported_file_count` driver properties. The GitHub Action emits workflow
+  warnings for both from `results.json` (its old console grep never matched) and adds the statement to the
+  PR comment. Findings, `files_scanned`, JSON fields and exit codes are unchanged.
 
 ## [1.5.0] — 2026-09-20
 
