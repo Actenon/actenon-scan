@@ -74,14 +74,14 @@ def _make_base_triage() -> dict:
 
 
 def _make_base_results() -> dict:
-    """Minimal results matching the triage."""
+    """Minimal results matching the triage: the pinned repo was measured."""
     return {
         "_comment": "test",
         "total_findings": 1,
         "findings": [
             {"repo": "test/repo", "file": "test.py", "line": 1, "rule_id": "TEST-RULE"}
         ],
-        "repos": {},
+        "repos": {"test/repo": {"findings": 1, "category": "framework", "sha": "abc123"}},
     }
 
 
@@ -91,12 +91,18 @@ def _make_base_pinned() -> dict:
 
 
 def _add_fp_entry(triage: dict, status: str, **kwargs) -> dict:
-    """Add a FALSE_POSITIVE entry with the given status."""
+    """Add a FALSE_POSITIVE entry with the given status, keeping the totals consistent.
+
+    Each entry gets its own line: the gate rejects two entries for one finding.
+    """
+    n = sum(1 for e in triage["entries"] if e.get("verdict") == "FALSE_POSITIVE")
+    triage["totals"]["findings"] += 1
+    triage["totals"]["false_positives"] += 1
     entry = {
         "repo": "test/repo",
         "sha": "abc123",
         "file": "fp.py",
-        "line": 99,
+        "line": 99 + n,
         "rule_id": "FP-RULE",
         "confidence": "high",
         "verdict": "FALSE_POSITIVE",
@@ -127,6 +133,9 @@ def test_gate_passes_with_recorded_fp(tmp_path: Path):
                   tracking_issue=999,
                   rationale="Known FP: interprocedural limitation")
     results = _make_base_results()
+    # A recorded (unfixed) false positive still fires, so the scan reports it.
+    results["findings"].append({"repo": "test/repo", "file": "fp.py", "line": 99, "rule_id": "FP-RULE"})
+    results["repos"]["test/repo"]["findings"] = 2
     pinned = _make_base_pinned()
     code, stdout, stderr = _run_gate(triage, results, pinned, tmp_path)
     assert code == 0, f"Expected exit 0, got {code}.\nstderr: {stderr}"
