@@ -12,18 +12,26 @@ import sys
 from collections import Counter
 
 from actenon_scan.engine import ScanResult, Finding
+from actenon_scan.report.airlock_handoff import AirlockHandoff, format_handoff, target_line
 from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_LIMITATIONS,
     CLEAN_SCAN_STATEMENT,
     consequence_label,
     default_exclude_disclosure_line,
     group_by_consequence,
+    is_literal_argument_value,
     select_most_exposed,
     transitive_disclosure_line,
 )
 
 
-def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
+def format_pretty(
+    result: ScanResult,
+    *,
+    elapsed: float | None = None,
+    command: str = "actenon-scan",
+    handoff: AirlockHandoff | None = None,
+) -> str:
     """Format scan results as a blast-radius summary.
 
     The summary leads with the consequence map, then spotlights the
@@ -34,6 +42,11 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     includes a capability summary showing guard-found vs review-required
     counts. The existing finding-based output is preserved for backward
     compatibility.
+
+    ``command`` is how the user should invoke the scanner in the printed
+    next steps (``uvx actenon-scan`` when run through uvx). ``handoff`` is
+    the Airlock runtime-protection handoff for the most-exposed finding,
+    when Scan's authority evidence shows Airlock can act on it.
     """
     unsuppressed = [f for f in result.findings if not f.suppressed]
 
@@ -109,6 +122,8 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
         )
         lines.append(f"  Reachable by:              {_decorator_or_function(most_exposed)}")
         lines.append(f"  Consequence:               {consequence_label(most_exposed.category)}")
+        if handoff is not None:
+            lines.append(f"  Target:                    {target_line(handoff)}")
         lines.append(f"  Guard evidence:            none found on the analysed path")
         params = _extract_params(most_exposed)
         if params:
@@ -127,8 +142,19 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
     if most_exposed is not None:
         loc = f"{most_exposed.file}:{most_exposed.line}"
         lines.append("Next:")
-        lines.append(f"  actenon-scan explain {loc}")
-        lines.append(f"  actenon-scan fix {loc}")
+        explain_cmd = f"{command} explain {loc}"
+        fix_cmd = f"{command} fix {loc}"
+        if handoff is None:
+            lines.append(f"  {explain_cmd}")
+            lines.append(f"  {fix_cmd}")
+        else:
+            # Two remediation options: Scan's repository-native guard is the
+            # default; Airlock is the optional runtime alternative below.
+            width = max(len(explain_cmd), len(fix_cmd))
+            lines.append(f"  {explain_cmd.ljust(width)}  # show the analysed path")
+            lines.append(f"  {fix_cmd.ljust(width)}  # default remediation: a repository-native guard")
+            lines.append("")
+            lines.extend(format_handoff(handoff))
 
     # Unsupported files warning (preserved from old formatter)
     if result.unsupported_files:
@@ -180,6 +206,36 @@ def format_pretty(result: ScanResult, *, elapsed: float | None = None) -> str:
         lines.append(exclude_disclosure)
 
     return "\n".join(lines) + "\n"
+
+
+def _format_unsupported(result: ScanResult) -> list[str]:
+    """The NOT-scanned notice for files in languages Scan cannot analyse.
+
+    Used by the all-guarded capability summary, which previously called
+    this helper without it existing (a NameError for any repository whose
+    capabilities were all guarded and which contained an unsupported file).
+    """
+    lines: list[str] = []
+    lang_counts = Counter(lang for _, lang in result.unsupported_files)
+    lines.append(
+        f"  {len(result.unsupported_files)} file(s) NOT scanned — "
+        f"unsupported language(s): {dict(lang_counts)}."
+    )
+    extras = set()
+    has_unsupported = False
+    for _, lang in result.unsupported_files:
+        if "TypeScript" in lang or "JavaScript" in lang:
+            extras.add("typescript")
+        elif "Go" in lang:
+            extras.add("go")
+        else:
+            has_unsupported = True
+    if extras:
+        install_hint = " or ".join(f'"actenon-scan[{e}]"' for e in sorted(extras))
+        lines.append(f"  Install with:  pip install {install_hint}")
+    if has_unsupported:
+        lines.append("  actenon-scan parses Python, TypeScript, and Go. Other languages are not supported.")
+    return lines
 
 
 def _format_capability_summary(result: ScanResult) -> list[str]:
@@ -429,7 +485,11 @@ def _extract_params(f: Finding) -> list[str]:
             continue
         # Handle keyword args: name=value
         if "=" in arg and not arg.startswith(("'", '"', "[")):
-            name = arg.split("=")[0].strip()
+            name, _, value = arg.partition("=")
+            name = name.strip()
+            # A constant value (branch="main") is not model-controlled.
+            if is_literal_argument_value(value):
+                continue
             # Only report if the kwarg name looks like it could carry
             # model-controlled data (not 'api_key', 'max_results', etc.)
             # But we don't know which are constants without deeper analysis.

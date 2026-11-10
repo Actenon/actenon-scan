@@ -46,6 +46,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request-to-authority vocabulary shared with runtime enforcement (Airlock); GitHub REST routes map to
   `github.*` actions on `github.com/<owner>/<repo>`.
 - `actenon-scan authority PATH [--format json|text]`.
+- Optional Airlock handoff in the default report and in `explain`. When the most-exposed finding is a
+  Python `github.contents.write` (e.g. PyGithub `create_file`), the report names the write's target
+  (`Target:`) and adds a second, optional remediation after Scan's own repository-native guard: what
+  Actenon Airlock would do at runtime. A fixed repository gets review, approve and run commands. A
+  repository the model chooses is reported as one Airlock keeps blocked, with no approve step. Derived
+  from `actenon_scan.authority`; no other action, language or output format gets a suggestion. Scan does
+  not import, install or approve anything in Airlock. See `docs/AIRLOCK.md`.
+- The report's `Next:` commands are printed as `uvx actenon-scan ...` when Scan itself was run by `uvx`.
+  The plain `actenon-scan ...` did not exist on the user's PATH after `uvx actenon-scan scan .`.
 - TypeScript/JavaScript: raw tool-schema dispatch (r07), already recognised in Python. A sink in the
   branch that a schema-declared tool name selects (`if (name === "save_skill")`, `case "delete_file":`) is
   agent-reachable, so hand-written MCP servers without an SDK import are no longer silent. Stricter than
@@ -53,6 +62,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   finding changes on the ten TS-bearing corpus repositories.
 
 ### Fixed
+- The default report crashed with `NameError: _format_unsupported` when every capability had a
+  recognised guard and the repository also contained a file in an unsupported language.
+- `Model-controlled inputs:` listed keyword arguments that pass a constant, e.g. `branch` in
+  `create_file(path, message, content, branch="main")`. Constant keyword values are no longer listed,
+  and the most-exposed ranking uses the same rule. Aliases are not followed: `create_file(..., branch=b)`
+  still lists `branch` even if `b` is a constant.
 - TypeScript/JavaScript: `import { writeFileSync } from "node:fs"` and the other import forms of `fs`,
   `node:fs`, `fs/promises` and `node:fs/promises` matched no FILE-WRITE or DATA-DELETE-FILE rule, even
   inside a recognised tool handler. Calls are now resolved through the import binding (never through the

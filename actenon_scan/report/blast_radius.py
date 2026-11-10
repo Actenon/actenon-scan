@@ -21,6 +21,8 @@ Design constraints:
 
 from __future__ import annotations
 
+import re
+
 from collections import OrderedDict
 from dataclasses import dataclass
 
@@ -183,6 +185,26 @@ _CONFIDENCE_RANK = {"high": 0, "medium": 1, "low": 2}
 _DESTRUCTIVE_LABELS = {"DATA LOSS", "DATABASE", "REPOSITORY"}
 
 
+def is_literal_argument_value(value: str) -> bool:
+    """True when a call argument's source text is a plain constant.
+
+    ``branch="main"`` passes a constant: the keyword name ``branch`` is not
+    a model-controlled input. Shared by the summary display and the
+    most-exposed ranking so the two always agree. f-strings interpolate
+    values, so they are never treated as constants.
+    """
+    v = value.strip()
+    if not v:
+        return False
+    prefix = v[: len(v) - len(v.lstrip("bBrRuU"))]
+    if len(prefix) <= 2 and v[len(prefix):][:1] in ("'", '"'):
+        return True
+    return v in ("True", "False", "None") or _NUMBER.fullmatch(v) is not None
+
+
+_NUMBER = re.compile(r"[+-]?(\d[\d_]*\.?[\d_]*|\.\d[\d_]*)([eE][+-]?\d+)?j?")
+
+
 def _has_model_controlled_inputs(f: Finding) -> bool:
     """Check whether the finding has identified model-controlled inputs.
 
@@ -212,8 +234,10 @@ def _has_model_controlled_inputs(f: Finding) -> bool:
         arg = arg.strip()
         if not arg:
             continue
-        # Keyword arg with a name
+        # Keyword arg with a name, unless its value is a plain constant
         if "=" in arg:
+            if is_literal_argument_value(arg.split("=", 1)[1]):
+                continue
             return True
         # Positional arg that's a simple identifier (not a literal)
         if arg.isidentifier():
