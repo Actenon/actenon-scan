@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Temporary immutable input while Protocol 1.6.0 awaits registry publication.
+env:
+  PIP_CONSTRAINT: ${{ github.workspace }}/.github/candidate-constraints.txt
+
 jobs:
   test:
     runs-on: ubuntu-latest
