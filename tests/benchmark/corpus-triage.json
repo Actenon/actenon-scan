@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand triage of every finding in corpus-results.json. A corpus count with no triage behind it is the same defect as a benchmark score with no detector behind it. Any FALSE_POSITIVE entry fails CI: the rule must be fixed and a regression fixture added, not the entry edited.",
+  "_comment": "Hand triage of every finding in corpus-results.json. A corpus count with no triage behind it is the same defect as a benchmark score with no detector behind it. A FALSE_POSITIVE entry fails CI unless it is fixed (rule fixed, regression fixture added) or recorded (date, tracking issue, rationale); entries are never edited to move a score.",
   "corpus_exercised_ts_guard_rewrite": {
     "note": "The corpus has 1 TS sink candidate that reached guard analysis. The TS guard rewrite (640 lines) was exercised on exactly 1 data point. Real-world validation was done separately on modelcontextprotocol/typescript-sdk (3 appeared, all FALSE_POSITIVE at the rule-matching level), langchain-ai/langchainjs (0 delta), and getzep/zep-js (0 delta).",
     "ts_files_scanned": 2311,
@@ -51,6 +51,15 @@
       "description": "Work Order 1.10: the corpus triage gate was fixed to allow recording unfixed false positives (previously the gate forbade any FALSE_POSITIVE entry, which made recording one impossible). With the gate fixed, actions.go:172 (http.Get(logURL) in github-mcp-server) was reclassified from TRUE_POSITIVE back to FALSE_POSITIVE on the merits: the function is not a registered tool handler, and the URL argument is not directly model-controlled (it comes from a prior GitHub API call). The scanner cannot determine either without interprocedural analysis. This is a known, recorded, unfixed false positive (tracking issue #81). server.go:286 was suppressed by a rule fix (log/config file detection) and is not counted. Precision: 21/22 (95.5%). The WO1.9 reclassification to TRUE_POSITIVE was made under gate pressure, not on the merits \u2014 this correction undoes it.",
       "original_count": 22,
       "original_precision": "22/22 (100%)"
+    },
+    {
+      "affected_repos": [
+        "github/github-mcp-server"
+      ],
+      "corrected_count": 92,
+      "corrected_precision": "92/93 (98.9%)",
+      "date": "2026-11-10",
+      "description": "Duplicate triage removed. pkg/github/actions.go:172 (NET-EGRESS-GO) had two entries: the original TRUE_POSITIVE and the FALSE_POSITIVE (recorded, issue #81) it was reclassified to on 2026-07-29. The TRUE_POSITIVE entry was never removed, so the finding was counted twice: 94 entries for 93 corpus findings, published as 93 TP / 1 FP. The correct figure is 92 TP / 1 FP. check_corpus_triage.py now rejects more than one entry per finding and totals that disagree with the entries. No finding or verdict changed."
     }
   ],
   "entries": [
@@ -736,16 +745,6 @@
     },
     {
       "confidence": "high",
-      "file": "pkg/github/actions.go",
-      "line": 172,
-      "rationale": "Agent tool performs external communication \u2014 consequential action reachable from agent boundary",
-      "repo": "github/github-mcp-server",
-      "rule_id": "NET-EGRESS-GO",
-      "sha": "eb088dfe9d854dab6453a8d4ae5871a5ced20974",
-      "verdict": "TRUE_POSITIVE"
-    },
-    {
-      "confidence": "high",
       "file": "libs/langchain_v1/langchain/agents/middleware/shell_tool.py",
       "line": 758,
       "rationale": "Agent tool performs file/data deletion or write \u2014 consequential action reachable from agent boundary",
@@ -1031,11 +1030,11 @@
     }
   ],
   "measurement_date": "2026-09-21",
-  "measurement_note": "Re-measured at commit 461eba229701. Control repos: 0 findings. 93 TP + 1 FP. scanner_version_measured_with is 1.6.0 so the claims staleness check matches the unreleased package. Hand-triaged entries and totals are unchanged from that measurement.",
+  "measurement_note": "Re-measured at commit 461eba229701. Control repos: 0 findings. 92 TP + 1 FP (corrected 2026-11-10: a duplicate TRUE_POSITIVE entry was removed; see corrections). scanner_version_measured_with is 1.6.0 so the claims staleness check matches the unreleased package. Hand-triaged entries and totals are unchanged from that measurement.",
   "scanner_version_measured_with": "1.6.0",
   "totals": {
     "false_positives": 1,
-    "findings": 94,
-    "true_positives": 93
+    "findings": 93,
+    "true_positives": 92
   }
 }

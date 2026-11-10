@@ -51,13 +51,19 @@ def main() -> int:
                     help="optional absolute serial ceiling for this machine")
     args = ap.parse_args()
 
+    # A gate that did not measure must not pass. A missing fixture used to
+    # print SKIP and exit 0, so a broken fixture step turned the gate green.
     if not args.fixture.exists():
-        print(f"SKIP: fixture not present at {args.fixture}", file=sys.stderr)
-        return 0
+        print(f"FAIL: fixture not present at {args.fixture}; nothing was measured", file=sys.stderr)
+        return 2
 
     cores = os.cpu_count() or 1
     serial_ms, serial_res = best_of(lambda: scan_path(args.fixture))
     files = serial_res.files_scanned
+    if files == 0:
+        print(f"FAIL: fixture {args.fixture} contains no scannable files; nothing was measured",
+              file=sys.stderr)
+        return 2
     chosen = auto_jobs(files, cores)
 
     if chosen > 1:
