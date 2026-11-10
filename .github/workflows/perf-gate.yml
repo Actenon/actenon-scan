@@ -11,12 +11,9 @@ name: Perf gate
 # claim is measured against the same tree the README cites.
 
 on:
+  # Unfiltered: a required release check must be produced on every commit
+  # (.github/required-checks.json; scripts/release_gate.py validate).
   pull_request:
-    paths:
-      - 'actenon_scan/**'
-      - 'scripts/check_perf_gate.py'
-      - 'tests/benchmark/perf-fixture.json'
-      - '.github/workflows/perf-gate.yml'
   push:
     branches: [main]
   workflow_dispatch:

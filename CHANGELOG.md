@@ -28,6 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.0] — unreleased (release candidate)
 
+### Security
+- Release process (no package change). `publish.yml` now publishes only on a push of the exact
+  `v<version>` tag, after `scripts/release_gate.py gate` confirms several things. The tagged commit
+  must be on `main`. It must carry no candidate source pin. Every check in
+  `.github/required-checks.json` `release` must have succeeded on that exact commit, from its bound
+  workflow. Main protection, the release-tag rulesets and the reviewed `pypi` environment must be in
+  force. Upload is by trusted publishing only: the `PYPI_API_TOKEN` fallback and `workflow_dispatch`
+  are removed. After upload, the workflow checks that PyPI serves exactly the approved, attested
+  artifacts, that a hash-pinned clean install is the approved wheel byte for byte and runs a real
+  scan, and that pyproject, tag and PyPI agree. The `sarif` and perf-gate workflows now run on
+  every pull request, so they can be required.
+
 ### Added
 - `normalise_path` is exported from `actenon_scan.authority` so runtime enforcement can spell filesystem
   resources the same way the extractor does. The private `_normalise_path` name remains.

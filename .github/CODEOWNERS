@@ -21,4 +21,6 @@
 
 # CI / workflows — require a maintainer review.
 /.github/workflows/     @Actenon/maintainers
+/.github/required-checks.json @Actenon/maintainers
+/scripts/release_gate.py @Actenon/maintainers
 /.github/ISSUE_TEMPLATE/ @Actenon/maintainers
