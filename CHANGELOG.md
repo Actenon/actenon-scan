@@ -46,8 +46,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request-to-authority vocabulary shared with runtime enforcement (Airlock); GitHub REST routes map to
   `github.*` actions on `github.com/<owner>/<repo>`.
 - `actenon-scan authority PATH [--format json|text]`.
+- TypeScript/JavaScript: raw tool-schema dispatch (r07), already recognised in Python. A sink in the
+  branch that a schema-declared tool name selects (`if (name === "save_skill")`, `case "delete_file":`) is
+  agent-reachable, so hand-written MCP servers without an SDK import are no longer silent. Stricter than
+  the Python signal: `else` branches, negated conditions and `parameters: [...]` lists never count. No
+  finding changes on the ten TS-bearing corpus repositories.
 
 ### Fixed
+- TypeScript/JavaScript: `import { writeFileSync } from "node:fs"` and the other import forms of `fs`,
+  `node:fs`, `fs/promises` and `node:fs/promises` matched no FILE-WRITE or DATA-DELETE-FILE rule, even
+  inside a recognised tool handler. Calls are now resolved through the import binding (never through the
+  name alone), in both the per-file detector and the cross-file sink discovery.
+- TypeScript/JavaScript: the `tool(` and `execute:` reachability signals matched MCP client calls
+  (`client.tool("name", args)`), lookups (`registry.tool(id)`) and config keys
+  (`authority: { execute: programs }`), marking harness and demo code as tool handlers. They now require
+  registration syntax. One existing false positive (a demo's constant `execSync`) is gone; no registration
+  shape covered by the tests is lost.
 - `classify_http` ended the host at `/`, so `https://host?query` was named `host?query` while the same
   request with a `/` path was named `host`. The authority now ends at the first `/`, `?` or `#` (RFC 3986).
 - `corpus-triage.json` records `scanner_version_measured_with` 1.6.0 so the claims staleness check matches
