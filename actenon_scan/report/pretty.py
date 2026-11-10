@@ -14,8 +14,9 @@ from collections import Counter
 from actenon_scan.engine import ScanResult, Finding
 from actenon_scan.report.airlock_handoff import AirlockHandoff, format_handoff, target_line
 from actenon_scan.report.blast_radius import (
-    CLEAN_SCAN_LIMITATIONS,
     CLEAN_SCAN_STATEMENT,
+    analysis_incomplete_statement,
+    clean_scan_limitations,
     consequence_label,
     default_exclude_disclosure_line,
     group_by_consequence,
@@ -59,6 +60,9 @@ def format_pretty(
             cap_lines.append("")
             timing = f" ({elapsed:.2f}s)" if elapsed is not None else ""
             cap_lines.append(f"{result.files_scanned} files scanned{timing}")
+            # No other part of the all-guarded summary lists files that
+            # failed to parse, so list them here, not only the count.
+            cap_lines.extend(_incomplete_lines(result, list_files=True))
             if result.unsupported_files:
                 cap_lines.append("")
                 cap_lines.extend(_format_unsupported(result))
@@ -137,6 +141,8 @@ def format_pretty(
     lines.append(
         f"{len(unsuppressed)} findings in {result.files_scanned} files{timing}"
     )
+    # The failed files themselves are listed under "analysis errors" below.
+    lines.extend(_incomplete_lines(result, list_files=False))
 
     # Next steps
     if most_exposed is not None:
@@ -268,8 +274,10 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
     lines.append(f"actenon-scan: scanned {result.files_scanned} file(s){timing}.")
     lines.append("")
     lines.append(CLEAN_SCAN_STATEMENT)
+    # Right under the "nothing found" line, so it cannot be read alone.
+    lines.extend(_incomplete_lines(result, list_files=False))
     lines.append("")
-    lines.append(CLEAN_SCAN_LIMITATIONS)
+    lines.append(clean_scan_limitations(result))
     lines.append("")
     # Task 5-A1: transitive-reachability disclosure. Only rendered when
     # the repo layer actually ran (``repository_analysis_enabled=True``).
@@ -339,6 +347,10 @@ def format_list(result: ScanResult) -> str:
         f"actenon-scan: {len(unsuppressed)} finding(s) in {len(by_file)} file(s) "
         f"(scanned {result.files_scanned} file(s))"
     )
+    # Analysis errors are listed at the end; state the gap up front too.
+    statement = analysis_incomplete_statement(result)
+    if statement is not None:
+        lines.append(statement)
     lines.append("")
 
     for filepath in sorted(by_file):
@@ -386,6 +398,24 @@ def format_list(result: ScanResult) -> str:
         lines.append("")
 
     return "\n".join(lines) + "\n"
+
+
+def _incomplete_lines(result: ScanResult, *, list_files: bool) -> list[str]:
+    """The ANALYSIS INCOMPLETE statement (and optionally the failed files), or nothing.
+
+    Starts with a blank separator line. ``list_files`` is for report paths
+    that do not list analysis errors anywhere else.
+    """
+    statement = analysis_incomplete_statement(result)
+    if statement is None:
+        return []
+    lines = ["", statement]
+    if list_files:
+        for rel, err in result.analysis_errors[:10]:
+            lines.append(f"  {rel}: {err}")
+        if len(result.analysis_errors) > 10:
+            lines.append(f"  ... and {len(result.analysis_errors) - 10} more")
+    return lines
 
 
 def _short_call_name(call_text: str) -> str:
