@@ -11,6 +11,7 @@ Python so output is language-agnostic.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -361,6 +362,13 @@ def analyze_typescript_file(
     # `import { exec as runCommand }`, `import * as cp`, `import child_process`).
     child_process_bindings = _resolve_child_process_imports(tree.root_node, source_bytes)
 
+    # Identifiers bound to Node's fs module, so `writeFileSync(...)` imported
+    # from "node:fs" matches the same rule as `fs.writeFileSync(...)`.
+    fs_bindings = _resolve_fs_bindings(tree.root_node)
+
+    # Tool names declared in schema literals, for raw tool-schema dispatch.
+    declared_tool_names = _ts_declared_tool_names(tree.root_node)
+
     # Work Order 1.8: also build a map from call line/col to the actual
     # call_expression node, so we can inspect whether the function is a
     # bare identifier or a member_expression. _extract_calls flattens
@@ -392,6 +400,7 @@ def analyze_typescript_file(
             obj = func_node_at_pos.child_by_field_name("object")
             if obj is not None:
                 actual_receiver = _ts_node_text(obj, source_bytes)
+        fs_name = _ts_canonical_fs_name(call_name, fs_bindings)
 
         for rule in TS_SINK_RULES:
             bare_only = set(rule.get("bare_only_patterns", []))
@@ -452,11 +461,14 @@ def analyze_typescript_file(
                             continue
                     else:
                         continue  # no match — try next pattern
-                elif not _matches_pattern(call_name, pattern):
+                elif not (
+                    _matches_pattern(call_name, pattern)
+                    or (fs_name is not None and _matches_pattern(fs_name, pattern))
+                ):
                     continue  # no match — try next pattern
                 # Match found — proceed to reachability + guard check
                 # PER-FUNCTION reachability check
-                if not _is_call_reachable(tree, lang, source, line):
+                if not _is_call_reachable(tree, lang, source, line, col, declared_tool_names):
                     break  # not reachable — exit for-pattern loop
                 # Work Order 1.5: soundness guard check (ported from go.py).
                 # Replaces the lexical _is_guarded heuristic.
@@ -510,7 +522,14 @@ def analyze_typescript_file(
     return (findings, [])
 
 
-def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
+def _is_call_reachable(
+    tree,
+    lang,
+    source: str,
+    sink_line: int,
+    sink_col: int | None = None,
+    declared_tool_names: set[str] | None = None,
+) -> bool:
     """Check if a specific call at sink_line is inside an agent-reachable function.
 
     This is the PER-FUNCTION reachability check — the key fix for precision.
@@ -527,6 +546,10 @@ def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
        registration (module-level sinks in tool files are reachable)
     5. The sink is directly inside an arrow function or method that is
        passed to a tool registration (inline handler pattern)
+    6. The sink sits in a branch selected by a tool name this file declares
+       in a tool-schema literal (raw tool-schema dispatch, r07). Needs
+       ``sink_col``; ``declared_tool_names`` may be passed to avoid
+       re-walking the tree for every sink in a file.
 
     This eliminates false positives from example scripts that import a
     framework and register tools, but have sinks in OTHER functions that
@@ -577,6 +600,14 @@ def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
         if _is_method_of_tool_class(enclosing_func, tree, source_lines, source):
             return True
 
+        # Raw tool-schema dispatch (r07): the sink is in the branch that a
+        # tool name declared in this file's schema literal selects.
+        if sink_col is not None:
+            if declared_tool_names is None:
+                declared_tool_names = _ts_declared_tool_names(tree.root_node)
+            if _ts_is_tool_schema_dispatch(enclosing_func, sink_line, sink_col, declared_tool_names):
+                return True
+
         return False
 
 
@@ -615,6 +646,24 @@ def _node_text(node, source_lines: list[str]) -> str:
     return "\n".join(parts)
 
 
+# The two text signals that read registration syntax into ordinary code.
+#
+# `tool(` is the LangChain.js / Vercel AI `tool(...)` factory. As a bare
+# substring it also matched MCP *client* calls - `client.tool("name", args)` -
+# and lookups such as `registry.tool(id)`, so a benchmark harness that drives a
+# tool server was read as a tool handler. Only the bare factory call counts.
+#
+# `execute:` is the Vercel AI handler property, `execute: async (args) => ...`.
+# As a bare substring it also matched any object key named execute, such as an
+# permissions config `{ read: programs, execute: programs }`, so the line
+# after such a config became an "inline handler". Only an `execute:` that
+# introduces a function (or leaves its value to the next line) counts.
+_TS_BARE_TOOL_CALL = re.compile(r"(?<![\w$.])tool\s*\(")
+_TS_EXECUTE_HANDLER = re.compile(
+    r"\bexecute\s*:\s*(?:$|async\b|function\b|\(|[A-Za-z_$][\w$]*\s*=>)"
+)
+
+
 def _is_tool_handler(func_text: str, full_source: str) -> bool:
     """Check if a function's text indicates it's a tool handler.
 
@@ -633,14 +682,14 @@ def _is_tool_handler(func_text: str, full_source: str) -> bool:
                 stripped = line.strip()
                 if stripped.startswith("import ") or stripped.startswith("from "):
                     continue
-                if "tool(" in stripped and not stripped.startswith("//"):
+                if _TS_BARE_TOOL_CALL.search(stripped) and not stripped.startswith("//"):
                     return True
         elif signal == "execute:":
             for line in func_text.split("\n"):
                 stripped = line.strip()
                 if stripped.startswith("//"):
                     continue
-                if "execute:" in stripped or "execute :" in stripped:
+                if _TS_EXECUTE_HANDLER.search(stripped):
                     return True
         elif signal in func_text:
             return True
@@ -722,7 +771,7 @@ def _is_inline_handler(node, source_lines: list[str]) -> bool:
                 if "tool(" in line:
                     return True
             elif signal == "execute:":
-                if "execute:" in line or "execute :" in line:
+                if _TS_EXECUTE_HANDLER.search(line):
                     return True
             elif signal == "setRequestHandler":
                 if "setRequestHandler" in line:
@@ -815,6 +864,139 @@ def _find_enclosing_class(func_node, tree):
 
     walk(tree.root_node)
     return best_class
+
+
+# ---------------------------------------------------------------------------
+# Raw tool-schema dispatch (benchmark recall case r07), TypeScript/JavaScript
+#
+# The TypeScript port of the Python signal in reachability.py
+# (_is_tool_schema_dispatch). An agent boundary announced by a schema literal
+# instead of an SDK registration call — typical of MCP servers that speak
+# JSON-RPC over stdio by hand, and of agent loops that pass tool definitions
+# straight to a model API:
+#
+#     const tools = [{ name: "save_skill", description: "...", inputSchema: {...} }];
+#     function call(name, a) {
+#       if (name === "save_skill") writeFileSync(path, a.content);   // <- boundary
+#     }
+#
+# Both halves are required, as in Python: the schema literal supplies the tool
+# name, and the sink must sit in the branch that name selects. Two places are
+# deliberately stricter than the Python signal: the sink must be in the branch
+# the name selects (an `else` branch is selected by every OTHER name and does
+# not count), and a name declared with an ARRAY under `parameters` is a
+# parameter list (OpenAPI, stored procedures), not a JSON-Schema tool input.
+# ---------------------------------------------------------------------------
+
+_TS_SCHEMA_PARAM_KEYS = frozenset({"parameters", "input_schema", "inputSchema", "args_schema"})
+
+
+def _ts_object_pairs(obj_node) -> dict[str, object]:
+    """key -> value node for the `key: value` pairs of an object literal."""
+    pairs: dict[str, object] = {}
+    for pair in obj_node.named_children:
+        if pair.type != "pair":
+            continue
+        key = pair.child_by_field_name("key")
+        value = pair.child_by_field_name("value")
+        if key is None or value is None:
+            continue
+        if key.type == "property_identifier":
+            pairs[key.text.decode("utf-8")] = value
+        else:
+            k = _ts_string_value(key)
+            if k is not None:
+                pairs[k] = value
+    return pairs
+
+
+def _ts_declared_tool_names(root_node) -> set[str]:
+    """Tool names declared in an LLM tool-schema object literal in this file.
+
+    Flat form (MCP tools/list, Anthropic):
+        { name: "run_command", description: "...", inputSchema: {...} }
+    Nested OpenAI form:
+        { type: "function", function: { name: "run_command", parameters: {...} } }
+    """
+    names: set[str] = set()
+    for node in _ts_walk(root_node):
+        if node.type != "object":
+            continue
+        pairs = _ts_object_pairs(node)
+        name = _ts_string_value(pairs.get("name"))
+        if name:
+            schemas = [pairs[k] for k in _TS_SCHEMA_PARAM_KEYS if k in pairs]
+            if any(s.type != "array" for s in schemas):
+                names.add(name)
+        fn = pairs.get("function")
+        if "type" in pairs and fn is not None and fn.type == "object":
+            inner = _ts_string_value(_ts_object_pairs(fn).get("name"))
+            if inner:
+                names.add(inner)
+    return names
+
+
+def _ts_condition_selects(node, declared: set[str]) -> bool:
+    """True when a branch condition is satisfied by a declared tool name.
+
+    `name === "x"`, `"x" == name`, and those joined by && or || (each
+    disjunct of || selects the branch on its own). Anything else — a negation,
+    an inequality, a call — is not read as a name selection.
+    """
+    if node is None:
+        return False
+    if node.type == "parenthesized_expression":
+        return any(_ts_condition_selects(c, declared) for c in node.named_children)
+    if node.type != "binary_expression":
+        return False
+    op_node = node.child_by_field_name("operator")
+    op = op_node.type if op_node is not None else ""
+    left = node.child_by_field_name("left")
+    right = node.child_by_field_name("right")
+    if op in ("&&", "||"):
+        return _ts_condition_selects(left, declared) or _ts_condition_selects(right, declared)
+    if op in ("===", "=="):
+        return _ts_string_value(left) in declared or _ts_string_value(right) in declared
+    return False
+
+
+def _ts_field_children(node, field: str) -> list:
+    return [c for i, c in enumerate(node.children) if node.field_name_for_child(i) == field]
+
+
+def _ts_node_contains_point(node, line: int, col: int) -> bool:
+    """True when (1-indexed line, 0-indexed col) lies inside ``node``."""
+    if node is None:
+        return False
+    point = (line - 1, col)
+    return node.start_point <= point < node.end_point
+
+
+def _ts_is_tool_schema_dispatch(func_node, sink_line: int, sink_col: int, declared: set[str]) -> bool:
+    """True when the sink sits in a branch selected by a declared tool name.
+
+    Containment is checked on the sink's exact position, not its line, so
+    `if (name === "a") f(); else sink();` on one line is not a selection.
+    """
+    if not declared or func_node is None:
+        return False
+    for node in _ts_walk(func_node):
+        if node.type == "if_statement":
+            if _ts_condition_selects(node.child_by_field_name("condition"), declared) and (
+                _ts_node_contains_point(node.child_by_field_name("consequence"), sink_line, sink_col)
+            ):
+                return True
+        elif node.type == "switch_body":
+            selected = False   # an empty `case "a":` falls through to the next body
+            for case in node.named_children:
+                if case.type == "switch_case" and _ts_string_value(case.child_by_field_name("value")) in declared:
+                    selected = True
+                body = _ts_field_children(case, "body")
+                if selected and any(_ts_node_contains_point(b, sink_line, sink_col) for b in body):
+                    return True
+                if body:
+                    selected = False
+    return False
 
 
 def _check_file_level_reachability(source: str) -> bool:
@@ -1326,6 +1508,137 @@ def _resolve_child_process_imports(root_node, source: bytes) -> set[str]:
     return bindings
 
 
+# Node's filesystem module, under every specifier it is published as, mapped to
+# the dotted prefix TS_SINK_RULES patterns are written in ("fs.writeFileSync",
+# "fs.promises.writeFile").
+_FS_MODULE_PREFIXES: dict[str, str] = {
+    "fs": "fs",
+    "node:fs": "fs",
+    "fs/promises": "fs.promises",
+    "node:fs/promises": "fs.promises",
+}
+
+
+def _ts_string_value(node) -> str | None:
+    """The value of a plain string literal node, or None for anything else."""
+    if node is None or node.type != "string":
+        return None
+    return "".join(
+        c.text.decode("utf-8") for c in node.children if c.type == "string_fragment"
+    )
+
+
+def _require_module(node) -> str | None:
+    """Module specifier of a ``require("<module>")`` call node, else None."""
+    if node is None or node.type != "call_expression":
+        return None
+    func = node.child_by_field_name("function")
+    if func is None or func.type != "identifier" or func.text != b"require":
+        return None
+    args = node.child_by_field_name("arguments")
+    strings = [c for c in args.named_children] if args is not None else []
+    if len(strings) != 1:
+        return None
+    return _ts_string_value(strings[0])
+
+
+def _resolve_fs_bindings(root_node) -> dict[str, str]:
+    """Map local identifiers bound to Node's fs module onto their dotted name.
+
+    The FILE-WRITE and DATA-DELETE-FILE patterns are written as
+    ``fs.writeFileSync`` / ``fs.promises.rm``, which only matches code that
+    calls through a binding literally named ``fs``. Modern Node code mostly
+    imports the functions themselves:
+
+      import { writeFileSync } from "node:fs"    writeFileSync -> fs.writeFileSync
+      import { rm as remove } from "fs/promises"  remove        -> fs.promises.rm
+      import { promises as fsp } from "fs"         fsp           -> fs.promises
+      import fsp from "node:fs/promises"           fsp           -> fs.promises
+      import * as nodefs from "fs"                 nodefs        -> fs
+      const { unlinkSync: u } = require("fs")      u             -> fs.unlinkSync
+      const fsp = require("fs").promises           fsp           -> fs.promises
+
+    Resolution is anchored on the import, never on the name: a local function
+    that happens to be called ``writeFileSync`` is not an fs call and is not
+    mapped. Shadowing of an imported binding inside a nested scope is not
+    tracked (it is not tracked for child_process bindings either).
+    """
+    bindings: dict[str, str] = {}
+    for node in _ts_walk(root_node):
+        if node.type == "import_statement":
+            prefix = _FS_MODULE_PREFIXES.get(
+                _ts_string_value(node.child_by_field_name("source")) or ""
+            )
+            if prefix is None:
+                continue
+            for clause in node.children:
+                if clause.type != "import_clause":
+                    continue
+                for part in clause.named_children:
+                    if part.type == "identifier":            # default import
+                        bindings[part.text.decode("utf-8")] = prefix
+                    elif part.type == "namespace_import":    # * as X
+                        for c in part.named_children:
+                            if c.type == "identifier":
+                                bindings[c.text.decode("utf-8")] = prefix
+                    elif part.type == "named_imports":       # { a, b as c }
+                        for spec in part.named_children:
+                            if spec.type != "import_specifier":
+                                continue
+                            name = spec.child_by_field_name("name")
+                            alias = spec.child_by_field_name("alias") or name
+                            if name is not None and alias is not None:
+                                bindings[alias.text.decode("utf-8")] = (
+                                    f"{prefix}.{name.text.decode('utf-8')}"
+                                )
+        elif node.type == "variable_declarator":
+            value = node.child_by_field_name("value")
+            target = node.child_by_field_name("name")
+            if value is None or target is None:
+                continue
+            suffix = ""
+            if value.type == "member_expression":            # require("fs").promises
+                prop = value.child_by_field_name("property")
+                if prop is None:
+                    continue
+                suffix = "." + prop.text.decode("utf-8")
+                value = value.child_by_field_name("object")
+            prefix = _FS_MODULE_PREFIXES.get(_require_module(value) or "")
+            if prefix is None:
+                continue
+            prefix += suffix
+            if target.type == "identifier":
+                bindings[target.text.decode("utf-8")] = prefix
+            elif target.type == "object_pattern":
+                for prop in target.named_children:
+                    if prop.type == "shorthand_property_identifier_pattern":
+                        n = prop.text.decode("utf-8")
+                        bindings[n] = f"{prefix}.{n}"
+                    elif prop.type == "pair_pattern":
+                        key = prop.child_by_field_name("key")
+                        val = prop.child_by_field_name("value")
+                        if key is not None and val is not None and val.type == "identifier":
+                            bindings[val.text.decode("utf-8")] = (
+                                f"{prefix}.{key.text.decode('utf-8')}"
+                            )
+    return bindings
+
+
+def _ts_canonical_fs_name(call_name: str, fs_bindings: dict[str, str]) -> str | None:
+    """``call_name`` rewritten through an fs import binding, or None.
+
+    ``writeFileSync`` -> ``fs.writeFileSync`` and ``fsp.rm`` -> ``fs.promises.rm``
+    when those identifiers are bound to Node's fs module in this file.
+    """
+    if not fs_bindings:
+        return None
+    head, dot, rest = call_name.partition(".")
+    prefix = fs_bindings.get(head)
+    if prefix is None:
+        return None
+    return f"{prefix}.{rest}" if dot else prefix
+
+
 def _ts_function_throws(func_node, source: bytes) -> bool:
     """Check if a TS function contains a throw statement.
 
@@ -1733,6 +2046,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
     # from child_process). The bare_only logic in analyze_typescript_file
     # checks child_process_bindings; we replicate the same here.
     child_process_bindings = _resolve_child_process_imports(tree.root_node, source_bytes)
+    fs_bindings = _resolve_fs_bindings(tree.root_node)
 
     results: list[dict] = []
     for call_name, line, col in calls:
@@ -1747,6 +2061,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                 obj = func_node_at_pos.child_by_field_name("object")
                 if obj is not None:
                     actual_receiver = _ts_node_text(obj, source_bytes)
+        fs_name = _ts_canonical_fs_name(call_name, fs_bindings)
 
         for rule in TS_SINK_RULES:
             bare_only = set(rule.get("bare_only_patterns", []))
@@ -1782,7 +2097,9 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                             continue
                         continue
                     continue
-                if _matches_pattern(call_name, pattern):
+                if _matches_pattern(call_name, pattern) or (
+                    fs_name is not None and _matches_pattern(fs_name, pattern)
+                ):
                     matched = True
                     break
             if matched:
