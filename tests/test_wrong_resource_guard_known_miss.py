@@ -19,7 +19,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from actenon_scan.engine import scan_path  # noqa: E402
+from actenon_scan.engine import scan_path
 
 AGENT = '''import stripe
 from mcp.server.fastmcp import FastMCP
