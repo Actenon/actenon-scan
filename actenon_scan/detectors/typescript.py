@@ -11,6 +11,7 @@ Python so output is language-agnostic.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -615,6 +616,24 @@ def _node_text(node, source_lines: list[str]) -> str:
     return "\n".join(parts)
 
 
+# The two text signals that read registration syntax into ordinary code.
+#
+# `tool(` is the LangChain.js / Vercel AI `tool(...)` factory. As a bare
+# substring it also matched MCP *client* calls - `client.tool("name", args)` -
+# and lookups such as `registry.tool(id)`, so a benchmark harness that drives a
+# tool server was read as a tool handler. Only the bare factory call counts.
+#
+# `execute:` is the Vercel AI handler property, `execute: async (args) => ...`.
+# As a bare substring it also matched any object key named execute, such as an
+# permissions config `{ read: programs, execute: programs }`, so the line
+# after such a config became an "inline handler". Only an `execute:` that
+# introduces a function (or leaves its value to the next line) counts.
+_TS_BARE_TOOL_CALL = re.compile(r"(?<![\w$.])tool\s*\(")
+_TS_EXECUTE_HANDLER = re.compile(
+    r"\bexecute\s*:\s*(?:$|async\b|function\b|\(|[A-Za-z_$][\w$]*\s*=>)"
+)
+
+
 def _is_tool_handler(func_text: str, full_source: str) -> bool:
     """Check if a function's text indicates it's a tool handler.
 
@@ -633,14 +652,14 @@ def _is_tool_handler(func_text: str, full_source: str) -> bool:
                 stripped = line.strip()
                 if stripped.startswith("import ") or stripped.startswith("from "):
                     continue
-                if "tool(" in stripped and not stripped.startswith("//"):
+                if _TS_BARE_TOOL_CALL.search(stripped) and not stripped.startswith("//"):
                     return True
         elif signal == "execute:":
             for line in func_text.split("\n"):
                 stripped = line.strip()
                 if stripped.startswith("//"):
                     continue
-                if "execute:" in stripped or "execute :" in stripped:
+                if _TS_EXECUTE_HANDLER.search(stripped):
                     return True
         elif signal in func_text:
             return True
@@ -722,7 +741,7 @@ def _is_inline_handler(node, source_lines: list[str]) -> bool:
                 if "tool(" in line:
                     return True
             elif signal == "execute:":
-                if "execute:" in line or "execute :" in line:
+                if _TS_EXECUTE_HANDLER.search(line):
                     return True
             elif signal == "setRequestHandler":
                 if "setRequestHandler" in line:
