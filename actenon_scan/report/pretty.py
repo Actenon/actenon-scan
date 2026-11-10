@@ -13,6 +13,7 @@ from collections import Counter
 
 from actenon_scan.engine import ScanResult, Finding
 from actenon_scan.report.airlock_handoff import AirlockHandoff, format_handoff, target_line
+from actenon_scan.report.python_version import python_version_hint
 from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_STATEMENT,
     analysis_incomplete_statement,
@@ -32,6 +33,7 @@ def format_pretty(
     elapsed: float | None = None,
     command: str = "actenon-scan",
     handoff: AirlockHandoff | None = None,
+    scan_target: str | os.PathLike[str] | None = None,
 ) -> str:
     """Format scan results as a blast-radius summary.
 
@@ -47,9 +49,12 @@ def format_pretty(
     ``command`` is how the user should invoke the scanner in the printed
     next steps (``uvx actenon-scan`` when run through uvx). ``handoff`` is
     the Airlock runtime-protection handoff for the most-exposed finding,
-    when Scan's authority evidence shows Airlock can act on it.
+    when Scan's authority evidence shows Airlock can act on it. ``scan_target`` is the path the user
+    scanned, as typed; with it, analysis errors caused by running on an older Python than the
+    project's ``requires-python`` get a rerun line (see :mod:`actenon_scan.report.python_version`).
     """
     unsuppressed = [f for f in result.findings if not f.suppressed]
+    python_hint = python_version_hint(result.analysis_errors, scan_target, command=command)
 
     # Work Order 2, Phase 6: capability summary.
     # Displayed when capabilities exist, before the finding-based output.
@@ -62,7 +67,11 @@ def format_pretty(
             cap_lines.append(f"{result.files_scanned} files scanned{timing}")
             # No other part of the all-guarded summary lists files that
             # failed to parse, so list them here, not only the count.
-            cap_lines.extend(_incomplete_lines(result, list_files=True))
+            incomplete = _incomplete_lines(result, list_files=True)
+            cap_lines.extend(incomplete)
+            # Under the failed files, as on the clean and findings paths.
+            if incomplete and python_hint is not None:
+                cap_lines.append(f"  {python_hint}")
             if result.unsupported_files:
                 cap_lines.append("")
                 cap_lines.extend(_format_unsupported(result))
@@ -85,7 +94,7 @@ def format_pretty(
         lines = []
 
     if not unsuppressed:
-        return _format_clean(result, elapsed)
+        return _format_clean(result, elapsed, python_hint=python_hint)
 
     groups = group_by_consequence(unsuppressed)
     most_exposed = select_most_exposed(unsuppressed)
@@ -193,6 +202,8 @@ def format_pretty(
             lines.append(f"  {rel}: {err}")
         if len(result.analysis_errors) > 10:
             lines.append(f"  ... and {len(result.analysis_errors) - 10} more")
+        if python_hint is not None:
+            lines.append(f"  {python_hint}")
 
     # Task 1b: transitive-reachability disclosure. MUST appear in the
     # findings case too — a directory scan with findings still has
@@ -267,8 +278,13 @@ def _format_capability_summary(result: ScanResult) -> list[str]:
     return lines
 
 
-def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
-    """Format a clean scan with the honesty statement (Part 1.5)."""
+def _format_clean(
+    result: ScanResult, elapsed: float | None = None, *, python_hint: str | None = None
+) -> str:
+    """Format a clean scan with the honesty statement (Part 1.5).
+
+    ``python_hint`` is printed under the analysis errors (see ``format_pretty``).
+    """
     lines: list[str] = []
     timing = f" ({elapsed:.2f}s)" if elapsed is not None else ""
     lines.append(f"actenon-scan: scanned {result.files_scanned} file(s){timing}.")
@@ -323,6 +339,8 @@ def _format_clean(result: ScanResult, elapsed: float | None = None) -> str:
             lines.append(f"    {rel}: {err}")
         if len(result.analysis_errors) > 10:
             lines.append(f"    ... and {len(result.analysis_errors) - 10} more")
+        if python_hint is not None:
+            lines.append(f"  {python_hint}")
         lines.append("")
 
     return "\n".join(lines) + "\n"

@@ -18,6 +18,9 @@ Cache safety (Part 4.5):
   - configuration changes: config hash is part of the key
   - rule changes: rule-set version is part of the key
   - scanner upgrades: scanner version is part of the key
+  - interpreter changes: the Python major.minor is part of the key, because
+    ``ast`` parses with the running interpreter's grammar (a file that is a
+    SyntaxError on 3.12 can parse on 3.14)
   - corrupted entries: caught and treated as a cache miss
   - partial writes: atomic writes via temp file + rename
   - concurrent runs: atomic writes prevent corruption; concurrent
@@ -36,6 +39,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -56,6 +60,11 @@ def _get_scanner_version() -> str:
         return __version__
     except ImportError:
         return "0.0.0+unknown"
+
+
+def _parser_version() -> str:
+    """The Python grammar ``ast.parse`` uses: the running interpreter's major.minor."""
+    return f"py{sys.version_info[0]}.{sys.version_info[1]}"
 
 
 # ---------------------------------------------------------------------------
@@ -120,13 +129,14 @@ def compute_cache_key(
     The key incorporates all inputs that affect the findings:
       - file content hash
       - scanner version
+      - Python parser version (major.minor)
       - config hash (rules + guards + reachability)
       - analysis-flags hash
     """
     ch = _content_hash(source)
     cgh = _config_hash(config)
     afh = _analysis_flags_hash(analysis_flags)
-    return f"{_get_scanner_version()}:{ch}:{cgh}:{afh}"
+    return f"{_get_scanner_version()}:{_parser_version()}:{ch}:{cgh}:{afh}"
 
 
 # ---------------------------------------------------------------------------
