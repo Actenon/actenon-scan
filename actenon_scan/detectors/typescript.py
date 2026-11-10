@@ -366,6 +366,9 @@ def analyze_typescript_file(
     # from "node:fs" matches the same rule as `fs.writeFileSync(...)`.
     fs_bindings = _resolve_fs_bindings(tree.root_node)
 
+    # Tool names declared in schema literals, for raw tool-schema dispatch.
+    declared_tool_names = _ts_declared_tool_names(tree.root_node)
+
     # Work Order 1.8: also build a map from call line/col to the actual
     # call_expression node, so we can inspect whether the function is a
     # bare identifier or a member_expression. _extract_calls flattens
@@ -465,7 +468,7 @@ def analyze_typescript_file(
                     continue  # no match — try next pattern
                 # Match found — proceed to reachability + guard check
                 # PER-FUNCTION reachability check
-                if not _is_call_reachable(tree, lang, source, line):
+                if not _is_call_reachable(tree, lang, source, line, col, declared_tool_names):
                     break  # not reachable — exit for-pattern loop
                 # Work Order 1.5: soundness guard check (ported from go.py).
                 # Replaces the lexical _is_guarded heuristic.
@@ -519,7 +522,14 @@ def analyze_typescript_file(
     return (findings, [])
 
 
-def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
+def _is_call_reachable(
+    tree,
+    lang,
+    source: str,
+    sink_line: int,
+    sink_col: int | None = None,
+    declared_tool_names: set[str] | None = None,
+) -> bool:
     """Check if a specific call at sink_line is inside an agent-reachable function.
 
     This is the PER-FUNCTION reachability check — the key fix for precision.
@@ -536,6 +546,10 @@ def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
        registration (module-level sinks in tool files are reachable)
     5. The sink is directly inside an arrow function or method that is
        passed to a tool registration (inline handler pattern)
+    6. The sink sits in a branch selected by a tool name this file declares
+       in a tool-schema literal (raw tool-schema dispatch, r07). Needs
+       ``sink_col``; ``declared_tool_names`` may be passed to avoid
+       re-walking the tree for every sink in a file.
 
     This eliminates false positives from example scripts that import a
     framework and register tools, but have sinks in OTHER functions that
@@ -585,6 +599,14 @@ def _is_call_reachable(tree, lang, source: str, sink_line: int) -> bool:
         #   server.registerTool("name", ..., () => store.createEntities(...))
         if _is_method_of_tool_class(enclosing_func, tree, source_lines, source):
             return True
+
+        # Raw tool-schema dispatch (r07): the sink is in the branch that a
+        # tool name declared in this file's schema literal selects.
+        if sink_col is not None:
+            if declared_tool_names is None:
+                declared_tool_names = _ts_declared_tool_names(tree.root_node)
+            if _ts_is_tool_schema_dispatch(enclosing_func, sink_line, sink_col, declared_tool_names):
+                return True
 
         return False
 
@@ -842,6 +864,139 @@ def _find_enclosing_class(func_node, tree):
 
     walk(tree.root_node)
     return best_class
+
+
+# ---------------------------------------------------------------------------
+# Raw tool-schema dispatch (benchmark recall case r07), TypeScript/JavaScript
+#
+# The TypeScript port of the Python signal in reachability.py
+# (_is_tool_schema_dispatch). An agent boundary announced by a schema literal
+# instead of an SDK registration call — typical of MCP servers that speak
+# JSON-RPC over stdio by hand, and of agent loops that pass tool definitions
+# straight to a model API:
+#
+#     const tools = [{ name: "save_skill", description: "...", inputSchema: {...} }];
+#     function call(name, a) {
+#       if (name === "save_skill") writeFileSync(path, a.content);   // <- boundary
+#     }
+#
+# Both halves are required, as in Python: the schema literal supplies the tool
+# name, and the sink must sit in the branch that name selects. Two places are
+# deliberately stricter than the Python signal: the sink must be in the branch
+# the name selects (an `else` branch is selected by every OTHER name and does
+# not count), and a name declared with an ARRAY under `parameters` is a
+# parameter list (OpenAPI, stored procedures), not a JSON-Schema tool input.
+# ---------------------------------------------------------------------------
+
+_TS_SCHEMA_PARAM_KEYS = frozenset({"parameters", "input_schema", "inputSchema", "args_schema"})
+
+
+def _ts_object_pairs(obj_node) -> dict[str, object]:
+    """key -> value node for the `key: value` pairs of an object literal."""
+    pairs: dict[str, object] = {}
+    for pair in obj_node.named_children:
+        if pair.type != "pair":
+            continue
+        key = pair.child_by_field_name("key")
+        value = pair.child_by_field_name("value")
+        if key is None or value is None:
+            continue
+        if key.type == "property_identifier":
+            pairs[key.text.decode("utf-8")] = value
+        else:
+            k = _ts_string_value(key)
+            if k is not None:
+                pairs[k] = value
+    return pairs
+
+
+def _ts_declared_tool_names(root_node) -> set[str]:
+    """Tool names declared in an LLM tool-schema object literal in this file.
+
+    Flat form (MCP tools/list, Anthropic):
+        { name: "run_command", description: "...", inputSchema: {...} }
+    Nested OpenAI form:
+        { type: "function", function: { name: "run_command", parameters: {...} } }
+    """
+    names: set[str] = set()
+    for node in _ts_walk(root_node):
+        if node.type != "object":
+            continue
+        pairs = _ts_object_pairs(node)
+        name = _ts_string_value(pairs.get("name"))
+        if name:
+            schemas = [pairs[k] for k in _TS_SCHEMA_PARAM_KEYS if k in pairs]
+            if any(s.type != "array" for s in schemas):
+                names.add(name)
+        fn = pairs.get("function")
+        if "type" in pairs and fn is not None and fn.type == "object":
+            inner = _ts_string_value(_ts_object_pairs(fn).get("name"))
+            if inner:
+                names.add(inner)
+    return names
+
+
+def _ts_condition_selects(node, declared: set[str]) -> bool:
+    """True when a branch condition is satisfied by a declared tool name.
+
+    `name === "x"`, `"x" == name`, and those joined by && or || (each
+    disjunct of || selects the branch on its own). Anything else — a negation,
+    an inequality, a call — is not read as a name selection.
+    """
+    if node is None:
+        return False
+    if node.type == "parenthesized_expression":
+        return any(_ts_condition_selects(c, declared) for c in node.named_children)
+    if node.type != "binary_expression":
+        return False
+    op_node = node.child_by_field_name("operator")
+    op = op_node.type if op_node is not None else ""
+    left = node.child_by_field_name("left")
+    right = node.child_by_field_name("right")
+    if op in ("&&", "||"):
+        return _ts_condition_selects(left, declared) or _ts_condition_selects(right, declared)
+    if op in ("===", "=="):
+        return _ts_string_value(left) in declared or _ts_string_value(right) in declared
+    return False
+
+
+def _ts_field_children(node, field: str) -> list:
+    return [c for i, c in enumerate(node.children) if node.field_name_for_child(i) == field]
+
+
+def _ts_node_contains_point(node, line: int, col: int) -> bool:
+    """True when (1-indexed line, 0-indexed col) lies inside ``node``."""
+    if node is None:
+        return False
+    point = (line - 1, col)
+    return node.start_point <= point < node.end_point
+
+
+def _ts_is_tool_schema_dispatch(func_node, sink_line: int, sink_col: int, declared: set[str]) -> bool:
+    """True when the sink sits in a branch selected by a declared tool name.
+
+    Containment is checked on the sink's exact position, not its line, so
+    `if (name === "a") f(); else sink();` on one line is not a selection.
+    """
+    if not declared or func_node is None:
+        return False
+    for node in _ts_walk(func_node):
+        if node.type == "if_statement":
+            if _ts_condition_selects(node.child_by_field_name("condition"), declared) and (
+                _ts_node_contains_point(node.child_by_field_name("consequence"), sink_line, sink_col)
+            ):
+                return True
+        elif node.type == "switch_body":
+            selected = False   # an empty `case "a":` falls through to the next body
+            for case in node.named_children:
+                if case.type == "switch_case" and _ts_string_value(case.child_by_field_name("value")) in declared:
+                    selected = True
+                body = _ts_field_children(case, "body")
+                if selected and any(_ts_node_contains_point(b, sink_line, sink_col) for b in body):
+                    return True
+                if body:
+                    selected = False
+    return False
 
 
 def _check_file_level_reachability(source: str) -> bool:
