@@ -13,10 +13,13 @@ from actenon_scan.engine import ScanResult
 from actenon_scan.report.blast_radius import (
     CLEAN_SCAN_LIMITATIONS,
     CLEAN_SCAN_STATEMENT,
+    analysis_incomplete_statement,
     consequence_label,
     group_by_consequence,
+    parse_failures,
     select_most_exposed,
     transitive_disclosure_line,
+    verified_statement,
 )
 
 
@@ -52,6 +55,13 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
     )
     parts.append("</header>")
 
+    incomplete = analysis_incomplete_statement(result)
+    if incomplete is not None:
+        # Before any result: "Files scanned" includes files that could not be parsed.
+        parts.append('<section class="incomplete">')
+        parts.append(f"<p><strong>{html.escape(incomplete)}</strong></p>")
+        parts.append("</section>")
+
     if not unsuppressed:
         # Clean scan
         parts.append('<section class="clean">')
@@ -59,7 +69,7 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
         parts.append("</section>")
         parts.append('<section class="honesty">')
         parts.append("<h2>What this scan verified</h2>")
-        parts.append("<p>Supported source files were parsed and analysed for agent-reachable consequential actions without a dominating authority check.</p>")
+        parts.append(f"<p>{html.escape(_capitalised(verified_statement(result)))}</p>")
         parts.append("<h2>What this scan did not verify</h2>")
         parts.append("<p>Unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.</p>")
         parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
@@ -71,6 +81,9 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
             parts.append("<h2>Repository analysis</h2>")
             parts.append(f"<p>{html.escape(disclosure)}</p>")
         parts.append("</section>")
+        # The clean report returned before listing these; a clean result
+        # must still say which files it never analysed.
+        parts.extend(_coverage_gap_parts(result))
         parts.append("</main>")
         parts.append("</body>")
         parts.append("</html>")
@@ -140,20 +153,12 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
     # Honesty statement (Part 6.2 — visible, not hidden in footer)
     parts.append('<section class="honesty">')
     parts.append("<h2>What this scan verified / did not verify</h2>")
-    parts.append("<p><strong>Verified:</strong> supported source files were parsed and analysed for agent-reachable consequential actions without a dominating authority check.</p>")
+    parts.append(f"<p><strong>Verified:</strong> {html.escape(verified_statement(result))}</p>")
     parts.append("<p><strong>Not verified:</strong> unsupported languages, files outside the scan target, guards outside the analysed path, external reachability, or practical exploitability.</p>")
     parts.append('<p>See the <code>docs/COVERAGE.md</code> file in the actenon-scan repository for supported architectures and analysis limits.</p>')
     parts.append("</section>")
 
-    # Unsupported files
-    if result.unsupported_files:
-        lang_counts = Counter(lang for _, lang in result.unsupported_files)
-        parts.append('<section class="unsupported">')
-        parts.append(
-            f"<p><strong>Note:</strong> {len(result.unsupported_files)} file(s) NOT scanned &mdash; "
-            f"unsupported: {html.escape(str(dict(lang_counts)))}</p>"
-        )
-        parts.append("</section>")
+    parts.extend(_coverage_gap_parts(result))
 
     # Task 1b: transitive disclosure in findings case too.
     disclosure = transitive_disclosure_line(result)
@@ -191,3 +196,34 @@ th { background: #f6f8fa; font-size: 0.85rem; text-transform: uppercase; letter-
 .clean p { font-size: 1.1rem; font-weight: 600; }
 .unsupported { background: #ffebe9; border-color: #ffcecb; }
 """
+
+
+def _capitalised(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _coverage_gap_parts(result: ScanResult) -> list[str]:
+    """Files that were not analysed: parse failures (listed) and unsupported languages."""
+    parts: list[str] = []
+    failures = parse_failures(result)
+    if failures:
+        parts.append('<section class="not-analysed">')
+        parts.append(
+            f"<p><strong>Not analysed:</strong> {len(failures)} supported file(s) could not be parsed:</p>"
+        )
+        parts.append("<ul>")
+        for rel, err in failures[:20]:
+            parts.append(f"<li><code>{html.escape(rel)}</code>: {html.escape(err)}</li>")
+        if len(failures) > 20:
+            parts.append(f"<li>... and {len(failures) - 20} more</li>")
+        parts.append("</ul>")
+        parts.append("</section>")
+    if result.unsupported_files:
+        lang_counts = Counter(lang for _, lang in result.unsupported_files)
+        parts.append('<section class="unsupported">')
+        parts.append(
+            f"<p><strong>Note:</strong> {len(result.unsupported_files)} file(s) NOT scanned &mdash; "
+            f"unsupported: {html.escape(str(dict(lang_counts)))}</p>"
+        )
+        parts.append("</section>")
+    return parts

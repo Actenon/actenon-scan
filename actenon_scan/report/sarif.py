@@ -5,8 +5,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from collections import Counter
+
 from actenon_scan import __version__
 from actenon_scan.engine import ScanResult
+from actenon_scan.report.blast_radius import (
+    REPOSITORY_ANALYSIS_ERROR,
+    analysis_incomplete_statement,
+    parse_failures,
+)
 
 
 SEVERITY_TO_LEVEL = {
@@ -143,6 +150,10 @@ def format_sarif(result: ScanResult) -> str:
                             "transitive_unfollowed_count": getattr(
                                 result, "transitive_unfollowed_count", 0
                             ),
+                            # Files the run did not analyse. Non-zero means
+                            # "no results" does not cover the whole target.
+                            "analysis_error_count": len(result.analysis_errors),
+                            "unsupported_file_count": len(result.unsupported_files),
                         },
                     }
                 },
@@ -194,10 +205,50 @@ def format_sarif(result: ScanResult) -> str:
                                 ] if edge.get("file") else [],
                             }
                             for edge in getattr(result, "local_call_edges", [])
-                        ],
+                        ] + _coverage_notifications(result),
                     }
                 ],
             }
         ],
     }
     return json.dumps(sarif, indent=2) + "\n"
+
+
+def _coverage_notifications(result: ScanResult) -> list[dict[str, Any]]:
+    """Tool notifications for everything the run did not analyse.
+
+    One ``error`` per supported file that could not be parsed (with its
+    location), one ``error`` if the cross-file pass failed, and one
+    ``warning`` per unsupported language. ``executionSuccessful`` stays true:
+    the scan completed, and these notifications state what it could not cover,
+    so an empty ``results`` array is never read as complete coverage.
+    """
+    notes: list[dict[str, Any]] = []
+    statement = analysis_incomplete_statement(result)
+    if statement is not None:
+        notes.append({"level": "error", "descriptor": {"id": "analysis-incomplete"},
+                      "message": {"text": statement}})
+    for rel, err in parse_failures(result):
+        notes.append({
+            "level": "error",
+            "descriptor": {"id": "file-not-analysed"},
+            "message": {"text": f"Not analysed: this file could not be parsed ({err}). "
+                                "Findings in it are unknown."},
+            "locations": [{"physicalLocation": {"artifactLocation": {"uri": rel}}}],
+        })
+    for rel, err in result.analysis_errors:
+        if rel == REPOSITORY_ANALYSIS_ERROR:
+            notes.append({
+                "level": "error",
+                "descriptor": {"id": "repository-analysis-failed"},
+                "message": {"text": f"Repository-level analysis failed ({err}). "
+                                    "Transitive findings are unknown."},
+            })
+    for lang, count in sorted(Counter(lang for _, lang in result.unsupported_files).items()):
+        notes.append({
+            "level": "warning",
+            "descriptor": {"id": "unsupported-language"},
+            "message": {"text": f"Not analysed: {count} {lang} file(s); actenon-scan parses "
+                                "Python, TypeScript and Go only."},
+        })
+    return notes

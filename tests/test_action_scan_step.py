@@ -174,3 +174,32 @@ def test_paths_with_spaces_are_passed_as_one_argument(tmp_path: Path) -> None:
     out = _run_scan_step(work, {"path": "my agent", "fail-on": "none"})
     assert out["exit_code"] == "0", out
     assert int(out["findings-count"]) == 1, out
+
+
+def test_scan_step_warns_when_files_were_not_analysed(tmp_path: Path) -> None:
+    """Files that failed to parse or are in unsupported languages must be
+    announced as workflow warnings, read from results.json.
+
+    The old check grepped the step's console output for "NOT scanned", but
+    the JSON and SARIF passes write to files, so it never fired, and a file
+    that failed to parse was never mentioned at all.
+    """
+    work = tmp_path / "repo"
+    work.mkdir()
+    (work / "ok.py").write_text("x = 1\n")
+    (work / "broken.py").write_text('print "legacy"\n')
+    (work / "worker.rb").write_text("puts 1\n")
+    out = _run_scan_step(work, {})
+    assert (
+        "::warning title=Actenon Scan analysis incomplete::1 supported file(s) "
+        "could not be parsed and were NOT analysed"
+    ) in out["_stdout"], out["_stdout"]
+    assert "::warning title=Actenon Scan::1 file(s) NOT scanned" in out["_stdout"], out["_stdout"]
+
+
+def test_scan_step_is_quiet_when_everything_was_analysed(tmp_path: Path) -> None:
+    work = tmp_path / "repo"
+    work.mkdir()
+    (work / "ok.py").write_text("x = 1\n")
+    out = _run_scan_step(work, {})
+    assert "::warning" not in out["_stdout"], out["_stdout"]
