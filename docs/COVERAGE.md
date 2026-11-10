@@ -635,6 +635,23 @@ remains in the codebase because a codebase not in the corpus may use the
 pattern. It simply does not count toward corpus-demonstrated recall until it
 produces a hand-triaged true positive.
 
+**TypeScript/JavaScript.** r07 is also recognised in TS/JS: a sink in the
+`if` consequence or `case` body selected by a tool name the file declares in a
+`{ name, inputSchema | input_schema | parameters | args_schema }` literal (or
+the nested OpenAI `{ type, function: { name } }` form). The TS check is
+stricter than the Python one: an `else` branch never counts, a negated
+condition never counts, `parameters: [...]` is a parameter list rather than a
+schema, and containment uses the sink's exact position. It is per-function: a
+dispatch branch that calls a helper in another module is not lifted.
+
+The motivating case is a hand-written MCP server (JSON-RPC over stdio, no SDK
+import) whose `save_skill` tool coding agents called 31 times, with every
+later read returning the saved bytes. The Python detector already flagged a
+transliteration of it; the TS detector reported nothing. On the ten
+TS-bearing corpus repositories it changes no finding. The evidence is a
+private repository, so it is not corpus evidence and r07 stays PARTIAL. See
+`research/rapsheet-behaviour/`.
+
 ## Work Order 1 — repository_mutation coverage
 
 ### REPOSITORY-MUTATION (PyGithub)
@@ -1001,6 +1018,25 @@ recognised tool registration signal (`setRequestHandler`,
 agent frameworks use patterns not yet recognised. This is a coverage
 limitation, not a soundness issue — the scanner is conservative (errs
 toward "not reachable" rather than "reachable and unguarded").
+
+Two of those signals were bare substrings and over-matched. `tool(` in a
+function body now has to be the `tool(...)` factory itself, not an MCP client
+call such as `client.tool("name", args)` or a lookup such as
+`registry.tool(id)`. `execute:` (in a function body or near an inline handler)
+now has to introduce a function, not an object key such as
+`authority: { execute: programs }`. The inline-handler `tool(` check is
+unchanged, so `mcp.tool(name, schema, handler)` still resolves.
+
+### Node fs sinks through import bindings
+
+FILE-WRITE and DATA-DELETE-FILE are written as `fs.writeFileSync`,
+`fs.promises.rm`, … Calls through any binding of Node's fs module now match:
+`import { writeFileSync } from "node:fs"`, `import { rm as remove } from
+"fs/promises"`, `import fsp from "node:fs/promises"`, `import * as nodefs from
+"fs"`, and the `require` forms. Before this, the most common modern idiom
+matched no rule even inside a `setRequestHandler` handler. Resolution follows
+the import, not the name: `memfs`, a local module, or a local function called
+`writeFileSync` are not fs. Shadowing in nested scopes is not tracked.
 
 ### Known false positive: `handler.fetch()` matching NET-EGRESS — FIXED (v1.2.1)
 
