@@ -444,6 +444,105 @@ def test_json_and_sarif_are_unchanged(tmp_path, capsys, monkeypatch, fmt):
         assert len(errors) == 3 and all("SyntaxError" in json.dumps(e) for e in errors)
 
 
+# -- the all-guarded summary (every capability guarded, no findings) ---------------------------------
+
+INCOMPLETE = "ANALYSIS INCOMPLETE: 1 supported file(s) could not be parsed and were NOT analysed"
+UNQUALIFIED = "source files were parsed and analysed"
+
+
+def _guarded_capability():
+    from actenon_scan.capability import Capability
+
+    return Capability(
+        file="tools.py", line=7, col=4, rule_id="DATA-DELETE-FILE", category="data_destruction",
+        severity="high", call_text="os.remove(path)", state="GUARD_FOUND", guard_status="guarded",
+    )
+
+
+def test_all_guarded_report_adds_the_line_under_the_failed_files(tmp_path, monkeypatch):
+    _with_running(monkeypatch)
+    _pyproject(tmp_path, ">=3.14")
+    result = ScanResult(capabilities=[_guarded_capability()], files_scanned=2, analysis_errors=_errors(1))
+    lines = format_pretty(result, scan_target=tmp_path, command="uvx actenon-scan").splitlines()
+    i = lines.index(INCOMPLETE + "; anything in them is unknown.")
+    assert lines[i + 1] == f"  agent/m0.py: {PEP758}"
+    assert lines[i + 2] == (
+        "  This is a SyntaxError under Python 3.12, and pyproject.toml requires Python >=3.14. "
+        f"Rerun with: uvx --python 3.14 actenon-scan scan {tmp_path}"
+    )
+
+
+@pytest.mark.parametrize("requires", [None, ">=3.10", ">=3.14,!=3.14.*"])
+def test_all_guarded_report_without_a_suggestion_is_unchanged(tmp_path, monkeypatch, requires):
+    _with_running(monkeypatch)
+    _pyproject(tmp_path, requires)
+    result = ScanResult(capabilities=[_guarded_capability()], files_scanned=2, analysis_errors=_errors(1))
+    assert format_pretty(result, scan_target=tmp_path) == format_pretty(result)
+
+
+GUARDED_TOOL = '''import os
+from mcp import tool
+
+
+@tool
+def guarded(path: str) -> None:
+    authorize(path)
+    os.remove(path)
+
+
+def authorize(path: str) -> None:
+    if not path.startswith("/tmp/"):
+        raise PermissionError(path)
+'''
+
+PEP758_FILE = "def f():\n    try:\n        pass\n    except ValueError, TypeError:\n        pass\n"
+
+
+def _all_guarded_project(tmp_path: Path, requires: str | None) -> Path:
+    (tmp_path / "tools.py").write_text(GUARDED_TOOL)
+    (tmp_path / ".actenon-scan.json").write_text('{"guard_patterns": ["authorize"]}')
+    (tmp_path / "broken.py").write_text(PEP758_FILE)
+    return _pyproject(tmp_path, requires)
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 14), reason="PEP 758 `except A, B:` parses on Python 3.14+")
+@pytest.mark.parametrize(
+    ("command", "rerun"),
+    [
+        ("uvx actenon-scan", "Rerun with: uvx --python 3.14 actenon-scan scan ."),
+        ("actenon-scan", "Rerun with actenon-scan installed on Python 3.14: actenon-scan scan ."),
+    ],
+)
+def test_all_guarded_project_for_a_newer_python_end_to_end(tmp_path, capsys, monkeypatch, command, rerun):
+    # The real parser, the real CLI and auto-discovered config. Every capability is guarded, so the
+    # report takes the all-guarded summary; the one file it could not parse must still be reported
+    # as not analysed, with why and how to rerun.
+    monkeypatch.setattr(cli, "scan_command", lambda: command)
+    out = _scan(_all_guarded_project(tmp_path, ">=3.14"), capsys, monkeypatch)
+    lines = out.splitlines()
+    here = f"{sys.version_info[0]}.{sys.version_info[1]}"
+
+    assert "  Guard found on path:       1" in lines and "Review required" not in out  # all-guarded path
+    incomplete = lines.index(INCOMPLETE + "; anything in them is unknown.")
+    assert lines[incomplete + 1].startswith(
+        "  broken.py: SyntaxError: multiple exception types must be parenthesized"
+    )
+    assert lines[incomplete + 2] == (
+        f"  This is a SyntaxError under Python {here}, and pyproject.toml requires Python >=3.14. {rerun}"
+    )
+    assert UNQUALIFIED not in out
+    assert "No supported unguarded consequential-action paths were identified." not in out
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 14), reason="PEP 758 `except A, B:` parses on Python 3.14+")
+@pytest.mark.parametrize("requires", [None, ">=3.10", ">=3.14,!=3.14.*"])
+def test_all_guarded_project_without_a_suggestion_still_discloses(tmp_path, capsys, monkeypatch, requires):
+    out = _scan(_all_guarded_project(tmp_path, requires), capsys, monkeypatch)
+    assert INCOMPLETE in out and "  broken.py: SyntaxError: " in out
+    assert "Rerun" not in out and "SyntaxError under" not in out
+    assert UNQUALIFIED not in out
+
+
 # -- the cache must not replay an older interpreter's SyntaxError ----------------------------------------
 
 

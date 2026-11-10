@@ -67,7 +67,11 @@ def format_pretty(
             cap_lines.append(f"{result.files_scanned} files scanned{timing}")
             # No other part of the all-guarded summary lists files that
             # failed to parse, so list them here, not only the count.
-            cap_lines.extend(_incomplete_lines(result, list_files=True))
+            incomplete = _incomplete_lines(result, list_files=True)
+            cap_lines.extend(incomplete)
+            # Under the failed files, as on the clean and findings paths.
+            if incomplete and python_hint is not None:
+                cap_lines.append(f"  {python_hint}")
             if result.unsupported_files:
                 cap_lines.append("")
                 cap_lines.extend(_format_unsupported(result))
