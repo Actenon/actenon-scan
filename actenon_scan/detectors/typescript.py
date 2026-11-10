@@ -362,6 +362,10 @@ def analyze_typescript_file(
     # `import { exec as runCommand }`, `import * as cp`, `import child_process`).
     child_process_bindings = _resolve_child_process_imports(tree.root_node, source_bytes)
 
+    # Identifiers bound to Node's fs module, so `writeFileSync(...)` imported
+    # from "node:fs" matches the same rule as `fs.writeFileSync(...)`.
+    fs_bindings = _resolve_fs_bindings(tree.root_node)
+
     # Work Order 1.8: also build a map from call line/col to the actual
     # call_expression node, so we can inspect whether the function is a
     # bare identifier or a member_expression. _extract_calls flattens
@@ -393,6 +397,7 @@ def analyze_typescript_file(
             obj = func_node_at_pos.child_by_field_name("object")
             if obj is not None:
                 actual_receiver = _ts_node_text(obj, source_bytes)
+        fs_name = _ts_canonical_fs_name(call_name, fs_bindings)
 
         for rule in TS_SINK_RULES:
             bare_only = set(rule.get("bare_only_patterns", []))
@@ -453,7 +458,10 @@ def analyze_typescript_file(
                             continue
                     else:
                         continue  # no match — try next pattern
-                elif not _matches_pattern(call_name, pattern):
+                elif not (
+                    _matches_pattern(call_name, pattern)
+                    or (fs_name is not None and _matches_pattern(fs_name, pattern))
+                ):
                     continue  # no match — try next pattern
                 # Match found — proceed to reachability + guard check
                 # PER-FUNCTION reachability check
@@ -1345,6 +1353,137 @@ def _resolve_child_process_imports(root_node, source: bytes) -> set[str]:
     return bindings
 
 
+# Node's filesystem module, under every specifier it is published as, mapped to
+# the dotted prefix TS_SINK_RULES patterns are written in ("fs.writeFileSync",
+# "fs.promises.writeFile").
+_FS_MODULE_PREFIXES: dict[str, str] = {
+    "fs": "fs",
+    "node:fs": "fs",
+    "fs/promises": "fs.promises",
+    "node:fs/promises": "fs.promises",
+}
+
+
+def _ts_string_value(node) -> str | None:
+    """The value of a plain string literal node, or None for anything else."""
+    if node is None or node.type != "string":
+        return None
+    return "".join(
+        c.text.decode("utf-8") for c in node.children if c.type == "string_fragment"
+    )
+
+
+def _require_module(node) -> str | None:
+    """Module specifier of a ``require("<module>")`` call node, else None."""
+    if node is None or node.type != "call_expression":
+        return None
+    func = node.child_by_field_name("function")
+    if func is None or func.type != "identifier" or func.text != b"require":
+        return None
+    args = node.child_by_field_name("arguments")
+    strings = [c for c in args.named_children] if args is not None else []
+    if len(strings) != 1:
+        return None
+    return _ts_string_value(strings[0])
+
+
+def _resolve_fs_bindings(root_node) -> dict[str, str]:
+    """Map local identifiers bound to Node's fs module onto their dotted name.
+
+    The FILE-WRITE and DATA-DELETE-FILE patterns are written as
+    ``fs.writeFileSync`` / ``fs.promises.rm``, which only matches code that
+    calls through a binding literally named ``fs``. Modern Node code mostly
+    imports the functions themselves:
+
+      import { writeFileSync } from "node:fs"    writeFileSync -> fs.writeFileSync
+      import { rm as remove } from "fs/promises"  remove        -> fs.promises.rm
+      import { promises as fsp } from "fs"         fsp           -> fs.promises
+      import fsp from "node:fs/promises"           fsp           -> fs.promises
+      import * as nodefs from "fs"                 nodefs        -> fs
+      const { unlinkSync: u } = require("fs")      u             -> fs.unlinkSync
+      const fsp = require("fs").promises           fsp           -> fs.promises
+
+    Resolution is anchored on the import, never on the name: a local function
+    that happens to be called ``writeFileSync`` is not an fs call and is not
+    mapped. Shadowing of an imported binding inside a nested scope is not
+    tracked (it is not tracked for child_process bindings either).
+    """
+    bindings: dict[str, str] = {}
+    for node in _ts_walk(root_node):
+        if node.type == "import_statement":
+            prefix = _FS_MODULE_PREFIXES.get(
+                _ts_string_value(node.child_by_field_name("source")) or ""
+            )
+            if prefix is None:
+                continue
+            for clause in node.children:
+                if clause.type != "import_clause":
+                    continue
+                for part in clause.named_children:
+                    if part.type == "identifier":            # default import
+                        bindings[part.text.decode("utf-8")] = prefix
+                    elif part.type == "namespace_import":    # * as X
+                        for c in part.named_children:
+                            if c.type == "identifier":
+                                bindings[c.text.decode("utf-8")] = prefix
+                    elif part.type == "named_imports":       # { a, b as c }
+                        for spec in part.named_children:
+                            if spec.type != "import_specifier":
+                                continue
+                            name = spec.child_by_field_name("name")
+                            alias = spec.child_by_field_name("alias") or name
+                            if name is not None and alias is not None:
+                                bindings[alias.text.decode("utf-8")] = (
+                                    f"{prefix}.{name.text.decode('utf-8')}"
+                                )
+        elif node.type == "variable_declarator":
+            value = node.child_by_field_name("value")
+            target = node.child_by_field_name("name")
+            if value is None or target is None:
+                continue
+            suffix = ""
+            if value.type == "member_expression":            # require("fs").promises
+                prop = value.child_by_field_name("property")
+                if prop is None:
+                    continue
+                suffix = "." + prop.text.decode("utf-8")
+                value = value.child_by_field_name("object")
+            prefix = _FS_MODULE_PREFIXES.get(_require_module(value) or "")
+            if prefix is None:
+                continue
+            prefix += suffix
+            if target.type == "identifier":
+                bindings[target.text.decode("utf-8")] = prefix
+            elif target.type == "object_pattern":
+                for prop in target.named_children:
+                    if prop.type == "shorthand_property_identifier_pattern":
+                        n = prop.text.decode("utf-8")
+                        bindings[n] = f"{prefix}.{n}"
+                    elif prop.type == "pair_pattern":
+                        key = prop.child_by_field_name("key")
+                        val = prop.child_by_field_name("value")
+                        if key is not None and val is not None and val.type == "identifier":
+                            bindings[val.text.decode("utf-8")] = (
+                                f"{prefix}.{key.text.decode('utf-8')}"
+                            )
+    return bindings
+
+
+def _ts_canonical_fs_name(call_name: str, fs_bindings: dict[str, str]) -> str | None:
+    """``call_name`` rewritten through an fs import binding, or None.
+
+    ``writeFileSync`` -> ``fs.writeFileSync`` and ``fsp.rm`` -> ``fs.promises.rm``
+    when those identifiers are bound to Node's fs module in this file.
+    """
+    if not fs_bindings:
+        return None
+    head, dot, rest = call_name.partition(".")
+    prefix = fs_bindings.get(head)
+    if prefix is None:
+        return None
+    return f"{prefix}.{rest}" if dot else prefix
+
+
 def _ts_function_throws(func_node, source: bytes) -> bool:
     """Check if a TS function contains a throw statement.
 
@@ -1752,6 +1891,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
     # from child_process). The bare_only logic in analyze_typescript_file
     # checks child_process_bindings; we replicate the same here.
     child_process_bindings = _resolve_child_process_imports(tree.root_node, source_bytes)
+    fs_bindings = _resolve_fs_bindings(tree.root_node)
 
     results: list[dict] = []
     for call_name, line, col in calls:
@@ -1766,6 +1906,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                 obj = func_node_at_pos.child_by_field_name("object")
                 if obj is not None:
                     actual_receiver = _ts_node_text(obj, source_bytes)
+        fs_name = _ts_canonical_fs_name(call_name, fs_bindings)
 
         for rule in TS_SINK_RULES:
             bare_only = set(rule.get("bare_only_patterns", []))
@@ -1801,7 +1942,9 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                             continue
                         continue
                     continue
-                if _matches_pattern(call_name, pattern):
+                if _matches_pattern(call_name, pattern) or (
+                    fs_name is not None and _matches_pattern(fs_name, pattern)
+                ):
                     matched = True
                     break
             if matched:
