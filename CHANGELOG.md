@@ -58,9 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When more than half of the analysis errors are `SyntaxError`s in Python files and the scanned project's
   `pyproject.toml` `requires-python` lower bound is newer than the Python Scan runs on, the default report
   adds one line under the errors naming both versions and how to rerun (`Rerun with: uvx --python 3.14
-  actenon-scan scan .` under uvx). Every error is still listed; JSON, SARIF and `--format list` are
-  unchanged. `requires-python` is read with `tomllib`/`tomli`, or on Python 3.10 without either from a
-  single-line `[project]` value, so Scan keeps zero runtime dependencies.
+  actenon-scan scan .` under uvx). The suggested version must satisfy every clause of `requires-python`
+  (`!=`, `!=X.*`, `<`, `<=` as well as the lower bounds; `X.Y` only if every `X.Y.z` does); otherwise, or
+  for any clause Scan cannot evaluate, there is no line. Every error is still listed; JSON, SARIF and
+  `--format list` are unchanged. `requires-python` is read with `tomllib`/`tomli`, or on Python 3.10
+  without either from a single-line value under `[project]` (any other table header, or a multi-line
+  string before the value, means no line), so Scan keeps zero runtime dependencies.
 - TypeScript/JavaScript: raw tool-schema dispatch (r07), already recognised in Python. A sink in the
   branch that a schema-declared tool name selects (`if (name === "save_skill")`, `case "delete_file":`) is
   agent-reachable, so hand-written MCP servers without an SDK import are no longer silent. Stricter than

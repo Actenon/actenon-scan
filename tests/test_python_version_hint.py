@@ -164,22 +164,101 @@ def test_pyproject_beyond_the_repository_root_is_not_used(tmp_path):
         (">= 3.13, <4", "3.13"),
         ("~=3.13", "3.13"),
         ("==3.14.*", "3.14"),
-        (">3.12", "3.13"),
+        ("==4.*", "4.0"),
+        (">3.13", "3.14"),
         (">3.12.13", "3.12.14"),
         (">=3.12.20", "3.12.20"),
+        ("==3.14.2", "3.14.2"),
+        ("~=3.14.2", "3.14.2"),
         (">=3.11,>=3.14", "3.14"),
+        (">=3.14,<3.15", "3.14"),
         (">=3.10", None),
         (">=3.12", None),
+        # PEP 440: 3.12.13 > 3.12 (= 3.12.0), so the running Python already satisfies this.
+        (">3.12", None),
         ("<3.14", None),
         ("!=3.12.*", None),
+        ("==3.*", None),
         (">=3", None),
         ("", None),
         ("python3.14", None),
         (">=3.14; os_name == 'nt'", None),
+        ("===3.14", None),
+        (">=3.14,", None),
+        (">=3.14.0.1", None),
+        (">=3.14.*", None),
+        ("~=3", None),
     ],
 )
 def test_python_needed(spec, needed):
     assert pv.python_needed(spec, RUNNING) == needed
+
+
+@pytest.mark.parametrize(
+    ("spec", "needed"),
+    [
+        # The owner's review repros: the lower bound's series is excluded, so nothing is suggested.
+        (">=3.14,!=3.14.*", None),
+        (">=3.13,!=3.13.*,!=3.14.*", None),
+        # Control: the exclusion does not touch the suggestion.
+        (">=3.14,!=3.15.*", "3.14"),
+        (">=3.14,!=3.13.*", "3.14"),
+    ],
+)
+def test_python_needed_never_suggests_an_excluded_version(spec, needed):
+    assert pv.python_needed(spec, (3, 12)) == needed
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        # `uvx --python 3.14` may pick any 3.14.x, so a bound inside the series rules out "3.14".
+        ">=3.14,<3.14.5",
+        ">=3.14,<=3.14",
+        ">=3.14,<3.14",
+        ">=3.14,!=3.14.0",
+        ">=3.14,!=3.14.1",
+        ">=3.14,<3.13",
+        ">=3.12.20,!=3.12.20",
+        ">=3.12.20,!=3.12.*",
+        "==3.14",
+    ],
+)
+def test_python_needed_suggests_nothing_it_cannot_show_satisfies_every_clause(spec):
+    assert pv.python_needed(spec, RUNNING) is None
+
+
+def test_every_suggestion_satisfies_the_whole_spec():
+    # Property check over a grid of specs: whatever is suggested must be admitted by every clause.
+    bounds = ["3.13", "3.14", "3.14.2", "3.15"]
+    extras = ["", ",!=3.14.*", ",!=3.13.*", ",<3.15", ",<3.14.5", ",<=3.14", ",!=3.14.2", ",!=3.15.*"]
+    for op in (">=", ">", "~=", "=="):
+        for bound in bounds:
+            for extra in extras:
+                spec = f"{op}{bound}{extra}"
+                needed = pv.python_needed(spec, RUNNING)
+                if needed is None:
+                    continue
+                parts = tuple(int(p) for p in needed.split("."))
+                clauses = pv._parse_spec(spec)
+                if len(parts) == 2:
+                    assert all(pv._admits_series(parts, c) for c in clauses), spec
+                    releases = [(*parts, z) for z in range(0, 40)]
+                else:
+                    releases = [parts]
+                for release in releases:
+                    assert all(pv._admits(release, c) for c in clauses), (spec, release)
+
+
+def test_exclusive_bound_depends_on_the_running_patch_release():
+    assert pv.python_needed(">3.12", (3, 11, 9)) == "3.13"
+    assert pv.python_needed(">3.12", (3, 12, 0)) == "3.13"
+    assert pv.python_needed(">3.12", (3, 12, 1)) is None
+
+
+def test_excluded_suggestion_means_no_report_line(tmp_path):
+    assert _hint(tmp_path, _errors(54), requires=">=3.14,!=3.14.*") is None
+    assert _hint(tmp_path, _errors(54), requires=">=3.14,!=3.15.*") is not None
 
 
 def test_fallback_reader_without_a_toml_parser():
@@ -188,10 +267,53 @@ def test_fallback_reader_without_a_toml_parser():
     read = pv._requires_python_fallback
     assert read(b'[project]\nname = "x"\nrequires-python = ">=3.14"  # PEP 758\n') == ">=3.14"
     assert read(b"[project]\nrequires-python='>=3.13'\n") == ">=3.13"
+    assert read(b'[ project ]  # metadata\nrequires-python = ">=3.13"\n') == ">=3.13"
     assert read(b'[tool.other]\nrequires-python = ">=3.14"\n[project]\nname = "x"\n') is None
     assert read(b'[project]\nname = "x"\n[tool.x]\nrequires-python = ">=3.14"\n') is None
     assert read(b'[project]\nrequires-python = """\n>=3.14"""\n') is None
     assert read(b"\xff\xfe") is None
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["[[tool.plugins]]", "[[ tool.plugins ]]", '[tool."my.plugin"]', "[tool . x]", "[project.urls]", "[[project]]"],
+)
+def test_fallback_reader_leaves_project_at_any_table_header(header):
+    # The owner's review repro: `[[tool.plugins]]` did not end `[project]`, so a later table's
+    # value was read as the project's.
+    text = f'[project]\nname = "x"\n\n{header}\nname = "p"\nrequires-python = ">=3.14"\n'
+    assert pv._requires_python_fallback(text.encode()) is None
+
+
+def test_fallback_reader_reads_projects_own_value_before_other_tables():
+    text = (
+        b'[project]\nname = "x"\nrequires-python = ">=3.14"\n\n'
+        b'[[tool.plugins]]\nname = "p"\nrequires-python = ">=3.99"\n'
+    )
+    assert pv._requires_python_fallback(text) == ">=3.14"
+
+
+def test_fallback_reader_treats_a_multiline_string_as_unknown():
+    # A `requires-python = ...` line inside a multi-line string is string content, not a key.
+    text = b'[project]\nname = "x"\ndescription = """\nrequires-python = ">=3.14"\n"""\n'
+    assert pv._requires_python_fallback(text) is None
+    # Control: the project's value comes before any multi-line string and is still read.
+    text = b"[project]\nrequires-python = '>=3.14'\n\n[tool.black]\nextend-exclude = '''\n/build/\n'''\n"
+    assert pv._requires_python_fallback(text) == ">=3.14"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        b'[project]\nname = "x"\n\n[[tool.plugins]]\nname = "p"\nrequires-python = ">=3.14"\n',
+        b'[project]\nname = "x"\n\n[tool."my.plugin"]\nrequires-python = ">=3.14"\n',
+        b'[project]\nname = "x"\nrequires-python = ">=3.14"\n\n[[tool.plugins]]\nrequires-python = ">=3.99"\n',
+    ],
+)
+def test_fallback_reader_agrees_with_tomllib(text):
+    tomllib = pytest.importorskip("tomllib")
+    expected = tomllib.loads(text.decode()).get("project", {}).get("requires-python")
+    assert pv._requires_python_fallback(text) == expected
 
 
 def test_tomllib_unavailable_uses_the_fallback(tmp_path, monkeypatch):
