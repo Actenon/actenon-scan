@@ -777,11 +777,13 @@ def _emit_scan_output(args: argparse.Namespace, result, elapsed) -> None:
         output = format_markdown(result, elapsed=elapsed)
     else:
         # Default: blast-radius summary
+        paths = getattr(args, "path", None) or []
         output = format_pretty(
             result,
             elapsed=elapsed,
             command=scan_command(),
             handoff=_airlock_handoff_for(args, result),
+            scan_target=paths[0] if len(paths) == 1 else None,
         )
 
     if args.output:

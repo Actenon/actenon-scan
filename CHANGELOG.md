@@ -55,6 +55,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not import, install or approve anything in Airlock. See `docs/AIRLOCK.md`.
 - The report's `Next:` commands are printed as `uvx actenon-scan ...` when Scan itself was run by `uvx`.
   The plain `actenon-scan ...` did not exist on the user's PATH after `uvx actenon-scan scan .`.
+- When more than half of the analysis errors are `SyntaxError`s in Python files and the scanned project's
+  `pyproject.toml` `requires-python` lower bound is newer than the Python Scan runs on, the default report
+  adds one line under the failed files naming both versions and how to rerun (`Rerun with: uvx --python
+  3.14 actenon-scan scan .` under uvx). This covers the findings report, the clean report, and the
+  all-guarded summary, where it follows the `ANALYSIS INCOMPLETE` lines. The suggested version must
+  satisfy every clause of `requires-python` (`!=`, `!=X.*`, `<`, `<=` as well as the lower bounds; `X.Y`
+  only if every `X.Y.z` does); otherwise, or for any clause Scan cannot evaluate, there is no line.
+  Every error is still listed; JSON, SARIF and `--format list` are unchanged. `requires-python` is read
+  with `tomllib`/`tomli`, or on Python 3.10 without either from a single-line value under `[project]`
+  (any other table header, or a multi-line string before the value, means no line), so Scan keeps zero
+  runtime dependencies.
 - TypeScript/JavaScript: raw tool-schema dispatch (r07), already recognised in Python. A sink in the
   branch that a schema-declared tool name selects (`if (name === "save_skill")`, `case "delete_file":`) is
   agent-reachable, so hand-written MCP servers without an SDK import are no longer silent. Stricter than
@@ -62,6 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   finding changes on the ten TS-bearing corpus repositories.
 
 ### Fixed
+- The content-hash cache key did not include the Python version. After a scan on Python 3.12, a rerun on
+  3.14 replayed the cached 3.12 `SyntaxError`s for files 3.14 parses. The key now includes the
+  interpreter's major.minor; existing cache entries miss once.
 - The default report crashed with `NameError: _format_unsupported` when every capability had a
   recognised guard and the repository also contained a file in an unsupported language.
 - `Model-controlled inputs:` listed keyword arguments that pass a constant, e.g. `branch` in
