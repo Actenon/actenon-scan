@@ -137,7 +137,7 @@ def format_pretty(
         lines.append(f"  Consequence:               {consequence_label(most_exposed.category)}")
         if handoff is not None:
             lines.append(f"  Target:                    {target_line(handoff)}")
-        lines.append(f"  Guard evidence:            none found on the analysed path")
+        lines.append(f"  Guard evidence:            {_guard_evidence_summary(most_exposed)}")
         params = _extract_params(most_exposed)
         if params:
             lines.append(f"  Model-controlled inputs:   {', '.join(params)}")
@@ -447,6 +447,19 @@ def _short_call_name(call_text: str) -> str:
     return method + "()" if method else call_text.strip()
 
 
+def _guard_evidence_summary(f: Finding) -> str:
+    """Summarize guard evidence honestly for the spotlight section."""
+    rid = f.rule_id or ""
+    reason = f.reachability_reason or ""
+    if rid.endswith("-WEAK"):
+        return "guard call found, but return value is discarded (-WEAK)"
+    if rid.endswith("-UNBOUND"):
+        return "guard call found, but not parameter/action-bound to sink (-UNBOUND)"
+    if "does NOT authorize" in reason:
+        return "non-authorizing check found (authentication/validation does not authorize this action)"
+    return "none found on the analysed path"
+
+
 def _decorator_or_function(f: Finding) -> str:
     """Best-effort guess at the entry-point decorator / reachability reason.
 
@@ -485,6 +498,9 @@ def _decorator_or_function(f: Finding) -> str:
             return "transitive local call"
         if "dynamic_registration" in reason:
             return "dynamic tool registration"
+        if reason.startswith("transitive:"):
+            chain = reason[len("transitive:"):].split(" [", 1)[0].strip()
+            return f"transitive call ({chain})"
         return reason
 
     # Python findings: path-based guess (only for .py files).

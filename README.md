@@ -38,18 +38,60 @@ challenges become permanent regression tests when fixed.
 
 ---
 
-## Three ways to use it
+## Give Your Coding Agent Blast-Radius Eyes (30 Seconds)
 
-**Run locally** — no account, no cloud upload, zero-config first run:
+Copy this one sentence to **Claude Code, Cursor, Codex, Antigravity, Gemini CLI, Windsurf, or OpenClaw**:
 
-```bash
-uvx actenon-scan scan .
+```text
+Install actenon-scan and wire its agent skill by following https://raw.githubusercontent.com/Actenon/actenon-scan/main/docs/install.md
 ```
 
-**Add to GitHub** — one command generates a non-blocking workflow:
+Or run two commands yourself:
+
+```bash
+pip install "actenon-scan[all]"    # Python + TypeScript/JS + Go + YAML
+# Or zero-dependency Python core:
+pip install actenon-scan
+
+actenon-scan setup                 # installs SKILL.md into detected coding agents + runs `actenon-scan doctor`
+actenon-scan setup --mcp           # also registers zero-dep `actenon-scan mcp-server` in workspace .mcp.json
+```
+
+Once installed, just talk to your coding agent in plain English — or run the CLI directly:
+
+| What you ask your agent | What runs under the hood |
+|---|---|
+| *"What can this agent / MCP server do without permission?"* | `actenon-scan .` |
+| *"X-ray my `.mcp.json`, IDE MCP servers, and `SKILL.md` files"* | `actenon-scan audit --machine` |
+| *"Can prompt injection chain secret reads into outbound egress or poison skills?"* | `actenon-scan chains .` |
+| *"Generate an Agent Bill of Materials & lock approved capabilities for CI"* | `actenon-scan abom .` / `actenon-scan lock --check .` |
+| *"Audit my changed tools before I open a PR"* | `actenon-scan . --changed-only main` |
+| *"Why is `app/tools.py:47` flagged?"* | `actenon-scan explain app/tools.py:47` |
+| *"Add an authorization guard to `app/tools.py:47`"* | `actenon-scan fix app/tools.py:47` |
+| *"List every external resource this agent can touch"* | `actenon-scan authority .` |
+| *"Check if TypeScript and Go parsers are active"* | `actenon-scan doctor` |
+
+---
+
+## Four ways to use it
+
+**Run locally (zero install)** — no account, no cloud upload, zero-config first run:
+
+```bash
+uvx actenon-scan .
+```
+
+**Wire into your coding agent** — installs the embedded `SKILL.md` across Claude Code, Cursor, Codex, Gemini, Antigravity, Copilot, Windsurf, OpenClaw, and Hermes:
+
+```bash
+actenon-scan setup
+```
+
+**Add to GitHub or pre-commit** — one command generates a non-blocking workflow or local git hook:
 
 ```bash
 uvx actenon-scan install github
+uvx actenon-scan install pre-commit
 ```
 
 **Request a reviewed scan** — a maintainer-requested, manually adjudicated
@@ -647,6 +689,10 @@ Each finding ships with seven remediation routes. Scan does not pretend Actenon 
 | Pretty reporter | [`actenon_scan/report/pretty.py`](actenon_scan/report/pretty.py) |
 | JSON reporter | [`actenon_scan/report/json_out.py`](actenon_scan/report/json_out.py) |
 | SARIF reporter | [`actenon_scan/report/sarif.py`](actenon_scan/report/sarif.py) |
+| Agent onboarding, `doctor`, & `skill` manager | [`actenon_scan/onboarding.py`](actenon_scan/onboarding.py) |
+| Embedded coding-agent skill | [`actenon_scan/skill/SKILL.md`](actenon_scan/skill/SKILL.md) |
+| Agent & human install guide | [`docs/install.md`](docs/install.md) |
+| LLM discovery index | [`llms.txt`](llms.txt) |
 | GitHub Action | [`action.yml`](action.yml) |
 | Security policy | [`SECURITY.md`](SECURITY.md) |
 | Contributing guide | [`CONTRIBUTING.md`](CONTRIBUTING.md) |

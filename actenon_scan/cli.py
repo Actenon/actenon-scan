@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -400,7 +401,268 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to an actenon-scan config file (JSON or YAML).",
     )
 
-    args = parser.parse_args(argv)
+    # install pre-commit
+    precommit_parser = install_sub.add_parser(
+        "pre-commit",
+        help="Add actenon-scan hook(s) to .pre-commit-config.yaml.",
+    )
+    precommit_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Print the proposed .pre-commit-config.yaml without writing to disk.",
+    )
+    precommit_parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Replace an existing actenon-scan block in .pre-commit-config.yaml.",
+    )
+    precommit_parser.add_argument(
+        "--blocking",
+        action="store_true",
+        default=False,
+        help="Configure pre-commit hook to fail on HIGH findings (--fail-on high).",
+    )
+
+    # install mcp
+    mcp_install_parser = install_sub.add_parser(
+        "mcp",
+        help="Register actenon-scan's native stdio MCP server in .mcp.json.",
+    )
+    mcp_install_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Print the proposed .mcp.json without writing to disk.",
+    )
+    mcp_install_parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Overwrite an existing actenon-scan entry in .mcp.json.",
+    )
+
+    # setup: one-command agent onboarding (install SKILL.md + link harnesses + readiness check)
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="One-command setup: install agent SKILL.md, link coding agents, and run readiness checks.",
+    )
+    setup_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Preview skill installation and harness links without writing to disk.",
+    )
+    setup_parser.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        default=False,
+        help="Emit machine-readable JSON setup & readiness output.",
+    )
+    setup_parser.add_argument(
+        "--link-dir",
+        action="append",
+        default=None,
+        help="Additional agent skill directory to link into (repeatable).",
+    )
+    setup_parser.add_argument(
+        "--no-link",
+        action="store_true",
+        default=False,
+        help="Install only ~/.agents/skills/actenon-scan without linking into harness directories.",
+    )
+    setup_parser.add_argument(
+        "--mcp",
+        action="store_true",
+        default=False,
+        help="Also register `actenon-scan mcp-server` in workspace .mcp.json.",
+    )
+
+    # doctor: environment, language-extra, CI, and agent-skill diagnostics
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Check Python/TypeScript/Go parser support, git, CI hooks, and agent skill status.",
+    )
+    doctor_parser.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        default=False,
+        help="Emit machine-readable JSON diagnostics.",
+    )
+
+    # skill: manage the embedded agent SKILL.md
+    skill_parser = subparsers.add_parser(
+        "skill",
+        help="Inspect, install, link, print, or uninstall the embedded agent SKILL.md.",
+    )
+    skill_parser.add_argument(
+        "action",
+        nargs="?",
+        choices=["status", "install", "link", "uninstall", "print"],
+        default="status",
+        help="Skill action (default: status).",
+    )
+    skill_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Preview changes without writing or deleting files.",
+    )
+    skill_parser.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        default=False,
+        help="Emit machine-readable JSON output.",
+    )
+    skill_parser.add_argument(
+        "--link-dir",
+        action="append",
+        default=None,
+        help="Additional skill directory to link into (repeatable).",
+    )
+
+    # audit: static MCP config & agent skill/instruction file X-ray
+    audit_parser = subparsers.add_parser(
+        "audit",
+        help="Static X-ray of MCP server configs, redacted secret exposure, and skill/instruction files.",
+    )
+    audit_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Workspace directory or config file to audit (default: '.').",
+    )
+    audit_parser.add_argument(
+        "--machine",
+        action="store_true",
+        default=False,
+        help="Also audit host-level IDE/agent MCP configs and skill stores in user home.",
+    )
+    audit_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text).",
+    )
+    audit_parser.add_argument(
+        "--fail-on",
+        choices=["none", "low", "medium", "high"],
+        default="high",
+        help="Exit non-zero when surface risks meet this severity (default: high).",
+    )
+    audit_parser.add_argument(
+        "--no-source-scan",
+        action="store_true",
+        default=False,
+        help="Skip scanning local MCP server source files referenced by MCP configs.",
+    )
+    audit_parser.add_argument("--output", "-o", default=None, help="Write output to file.")
+
+    # chains: multi-step compound consequence chains & Lethal Trifecta
+    chains_parser = subparsers.add_parser(
+        "chains",
+        help="Detect multi-step compound consequence chains (Secret-to-Egress, Persistence Poisoning, Lethal Trifecta).",
+    )
+    chains_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="File or directory to analyse (default: '.').",
+    )
+    chains_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text).",
+    )
+    chains_parser.add_argument(
+        "--fail-on",
+        choices=["none", "medium", "high", "critical"],
+        default="high",
+        help="Exit non-zero when detected chains meet this severity (default: high).",
+    )
+    chains_parser.add_argument("--output", "-o", default=None, help="Write output to file.")
+
+    # abom: Agent Bill of Materials (actenon-abom/v1)
+    abom_parser = subparsers.add_parser(
+        "abom",
+        help="Generate the Agent Bill of Materials (ABOM): capabilities, guards, chains, MCP surface, and coverage ledger.",
+    )
+    abom_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Directory or file to inventory (default: '.').",
+    )
+    abom_parser.add_argument(
+        "--format",
+        choices=["text", "json", "markdown"],
+        default="text",
+        help="Output format (default: text).",
+    )
+    abom_parser.add_argument("--config", default=None, help="Optional config path.")
+    abom_parser.add_argument("--output", "-o", default=None, help="Write ABOM to file.")
+
+    # lock: Consequence Lockfile (actenon.lock.json)
+    lock_parser = subparsers.add_parser(
+        "lock",
+        help="Write or verify actenon.lock.json to block unapproved agent capabilities or guard regressions in CI.",
+    )
+    lock_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Workspace directory to lock or check (default: '.').",
+    )
+    lock_parser.add_argument(
+        "--check",
+        action="store_true",
+        default=False,
+        help="Verify current workspace against actenon.lock.json (exit 1 on new powers or guard regressions).",
+    )
+    lock_parser.add_argument(
+        "--lockfile",
+        default=None,
+        help="Custom lockfile path (default: <path>/actenon.lock.json).",
+    )
+    lock_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format when using --check (default: text).",
+    )
+    lock_parser.add_argument("--config", default=None, help="Optional config path.")
+
+    # mcp-server: zero-dependency native stdio MCP server
+    _mcp_srv_parser = subparsers.add_parser(
+        "mcp-server",
+        help="Run Actenon Scan as a zero-dependency Model Context Protocol (MCP) stdio server.",
+    )
+
+    known_commands = {
+        "scan", "rules", "init", "baseline", "adopt", "brief",
+        "explain", "fix", "install", "authority", "setup", "doctor", "skill",
+        "audit", "chains", "abom", "lock", "mcp-server",
+    }
+    effective_argv = list(sys.argv[1:] if argv is None else argv)
+    if (
+        effective_argv
+        and not effective_argv[0].startswith("-")
+        and effective_argv[0] not in known_commands
+        and (
+            effective_argv[0] in (".", "..")
+            or "/" in effective_argv[0]
+            or "\\" in effective_argv[0]
+            or Path(effective_argv[0]).exists()
+        )
+    ):
+        effective_argv = ["scan", *effective_argv]
+
+    args = parser.parse_args(effective_argv)
 
     if args.command == "scan":
         return _cmd_scan(args)
@@ -422,7 +684,32 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_install(args)
     elif args.command == "authority":
         return _cmd_authority(args)
+    elif args.command == "setup":
+        return _cmd_setup(args)
+    elif args.command == "doctor":
+        return _cmd_doctor(args)
+    elif args.command == "skill":
+        return _cmd_skill(args)
+    elif args.command == "audit":
+        return _cmd_audit(args)
+    elif args.command == "chains":
+        return _cmd_chains(args)
+    elif args.command == "abom":
+        return _cmd_abom(args)
+    elif args.command == "lock":
+        return _cmd_lock(args)
+    elif args.command == "mcp-server":
+        from actenon_scan.mcp_server import serve_mcp_stdio
+        return serve_mcp_stdio()
     else:
+        print("Quick start:")
+        print("  actenon-scan .                # scan current repo for unguarded agent actions")
+        print("  actenon-scan audit            # X-ray MCP configs, exposed credentials & skill files")
+        print("  actenon-scan chains .         # trace Secret->Egress & Lethal Trifecta attack chains")
+        print("  actenon-scan abom .           # generate Agent Bill of Materials (actenon-abom/v1)")
+        print("  actenon-scan lock .           # pin approved agent powers in actenon.lock.json")
+        print("  actenon-scan setup --mcp      # wire SKILL.md + native MCP server into coding agents")
+        print("")
         parser.print_help()
         return 0
 
@@ -509,20 +796,13 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         from actenon_scan.baseline import load_baseline
         baseline = load_baseline(args.baseline)
 
-    # Collect suppressions
+    # Collect suppressions across Python, TypeScript/JS, and Go files.
     # NOTE: pass `target` so suppressions are keyed the SAME way the engine
-    # keys findings (path relative to target). Without this, suppressions
-    # silently become no-ops whenever the scan target is an absolute path
-    # (the universal case in CI — `scan .` resolves to the absolute
-    # workspace path).
-    suppressions: set[tuple[str, str]] = set()
-    if target.is_file():
-        suppressions = collect_suppressions_from_file(target, target)
-    else:
-        for filepath in target.rglob("*.py"):
-            suppressions.update(collect_suppressions_from_file(filepath, target))
+    # keys findings (path relative to target).
+    from actenon_scan.suppress import collect_suppressions_from_target
+    suppressions = collect_suppressions_from_target(target)
 
-    # --guard: register guard patterns without a config file
+    # --guard: register guard patterns (merging with config file when present)
     config_path = args.config
     # Work Order 4, Part 1.1+1.4: auto-detect .actenon-scan.json at the
     # scan target root (or the repo root above it), AND read exclude
@@ -537,26 +817,23 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     # Read exclude patterns from whatever config file we're using.
     # This fixes the bug where --config .actenon-scan.json did NOT apply
     # the exclude key (it was only read in the auto-detection path).
+    loaded_cfg_dict: dict | None = None
     if config_path:
         import json as _json
         try:
-            with open(config_path) as f:
-                cfg = _json.load(f)
-            if isinstance(cfg, dict) and "exclude" in cfg:
-                auto_exclude = cfg["exclude"]
-        except (OSError, _json.JSONDecodeError):
+            with open(config_path, encoding="utf-8") as f:
+                if str(config_path).endswith((".yml", ".yaml")):
+                    import yaml as _yaml
+                    cfg = _yaml.safe_load(f)
+                else:
+                    cfg = _json.load(f)
+            if isinstance(cfg, dict):
+                loaded_cfg_dict = cfg
+                if "exclude" in cfg:
+                    auto_exclude = cfg["exclude"]
+        except Exception:
             pass
-    if args.guard and not config_path:
-    # Write a temporary config with the guard patterns
-        import tempfile, json
-        tmp_config = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False,
-            prefix="actenon-scan-guards-",
-        )
-        json.dump({"guard_patterns": args.guard}, tmp_config)
-        tmp_config.close()
-        config_path = tmp_config.name
-
+    tmp_guard_config_path: str | None = None
     explicit_files = multi_explicit_files
     # --changed-only: filter to files changed since git ref
     include_globs = args.include
@@ -640,6 +917,24 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 return 0
 
     try:
+        if args.guard:
+            import tempfile, json
+            merged_cfg = dict(loaded_cfg_dict) if loaded_cfg_dict else {}
+            existing_guards = list(merged_cfg.get("guard_patterns") or [])
+            for g in args.guard:
+                if g not in existing_guards:
+                    existing_guards.append(g)
+            merged_cfg["guard_patterns"] = existing_guards
+            tmp_config = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False,
+                prefix="actenon-scan-guards-",
+                encoding="utf-8",
+            )
+            json.dump(merged_cfg, tmp_config)
+            tmp_config.close()
+            tmp_guard_config_path = tmp_config.name
+            config_path = tmp_guard_config_path
+
         # An explicit --jobs N is always honoured. Otherwise auto_jobs decides,
         # and it returns 1 unless parallelism has been measured to pay for
         # itself on this shape of machine and repo. Parallel-by-default was
@@ -652,7 +947,11 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         # would cost more than it saves, so it stays serial.
         if jobs is None and explicit_files is None:
             from actenon_scan.engine import _collect_files, auto_jobs
-            jobs = auto_jobs(len(_collect_files(target, include_globs, exclude_globs)))
+            _auto_files, _ = _collect_files(
+                target, include_globs, exclude_globs,
+                include_fixtures=getattr(args, "include_fixtures", False),
+            )
+            jobs = auto_jobs(len(_auto_files))
         elif jobs is None:
             jobs = 1
 
@@ -689,6 +988,12 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 )
             on_finding = _progressive
 
+        repo_enabled_flag = not getattr(args, "no_repository_analysis", False)
+        resource_boundary_flag = (
+            True if getattr(args, "resource_boundary", False) else None
+        )
+        include_fixtures_flag = getattr(args, "include_fixtures", False)
+
         if jobs > 1 and explicit_files is None:
             result = scan_path_parallel(
                 target,
@@ -700,6 +1005,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 baseline_findings=baseline,
                 cache=cache,
                 on_finding=on_finding,
+                repository_analysis=repo_enabled_flag,
+                resource_boundary=resource_boundary_flag,
+                include_fixtures=include_fixtures_flag,
             )
         else:
             # Task 5-A1: ``repository_analysis`` is now ON by default.
@@ -717,11 +1025,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
                 baseline_findings=baseline,
                 cache=cache,
                 on_finding=on_finding,
-                repository_analysis=not getattr(args, "no_repository_analysis", False),
-                resource_boundary=(
-                    True if getattr(args, "resource_boundary", False) else None
-                ),
-                include_fixtures=getattr(args, "include_fixtures", False),
+                repository_analysis=repo_enabled_flag,
+                resource_boundary=resource_boundary_flag,
+                include_fixtures=include_fixtures_flag,
             )
         result._elapsed = _time.perf_counter() - _t0
     except Exception as e:
@@ -732,6 +1038,12 @@ def _cmd_scan(args: argparse.Namespace) -> int:
             print(f"actenon-scan: {e}", file=sys.stderr)
             return 2
         raise
+    finally:
+        if tmp_guard_config_path:
+            try:
+                os.unlink(tmp_guard_config_path)
+            except OSError:
+                pass
 
     _emit_scan_output(args, result, getattr(result, "_elapsed", None))
 
@@ -950,9 +1262,16 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
         print(f"Error: path not found: {target}", file=sys.stderr)
         return 2
 
-    # Run the scan.
+    # Run the scan (respecting inline suppressions and auto-detected config).
     from actenon_scan.engine import scan_path
-    result = scan_path(target, config=args.config)
+    from actenon_scan.suppress import collect_suppressions_from_target
+    cfg_path = args.config
+    if not cfg_path:
+        auto_cfg = target / ".actenon-scan.json" if target.is_dir() else target.parent / ".actenon-scan.json"
+        if auto_cfg.exists():
+            cfg_path = str(auto_cfg)
+    suppressions = collect_suppressions_from_target(target)
+    result = scan_path(target, config=cfg_path, suppressions=suppressions)
 
     # Convert findings to the baseline format. The baseline is matched on
     # (file, snippet_hash) — see baseline.py:load_baseline.
@@ -1000,13 +1319,8 @@ def _cmd_adopt(args: argparse.Namespace) -> int:
         from actenon_scan.baseline import load_baseline
         baseline = load_baseline(args.baseline)
 
-    suppressions = set()
-    from actenon_scan.suppress import collect_suppressions_from_file
-
-    files_to_scan = [target] if target.is_file() else list(target.rglob("*.py"))
-    for f in files_to_scan:
-        if f.suffix == ".py":
-            suppressions.update(collect_suppressions_from_file(f, target))
+    from actenon_scan.suppress import collect_suppressions_from_target
+    suppressions = collect_suppressions_from_target(target)
 
     result = scan_path(
         target,
@@ -1073,6 +1387,9 @@ def _cmd_adopt(args: argparse.Namespace) -> int:
     return 1 if result.has_findings_at_or_above("medium") else 0
 
 
+_SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/~^:@][A-Za-z0-9._/~^:@-]{0,255}$")
+
+
 def _get_changed_files(git_ref: str, target: Path) -> list[str] | None:
     """Get files changed since a git ref, relative to target.
 
@@ -1087,9 +1404,14 @@ def _get_changed_files(git_ref: str, target: Path) -> list[str] | None:
     TypeScript, and Go" promise.
     """
     import subprocess
+    clean_ref = (git_ref or "").strip()
+    if not clean_ref or clean_ref.startswith("-") or not _SAFE_GIT_REF_RE.match(clean_ref):
+        print(f"Warning: invalid git ref {git_ref!r}", file=sys.stderr)
+        return None
     try:
+        # actenon-scan: ignore[EXEC-SHELL] — read-only git diff with strictly validated ref and shell=False
         result = subprocess.run(
-            ["git", "diff", "--name-only", "--relative", git_ref],
+            ["git", "diff", "--name-only", "--relative", clean_ref, "--"],
             capture_output=True, text=True, cwd=str(target),
             timeout=10,
         )
@@ -1424,12 +1746,249 @@ def _cmd_fix(args: argparse.Namespace) -> int:
 
 def _cmd_install(args: argparse.Namespace) -> int:
     """Install actenon-scan into a project."""
-    if getattr(args, "install_target", None) == "github":
+    target = getattr(args, "install_target", None)
+    if target == "github":
         return _cmd_install_github(args)
-    else:
-        print("Usage: actenon-scan install github [options]")
-        print("Run 'actenon-scan install github --help' for details.")
+    if target == "pre-commit":
+        return _cmd_install_pre_commit(args)
+    if target == "mcp":
+        from actenon_scan.onboarding import install_workspace_mcp
+
+        code, msg = install_workspace_mcp(
+            dry_run=getattr(args, "dry_run", False),
+            force=getattr(args, "force", False),
+        )
+        print(msg)
+        return code
+    print("Usage: actenon-scan install <github|pre-commit|mcp> [options]")
+    print("Run 'actenon-scan install github --help', 'install pre-commit --help', or 'install mcp --help'.")
+    return 2
+
+
+def _cmd_audit(args: argparse.Namespace) -> int:
+    """Run static MCP config + skill/instruction surface X-ray."""
+    from actenon_scan.mcp_audit import audit_agent_surface, format_surface_audit_text
+
+    target = Path(args.path)
+    if not target.exists():
+        print(f"Error: path not found: {target}", file=sys.stderr)
         return 2
+
+    rep = audit_agent_surface(
+        target,
+        include_machine=getattr(args, "machine", False),
+        scan_local_sources=not getattr(args, "no_source_scan", False),
+    )
+    rendered = (
+        json.dumps(rep.to_dict(), indent=2) + "\n"
+        if args.format == "json"
+        else format_surface_audit_text(rep) + "\n"
+    )
+    if args.output:
+        Path(args.output).write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
+
+    if args.fail_on == "none":
+        return 0
+    sev_rank = {"low": 1, "medium": 2, "high": 3}
+    threshold = sev_rank[args.fail_on]
+    if any(sev_rank.get(r.severity, 0) >= threshold for r in rep.risks):
+        return 1
+    return 0
+
+
+def _cmd_chains(args: argparse.Namespace) -> int:
+    """Detect multi-step compound consequence chains."""
+    from actenon_scan.chains import detect_compound_chains, format_chains_text
+    from actenon_scan.suppress import collect_suppressions_from_target
+
+    target = Path(args.path)
+    if not target.exists():
+        print(f"Error: path not found: {target}", file=sys.stderr)
+        return 2
+
+    suppressions = collect_suppressions_from_target(target)
+    sres = scan_path(target, suppressions=suppressions)
+    rep = detect_compound_chains(target, scan_result=sres)
+    rendered = (
+        json.dumps(rep.to_dict(), indent=2) + "\n"
+        if args.format == "json"
+        else format_chains_text(rep) + "\n"
+    )
+    if args.output:
+        Path(args.output).write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
+
+    if args.fail_on == "none":
+        return 0
+    sev_rank = {"medium": 2, "high": 3, "critical": 4}
+    threshold = sev_rank[args.fail_on]
+    if any(sev_rank.get(c.severity, 0) >= threshold for c in rep.chains):
+        return 1
+    return 0
+
+
+def _cmd_abom(args: argparse.Namespace) -> int:
+    """Generate the Agent Bill of Materials (actenon-abom/v1)."""
+    from actenon_scan.abom import format_abom_markdown, format_abom_text, generate_abom
+
+    target = Path(args.path)
+    if not target.exists():
+        print(f"Error: path not found: {target}", file=sys.stderr)
+        return 2
+
+    abom = generate_abom(target, config=args.config)
+    if args.format == "json":
+        rendered = json.dumps(abom, indent=2) + "\n"
+    elif args.format == "markdown":
+        rendered = format_abom_markdown(abom) + "\n"
+    else:
+        rendered = format_abom_text(abom) + "\n"
+
+    if args.output:
+        Path(args.output).write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
+    return 0
+
+
+def _cmd_lock(args: argparse.Namespace) -> int:
+    """Write or verify actenon.lock.json."""
+    from actenon_scan.abom import check_lockfile, format_lock_drift_text, write_lockfile
+
+    target = Path(args.path)
+    if not target.exists():
+        print(f"Error: path not found: {target}", file=sys.stderr)
+        return 2
+
+    if getattr(args, "check", False):
+        try:
+            drift = check_lockfile(target, lockfile_path=args.lockfile, config=args.config)
+        except FileNotFoundError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        if args.format == "json":
+            print(json.dumps(drift.to_dict(), indent=2))
+        else:
+            print(format_lock_drift_text(drift))
+        return 0 if drift.passed else 1
+
+    lpath, payload = write_lockfile(target, output_path=args.lockfile, config=args.config)
+    print(
+        f"Wrote {lpath} ({len(payload['capabilities'])} capabilities, "
+        f"{len(payload['compound_chains'])} chains, {len(payload['mcp_servers'])} MCP servers locked)."
+    )
+    print("Verify in CI with:")
+    print(f"  actenon-scan lock --check {args.path}")
+    return 0
+
+
+def _cmd_install_pre_commit(args: argparse.Namespace) -> int:
+    """Add actenon-scan hook(s) to .pre-commit-config.yaml."""
+    from actenon_scan.onboarding import install_pre_commit
+
+    code, msg = install_pre_commit(
+        dry_run=getattr(args, "dry_run", False),
+        force=getattr(args, "force", False),
+        blocking=getattr(args, "blocking", False),
+    )
+    print(msg)
+    return code
+
+
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    """Run environment, parser-extra, and agent-skill diagnostics."""
+    from actenon_scan.onboarding import collect_doctor_report, format_doctor_text
+
+    report = collect_doctor_report()
+    if getattr(args, "as_json", False):
+        print(json.dumps(report, indent=2))
+    else:
+        print(format_doctor_text(report))
+    return 0
+
+
+def _cmd_setup(args: argparse.Namespace) -> int:
+    """Install SKILL.md, auto-link into coding agents, and print readiness status."""
+    from actenon_scan.onboarding import (
+        collect_doctor_report,
+        format_doctor_text,
+        install_and_link_skill,
+        install_workspace_mcp,
+    )
+
+    dry_run = getattr(args, "dry_run", False)
+    extra_dirs = [Path(d) for d in (getattr(args, "link_dir", None) or [])]
+    skill_rep = install_and_link_skill(
+        extra_link_dirs=extra_dirs,
+        link_harnesses=not getattr(args, "no_link", False),
+        dry_run=dry_run,
+    )
+    mcp_note: str | None = None
+    mcp_code = 0
+    if getattr(args, "mcp", False):
+        mcp_code, mcp_note = install_workspace_mcp(dry_run=dry_run)
+
+    doc_rep = collect_doctor_report()
+    if getattr(args, "as_json", False):
+        out_obj: dict[str, object] = {"skill": skill_rep.to_dict(), "doctor": doc_rep}
+        if mcp_note is not None:
+            out_obj["mcp"] = {"status_code": mcp_code, "message": mcp_note}
+        print(json.dumps(out_obj, indent=2))
+        return 1 if (skill_rep.errors or mcp_code != 0) else 0
+
+    verb = "Would install" if skill_rep.dry_run else "Installed"
+    print(f"{verb} agent skill: {skill_rep.canonical_dir}/SKILL.md")
+    for lnk in skill_rep.links:
+        print(f"  [{lnk.status}] {lnk.harness}: {lnk.path}" + (f" ({lnk.detail})" if lnk.detail else ""))
+    if mcp_note is not None:
+        print(f"  [mcp] {mcp_note}")
+    for err in skill_rep.errors:
+        print(f"  [error] {err}", file=sys.stderr)
+    print("")
+    print(format_doctor_text(doc_rep))
+    return 1 if (skill_rep.errors or mcp_code != 0) else 0
+
+
+def _cmd_skill(args: argparse.Namespace) -> int:
+    """Manage the embedded agent SKILL.md."""
+    from actenon_scan.onboarding import (
+        install_and_link_skill,
+        skill_status,
+        uninstall_skill,
+    )
+    from actenon_scan.skill import get_skill_markdown
+
+    action = getattr(args, "action", "status") or "status"
+    if action == "print":
+        print(get_skill_markdown(), end="")
+        return 0
+
+    dry_run = getattr(args, "dry_run", False)
+    extra_dirs = [Path(d) for d in (getattr(args, "link_dir", None) or [])]
+    if action in ("install", "link"):
+        rep = install_and_link_skill(
+            extra_link_dirs=extra_dirs,
+            link_harnesses=True,
+            dry_run=dry_run,
+        )
+    elif action == "uninstall":
+        rep = uninstall_skill(dry_run=dry_run)
+    else:
+        rep = skill_status()
+
+    if getattr(args, "as_json", False):
+        print(json.dumps(rep.to_dict(), indent=2))
+        return 1 if rep.errors else 0
+
+    print(f"Skill ({rep.action}): {'installed' if rep.installed else 'not installed'} ({rep.canonical_dir})")
+    for lnk in rep.links:
+        print(f"  [{lnk.status}] {lnk.harness}: {lnk.path}" + (f" ({lnk.detail})" if lnk.detail else ""))
+    for err in rep.errors:
+        print(f"  [error] {err}", file=sys.stderr)
+    return 1 if rep.errors else 0
 
 
 def _cmd_install_github(args: argparse.Namespace) -> int:

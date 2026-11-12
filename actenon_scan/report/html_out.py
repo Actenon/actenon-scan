@@ -120,11 +120,12 @@ def format_html(result: ScanResult, *, elapsed: float | None = None) -> str:
         parts.append(
             f'<p class="call"><code>{html.escape(most_exposed.call_text)}</code></p>'
         )
+        from actenon_scan.report.pretty import _guard_evidence_summary
         parts.append("<table>")
         parts.append(f"<tr><th>Consequence</th><td>{html.escape(consequence_label(most_exposed.category))}</td></tr>")
         parts.append(f"<tr><th>Rule</th><td><code>{html.escape(most_exposed.rule_id)}</code></td></tr>")
         parts.append(f"<tr><th>Severity</th><td>{html.escape(most_exposed.severity)} (confidence: {html.escape(most_exposed.confidence)})</td></tr>")
-        parts.append("<tr><th>Guard evidence</th><td>none found on the analysed path</td></tr>")
+        parts.append(f"<tr><th>Guard evidence</th><td>{html.escape(_guard_evidence_summary(most_exposed))}</td></tr>")
         parts.append("</table>")
         loc = f"{most_exposed.file}:{most_exposed.line}"
         parts.append(

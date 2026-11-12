@@ -266,6 +266,165 @@ def _assert_safe(text: str) -> None:
 # Brief construction.
 # ---------------------------------------------------------------------------
 
+_TS_EXTENSIONS = frozenset({
+    ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
+})
+
+
+def _extract_transitive_chain(reachability_reason: str) -> str:
+    """Extract 'a -> b -> c' call chain from a reachability_reason string, if any."""
+    if not reachability_reason:
+        return ""
+    if reachability_reason.startswith("transitive:"):
+        chain = reachability_reason[len("transitive:"):]
+        if " [" in chain:
+            chain = chain.split(" [", 1)[0]
+        return chain.strip()
+    marker = "[transitive path:"
+    idx = reachability_reason.find(marker)
+    if idx != -1:
+        rest = reachability_reason[idx + len(marker):]
+        end = rest.find("]")
+        if end != -1:
+            return rest[:end].strip()
+    return ""
+
+
+def _file_has_sink_at_line(fp: Path, line: int) -> bool:
+    """Fast single-file precheck: return True only if ``fp`` has any sink at ``line``.
+
+    Prevents unnecessary directory scans when ``build_brief`` or ``generate_fix``
+    is called on a line with no sink at all.
+    """
+    suffix = fp.suffix.lower()
+    if suffix == ".py":
+        try:
+            src = fp.read_text(encoding="utf-8-sig", errors="replace")
+            tree = ast.parse(src, filename=str(fp))
+            from actenon_scan.detectors.sinks import detect_sinks
+            from actenon_scan.rules.loader import load_default_rules
+
+            rules = load_default_rules()
+            return any(sf.line == line for sf in detect_sinks(tree, fp.name, rules.sinks))
+        except Exception:
+            return False
+    if suffix in _TS_EXTENSIONS:
+        try:
+            from actenon_scan.detectors.typescript import discover_all_ts_sinks
+
+            return any(s.get("line") == line for s in discover_all_ts_sinks(fp))
+        except Exception:
+            return False
+    if suffix == ".go":
+        try:
+            from actenon_scan.detectors.go import discover_all_go_sinks
+
+            return any(s.get("line") == line for s in discover_all_go_sinks(fp.name, fp.read_bytes()))
+        except Exception:
+            return False
+    return False
+
+
+def _infer_project_root(fp: Path) -> Path | None:
+    """Infer enclosing project root for cross-file transitive finding lookup."""
+    import tempfile
+
+    resolved = fp.resolve()
+    stop_dirs = {
+        Path("/").resolve(),
+        Path(tempfile.gettempdir()).resolve(),
+    }
+    try:
+        stop_dirs.add(Path.home().resolve())
+    except RuntimeError:
+        pass
+
+    markers = (
+        ".actenon-scan.json",
+        ".actenon-scan.yml",
+        ".actenon-scan.yaml",
+        "pyproject.toml",
+        "package.json",
+        "go.mod",
+        ".git",
+    )
+    ancestors: list[Path] = []
+    cur = resolved.parent
+    for _ in range(6):
+        if cur in stop_dirs or cur.parent == cur:
+            break
+        ancestors.append(cur)
+        cur = cur.parent
+
+    for anc in ancestors:
+        if any((anc / m).exists() for m in markers):
+            return anc
+
+    # Temp-repo / markerless package fallback: walk up at most 2 levels while
+    # siblings look like part of the same source tree.
+    best: Path | None = None
+    for depth, anc in enumerate(ancestors[:3]):
+        if depth == 0:
+            best = anc
+            continue
+        has_sources = any(
+            any(anc.glob(pat))
+            for pat in ("*.py", "*.ts", "*.tsx", "*.js", "*.go", "__init__.py")
+        )
+        if has_sources:
+            best = anc
+        else:
+            break
+    return best
+
+
+def find_finding_at_location(
+    file_path: str | Path,
+    line: int,
+    rule_id: str | None = None,
+):
+    """Locate an active Finding at ``file_path:line``, including cross-file transitive ones."""
+    from actenon_scan.engine import scan_path
+
+    fp = Path(file_path)
+    if not fp.exists():
+        return None
+
+    result = scan_path(fp)
+    candidates = [
+        f for f in result.findings
+        if f.line == line and not f.suppressed
+    ]
+    if rule_id:
+        candidates = [f for f in candidates if f.rule_id == rule_id]
+    if candidates:
+        return candidates[0]
+
+    # Cross-file fallback: only scan the enclosing project when this exact line
+    # actually contains a consequential sink call.
+    if not _file_has_sink_at_line(fp, line):
+        return None
+    project_root = _infer_project_root(fp)
+    if project_root is None or not project_root.is_dir():
+        return None
+
+    resolved_fp = fp.resolve()
+    dir_result = scan_path(project_root)
+    dir_candidates = []
+    for f in dir_result.findings:
+        if f.line != line or f.suppressed:
+            continue
+        f_resolved = (project_root / f.file).resolve()
+        if f_resolved == resolved_fp:
+            dir_candidates.append(f)
+    if rule_id:
+        dir_candidates = [f for f in dir_candidates if f.rule_id == rule_id]
+    if not dir_candidates:
+        return None
+    matched = dir_candidates[0]
+    matched.file = str(fp)
+    return matched
+
 
 def build_brief(
     file_path: str | Path,
@@ -280,32 +439,20 @@ def build_brief(
     Returns ``None`` if no finding exists at the given location.
     """
     file_path = Path(file_path)
-    if not file_path.exists():
+    finding = find_finding_at_location(file_path, line, rule_id=rule_id)
+    if finding is None:
         return None
-
-    # Scan the single file to find findings at the requested line.
-    from actenon_scan.engine import scan_path
-    result = scan_path(file_path)
-    candidates = [
-        f for f in result.findings
-        if f.line == line and not f.suppressed
-    ]
-    if rule_id:
-        candidates = [f for f in candidates if f.rule_id == rule_id]
-    if not candidates:
-        return None
-    finding = candidates[0]
 
     # Parse the file to gather context (receiver chain, enclosing function,
     # caller-controlled parameters, existing checks).
     #
-    # ITEM 3: Go files can't be parsed by Python's ast module. When the
-    # file is a .go file, use tree-sitter to extract the enclosing function
-    # name, caller-controlled parameters, and guard evidence. This fixes
-    # the "<module-level>" placeholder and the explain/scan contradiction
-    # on model-controlled inputs.
-    if file_path.suffix == ".go":
+    # ITEM 3: Go and TypeScript/JS files can't be parsed by Python's ast module.
+    # Use tree-sitter to extract the enclosing function name, caller-controlled
+    # parameters, and guard evidence.
+    if file_path.suffix.lower() == ".go":
         return _build_go_brief(finding, file_path, line)
+    if file_path.suffix.lower() in _TS_EXTENSIONS:
+        return _build_ts_brief(finding, file_path, line)
 
     try:
         source = file_path.read_text(encoding="utf-8", errors="replace")
@@ -334,10 +481,18 @@ def build_brief(
 
     # Find the enclosing function (agent entry point).
     enclosing = _find_enclosing_function(tree, line)
+    transitive_chain = _extract_transitive_chain(getattr(finding, "reachability_reason", "") or "")
+    entry_func_name = enclosing.name if enclosing else "<module-level>"
+    entry_decorator = _decorator_name(enclosing) if enclosing else ""
+    if transitive_chain and not entry_decorator:
+        hops = [h.strip() for h in re.split(r"\s*(?:->|→)\s*", transitive_chain) if h.strip()]
+        if hops:
+            entry_func_name = hops[0]
+            entry_decorator = f"transitive call ({transitive_chain})"
     agent_entry = AgentEntryPoint(
-        function_name=enclosing.name if enclosing else "<module-level>",
-        decorator=_decorator_name(enclosing) if enclosing else "",
-        is_reachable=enclosing is not None,
+        function_name=entry_func_name,
+        decorator=entry_decorator,
+        is_reachable=(enclosing is not None) or bool(transitive_chain),
     )
 
     # Caller-controlled parameters: parameters of the enclosing function
@@ -367,6 +522,14 @@ def build_brief(
                 check = _identify_check(node)
                 if check is not None:
                     existing_checks.append(check)
+    reach_reason_str = getattr(finding, "reachability_reason", "") or ""
+    if "does NOT authorize" in reach_reason_str and not existing_checks:
+        existing_checks.append(ExistingCheck(
+            kind="non_authorizing_check",
+            description="Authentication or input validation check",
+            dominates=False,
+            reason="Authentication/validation checks identity or shape, not authorization for this action.",
+        ))
     guard_result = GuardDominanceResult(
         dominated=any(c.dominates for c in existing_checks),
         checks=existing_checks,
@@ -378,9 +541,10 @@ def build_brief(
     )
 
     # Data flow summary.
+    handler_step = transitive_chain if transitive_chain else agent_entry.function_name
     data_flow = DataFlowSummary(
         input_step=f"tool parameters ({', '.join(p.name for p in cc_params) or 'none identified'})",
-        handler_step=agent_entry.function_name,
+        handler_step=handler_step,
         execution_step=finding.call_text[:60],
         side_effect_step=finding.category,
     )
@@ -446,6 +610,259 @@ def build_brief(
         data_flow=data_flow,
         expected_boundary=ExpectedBoundary(),
         remediation_options=remediation,
+        limitations=Limitations(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# TypeScript / JavaScript brief construction.
+# ---------------------------------------------------------------------------
+
+
+def _ts_walk(node):
+    yield node
+    for child in node.children:
+        yield from _ts_walk(child)
+
+
+def _ts_extract_param_identifiers(params_node, source_bytes: bytes) -> set[str]:
+    """Extract parameter identifier names (including destructured object properties)."""
+    names: set[str] = set()
+    if params_node is None:
+        return names
+    for sub in _ts_walk(params_node):
+        if sub.type in ("identifier", "shorthand_property_identifier_pattern"):
+            # Skip type annotations
+            parent = sub.parent
+            if parent is not None and parent.type in ("type_identifier", "type_annotation", "predefined_type"):
+                continue
+            txt = source_bytes[sub.start_byte:sub.end_byte].decode("utf-8", errors="replace").strip()
+            if txt and txt not in ("this",):
+                names.add(txt)
+    return names
+
+
+def _build_ts_brief(finding, file_path: Path, line: int) -> Brief | None:
+    """Build a brief for a TypeScript/JavaScript finding using tree-sitter."""
+    try:
+        from actenon_scan.detectors.typescript import (
+            is_typescript_extra_available,
+            _check_ts_guard,
+            _find_enclosing_ts_function,
+            _find_call_at_line as _ts_find_call_at_line,
+        )
+    except ImportError:
+        return _build_minimal_ts_brief(finding, file_path, line)
+
+    if not is_typescript_extra_available():
+        return _build_minimal_ts_brief(finding, file_path, line)
+
+    try:
+        import tree_sitter_typescript as tst
+        from tree_sitter import Language, Parser
+    except ImportError:
+        return _build_minimal_ts_brief(finding, file_path, line)
+
+    source_bytes = file_path.read_bytes()
+    is_tsx = file_path.suffix.lower() in (".tsx", ".jsx")
+    lang = Language(tst.language_tsx() if is_tsx else tst.language_typescript())
+    parser = Parser(lang)
+    tree = parser.parse(source_bytes)
+
+    enclosing_func = _find_enclosing_ts_function(tree, line)
+    sink_call = _ts_find_call_at_line(tree, line, source_bytes)
+
+    func_name = ""
+    if enclosing_func is not None:
+        name_node = enclosing_func.child_by_field_name("name")
+        if name_node is not None:
+            func_name = source_bytes[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
+        elif enclosing_func.parent is not None and enclosing_func.parent.type == "variable_declarator":
+            vn = enclosing_func.parent.child_by_field_name("name")
+            if vn is not None:
+                func_name = source_bytes[vn.start_byte:vn.end_byte].decode("utf-8", errors="replace")
+        elif enclosing_func.parent is not None and enclosing_func.parent.type == "pair":
+            kn = enclosing_func.parent.child_by_field_name("key")
+            if kn is not None:
+                func_name = source_bytes[kn.start_byte:kn.end_byte].decode("utf-8", errors="replace")
+
+    reach_reason = getattr(finding, "reachability_reason", "") or ""
+    transitive_chain = _extract_transitive_chain(reach_reason)
+    if not func_name:
+        if transitive_chain:
+            hops = [h.strip() for h in transitive_chain.split("->") if h.strip()]
+            func_name = hops[-1] if hops else "agent tool"
+        else:
+            func_name = "inline tool handler"
+
+    cc_params: list[CallerControlledParameter] = []
+    if enclosing_func is not None and sink_call is not None:
+        params_node = enclosing_func.child_by_field_name("parameters") or enclosing_func.child_by_field_name("parameter")
+        param_names = _ts_extract_param_identifiers(params_node, source_bytes)
+        sink_args = sink_call.child_by_field_name("arguments")
+        if sink_args is not None and param_names:
+            seen_params: set[str] = set()
+            for idx, arg in enumerate(sink_args.named_children):
+                arg_ids = {
+                    source_bytes[sub.start_byte:sub.end_byte].decode("utf-8", errors="replace")
+                    for sub in _ts_walk(arg)
+                    if sub.type in ("identifier", "shorthand_property_identifier")
+                }
+                for pn in sorted(param_names & arg_ids):
+                    if pn not in seen_params:
+                        seen_params.add(pn)
+                        cc_params.append(CallerControlledParameter(name=pn, position=idx))
+
+    existing_checks: list[ExistingCheck] = []
+    guard_dominated = False
+    if enclosing_func is not None and sink_call is not None:
+        from actenon_scan.rules.loader import load_default_rules
+
+        rules = load_default_rules()
+        gs, gm = _check_ts_guard(
+            enclosing_func, sink_call, tree.root_node, source_bytes, rules.guard_patterns
+        )
+        if gs == "guarded":
+            guard_dominated = True
+            existing_checks.append(ExistingCheck(
+                kind="guard",
+                description=gm,
+                dominates=True,
+                reason="TypeScript guard check: dominates + parameter-bound + result used",
+            ))
+        elif gs == "weak":
+            existing_checks.append(ExistingCheck(
+                kind="guard",
+                description=gm,
+                dominates=False,
+                reason="TypeScript guard check: guard found but return value discarded (-WEAK)",
+            ))
+        elif gs == "unbound":
+            existing_checks.append(ExistingCheck(
+                kind="guard",
+                description=gm,
+                dominates=False,
+                reason="TypeScript guard check: guard found but not parameter-bound (-UNBOUND)",
+            ))
+
+    guard_result = GuardDominanceResult(
+        dominated=guard_dominated,
+        checks=existing_checks,
+        reason=(
+            "A dominating authority check was identified in the analysed path."
+            if guard_dominated
+            else "No dominating authority check was identified in the analysed path."
+        ),
+    )
+
+    entry_func = func_name
+    decorator = ""
+    if transitive_chain:
+        hops = [h.strip() for h in transitive_chain.split("->") if h.strip()]
+        if hops:
+            entry_func = hops[0]
+        decorator = f"transitive call ({transitive_chain})"
+    elif "tool_registration" in reach_reason:
+        decorator = f"tool registration ({reach_reason})"
+    elif reach_reason:
+        decorator = reach_reason
+
+    agent_entry = AgentEntryPoint(
+        function_name=entry_func,
+        decorator=decorator,
+        is_reachable=True,
+    )
+
+    handler_step = transitive_chain if transitive_chain else func_name
+    data_flow = DataFlowSummary(
+        input_step=f"tool parameters ({', '.join(p.name for p in cc_params) or 'none identified'})",
+        handler_step=handler_step,
+        execution_step=finding.call_text[:60],
+        side_effect_step=finding.category,
+    )
+
+    remediation = [
+        RemediationOption(
+            rank=1, kind="repository_guard",
+            description="Add a repository-native guard convention that must pass before the mutation is allowed.",
+        ),
+        RemediationOption(
+            rank=2, kind="framework_approval",
+            description="Add a framework-native approval or human gate between the model's request and the sink.",
+        ),
+        RemediationOption(
+            rank=3, kind="actenon_proof",
+            description="Bind the sink to an Actenon proof verification.",
+        ),
+    ]
+
+    return Brief(
+        identity=FindingIdentity(
+            rule_id=finding.rule_id, file=str(file_path), line=finding.line, col=finding.col,
+        ),
+        location=RepositoryLocation(file=str(file_path), line=finding.line, col=finding.col),
+        agent_entry_point=agent_entry,
+        sink=ConsequentialSink(
+            rule_id=finding.rule_id, category=finding.category, severity=finding.severity,
+            confidence=finding.confidence, description=finding.description, call_text=finding.call_text,
+        ),
+        receiver_chain=None,
+        caller_controlled_parameters=cc_params,
+        existing_checks=guard_result,
+        data_flow=data_flow,
+        expected_boundary=ExpectedBoundary(),
+        remediation_options=remediation,
+        limitations=Limitations(),
+    )
+
+
+def _build_minimal_ts_brief(finding, file_path: Path, line: int) -> Brief:
+    """Build a minimal brief when tree-sitter-typescript is not available."""
+    reach_reason = getattr(finding, "reachability_reason", "") or ""
+    transitive_chain = _extract_transitive_chain(reach_reason)
+    decorator = f"transitive call ({transitive_chain})" if transitive_chain else reach_reason
+    return Brief(
+        identity=FindingIdentity(
+            rule_id=finding.rule_id, file=str(file_path), line=finding.line, col=finding.col,
+        ),
+        location=RepositoryLocation(file=str(file_path), line=finding.line, col=finding.col),
+        agent_entry_point=AgentEntryPoint(
+            function_name="(tree-sitter-typescript not installed)",
+            decorator=decorator,
+            is_reachable=True,
+        ),
+        sink=ConsequentialSink(
+            rule_id=finding.rule_id, category=finding.category, severity=finding.severity,
+            confidence=finding.confidence, description=finding.description, call_text=finding.call_text,
+        ),
+        receiver_chain=None,
+        caller_controlled_parameters=[],
+        existing_checks=GuardDominanceResult(
+            dominated=False,
+            checks=[],
+            reason="No dominating authority check was identified in the analysed path.",
+        ),
+        data_flow=DataFlowSummary(
+            input_step="tool parameters (none identified)",
+            handler_step=transitive_chain or "agent handler",
+            execution_step=finding.call_text[:60],
+            side_effect_step=finding.category,
+        ),
+        expected_boundary=ExpectedBoundary(),
+        remediation_options=[
+            RemediationOption(
+                rank=1, kind="repository_guard",
+                description="Add a repository-native guard convention that must pass before the mutation is allowed.",
+            ),
+            RemediationOption(
+                rank=2, kind="framework_approval",
+                description="Add a framework-native approval or human gate between the model's request and the sink.",
+            ),
+            RemediationOption(
+                rank=3, kind="actenon_proof",
+                description="Bind the sink to an Actenon proof verification.",
+            ),
+        ],
         limitations=Limitations(),
     )
 
@@ -588,14 +1005,21 @@ def _build_go_brief(finding, file_path: Path, line: int) -> Brief | None:
 
     # Build the agent entry point.
     reach_reason = getattr(finding, "reachability_reason", "") or "agent_framework_import"
+    transitive_chain = _extract_transitive_chain(reach_reason)
     decorator = ""
-    if "tool_registration" in reach_reason:
+    entry_func = func_name
+    if transitive_chain:
+        hops = [h.strip() for h in transitive_chain.split("->") if h.strip()]
+        if hops:
+            entry_func = hops[0]
+        decorator = f"transitive call ({transitive_chain})"
+    elif "tool_registration" in reach_reason:
         decorator = "tool registration (AddTool/RegisterTool)"
     elif "agent_framework_import" in reach_reason:
         decorator = "agent framework import"
 
     agent_entry = AgentEntryPoint(
-        function_name=func_name,
+        function_name=entry_func,
         decorator=decorator,
         is_reachable=True,
     )
@@ -603,7 +1027,7 @@ def _build_go_brief(finding, file_path: Path, line: int) -> Brief | None:
     # Data flow summary.
     data_flow = DataFlowSummary(
         input_step=f"tool parameters ({', '.join(p.name for p in cc_params) or 'none identified'})",
-        handler_step=func_name,
+        handler_step=transitive_chain or func_name,
         execution_step=finding.call_text[:60],
         side_effect_step=finding.category,
     )

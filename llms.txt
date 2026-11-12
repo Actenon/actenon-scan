@@ -1,0 +1,37 @@
+# Actenon Scan
+
+> Defensive, local-first, vendor-neutral static-analysis scanner for the AI-agent execution gap: finds where model-controlled input reaches consequential actions (payments, shell/code exec, file deletes/writes, DB writes, outbound messaging, secret reads, repo mutations, deployments, browser actions) without a dominating authorization guard across Python, TypeScript/JavaScript, and Go.
+
+## Install & Agent Onboarding
+
+- One-sentence agent prompt: `Install actenon-scan and wire its agent skill by following https://raw.githubusercontent.com/Actenon/actenon-scan/main/docs/install.md`
+- Full install (Python + TypeScript + Go + YAML): `pip install "actenon-scan[all]"` or `uv tool install "actenon-scan[all]"`
+- Zero-dependency base install (Python + repository call-graph): `pip install actenon-scan`
+- Zero-install instant scan: `uvx actenon-scan .`
+- Wire embedded `SKILL.md` into Claude Code, Cursor, Codex, Gemini CLI, Antigravity, Copilot, Windsurf, OpenClaw, Hermes: `actenon-scan setup`
+- Check environment & language-extra readiness: `actenon-scan doctor`
+
+## Core CLI Commands
+
+- `actenon-scan .` — Scan current directory and print the blast-radius summary
+- `actenon-scan scan <path> --format json --fail-on none` — Machine-readable JSON output for coding agents
+- `actenon-scan audit [--machine]` — Static X-ray of MCP configs (`.mcp.json`, Cursor, Claude, IDE hosts) and `SKILL.md`/`CLAUDE.md`/`AGENTS.md` files (redacts secret values; catches unpinned `npx`/`uvx`, `/` mounts, Trojan hidden Unicode, and pipe-to-shell)
+- `actenon-scan chains <path>` — Detect multi-step compound consequence chains (`CHAIN-SECRET-EXFIL`, `CHAIN-PERSISTENCE-POISONING`, `CHAIN-LETHAL-TRIFECTA`, `CHAIN-DESTRUCTIVE-AUTONOMY`)
+- `actenon-scan abom <path>` — Generate deterministic Agent Bill of Materials (`actenon-abom/v1` in text, JSON, or Markdown)
+- `actenon-scan lock [--check] <path>` — Pin and enforce approved agent capabilities, guard proof states, and MCP servers in `actenon.lock.json`
+- `actenon-scan mcp-server` — Zero-dependency native JSON-RPC 2.0 stdio MCP server (`actenon_blast_radius`, `actenon_audit`, `actenon_abom`, `actenon_explain`, `actenon_fix`, `actenon_doctor`)
+- `actenon-scan explain <file:line>` — Trace entrypoint -> cross-file call chain -> model-controlled inputs -> guard evidence -> consequence
+- `actenon-scan brief <file:line> --format markdown` — One-page stakeholder / PR execution-boundary report (auto-redacts credentials)
+- `actenon-scan fix <file:line>` — Generate remediation diff (`guard` first, `approval` second, `actenon` proof third)
+- `actenon-scan authority <path> --format json` — Extract structured capability & resource provenance inventory
+- `actenon-scan install mcp` — Register `actenon-scan mcp-server` in workspace `.mcp.json`
+- `actenon-scan install github` — Generate `.github/workflows/actenon-scan.yml` (sticky PR comment + SARIF)
+- `actenon-scan install pre-commit` — Add `actenon-scan` hook(s) to `.pre-commit-config.yaml`
+
+## Key Documentation
+
+- [Install Guide (Agents & Humans)](https://raw.githubusercontent.com/Actenon/actenon-scan/main/docs/install.md)
+- [Embedded Agent Skill (`SKILL.md`)](https://raw.githubusercontent.com/Actenon/actenon-scan/main/actenon_scan/skill/SKILL.md)
+- [Coverage & Soundness Boundary](https://raw.githubusercontent.com/Actenon/actenon-scan/main/docs/COVERAGE.md)
+- [Soundness Challenge Scoreboard](https://raw.githubusercontent.com/Actenon/actenon-scan/main/docs/SOUNDNESS_CHALLENGE.md)
+- [Optional Runtime Control with Airlock](https://raw.githubusercontent.com/Actenon/actenon-scan/main/docs/AIRLOCK.md)

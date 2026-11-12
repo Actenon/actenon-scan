@@ -244,6 +244,22 @@ _GO_SINK_RULES = [
                            "iam", "sns", "sqs", "cloudformation",
                            "dynamodb", "storage", "compute", "gh", "repo"},
     },
+    # ── Communication ──
+    {
+        "id": "COMMUNICATION-SEND-GO",
+        "category": "communication",
+        "severity": "high",
+        "description": "Outbound email/message send in Go agent tool",
+        "match_type": "method_on_receiver",
+        "patterns": [
+            "SendMail", "SendEmail", "SendRawEmail",
+            "PostMessage", "PostMessageContext", "Publish",
+        ],
+        "receiver_names": {
+            "smtp", "mailer", "ses", "sesClient",
+            "slack", "slackClient", "sns", "snsClient",
+        },
+    },
 ]
 
 # Agent framework import patterns — if a file imports these, its functions
@@ -253,6 +269,10 @@ _GO_AGENT_IMPORTS = {
     "github.com/mark3labs/mcp-go",
     "github.com/metoro-io/mcp-golang",
     "github.com/anthropics/anthropic-sdk-go",
+    "github.com/sashabaranov/go-openai",
+    "github.com/openai/openai-go",
+    "github.com/tmc/langchaingo",
+    "google.golang.org/adk",
 }
 
 # Tool registration call patterns — if a function is passed as an argument
@@ -1291,9 +1311,29 @@ def _walk(node):
 # ---------------------------------------------------------------------------
 
 
+def _find_dominating_go_guard_name(
+    func_node,
+    sink_call_node,
+    source: bytes,
+    guard_patterns: list[str],
+) -> str:
+    """Return the first dominating guard call name before ``sink_call_node``."""
+    sink_line = sink_call_node.start_point[0] + 1
+    sink_start_byte = sink_call_node.start_byte
+    for node in _walk(func_node):
+        if node.type != "call_expression" or node.start_byte >= sink_start_byte:
+            continue
+        cname = _get_call_name(node, source)
+        if cname and _matches_guard_name(cname, guard_patterns):
+            if _go_dominates(node, sink_line, func_node, source):
+                return cname
+    return ""
+
+
 def discover_all_go_sinks(
     filepath: str,
     source: bytes,
+    guard_patterns: list[str] | None = None,
 ) -> list[dict]:
     """Discover ALL sink matches in a Go file, regardless of reachability.
 
@@ -1315,17 +1355,9 @@ def discover_all_go_sinks(
       - ``description`` (str)
       - ``call_text`` (str)
       - ``function_name`` (str — enclosing function/method name)
-
-    This function does NOT run the reachability filter (``has_agent_import``
-    or ``is_reachable_handler``), the guard check, or the temp-file /
-    log-file / API-URL suppressions. Those are per-file-scan concerns;
-    the cross-file layer does its own reachability reasoning and the
-    per-file scan still runs alongside (so the per-file suppressions
-    apply to the per-file findings, not to these discovered sinks).
-
-    Only the sink-matching primitives (``_match_go_rule``) are reused
-    so the rule list and matching semantics stay in lockstep with the
-    per-file detector.
+      - ``guard_status`` (str — ``"guarded"``, ``"weak"``, ``"unbound"``, or ``""``)
+      - ``guard_message`` (str)
+      - ``guard_name`` (str — dominating callee guard name if any)
     """
     if not is_go_extra_available():
         return []
@@ -1350,6 +1382,21 @@ def discover_all_go_sinks(
             for rule in _GO_SINK_RULES:
                 if not _match_go_rule(rule, call_node, call_name, source):
                     continue
+                guard_status = ""
+                guard_message = ""
+                guard_name = ""
+                if guard_patterns:
+                    guard_status, guard_message = _check_go_guard(
+                        func_node,
+                        call_node,
+                        source,
+                        guard_patterns,
+                        root_node=tree.root_node,
+                    )
+                    if guard_status:
+                        guard_name = _find_dominating_go_guard_name(
+                            func_node, call_node, source, guard_patterns
+                        )
                 results.append({
                     "file": filepath,
                     "line": call_node.start_point[0] + 1,
@@ -1360,6 +1407,9 @@ def discover_all_go_sinks(
                     "description": rule["description"],
                     "call_text": _get_call_text(call_node, source),
                     "function_name": func_name,
+                    "guard_status": guard_status,
+                    "guard_message": guard_message,
+                    "guard_name": guard_name,
                 })
                 break  # one finding per call
     return results

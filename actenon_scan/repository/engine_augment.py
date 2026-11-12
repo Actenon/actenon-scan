@@ -107,60 +107,179 @@ def discover_entrypoints(
 ) -> list[Symbol]:
     """Find all agent-entrypoint symbols in the repository.
 
-    An entrypoint is a function/method decorated with a configured
-    ``tool_decorators`` entry (e.g. ``@tool``, ``@mcp.tool()``,
-    ``@function_tool``, etc.) or a method of a class subclassing a
-    configured ``tool_base_classes`` entry.
+    Discovers functions/methods registered via:
+      - ``tool_decorators`` (``@tool``, ``@mcp.tool()``, ``@function_tool``, ...)
+      - ``tool_base_classes`` + ``tool_methods`` (``BaseTool._run``, ...)
+      - ``tool_wrappers`` (``Tool.from_function(fn)``, ``StructuredTool.from_function(fn)``)
+      - ``tool_list_params`` (``Agent(tools=[fn])``, ``Runner.run(..., tools=[fn])``)
+      - ``dynamic_registration`` (``self.tools.append(self.fn)`` in toolkit ``__init__``)
+      - ``raw_tool_schema`` dispatchers (``r07`` JSON-schema tool name dispatch)
+      - ``resource_boundary`` decorators when explicitly opted in
 
-    Returns the list of entrypoint Symbols (insertion order).
+    Deliberately excludes module-wide ``agent_framework_import`` so non-tool
+    helper functions in files importing an agent SDK never become roots.
     """
     tool_decorators = reachability_cfg.get("tool_decorators", [])
     tool_base_classes = reachability_cfg.get("tool_base_classes", [])
     tool_methods = reachability_cfg.get("tool_methods", [])
+    tool_wrappers = reachability_cfg.get("tool_wrappers", [])
+    tool_list_params_set = set(reachability_cfg.get("tool_list_params", []))
+    resource_decorators = (
+        reachability_cfg.get("resource_boundary_decorators", [])
+        if reachability_cfg.get("resource_boundary_enabled", False)
+        else []
+    )
+
+    try:
+        from actenon_scan.detectors.reachability import (
+            _declared_tool_names,
+            _get_call_name,
+            _has_resource_boundary_decorator,
+            _is_tool_schema_dispatch,
+            _reachability_for_func,
+        )
+    except ImportError:
+        _declared_tool_names = None  # type: ignore[assignment]
+        _get_call_name = None  # type: ignore[assignment]
+        _has_resource_boundary_decorator = None  # type: ignore[assignment]
+        _reachability_for_func = None  # type: ignore[assignment]
+        _is_tool_schema_dispatch = None  # type: ignore[assignment]
+
+    # Pre-index per-file AST structures in a single walk per file so entrypoint
+    # discovery stays O(N) even on multi-thousand-function repositories.
+    file_hints: dict[
+        str,
+        tuple[
+            ast.Module,
+            dict[tuple[int, str], ast.FunctionDef | ast.AsyncFunctionDef],
+            dict[str, ast.ClassDef],
+            set[str],
+            bool,
+            set[str],
+        ],
+    ] = {}
+
+    def _get_file_hints(file_rel: str):
+        cached = file_hints.get(file_rel)
+        if cached is not None:
+            return cached
+        ast_info = index.get_ast(file_rel)
+        if ast_info is None:
+            return None
+        _src, tree = ast_info
+        funcs: dict[tuple[int, str], ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        classes: dict[str, ast.ClassDef] = {}
+        refs: set[str] = set()
+        has_reg_call = False
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                funcs[(node.lineno, node.name)] = node
+            elif isinstance(node, ast.ClassDef):
+                classes[node.name] = node
+            elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                refs.add(node.id)
+            elif (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "self"
+            ):
+                refs.add(node.attr)
+            elif isinstance(node, ast.Call) and not has_reg_call:
+                if any(kw.arg in tool_list_params_set for kw in node.keywords):
+                    has_reg_call = True
+                elif isinstance(node.func, ast.Attribute) and node.func.attr == "append":
+                    has_reg_call = True
+                elif tool_wrappers and _get_call_name is not None:
+                    cname = _get_call_name(node.func)
+                    if cname and any(w in cname or cname in w for w in tool_wrappers):
+                        has_reg_call = True
+        schema_names = (
+            _declared_tool_names(tree) if _declared_tool_names is not None else set()
+        )
+        entry = (tree, funcs, classes, refs, has_reg_call, schema_names)
+        file_hints[file_rel] = entry
+        return entry
 
     entrypoints: list[Symbol] = []
     seen_qnames: set[str] = set()
     for sym in index.symbols:
         if not sym.is_function_like:
             continue
-        # Decorator-based detection
+        # 1. Decorator-based detection
         for dec in sym.decorators:
             if _is_tool_decorator(dec, tool_decorators):
                 if sym.qualified_name not in seen_qnames:
                     entrypoints.append(sym)
                     seen_qnames.add(sym.qualified_name)
                 break
-        else:
-            # Method-of-tool-base-class detection
-            if sym.kind in (SymbolKind.METHOD, SymbolKind.ASYNC_METHOD):
-                if sym.name in tool_methods and sym.enclosing_class:
-                    # Check whether the enclosing class subclasses a tool base
-                    # class. We need to inspect the class def's bases.
-                    cls_sym = index.lookup_symbol(sym.enclosing_class)
-                    if cls_sym is not None:
-                        ast_info = index.get_ast(cls_sym.location.file)
-                        if ast_info is not None:
-                            _src, tree = ast_info
-                            for node in ast.walk(tree):
-                                if (
-                                    isinstance(node, ast.ClassDef)
-                                    and node.name == cls_sym.name
+        if sym.qualified_name in seen_qnames:
+            continue
+
+        # 2. Method-of-tool-base-class detection
+        if sym.kind in (SymbolKind.METHOD, SymbolKind.ASYNC_METHOD):
+            if sym.name in tool_methods and sym.enclosing_class:
+                cls_sym = index.lookup_symbol(sym.enclosing_class)
+                if cls_sym is not None:
+                    cls_hints = _get_file_hints(cls_sym.location.file)
+                    if cls_hints is not None:
+                        cls_node = cls_hints[2].get(cls_sym.name)
+                        if cls_node is not None:
+                            for base in cls_node.bases:
+                                try:
+                                    base_text = ast.unparse(base)
+                                except Exception:
+                                    base_text = ""
+                                if any(
+                                    base_text == b
+                                    or base_text.endswith("." + b)
+                                    for b in tool_base_classes
                                 ):
-                                    for base in node.bases:
-                                        try:
-                                            base_text = ast.unparse(base)
-                                        except Exception:
-                                            base_text = ""
-                                        if any(
-                                            base_text == b
-                                            or base_text.endswith("." + b)
-                                            for b in tool_base_classes
-                                        ):
-                                            if sym.qualified_name not in seen_qnames:
-                                                entrypoints.append(sym)
-                                                seen_qnames.add(sym.qualified_name)
-                                            break
+                                    entrypoints.append(sym)
+                                    seen_qnames.add(sym.qualified_name)
                                     break
+        if sym.qualified_name in seen_qnames:
+            continue
+
+        # 3. Structural Python reachability signals (opt-in resource boundary,
+        #    wrappers, tools=[...], dynamic registration, raw tool-schema dispatch).
+        hints = _get_file_hints(sym.location.file)
+        if hints is None:
+            continue
+        tree, funcs, _classes, refs, has_reg_call, schema_names = hints
+        func_node = funcs.get((sym.location.line, sym.name))
+        if func_node is None:
+            continue
+
+        if (
+            resource_decorators
+            and func_node.decorator_list
+            and _has_resource_boundary_decorator is not None
+            and _has_resource_boundary_decorator(func_node, resource_decorators)
+        ):
+            entrypoints.append(sym)
+            seen_qnames.add(sym.qualified_name)
+            continue
+
+        if (
+            has_reg_call
+            and sym.name in refs
+            and _reachability_for_func is not None
+        ):
+            rr = _reachability_for_func(
+                tree, func_node, reachability_cfg, None, sym.location.line
+            )
+            if rr.confidence == "high":
+                entrypoints.append(sym)
+                seen_qnames.add(sym.qualified_name)
+                continue
+
+        if schema_names and _is_tool_schema_dispatch is not None:
+            for cnode in ast.walk(func_node):
+                if isinstance(cnode, ast.Call) and getattr(cnode, "lineno", None):
+                    if _is_tool_schema_dispatch(tree, func_node, cnode.lineno):
+                        entrypoints.append(sym)
+                        seen_qnames.add(sym.qualified_name)
+                        break
     return entrypoints
 
 
@@ -328,6 +447,7 @@ class RepositoryAnalysisResult:
     """
 
     new_findings: list["Finding"] = field(default_factory=list)
+    new_capabilities: list["Capability"] = field(default_factory=list)
     augmented_findings: list[tuple[int, CallPath, AnalysisCertainty]] = field(default_factory=list)
     entrypoint_count: int = 0
     call_graph_nodes: int = 0
@@ -335,27 +455,223 @@ class RepositoryAnalysisResult:
     effect_summaries_count: int = 0
     incomplete_summaries_count: int = 0
     analysis_error: str | None = None
-    # Disclosure counts (Task 5-A1). Surfaced in the clean-scan output
-    # so users know which agent-reachable call sites the repo layer
-    # proved transitively reachable vs. could not resolve.
-    # ``transitive_followed_count`` = number of NEW findings the repo
-    # layer added (sinks in helpers the per-file scan missed because
-    # the helper isn't directly @tool-decorated). This is the count of
-    # transitive call-chains that produced a finding.
-    # ``transitive_unfollowed_count`` = number of UNRESOLVED call sites
-    # out of agent entrypoints (e.g. ``getattr(obj, 'method')()``,
-    # external-module calls). The repo layer could not follow these,
-    # so any sinks reached only through them are NOT in the findings
-    # list. This disclosure is the honest signal that those calls
-    # exist in agent-reachable code.
     transitive_followed_count: int = 0
     transitive_unfollowed_count: int = 0
-    # Phase 3.2: per-edge detail for unfollowed local calls.
-    # Each dict: {file, line, caller, callee_text, callee_qname, certainty, reason}
     local_call_edges: list[dict] = field(default_factory=list)
-    # Phase 3.2 (A3): analysis-coverage count pair.
     local_calls_followed: int = 0
     local_calls_unfollowed: int = 0
+
+
+def _evaluate_python_callsite_guard(
+    index: RepositoryIndex,
+    file_rel: str,
+    target_line: int,
+    effective_guards: list[str],
+    *,
+    require_explicit_authz_for_caller: bool = False,
+) -> tuple[str, str]:
+    """Evaluate guard soundness + semantic authority kind around ``file_rel:target_line``.
+
+    Returns ``(status, message)`` where ``status`` is ``"guarded"``, ``"weak"``,
+    ``"unbound"``, or ``""``.
+
+    Hostile invariants enforced:
+      - ``AUTHENTICATION``, ``VALIDATION``, ``SANITIZATION``, and ``RATE_LIMIT``
+        guards NEVER authorize a consequential action across helper boundaries.
+      - Wrong-action authorities (``authorize_read`` vs ``refund``) detected by
+        ``compare_authority_to_sink`` downgrade ``"guarded"`` to ``"unbound"``.
+    """
+    if not effective_guards:
+        return ("", "")
+    ast_info = index.get_ast(file_rel)
+    if ast_info is None:
+        return ("", "")
+    _src, tree = ast_info
+    func_node = _find_enclosing_function_node(tree, target_line)
+    if func_node is None:
+        return ("", "")
+    sink_node = _find_call_at_line_in_subtree(func_node, target_line)
+
+    try:
+        from actenon_scan.detectors.guards import (
+            _build_parent_map,
+            _dominates,
+            _matches_guard,
+            check_guard,
+        )
+        from actenon_scan.repository.authority_binding import (
+            BindingState,
+            compare_authority_to_sink,
+        )
+        from actenon_scan.repository.guard_semantics import (
+            GuardKind,
+            classify_guard_call,
+            classify_guard_name,
+        )
+    except ImportError:
+        return ("", "")
+
+    # Fast per-function pre-check cached on RepositoryIndex: 99%+ of functions in
+    # large repositories contain zero guard decorators or guard calls, so skip
+    # full-module ``check_guard(tree, ...)`` unless a candidate exists in ``func_node``.
+    cand_cache: dict[tuple[str, int], bool] = getattr(index, "_func_guard_cand_cache", None)  # type: ignore[assignment]
+    if cand_cache is None:
+        cand_cache = {}
+        setattr(index, "_func_guard_cand_cache", cand_cache)
+    func_key = (file_rel, func_node.lineno)
+    has_candidate = cand_cache.get(func_key)
+    if has_candidate is None:
+        has_candidate = bool(func_node.decorator_list)
+        if not has_candidate:
+            for sub in ast.walk(func_node):
+                if isinstance(sub, ast.Call):
+                    cname = _call_name_text(sub)
+                    if cname and (
+                        _matches_guard(cname, effective_guards)
+                        or classify_guard_name(cname) != GuardKind.UNKNOWN_GUARD
+                        or "protect" in cname.lower()
+                        or "executor" in cname.lower()
+                    ):
+                        has_candidate = True
+                        break
+        cand_cache[func_key] = has_candidate
+    if not has_candidate:
+        return ("", "")
+
+    gres = check_guard(tree, target_line, effective_guards, sink_node=sink_node)
+    if not (gres.guarded or gres.weak or gres.unbound):
+        return ("", "")
+
+    parent_map = _build_parent_map(func_node)
+    module_qname = index._module_qualified_name(file_rel)
+
+    # Check decorators on func_node first if gres matched a guard decorator.
+    if gres.guarded and "decorator" in (gres.message or ""):
+        for dec in func_node.decorator_list:
+            try:
+                dec_text = ast.unparse(dec).split("(", 1)[0].strip()
+            except Exception:
+                dec_text = ""
+            if not dec_text:
+                continue
+            dkind = classify_guard_name(dec_text)
+            if dkind in (
+                GuardKind.AUTHENTICATION,
+                GuardKind.VALIDATION,
+                GuardKind.SANITIZATION,
+                GuardKind.RATE_LIMIT,
+            ):
+                return ("", f"decorator '{dec_text}' ({dkind.name}) does NOT authorize action")
+            if dkind in (
+                GuardKind.AUTHORIZATION,
+                GuardKind.POLICY_ENFORCEMENT,
+                GuardKind.CAPABILITY_PROOF,
+                GuardKind.HUMAN_APPROVAL,
+            ) or not require_explicit_authz_for_caller:
+                return ("guarded", gres.message)
+        return ("", "")
+
+    # Inspect dominating guard calls before target_line.
+    has_authorizing_dom = False
+    has_wrong_action = False
+    for node in ast.walk(func_node):
+        if not isinstance(node, ast.Call):
+            continue
+        if node is sink_node or getattr(node, "lineno", 0) >= target_line:
+            continue
+        if _is_inside_nested_function(node, func_node, parent_map):
+            continue
+        gname = _call_name_text(node)
+        if not gname:
+            continue
+        try:
+            if not _dominates(node, target_line, parent_map, func_node):
+                continue
+        except Exception:
+            continue
+
+        classification = classify_guard_call(node)
+        if classification.kind in (
+            GuardKind.AUTHENTICATION,
+            GuardKind.VALIDATION,
+            GuardKind.SANITIZATION,
+            GuardKind.RATE_LIMIT,
+        ):
+            continue
+
+        is_custom_configured = any(
+            gname.lower() == p.lower() or gname.lower().endswith("." + p.lower())
+            for p in effective_guards
+        )
+        if classification.kind == GuardKind.UNKNOWN_GUARD and (
+            require_explicit_authz_for_caller or not is_custom_configured
+        ):
+            continue
+
+        if sink_node is not None and classification.kind == GuardKind.AUTHORIZATION:
+            try:
+                binding = compare_authority_to_sink(
+                    node, sink_node, func_node, index=index, module_qname=module_qname
+                )
+                if binding.state == BindingState.UNBOUND:
+                    has_wrong_action = True
+                    continue
+            except Exception:
+                pass
+
+        has_authorizing_dom = True
+
+    if gres.guarded:
+        if has_authorizing_dom:
+            return ("guarded", gres.message)
+        if has_wrong_action:
+            return ("unbound", "dominating guard action/parameter binding is UNBOUND")
+        return ("", "")
+    if gres.weak and has_authorizing_dom:
+        return ("weak", gres.message)
+    if (gres.unbound and has_authorizing_dom) or has_wrong_action:
+        return ("unbound", gres.message or "dominating guard parameter binding is UNBOUND")
+    return ("", "")
+
+
+def _compute_unguarded_reachable_nodes(
+    index: RepositoryIndex,
+    graph,
+    ep_qnames: list[str],
+    effective_guards: list[str],
+    max_depth: int,
+) -> set[str]:
+    """Return call-graph nodes reachable from ``ep_qnames`` via unguarded call edges."""
+    visited: set[str] = set()
+    queue: list[tuple[str, int]] = [(ep, 0) for ep in ep_qnames]
+    edge_guarded_cache: dict[tuple[str, int], bool] = {}
+
+    while queue:
+        curr, depth = queue.pop(0)
+        if curr in visited:
+            continue
+        visited.add(curr)
+        if depth >= max_depth:
+            continue
+        for edge in graph.edges_by_caller.get(curr, []):
+            if edge.is_unresolved():
+                continue
+            loc_key = (edge.site.location.file, edge.site.location.line)
+            if loc_key not in edge_guarded_cache:
+                status, _ = _evaluate_python_callsite_guard(
+                    index,
+                    edge.site.location.file,
+                    edge.site.location.line,
+                    effective_guards,
+                    require_explicit_authz_for_caller=True,
+                )
+                edge_guarded_cache[loc_key] = (status == "guarded")
+            if edge_guarded_cache[loc_key]:
+                continue
+            if edge.callee not in visited:
+                queue.append((edge.callee, depth + 1))
+
+    return visited
 
 
 # ---------------------------------------------------------------------------
@@ -371,21 +687,11 @@ def analyze_repository(
     config: RepositoryAnalysisConfig | None = None,
     rules_sinks: list | None = None,
     files: list[Path] | None = None,
+    guard_patterns: list[str] | None = None,
 ) -> RepositoryAnalysisResult:
     """Run the repository-level augmentation pass.
 
     See module docstring for the conservative properties.
-
-    ``rules_sinks`` is the loaded sink rules list (from
-    ``Ruleset.sinks``). When provided, the layer independently runs
-    ``detect_sinks`` on every file in the index to catch sinks in
-    functions that the per-file scan never flagged because they
-    weren't directly agent-reachable.
-
-    ``files`` is the engine's already-filtered Python file list (excludes
-    venv/build/test directories). When provided, the index is built
-    from this list rather than re-walking the tree — important for
-    performance so we don't accidentally parse 1000+ files in .venv.
     """
     cfg = config or RepositoryAnalysisConfig()
     result = RepositoryAnalysisResult()
@@ -395,9 +701,6 @@ def analyze_repository(
 
     try:
         target_path = Path(target)
-        # Build the index. If the engine gave us its filtered file list,
-        # use it; otherwise walk the tree (with the standard venv/cache
-        # exclusions to avoid parsing 1000s of irrelevant files).
         if files is not None:
             index = RepositoryIndex()
             index.root = target_path
@@ -423,26 +726,26 @@ def analyze_repository(
         if not entrypoints:
             return result
 
+        effective_guards: list[str]
+        if guard_patterns is not None:
+            effective_guards = list(guard_patterns)
+        else:
+            try:
+                from actenon_scan.rules.loader import load_default_rules
+
+                effective_guards = list(load_default_rules().guard_patterns)
+            except Exception:
+                effective_guards = []
+
         # Transitive reachability
         ep_qnames = [e.qualified_name for e in entrypoints]
         reach = transitive_reachable(graph, ep_qnames, max_depth=cfg.max_depth)
+        unguarded_reach = _compute_unguarded_reachable_nodes(
+            index, graph, ep_qnames, effective_guards, cfg.max_depth
+        )
 
-        # Disclosure: count UNRESOLVED edges out of agent entrypoints.
-        # These are call sites the repo layer could NOT follow.
-        # Phase 3.2 (D3): only count edges where the callee is a LOCAL
-        # call (a bare name, self.x, or dynamic dispatch on a local
-        # variable). External-library calls (subprocess.run,
-        # requests.post, json.loads, etc.) are NOT counted as unfollowed
-        # — they are external calls, a different unit. An inline sink
-        # (requests.post directly inside @tool) should NOT produce
-        # "1 unfollowed call".
-        #
-        # Heuristic: if the callee text has a dot prefix that is NOT
-        # "self" or "cls", it's likely an external-module call. Bare
-        # names (like `fn` from `getattr`) are counted as unfollowed
-        # (conservative — might be local, we can't prove otherwise).
         unfollowed = 0
-        external_call_count = 0  # separate, informational
+        external_call_count = 0
         local_edges: list[dict] = []
         followed_count = 0
         for ep_qname in ep_qnames:
@@ -451,7 +754,6 @@ def analyze_repository(
                     followed_count += 1
                 elif edge.is_unresolved():
                     callee = edge.callee
-                    # Determine if this is an external-library call
                     is_external = (
                         "." in callee
                         and not callee.startswith("self.")
@@ -462,8 +764,6 @@ def analyze_repository(
                         external_call_count += 1
                     else:
                         unfollowed += 1
-                        # Phase 3.2: record per-edge detail for unfollowed
-                        # local calls. Surface in JSON/SARIF/markdown/HTML.
                         local_edges.append({
                             "file": edge.site.location.file,
                             "line": edge.site.location.line,
@@ -493,17 +793,17 @@ def analyze_repository(
         result.effect_summaries_count = len(propagation.summaries)
         result.incomplete_summaries_count = len(propagation.incomplete)
 
-        # Find sinks in functions that are reachable but NOT in the
-        # existing findings — these are the new transitively-reachable
-        # sinks the per-file scan missed.
-        existing_sink_locs: set[tuple[str, int]] = set()
-        for f in findings + capabilities:  # type: ignore[operator]
-            existing_sink_locs.add((f.file, f.line))
+        existing_finding_locs: set[tuple[str, int]] = {
+            (f.file, f.line) for f in findings
+        }
+        existing_cap_by_loc: dict[tuple[str, int], "Capability"] = {
+            (c.file, c.line): c for c in capabilities
+        }
+        emitted_locs: set[tuple[str, int]] = set()
 
+        from actenon_scan.capability import Capability, CapabilityState
         from actenon_scan.engine import Finding as EngineFinding
 
-        # Look at every function's direct sinks (from direct_sinks)
-        # and check whether the function is reachable.
         for caller_qname, sinks in direct_sinks.items():
             if caller_qname not in reach:
                 continue
@@ -514,15 +814,28 @@ def analyze_repository(
             if certainty == AnalysisCertainty.HEURISTIC and not cfg.emit_heuristic_new_findings:
                 continue
             for effect, loc, rule_id in sinks:
-                if loc in existing_sink_locs:
-                    # The per-file scan already caught this sink — augment
-                    # the existing finding instead of duplicating it.
+                if loc in emitted_locs:
+                    continue
+                if loc in existing_finding_locs:
                     for i, f in enumerate(findings):
                         if f.file == loc[0] and f.line == loc[1]:
                             result.augmented_findings.append((i, path, certainty))
                             break
                     continue
-                # Build a new Finding for this transitively-reachable sink.
+                if loc in existing_cap_by_loc:
+                    cap = existing_cap_by_loc[loc]
+                    # If the sink's own function/class was guarded, or every
+                    # cross-file path to this helper is also guarded, keep it
+                    # suppressed as a GUARD_FOUND capability. Only promote when
+                    # the capability was suppressed solely via a same-file
+                    # caller guard (`local_helper`) AND an unguarded cross-file
+                    # path reaches `caller_qname`.
+                    if (
+                        getattr(cap, "reachability_source", "") != "local_helper"
+                        or caller_qname not in unguarded_reach
+                    ):
+                        continue
+
                 _src, tree_for_loc = index.get_ast(loc[0]) or (None, None)
                 call_text = ""
                 if tree_for_loc is not None:
@@ -533,12 +846,53 @@ def analyze_repository(
                             except Exception:
                                 call_text = ""
                             break
+
+                callee_guard_status, callee_guard_msg = _evaluate_python_callsite_guard(
+                    index, loc[0], loc[1], effective_guards
+                )
+                category = _effect_to_category(effect)
+
+                if callee_guard_status == "guarded" or caller_qname not in unguarded_reach:
+                    gmsg = (
+                        callee_guard_msg
+                        if callee_guard_status == "guarded"
+                        else "all cross-file call paths dominated by authorizing guard"
+                    )
+                    result.new_capabilities.append(
+                        Capability(
+                            file=loc[0],
+                            line=loc[1],
+                            col=0,
+                            rule_id=rule_id,
+                            category=category,
+                            severity="medium",
+                            call_text=call_text,
+                            state=CapabilityState.GUARD_FOUND,
+                            guard_status="guarded",
+                            guard_message=gmsg,
+                            confidence="high" if certainty == AnalysisCertainty.PROVEN else "medium",
+                            reachability_reason=f"transitive:{path.chain_text()}",
+                            reachability_source="transitive",
+                            tier="production",
+                            language="python",
+                            snippet_hash="",
+                        )
+                    )
+                    emitted_locs.add(loc)
+                    continue
+
                 confidence = "high" if certainty == AnalysisCertainty.PROVEN else "medium"
                 severity = "medium"
                 rule_id_aug = rule_id
                 if certainty == AnalysisCertainty.HEURISTIC:
                     rule_id_aug = f"{rule_id}-REACH-HEURISTIC"
-                category = _effect_to_category(effect)
+                if callee_guard_status == "weak":
+                    rule_id_aug = f"{rule_id_aug}-WEAK"
+                    severity = "low"
+                elif callee_guard_status == "unbound":
+                    rule_id_aug = f"{rule_id_aug}-UNBOUND"
+                    severity = "medium"
+
                 new_finding = EngineFinding(
                     file=loc[0],
                     line=loc[1],
@@ -558,15 +912,15 @@ def analyze_repository(
                     reachability_reason=f"transitive:{path.chain_text()}",
                 )
                 result.new_findings.append(new_finding)
+                emitted_locs.add(loc)
 
-        # Task 5-A2: substrate-module evidence pass. AUGMENTS each
-        # existing per-file finding AND capability with cross-file guard
-        # resolution, semantic guard taxonomy, and authority-to-sink
-        # value-binding evidence appended to ``reachability_reason``.
-        # Best-effort: any failure is silently skipped (per the
-        # NON-NEGOTIABLE constraint — the repo layer must remain
-        # non-fatal). NEVER suppresses or downgrades an existing finding.
-        _augment_with_substrate_evidence(index, findings, capabilities)
+        # Task 5-A2: substrate-module evidence pass on existing AND newly
+        # discovered transitive findings/capabilities.
+        _augment_with_substrate_evidence(
+            index,
+            list(findings) + list(result.new_findings),
+            list(capabilities) + list(result.new_capabilities),
+        )
 
     except Exception as exc:
         # Never let the augmentation crash the scan.

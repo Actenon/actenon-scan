@@ -42,78 +42,62 @@ class FixResult:
     note: str = ""
 
 
-def generate_fix(
+def generate_fix_diff(
     file_path: str | Path,
     line: int,
     *,
     mode: str | None = None,
     rule_id: str | None = None,
-    apply: bool = False,
-) -> FixResult | None:
-    """Generate a remediation diff for the finding at ``file_path:line``.
+) -> tuple[FixResult, list[str]] | None:
+    """Compute a read-only unified remediation diff without touching disk.
 
-    Returns ``None`` if no finding exists at the location. Returns a
-    ``FixResult`` with an empty diff and a note if the fix cannot be
-    generated safely.
-
-    Language awareness: the fix generator currently only emits Python
-    syntax (`#` comments, `raise PermissionError`, `from … import …`).
-    Applying a Python-syntax patch to a `.ts`/`.go` file would corrupt
-    it. For non-Python files, we refuse with a helpful note instead of
-    silently emitting broken syntax.
+    Separated from :func:`generate_fix` so read-only callers (such as
+    ``actenon-scan mcp-server``) have zero static or runtime path to
+    ``Path.write_text``.
     """
     file_path = Path(file_path)
     if not file_path.exists():
         return None
 
-    # Refuse non-Python files with a clear note. The fix generators
-    # (_build_guard_call, _build_approval_call, _build_actenon_call)
-    # all emit Python syntax; inserting that into a .ts or .go file
-    # produces invalid source. Generating TS/Go-correct syntax is a
-    # future enhancement; for now, refuse safely.
     NON_PYTHON_SUFFIXES = (
-        ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",  # TypeScript / JS
-        ".go",                                            # Go
+        ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
+        ".go",
     )
-    if file_path.suffix in NON_PYTHON_SUFFIXES:
-        return FixResult(
-            diff="",
-            mode=mode or "skip",
-            note=(
-                f"Fix generation is not yet supported for {file_path.suffix} files. "
-                f"The fix generator emits Python syntax (`#` comments, `raise …`), "
-                f"which would corrupt a {file_path.suffix} file. "
-                f"Please add the guard manually, or open an issue at "
-                f"https://github.com/Actenon/actenon-scan/issues to request "
-                f"{file_path.suffix} fix support."
+    if file_path.suffix.lower() in NON_PYTHON_SUFFIXES:
+        return (
+            FixResult(
+                diff="",
+                mode=mode or "skip",
+                note=(
+                    f"Fix generation is not yet supported for {file_path.suffix} files. "
+                    f"The fix generator emits Python syntax (`#` comments, `raise …`), "
+                    f"which would corrupt a {file_path.suffix} file. "
+                    f"Please add the guard manually, or open an issue at "
+                    f"https://github.com/Actenon/actenon-scan/issues to request "
+                    f"{file_path.suffix} fix support."
+                ),
             ),
+            [],
         )
 
-    # Verify a finding exists at this location.
-    result = scan_path(file_path)
-    candidates = [f for f in result.findings if f.line == line and not f.suppressed]
-    if rule_id:
-        candidates = [f for f in candidates if f.rule_id == rule_id]
-    if not candidates:
-        return None
-    finding = candidates[0]
+    from actenon_scan.brief import find_finding_at_location
 
-    # Read the source.
+    finding = find_finding_at_location(file_path, line, rule_id=rule_id)
+    if finding is None:
+        return None
+
     source_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
 
-    # Determine the mode if not specified (Part 3.3).
     if mode is None:
         mode = _auto_select_mode(file_path, source_lines)
 
-    # Generate the patch.
     patched_lines, note = _apply_remediation(
         source_lines, line, finding, mode
     )
 
     if patched_lines == source_lines:
-        return FixResult(diff="", mode=mode, note=note or "No patch generated.")
+        return FixResult(diff="", mode=mode, note=note or "No patch generated."), []
 
-    # Build the unified diff.
     diff = "".join(
         difflib.unified_diff(
             source_lines,
@@ -122,12 +106,26 @@ def generate_fix(
             tofile=str(file_path),
         )
     )
+    return FixResult(diff=diff, mode=mode, note=note), patched_lines
 
-    if apply:
-        file_path.write_text("".join(patched_lines), encoding="utf-8")
-        return FixResult(diff=diff, mode=mode, applied=True, note=note)
 
-    return FixResult(diff=diff, mode=mode, note=note)
+def generate_fix(
+    file_path: str | Path,
+    line: int,
+    *,
+    mode: str | None = None,
+    rule_id: str | None = None,
+    apply: bool = False,
+) -> FixResult | None:
+    """Generate a remediation diff for the finding at ``file_path:line``."""
+    computed = generate_fix_diff(file_path, line, mode=mode, rule_id=rule_id)
+    if computed is None:
+        return None
+    fres, patched_lines = computed
+    if apply and fres.diff and patched_lines:
+        Path(file_path).write_text("".join(patched_lines), encoding="utf-8")
+        return FixResult(diff=fres.diff, mode=fres.mode, applied=True, note=fres.note)
+    return fres
 
 
 def _auto_select_mode(file_path: Path, source_lines: list[str]) -> str:
@@ -244,7 +242,16 @@ def _apply_remediation(
         for i, imp_line in enumerate(import_lines):
             patched.insert(insert_at + i, imp_line + "\n")
 
-    note = f"Inserted {mode} check before line {finding_line}."
+    if mode in ("guard", "approval"):
+        note = (
+            f"Inserted commented {mode} scaffold before line {finding_line} "
+            f"(wire and uncomment to enforce authorization)."
+        )
+    else:
+        note = (
+            f"Inserted {mode} verification call before line {finding_line} "
+            f"(wire proof= and intent= arguments)."
+        )
     if import_lines:
         note += f" Hoisted {len(import_lines)} import(s) to top of file."
     return patched, note
@@ -422,7 +429,8 @@ def generate_fix_all(
 
     results: list[FixResult] = []
     for f in findings:
-        fix = generate_fix(f.file, f.line, mode=mode, rule_id=f.rule_id, apply=apply)
+        fpath = (target / f.file) if target.is_dir() else target
+        fix = generate_fix(fpath, f.line, mode=mode, rule_id=f.rule_id, apply=apply)
         if fix is not None:
             results.append(fix)
     return results

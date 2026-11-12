@@ -166,12 +166,14 @@ def _find_enclosing_function(tree: ast.Module, line: int) -> ast.FunctionDef | a
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.lineno <= line:
                 end_line = getattr(node, "end_lineno", None)
-                if end_line is not None and line <= end_line:
-                    return node
-                # Fallback: check if any child has a lineno >= the sink line
-                for child in ast.walk(node):
-                    if hasattr(child, "lineno") and child.lineno >= line:
+                if end_line is not None:
+                    if line <= end_line:
                         return node
+                else:
+                    # Fallback: check if any child has a lineno >= the sink line
+                    for child in ast.walk(node):
+                        if hasattr(child, "lineno") and child.lineno >= line:
+                            return node
     return None
 
 
@@ -298,19 +300,113 @@ def _get_attribute_chain(node: ast.Attribute) -> str:
     return ".".join(reversed(parts))
 
 
+@dataclass
+class _ModuleReachIndex:
+    """Per-ast.Module precomputed index for O(1) reachability lookups."""
+
+    call_arg_names_to_callees: dict[str, set[str]]
+    method_id_to_class: dict[int, ast.ClassDef]
+    list_literal_func_refs: set[str]
+    declared_tool_names: set[str]
+    imported_modules: list[str]
+
+
+def _extract_list_func_refs(elts: list[ast.expr], out: set[str]) -> None:
+    for elt in elts:
+        if isinstance(elt, ast.Name):
+            out.add(elt.id)
+        elif (
+            isinstance(elt, ast.Attribute)
+            and isinstance(elt.value, ast.Name)
+            and elt.value.id == "self"
+        ):
+            out.add(elt.attr)
+        elif isinstance(elt, ast.Call):
+            for arg in elt.args:
+                if isinstance(arg, ast.Name):
+                    out.add(arg.id)
+                elif (
+                    isinstance(arg, ast.Attribute)
+                    and isinstance(arg.value, ast.Name)
+                    and arg.value.id == "self"
+                ):
+                    out.add(arg.attr)
+
+
+def _get_module_reach_index(tree: ast.Module) -> _ModuleReachIndex:
+    cached = getattr(tree, "_actenon_reach_index", None)
+    if isinstance(cached, _ModuleReachIndex):
+        return cached
+
+    call_arg_names_to_callees: dict[str, set[str]] = {}
+    method_id_to_class: dict[int, ast.ClassDef] = {}
+    list_literal_func_refs: set[str] = set()
+    declared_names: set[str] = set()
+    imported_modules: list[str] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            cname: str | None = None
+            for arg in node.args:
+                if isinstance(arg, ast.Name):
+                    if cname is None:
+                        cname = _get_call_name(node.func)
+                    call_arg_names_to_callees.setdefault(arg.id, set()).add(cname)
+        elif isinstance(node, ast.ClassDef):
+            for child in node.body:
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    method_id_to_class[id(child)] = node
+        elif isinstance(node, (ast.List, ast.Tuple)):
+            _extract_list_func_refs(node.elts, list_literal_func_refs)
+        elif isinstance(node, ast.Dict):
+            keys = {
+                k.value
+                for k in node.keys
+                if isinstance(k, ast.Constant) and isinstance(k.value, str)
+            }
+            if "type" in keys and "function" in keys:
+                for key, value in zip(node.keys, node.values):
+                    if (
+                        isinstance(key, ast.Constant)
+                        and key.value == "function"
+                        and isinstance(value, ast.Dict)
+                    ):
+                        declared_names |= _dict_string_value(value, "name")
+            if "name" in keys and (keys & _SCHEMA_PARAM_KEYS):
+                declared_names |= _dict_string_value(node, "name")
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                imported_modules.append(alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imported_modules.append(node.module)
+
+    idx = _ModuleReachIndex(
+        call_arg_names_to_callees=call_arg_names_to_callees,
+        method_id_to_class=method_id_to_class,
+        list_literal_func_refs=list_literal_func_refs,
+        declared_tool_names=declared_names,
+        imported_modules=imported_modules,
+    )
+    try:
+        setattr(tree, "_actenon_reach_index", idx)
+    except AttributeError:
+        pass
+    return idx
+
+
 def _is_wrapped_as_tool(tree: ast.Module, func_name: str, tool_wrappers: list[str]) -> bool:
     """Check if the function is referenced in a tool wrapper call like
     Tool.from_function(func_name) or @tool."""
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            # Check if any argument is a reference to our function
-            for arg in node.args:
-                if isinstance(arg, ast.Name) and arg.id == func_name:
-                    # Check if the call target is a known wrapper
-                    call_name = _get_call_name(node.func)
-                    for wrapper in tool_wrappers:
-                        if wrapper in call_name or call_name in wrapper:
-                            return True
+    if not tool_wrappers:
+        return False
+    callees = _get_module_reach_index(tree).call_arg_names_to_callees.get(func_name)
+    if not callees:
+        return False
+    for call_name in callees:
+        for wrapper in tool_wrappers:
+            if wrapper in call_name or call_name in wrapper:
+                return True
     return False
 
 
@@ -355,16 +451,8 @@ def _is_dynamic_registration(
     if not tool_base_classes:
         return False
 
-    # Find the enclosing class
-    enclosing_class: ast.ClassDef | None = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            for child in node.body:
-                if child is func_node:
-                    enclosing_class = node
-                    break
-            if enclosing_class is not None:
-                break
+    # Find the enclosing class via cached O(1) index
+    enclosing_class = _get_module_reach_index(tree).method_id_to_class.get(id(func_node))
     if enclosing_class is None:
         return False
 
@@ -419,17 +507,13 @@ def _is_tool_method(
     subclasses a known tool base class."""
     if func_node.name not in tool_methods:
         return False
-    # Find the enclosing class
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            # Check if func_node is a child of this class
-            for child in node.body:
-                if child is func_node:
-                    # Check bases
-                    for base in node.bases:
-                        base_name = _get_base_name(base)
-                        if base_name in tool_base_classes:
-                            return True
+    cls_node = _get_module_reach_index(tree).method_id_to_class.get(id(func_node))
+    if cls_node is None:
+        return False
+    for base in cls_node.bases:
+        base_name = _get_base_name(base)
+        if base_name in tool_base_classes:
+            return True
     return False
 
 
@@ -443,17 +527,12 @@ def _get_base_name(node: ast.expr) -> str:
 
 def _imports_agent_framework(tree: ast.Module, frameworks: list[str]) -> bool:
     """Check if the module imports any agent framework."""
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                for fw in frameworks:
-                    if alias.name.startswith(fw) or fw in alias.name:
-                        return True
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                for fw in frameworks:
-                    if node.module.startswith(fw) or fw in node.module:
-                        return True
+    if not frameworks:
+        return False
+    for mod in _get_module_reach_index(tree).imported_modules:
+        for fw in frameworks:
+            if mod.startswith(fw) or fw in mod:
+                return True
     return False
 
 
@@ -483,6 +562,11 @@ def _is_in_tool_list(tree: ast.Module, func_name: str, tool_list_params: list[st
       - Generic ``callbacks=`` arguments and event handlers are NOT tools;
         they are not in tool_list_params and so are never matched here.
     """
+    if not tool_list_params:
+        return False
+    if func_name not in _get_module_reach_index(tree).list_literal_func_refs:
+        return False
+
     # Pattern 1: direct list/tuple literal passed as a registration kwarg
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -615,28 +699,7 @@ def _declared_tool_names(tree: ast.Module) -> set[str]:
     and the flat Anthropic / OpenAI-legacy form:
         {"name": "run_command", "description": ..., "input_schema": {...}}
     """
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Dict):
-            continue
-        keys = {
-            k.value for k in node.keys
-            if isinstance(k, ast.Constant) and isinstance(k.value, str)
-        }
-
-        if "type" in keys and "function" in keys:
-            for key, value in zip(node.keys, node.values):
-                if (
-                    isinstance(key, ast.Constant)
-                    and key.value == "function"
-                    and isinstance(value, ast.Dict)
-                ):
-                    names |= _dict_string_value(value, "name")
-
-        if "name" in keys and (keys & _SCHEMA_PARAM_KEYS):
-            names |= _dict_string_value(node, "name")
-
-    return names
+    return _get_module_reach_index(tree).declared_tool_names
 
 
 def _dict_string_value(node: ast.Dict, wanted: str) -> set[str]:
@@ -665,9 +728,12 @@ def _is_tool_schema_dispatch(
 
     for node in ast.walk(func_node):
         if isinstance(node, ast.If):
-            if _test_matches_declared_name(node.test, declared) and (
-                _stmts_contain_line(node.body, sink_line)
-                or _stmts_contain_line(node.orelse, sink_line)
+            # Note: elif branches are nested ast.If nodes in node.orelse and
+            # are visited independently by ast.walk(func_node). Checking
+            # node.orelse directly here would falsely include a plain else:
+            # fallback branch that runs when NO declared tool name matched.
+            if _test_matches_declared_name(node.test, declared) and _stmts_contain_line(
+                node.body, sink_line
             ):
                 return True
 

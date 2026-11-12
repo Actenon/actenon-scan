@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from actenon_scan.baseline import is_in_baseline
 from actenon_scan.detectors.guards import check_guard, GuardCheckResult
 from actenon_scan.detectors.reachability import detect_reachability, ReachabilityResult
 from actenon_scan.detectors.sinks import detect_sinks
@@ -385,15 +386,23 @@ def _is_in_declarative_guarded_class(
     sink_line: int,
     guarded_classes: set[str],
     parent_map: dict[int, ast.AST],
+    reachability_cfg: dict | None = None,
 ) -> str | None:
     """Check if the sink at sink_line is inside a method of a guarded class,
     or inside a function with a declarative guard decorator.
 
     Returns the guard reason (e.g., "requires_auth") if suppressed, None otherwise.
     """
-    if not guarded_classes:
-        # Even if no guarded classes, check for function-level declarative guards
-        pass
+    default_guard_decorators = {
+        "requires_auth", "require_auth", "requires_permission",
+        "require_permission", "authenticated", "login_required",
+        "permission_required", "requires_approval", "requires_confirmation",
+        "human_in_the_loop", "authorize", "authorized",
+    }
+    if reachability_cfg:
+        cfg_decs = reachability_cfg.get("declarative_guards", {}).get("decorators", ())
+        if cfg_decs:
+            default_guard_decorators = default_guard_decorators | set(cfg_decs)
 
     # Find the node at sink_line
     sink_node = None
@@ -411,23 +420,17 @@ def _is_in_declarative_guarded_class(
     while current is not None:
         # Check if we're in a function with a declarative guard decorator
         if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            decl_cfg = parent_map  # not ideal but we need access to the config
-            # Check function decorators against the declarative_guards.decorators list
-            # We need to get the config — but we don't have it here directly.
-            # Instead, check if any decorator name matches common guard patterns.
             for decorator in current.decorator_list:
                 decorator_name = _get_decorator_name_for_guards(decorator)
-                # Check against a broad set of guard decorator names
-                if decorator_name in (
-                    "requires_auth", "require_auth", "requires_permission",
-                    "require_permission", "authenticated", "login_required",
-                    "permission_required", "requires_approval", "requires_confirmation",
-                    "human_in_the_loop", "authorize", "authorized"
-                ):
+                if decorator_name in default_guard_decorators:
                     return f"decorator:{decorator_name}"
 
         # Check if we're in a guarded class
         if isinstance(current, ast.ClassDef):
+            for decorator in current.decorator_list:
+                decorator_name = _get_decorator_name_for_guards(decorator)
+                if decorator_name in default_guard_decorators:
+                    return f"class_decorator:{decorator_name}"
             if current.name in guarded_classes:
                 for stmt in current.body:
                     if isinstance(stmt, ast.Assign):
@@ -442,6 +445,189 @@ def _is_in_declarative_guarded_class(
         current = parent_map.get(id(current))
 
     return None
+
+
+def _caller_call_has_authorizing_guard(
+    tree: ast.Module,
+    call_node: ast.Call,
+    guard_patterns: list[str],
+) -> GuardCheckResult:
+    """Check if ``call_node`` is dominated by an action-authorizing guard in its caller.
+
+    Authentication-only (``authenticate``, ``login_required``), validation
+    (``validate_*``), sanitization, and rate-limit guards NEVER satisfy
+    caller-side action authorization across helper boundaries.
+    """
+    res = check_guard(tree, call_node.lineno, guard_patterns, sink_node=call_node)
+    if not res.guarded:
+        return GuardCheckResult(guarded=False)
+
+    from actenon_scan.detectors.guards import (
+        _build_parent_map as _guard_parent_map,
+        _dominates,
+        _find_enclosing_function as _guard_enclosing_fn,
+        _get_call_name,
+        _has_decorator_approval_flag,
+        _has_guard_decorator,
+        _is_guard_client_constructor,
+        _matches_guard,
+        _protected_callback_guard,
+    )
+    from actenon_scan.repository.guard_semantics import GuardKind, classify_guard_name
+
+    non_authorizing = {
+        GuardKind.AUTHENTICATION,
+        GuardKind.VALIDATION,
+        GuardKind.SANITIZATION,
+        GuardKind.RATE_LIMIT,
+    }
+
+    func_node = _guard_enclosing_fn(tree, call_node.lineno)
+    if func_node is None:
+        return GuardCheckResult(guarded=False)
+
+    if _has_decorator_approval_flag(func_node):
+        return res
+    if _protected_callback_guard(tree, func_node, call_node.lineno, guard_patterns):
+        return res
+    if _has_guard_decorator(func_node, guard_patterns):
+        for dec in func_node.decorator_list:
+            dec_name = _get_decorator_name_for_guards(dec)
+            if dec_name and _matches_guard(dec_name, guard_patterns):
+                if classify_guard_name(dec_name).kind not in non_authorizing:
+                    return res
+
+    pmap = _guard_parent_map(func_node)
+    for child in ast.walk(func_node):
+        if isinstance(child, ast.Call) and hasattr(child, "lineno") and child.lineno < call_node.lineno:
+            cname = _get_call_name(child.func)
+            if not cname or _is_guard_client_constructor(cname):
+                continue
+            if _matches_guard(cname, guard_patterns):
+                if _dominates(child, call_node.lineno, pmap, func_node):
+                    if classify_guard_name(cname).kind not in non_authorizing:
+                        return res
+
+    return GuardCheckResult(guarded=False)
+
+
+def _check_same_file_caller_guard_dominance(
+    tree: ast.Module,
+    target_func: ast.FunctionDef | ast.AsyncFunctionDef,
+    reachability_cfg: dict,
+    guard_patterns: list[str],
+    self_package: str | None = None,
+) -> GuardCheckResult:
+    """Verify whether EVERY path from any same-file entrypoint to ``target_func``
+    is dominated by an action-authorizing guard at the caller call site.
+    """
+    from collections import deque
+
+    # Map functions by (class_name_or_None, func_name, lineno)
+    func_defs: dict[tuple[str | None, str, int], ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    by_cls_and_name: dict[tuple[str | None, str], list[tuple[str | None, str, int]]] = {}
+
+    for stmt in tree.body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            key = (None, stmt.name, stmt.lineno)
+            func_defs[key] = stmt
+            by_cls_and_name.setdefault((None, stmt.name), []).append(key)
+        elif isinstance(stmt, ast.ClassDef):
+            for m in stmt.body:
+                if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    key = (stmt.name, m.name, m.lineno)
+                    func_defs[key] = m
+                    by_cls_and_name.setdefault((stmt.name, m.name), []).append(key)
+
+    target_key: tuple[str | None, str, int] | None = None
+    for k, fn in func_defs.items():
+        if fn is target_func or (fn.lineno == target_func.lineno and fn.name == target_func.name):
+            target_key = k
+            break
+    if target_key is None:
+        return GuardCheckResult(guarded=False)
+
+    direct_entrypoints: set[tuple[str | None, str, int]] = set()
+    for k, fn in func_defs.items():
+        r = detect_reachability(tree, fn.lineno, reachability_cfg, self_package=self_package)
+        if r.confidence != "none":
+            direct_entrypoints.add(k)
+
+    if not direct_entrypoints or target_key in direct_entrypoints:
+        return GuardCheckResult(guarded=False)
+
+    def _iter_own_calls(fn_node: ast.AST):
+        stack = list(ast.iter_child_nodes(fn_node))
+        while stack:
+            cur = stack.pop()
+            if isinstance(cur, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if isinstance(cur, ast.Call):
+                yield cur
+            stack.extend(ast.iter_child_nodes(cur))
+
+    # Build edges: caller_key -> callee_key -> list[ast.Call]
+    edges: dict[tuple[str | None, str, int], dict[tuple[str | None, str, int], list[ast.Call]]] = {}
+    for caller_key, fn_node in func_defs.items():
+        cls_name = caller_key[0]
+        for call in _iter_own_calls(fn_node):
+            callee_candidates: list[tuple[str | None, str, int]] = []
+            if isinstance(call.func, ast.Name):
+                callee_candidates = by_cls_and_name.get((None, call.func.id), [])
+            elif (
+                isinstance(call.func, ast.Attribute)
+                and isinstance(call.func.value, ast.Name)
+                and call.func.value.id in ("self", "cls")
+                and cls_name is not None
+            ):
+                callee_candidates = by_cls_and_name.get((cls_name, call.func.attr), [])
+            for ck in callee_candidates:
+                if ck != caller_key:
+                    edges.setdefault(caller_key, {}).setdefault(ck, []).append(call)
+
+    # Verify target_key is reachable in the full graph
+    reachable_any: set[tuple[str | None, str, int]] = set(direct_entrypoints)
+    q_all = deque(direct_entrypoints)
+    while q_all:
+        u = q_all.popleft()
+        for v in edges.get(u, ()):
+            if v not in reachable_any:
+                reachable_any.add(v)
+                q_all.append(v)
+    if target_key not in reachable_any:
+        return GuardCheckResult(guarded=False)
+
+    # Traverse ONLY unguarded edges from direct_entrypoints.
+    # If target_key is unreachable via unguarded edges, every path is guarded!
+    reachable_unguarded: set[tuple[str | None, str, int]] = set(direct_entrypoints)
+    q_ung = deque(direct_entrypoints)
+    guard_messages: list[str] = []
+    while q_ung:
+        u = q_ung.popleft()
+        for v, call_list in edges.get(u, {}).items():
+            all_calls_guarded = bool(call_list)
+            edge_msg = ""
+            for c in call_list:
+                gres = _caller_call_has_authorizing_guard(tree, c, guard_patterns)
+                if not gres.guarded:
+                    all_calls_guarded = False
+                    break
+                if not edge_msg:
+                    edge_msg = gres.message
+            if all_calls_guarded:
+                guard_messages.append(f"{u[1]}->{v[1]} ({edge_msg})")
+                continue
+            if v not in reachable_unguarded:
+                reachable_unguarded.add(v)
+                q_ung.append(v)
+
+    if target_key not in reachable_unguarded:
+        detail = guard_messages[0] if guard_messages else "caller call site"
+        return GuardCheckResult(
+            guarded=True,
+            message=f"caller guard dominates helper invocation: {detail}",
+        )
+    return GuardCheckResult(guarded=False)
 
 
 def _detect_self_package(target: Path) -> str | None:
@@ -537,13 +723,20 @@ def _scan_shard(args: tuple) -> "ScanResult":
     the TypeScript and unsupported-file passes, so shards do no ancillary
     work and the parent does it exactly once.
     """
-    # Unpack with cache_dir for backwards compatibility: older payloads
-    # (e.g. cached pickled args) may not include it.
+    # Unpack with cache_dir / flags for backwards compatibility: older payloads
+    # (e.g. cached pickled args) may not include them.
+    resource_boundary = None
+    include_fixtures = False
     if len(args) == 7:
         target, shard, config, exclude_globs, self_package, suppressions, baseline = args
         cache_dir = None
-    else:
+    elif len(args) == 8:
         target, shard, config, exclude_globs, self_package, suppressions, baseline, cache_dir = args
+    else:
+        (
+            target, shard, config, exclude_globs, self_package, suppressions,
+            baseline, cache_dir, resource_boundary, include_fixtures,
+        ) = args
     cache = None
     if cache_dir is not None:
         from actenon_scan.cache import FileCache
@@ -554,8 +747,8 @@ def _scan_shard(args: tuple) -> "ScanResult":
     # calls would be missed), and (b) break the parallel≡serial
     # equivalence test (test_engine_parallel.py) because serial runs
     # the repo layer once on ALL files while parallel would run it N
-    # times on disjoint subsets. The repo layer is run by the parent
-    # (or by the small-repo serial fallback) — see scan_path_parallel.
+    # times on disjoint subsets. The repo layer is run once in the parent
+    # on the complete file set — see scan_path_parallel.
     return scan_path(
         target,
         config=config,
@@ -566,6 +759,422 @@ def _scan_shard(args: tuple) -> "ScanResult":
         explicit_files=shard,
         cache=cache,
         repository_analysis=False,
+        resource_boundary=resource_boundary,
+        include_fixtures=include_fixtures,
+    )
+
+
+def _append_ts_results(
+    ts_findings: list["TSFindingWithFile"],
+    findings: list[Finding],
+    capabilities: list[Capability],
+    suppressions: set | None,
+    baseline_findings: dict[str, set[str]] | None,
+    on_finding: "Callable[[Finding], None] | None" = None,
+) -> None:
+    """Append TypeScript capabilities and findings with full suppression/baseline parity."""
+    for tf in ts_findings:
+        cap_state = guard_status_to_capability_state(tf.guard_status, True)
+        tier = _assign_tier(tf.file)
+        capabilities.append(Capability(
+            file=tf.file,
+            line=tf.line,
+            col=tf.col,
+            rule_id=tf.rule_id,
+            category=tf.category,
+            severity=tf.severity,
+            call_text=tf.call_text,
+            state=cap_state,
+            guard_status=tf.guard_status,
+            guard_message=tf.guard_message,
+            confidence=tf.confidence,
+            reachability_reason=tf.reachability_reason,
+            reachability_source="handler",
+            tier=tier,
+            language="typescript",
+            snippet_hash=tf.snippet_hash,
+        ))
+        if tf.guard_status == "guarded":
+            continue
+        finding = Finding(
+            file=tf.file,
+            line=tf.line,
+            col=tf.col,
+            rule_id=tf.rule_id,
+            category=tf.category,
+            severity=tf.severity,
+            confidence=tf.confidence,
+            description=tf.description,
+            call_text=tf.call_text,
+            remediation=_remediation_hint(tf.category),
+            snippet_hash=tf.snippet_hash,
+            tier=tier,
+            reachability_reason=tf.reachability_reason,
+        )
+        if is_suppressed(suppressions, tf.file, tf.rule_id, tf.line):
+            finding.suppressed = True
+            finding.suppression_reason = "inline_suppression"
+        if is_in_baseline(baseline_findings, tf.file, tf.rule_id, tf.snippet_hash):
+            finding.suppressed = True
+            if not finding.suppression_reason:
+                finding.suppression_reason = "baseline"
+        findings.append(finding)
+        if on_finding is not None and not finding.suppressed:
+            on_finding(finding)
+
+
+def _scan_go_files(
+    target: Path,
+    include_globs: list[str] | None,
+    exclude_globs: list[str] | None,
+    explicit_files: list[Path] | None = None,
+    guard_patterns: list[str] | None = None,
+) -> tuple[list[tuple[object, str]], int, list[tuple[str, str]], list[Path]]:
+    """Scan Go files if the [go] extra is installed.
+
+    Returns ``(findings_with_hash, files_scanned_count, errors, files_list)``.
+    """
+    import os as _os
+    from actenon_scan.detectors.go import is_go_extra_available, scan_go_file
+
+    if not is_go_extra_available():
+        return ([], 0, [], [])
+
+    if explicit_files is not None:
+        go_files = [
+            f for f in explicit_files
+            if f.suffix.lower() == ".go" and f.exists() and not f.name.endswith("_test.go")
+        ]
+    elif target.is_file():
+        if target.suffix.lower() == ".go" and not target.name.endswith("_test.go"):
+            go_files = [target]
+        else:
+            go_files = []
+    else:
+        default_dir_excludes = [
+            ".git/**", ".hg/**", ".svn/**",
+            ".venv/**", "venv/**", "env/**", ".env/**",
+            "node_modules/**", "vendor/**", "bower_components/**",
+            "__pycache__/**", "build/**", "dist/**", "target/**",
+            ".eggs/**", "*.egg-info/**", ".mypy_cache/**", ".ruff_cache/**",
+        ]
+        exclude = list(exclude_globs or [])
+        exclude.extend(default_dir_excludes)
+        pruned_dirs = {
+            ".git", ".hg", ".svn", ".venv", "venv", "env", ".env",
+            "node_modules", "vendor", "bower_components", "__pycache__",
+            "build", "dist", "target", ".eggs", ".mypy_cache", ".ruff_cache",
+            ".tox", ".cache", ".pytest_cache",
+        }
+        go_files = []
+        for root, dirs, fnames in _os.walk(target):
+            dirs[:] = [d for d in dirs if d not in pruned_dirs]
+            for fname in fnames:
+                if not fname.endswith(".go"):
+                    continue
+                if fname.endswith("_test.go") and not any(
+                    "test" in (g or "").lower() for g in (include_globs or [])
+                ):
+                    continue
+                filepath = Path(root) / fname
+                rel = str(filepath.relative_to(target))
+                if any(_glob_match(rel, pat) for pat in exclude):
+                    continue
+                if include_globs and not any(_glob_match(rel, pat) for pat in include_globs):
+                    continue
+                go_files.append(filepath)
+
+    findings_with_hash: list[tuple[object, str]] = []
+    go_errors: list[tuple[str, str]] = []
+    go_scanned = 0
+    for go_file in go_files:
+        try:
+            go_source = go_file.read_bytes()
+            go_text = go_source.decode("utf-8", errors="replace")
+            rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
+            go_findings = scan_go_file(rel, go_source, guard_patterns=guard_patterns)
+            for gf in go_findings:
+                shash = _compute_snippet_hash(go_text, gf.line)
+                findings_with_hash.append((gf, shash))
+            go_scanned += 1
+        except Exception as exc:
+            rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
+            go_errors.append((rel, f"{type(exc).__name__}: {exc}"))
+
+    return (findings_with_hash, go_scanned, go_errors, list(go_files))
+
+
+def _append_go_results(
+    go_findings_with_hash: list[tuple[object, str]],
+    findings: list[Finding],
+    capabilities: list[Capability],
+    suppressions: set | None,
+    baseline_findings: dict[str, set[str]] | None,
+    on_finding: "Callable[[Finding], None] | None" = None,
+) -> None:
+    """Append Go capabilities and findings with full suppression/baseline parity."""
+    for gf_obj, shash in go_findings_with_hash:
+        gf = gf_obj  # type: ignore[assignment]
+        cap_state = guard_status_to_capability_state(gf.guard_status, True)
+        reach_source = "handler" if "tool_registration" in (gf.reachability_reason or "") else "import"
+        tier = _assign_tier(gf.file)
+        capabilities.append(Capability(
+            file=gf.file,
+            line=gf.line,
+            col=gf.col,
+            rule_id=gf.rule_id,
+            category=gf.category,
+            severity=gf.severity,
+            call_text=gf.call_text,
+            state=cap_state,
+            guard_status=gf.guard_status,
+            guard_message=gf.guard_message,
+            confidence=gf.confidence,
+            reachability_reason=gf.reachability_reason,
+            reachability_source=reach_source,
+            tier=tier,
+            language="go",
+            snippet_hash=shash,
+        ))
+        if gf.guard_status == "guarded":
+            continue
+        finding = Finding(
+            file=gf.file,
+            line=gf.line,
+            col=gf.col,
+            rule_id=gf.rule_id,
+            category=gf.category,
+            severity=gf.severity,
+            confidence=gf.confidence,
+            description=gf.description,
+            call_text=gf.call_text,
+            remediation=_remediation_hint(gf.category),
+            snippet_hash=shash,
+            tier=tier,
+            reachability_reason=gf.reachability_reason,
+        )
+        if is_suppressed(suppressions, gf.file, gf.rule_id, gf.line):
+            finding.suppressed = True
+            finding.suppression_reason = "inline_suppression"
+        if is_in_baseline(baseline_findings, gf.file, gf.rule_id, shash):
+            finding.suppressed = True
+            if not finding.suppression_reason:
+                finding.suppression_reason = "baseline"
+        findings.append(finding)
+        if on_finding is not None and not finding.suppressed:
+            on_finding(finding)
+
+
+def _finalize_transitive_finding(
+    nf: Finding,
+    target: Path,
+    source_cache: dict[str, str],
+    suppressions: set | None,
+    baseline_findings: dict[str, set[str]] | None,
+) -> None:
+    """Populate snippet_hash, tier, inline suppression, and baseline state on a transitive finding."""
+    nf.tier = _assign_tier(nf.file)
+    if not nf.snippet_hash:
+        src = source_cache.get(nf.file)
+        if src is None:
+            fpath = (target / nf.file) if target.is_dir() else target
+            try:
+                src = fpath.read_text(encoding="utf-8-sig", errors="replace")
+            except OSError:
+                src = ""
+            source_cache[nf.file] = src
+        if src:
+            nf.snippet_hash = _compute_snippet_hash(src, nf.line)
+    if is_suppressed(suppressions, nf.file, nf.rule_id, nf.line):
+        nf.suppressed = True
+        nf.suppression_reason = "inline_suppression"
+    if is_in_baseline(baseline_findings, nf.file, nf.rule_id, nf.snippet_hash):
+        nf.suppressed = True
+        if not nf.suppression_reason:
+            nf.suppression_reason = "baseline"
+
+
+def _run_repository_augmentation(
+    target: Path,
+    rules: Ruleset,
+    py_files: list[Path],
+    ts_files_scanned: list[Path],
+    go_files_scanned: list[Path],
+    findings: list[Finding],
+    capabilities: list[Capability],
+    analysis_errors: list[tuple[str, str]],
+    suppressions: set | None,
+    baseline_findings: dict[str, set[str]] | None,
+    on_finding: "Callable[[Finding], None] | None" = None,
+) -> tuple[int, int, bool, list[dict], int, int]:
+    """Run Python and cross-language (TS/Go) repository reachability augmentation.
+
+    Shared by both ``scan_path`` and ``scan_path_parallel`` so parallel scans
+    preserve 100% transitive reachability and capability parity with serial scans.
+    """
+    transitive_followed_count = 0
+    transitive_unfollowed_count = 0
+    repository_analysis_enabled = False
+    local_call_edges: list[dict] = []
+    local_calls_followed = 0
+    local_calls_unfollowed = 0
+    source_cache: dict[str, str] = {}
+
+    if target.is_dir() and py_files:
+        from actenon_scan.repository.engine_augment import (
+            RepositoryAnalysisConfig,
+            analyze_repository,
+        )
+        repo_cfg = RepositoryAnalysisConfig(
+            enabled=True,
+            emit_heuristic_new_findings=False,
+            max_depth=32,
+            max_iterations=16,
+        )
+        repo_kwargs: dict = dict(
+            findings=findings,
+            capabilities=capabilities,
+            reachability_cfg=rules.reachability,
+            config=repo_cfg,
+            rules_sinks=rules.sinks,
+            files=py_files,
+        )
+        try:
+            repo_result = analyze_repository(target, guard_patterns=rules.guard_patterns, **repo_kwargs)
+        except TypeError:
+            repo_result = analyze_repository(target, **repo_kwargs)
+
+        for finding_idx, path, _certainty in repo_result.augmented_findings:
+            if finding_idx < len(findings):
+                f = findings[finding_idx]
+                chain = path.chain_text()
+                if chain and chain not in f.reachability_reason:
+                    suffix = (
+                        f" [transitive path: {chain}]"
+                        if f.reachability_reason
+                        else f"transitive path: {chain}"
+                    )
+                    f.reachability_reason = f.reachability_reason + suffix
+
+        for extra_cap in getattr(repo_result, "new_capabilities", ()):
+            capabilities.append(extra_cap)
+
+        for nf in repo_result.new_findings:
+            _finalize_transitive_finding(nf, target, source_cache, suppressions, baseline_findings)
+            findings.append(nf)
+            guard_status = "weak" if nf.rule_id.endswith("-WEAK") else (
+                "unbound" if nf.rule_id.endswith("-UNBOUND") else ""
+            )
+            capabilities.append(Capability(
+                file=nf.file,
+                line=nf.line,
+                col=nf.col,
+                rule_id=nf.rule_id,
+                category=nf.category,
+                severity=nf.severity,
+                call_text=nf.call_text,
+                state=guard_status_to_capability_state(guard_status, True),
+                guard_status=guard_status,
+                guard_message="",
+                confidence=nf.confidence,
+                reachability_reason=nf.reachability_reason,
+                reachability_source="transitive",
+                tier=nf.tier,
+                language="python",
+                snippet_hash=nf.snippet_hash,
+            ))
+            if on_finding is not None and not nf.suppressed:
+                on_finding(nf)
+
+        if repo_result.analysis_error:
+            analysis_errors.append(("<repository-analysis>", repo_result.analysis_error))
+        transitive_followed_count += repo_result.transitive_followed_count
+        transitive_unfollowed_count += repo_result.transitive_unfollowed_count
+        local_call_edges.extend(repo_result.local_call_edges)
+        local_calls_followed += repo_result.local_calls_followed
+        local_calls_unfollowed += repo_result.local_calls_unfollowed
+        repository_analysis_enabled = True
+
+    if target.is_dir() and (ts_files_scanned or go_files_scanned):
+        from actenon_scan.repository.cross_language_reach import (
+            analyze_cross_language_reach,
+        )
+        xlang_kwargs: dict = dict(
+            findings=findings,
+            capabilities=capabilities,
+            ts_files=ts_files_scanned,
+            go_files=go_files_scanned,
+            max_depth=32,
+        )
+        try:
+            xlang_result = analyze_cross_language_reach(
+                target, guard_patterns=rules.guard_patterns, **xlang_kwargs
+            )
+        except TypeError:
+            xlang_result = analyze_cross_language_reach(target, **xlang_kwargs)
+
+        for finding_idx, chain_text in xlang_result.augmented_findings:
+            if finding_idx < len(findings):
+                f = findings[finding_idx]
+                if chain_text and chain_text not in (f.reachability_reason or ""):
+                    suffix = (
+                        f" [transitive path: {chain_text}]"
+                        if f.reachability_reason
+                        else f"transitive path: {chain_text}"
+                    )
+                    f.reachability_reason = (f.reachability_reason or "") + suffix
+
+        for extra_cap in getattr(xlang_result, "new_capabilities", ()):
+            capabilities.append(extra_cap)
+
+        for nf in xlang_result.new_findings:
+            _finalize_transitive_finding(nf, target, source_cache, suppressions, baseline_findings)
+            findings.append(nf)
+            lang = (
+                "typescript"
+                if nf.file.endswith((".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"))
+                else ("go" if nf.file.endswith(".go") else "unknown")
+            )
+            guard_status = "weak" if nf.rule_id.endswith("-WEAK") else (
+                "unbound" if nf.rule_id.endswith("-UNBOUND") else ""
+            )
+            capabilities.append(Capability(
+                file=nf.file,
+                line=nf.line,
+                col=nf.col,
+                rule_id=nf.rule_id,
+                category=nf.category,
+                severity=nf.severity,
+                call_text=nf.call_text,
+                state=guard_status_to_capability_state(guard_status, True),
+                guard_status=guard_status,
+                guard_message="",
+                confidence=nf.confidence,
+                reachability_reason=nf.reachability_reason,
+                reachability_source="transitive",
+                tier=nf.tier,
+                language=lang,
+                snippet_hash=nf.snippet_hash,
+            ))
+            if on_finding is not None and not nf.suppressed:
+                on_finding(nf)
+
+        if xlang_result.analysis_error:
+            analysis_errors.append(("<cross-language-reach>", xlang_result.analysis_error))
+        transitive_followed_count += xlang_result.transitive_followed_count
+        transitive_unfollowed_count += xlang_result.transitive_unfollowed_count
+        local_call_edges.extend(xlang_result.local_call_edges)
+        local_calls_followed += xlang_result.local_calls_followed
+        local_calls_unfollowed += xlang_result.local_calls_unfollowed
+        repository_analysis_enabled = True
+
+    return (
+        transitive_followed_count,
+        transitive_unfollowed_count,
+        repository_analysis_enabled,
+        local_call_edges,
+        local_calls_followed,
+        local_calls_unfollowed,
     )
 
 
@@ -581,6 +1190,9 @@ def scan_path_parallel(
     self_package: str | None = None,
     cache: "FileCache | None" = None,
     on_finding: "Callable[[Finding], None] | None" = None,
+    repository_analysis: bool = True,
+    resource_boundary: bool | None = None,
+    include_fixtures: bool = False,
 ) -> "ScanResult":
     """Scan by sharding the file list across `jobs` processes.
 
@@ -601,26 +1213,22 @@ def scan_path_parallel(
     cache_dir = str(cache.cache_dir) if cache is not None and cache.enabled else None
 
     def serial() -> ScanResult:
-        # Task 5-A1: the parallel path's serial fallback respects the
-        # new default ``repository_analysis=True`` (this fallback only
-        # fires for small repos where parallelism doesn't pay off, and
-        # for those the repo layer should run). Shards (above) disable
-        # the repo layer per-shard; the parent doesn't currently
-        # re-run it after merge, so large-repo parallel scans do NOT
-        # run the repo layer — documented limitation (use ``--jobs 1``
-        # to force serial + repo analysis on large repos).
         return scan_path(
             target, config=config, include_globs=include_globs,
             exclude_globs=exclude_globs, suppressions=suppressions,
             baseline_findings=baseline_findings, self_package=self_package,
             cache=cache, on_finding=on_finding,
-            repository_analysis=True,
+            repository_analysis=repository_analysis,
+            resource_boundary=resource_boundary,
+            include_fixtures=include_fixtures,
         )
 
     if jobs <= 1 or not target.is_dir():
         return serial()
 
-    files, _default_excluded_count_parallel = _collect_files(target, include_globs, exclude_globs)
+    files, _default_excluded_count_parallel = _collect_files(
+        target, include_globs, exclude_globs, include_fixtures=include_fixtures
+    )
     # Below this size, process startup costs more than the parallelism saves.
     if len(files) < MIN_FILES_FOR_AUTO_PARALLEL:
         return serial()
@@ -634,7 +1242,10 @@ def scan_path_parallel(
     shards = [sh for sh in shards if sh]
 
     payload = [
-        (target, sh, config, exclude_globs, self_package, suppressions, baseline_findings, cache_dir)
+        (
+            target, sh, config, exclude_globs, self_package, suppressions,
+            baseline_findings, cache_dir, resource_boundary, include_fixtures,
+        )
         for sh in shards
     ]
     try:
@@ -647,6 +1258,7 @@ def scan_path_parallel(
         return serial()
 
     merged = ScanResult()
+    merged.default_excluded_count = _default_excluded_count_parallel
     for r in results:
         merged.findings.extend(r.findings)
         merged.capabilities.extend(r.capabilities)
@@ -655,68 +1267,73 @@ def scan_path_parallel(
         if merged.rules_used is None:
             merged.rules_used = r.rules_used
 
-    # Ancillary passes run once in the parent: shards skipped them.
-    # Work Order 1.5: load the ruleset in the parent so we can pass
-    # guard_patterns to the TS scan (parity with Python/Go paths, which
-    # run inside workers where the ruleset is already loaded).
-    _ts_rules = load_rules(config)
-    ts_findings, ts_scanned, ts_errors, _ts_files_scanned = _scan_typescript_files(
+    parent_rules = load_rules(config)
+    if resource_boundary is not None:
+        parent_rules.reachability["resource_boundary_enabled"] = bool(resource_boundary)
+    if merged.rules_used is None:
+        merged.rules_used = parent_rules
+
+    ts_findings, ts_scanned, ts_errors, ts_files_scanned = _scan_typescript_files(
         target, include_globs, exclude_globs,
-        guard_patterns=_ts_rules.guard_patterns,
+        guard_patterns=parent_rules.guard_patterns,
     )
-    for tf in ts_findings:
-        # Work Order 2.1: record TS capabilities (parallel path), including guarded
-        cap_state = guard_status_to_capability_state(tf.guard_status, True)
-        merged.capabilities.append(Capability(
-            file=tf.file,
-            line=tf.line,
-            col=tf.col,
-            rule_id=tf.rule_id,
-            category=tf.category,
-            severity=tf.severity,
-            call_text=tf.call_text,
-            state=cap_state,
-            guard_status=tf.guard_status,
-            guard_message=tf.guard_message,
-            confidence=tf.confidence,
-            reachability_source="handler",
-            tier=_assign_tier(tf.file),
-            language="typescript",
-        ))
-        # Guarded findings are capabilities only — do not add to findings
-        if tf.guard_status == "guarded":
-            continue
-        merged.findings.append(Finding(
-            file=tf.file,
-            line=tf.line,
-            col=tf.col,
-            rule_id=tf.rule_id,
-            category=tf.category,
-            severity=tf.severity,
-            confidence=tf.confidence,
-            description=tf.description,
-            call_text=tf.call_text,
-            remediation=_remediation_hint(tf.category),
-            snippet_hash="",
-            tier=_assign_tier(tf.file),
-        ))
+    _append_ts_results(
+        ts_findings, merged.findings, merged.capabilities,
+        suppressions, baseline_findings, on_finding=None,
+    )
     merged.files_scanned += ts_scanned
     merged.analysis_errors.extend(ts_errors)
+
+    go_findings_with_hash, go_scanned, go_errors, go_files_scanned = _scan_go_files(
+        target, include_globs, exclude_globs,
+        guard_patterns=parent_rules.guard_patterns,
+    )
+    _append_go_results(
+        go_findings_with_hash, merged.findings, merged.capabilities,
+        suppressions, baseline_findings, on_finding=None,
+    )
+    merged.files_scanned += go_scanned
+    merged.analysis_errors.extend(go_errors)
+
     unsupported = _collect_unsupported_files(target, include_globs, exclude_globs)
     if ts_scanned > 0:
         ts_exts = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
         ts_file_set = {f for f, _ in unsupported if f.endswith(ts_exts)}
         unsupported = [(f, l) for f, l in unsupported if f not in ts_file_set]
+    if go_scanned > 0:
+        unsupported = [(f, l) for f, l in unsupported if not f.endswith(".go")]
     merged.unsupported_files = unsupported
+
+    if repository_analysis:
+        (
+            merged.transitive_followed_count,
+            merged.transitive_unfollowed_count,
+            merged.repository_analysis_enabled,
+            merged.local_call_edges,
+            merged.local_calls_followed,
+            merged.local_calls_unfollowed,
+        ) = _run_repository_augmentation(
+            target=target,
+            rules=parent_rules,
+            py_files=files,
+            ts_files_scanned=ts_files_scanned,
+            go_files_scanned=go_files_scanned,
+            findings=merged.findings,
+            capabilities=merged.capabilities,
+            analysis_errors=merged.analysis_errors,
+            suppressions=suppressions,
+            baseline_findings=baseline_findings,
+            on_finding=None,
+        )
+
     merged.findings.sort(key=lambda f: (f.file, f.line))
 
-    # Progressive output: fire on_finding for each merged finding, in
-    # the parent process. This preserves the serial-mode contract that
-    # findings stream to stderr as soon as they are discovered (modulo
-    # the merge step, which is unavoidable when sharding across workers).
+    # Progressive output: fire on_finding for each unsuppressed merged finding,
+    # in the parent process.
     if on_finding is not None:
         for f in merged.findings:
-            on_finding(f)
+            if not f.suppressed:
+                on_finding(f)
 
     return merged
 
@@ -923,13 +1540,11 @@ def scan_path(
                     if is_suppressed(suppressions, rel, cf.rule_id, cf.line):
                         cf.suppressed = True
                         cf.suppression_reason = "inline_suppression"
-                    if baseline_findings:
-                        file_baselines = baseline_findings.get(rel, set())
-                        if cf.snippet_hash in file_baselines:
-                            cf.suppressed = True
-                            # Don't overwrite a more-specific reason.
-                            if not cf.suppression_reason:
-                                cf.suppression_reason = "baseline"
+                    if is_in_baseline(baseline_findings, rel, cf.rule_id, cf.snippet_hash):
+                        cf.suppressed = True
+                        # Don't overwrite a more-specific reason.
+                        if not cf.suppression_reason:
+                            cf.suppression_reason = "baseline"
                     findings.append(cf)
                     if on_finding is not None and not cf.suppressed:
                         on_finding(cf)
@@ -1013,6 +1628,8 @@ def scan_path(
 
             for sf in sink_findings:
                 reach = detect_reachability(tree, sf.line, rules.reachability, self_package=self_package)
+                enclosing = None
+                is_indirect_local_helper = False
                 if reach.confidence == "none":
                     # Task 2: Check if this sink is in a method that is
                     # same-class-reachable from an agent entrypoint.
@@ -1026,6 +1643,7 @@ def scan_path(
                             confidence="medium",
                             signals=[f"{signal}({hops}_hops)"],
                         )
+                        is_indirect_local_helper = True
                     elif enclosing is not None and enclosing.lineno in module_level_reachable:
                         # Phase 5.1: module-level function reachability
                         signal, hops = module_level_reachable[enclosing.lineno]
@@ -1033,6 +1651,7 @@ def scan_path(
                             confidence="medium",
                             signals=[f"{signal}({hops}_hops)"],
                         )
+                        is_indirect_local_helper = True
                     else:
                         continue  # not agent-reachable — skip
 
@@ -1047,6 +1666,22 @@ def scan_path(
                 # Find the sink AST node for binding analysis
                 sink_node = _find_call_at_line(tree, sf.line)
                 guard_result = check_guard(tree, sf.line, rules.guard_patterns, sink_node=sink_node)
+                reach_source_str = "handler"
+                if (
+                    not guard_result.guarded
+                    and is_indirect_local_helper
+                    and enclosing is not None
+                ):
+                    caller_guard = _check_same_file_caller_guard_dominance(
+                        tree,
+                        enclosing,
+                        rules.reachability,
+                        rules.guard_patterns,
+                        self_package=self_package,
+                    )
+                    if caller_guard.guarded:
+                        guard_result = caller_guard
+                        reach_source_str = "local_helper"
 
                 # Work Order 2, Phase 2: record a Capability for every
                 # agent-reachable sink, including guarded ones. Guarded
@@ -1071,7 +1706,7 @@ def scan_path(
                     guard_message=guard_result.message,
                     confidence=reach.confidence,
                     reachability_reason=", ".join(reach.signals),
-                    reachability_source="handler",  # Python reachability is handler-based
+                    reachability_source=reach_source_str,
                     tier=_assign_tier(rel),
                     language="python",
                     snippet_hash=_compute_snippet_hash(source, sf.line),
@@ -1084,8 +1719,13 @@ def scan_path(
 
                 # Check declarative guards (class-level authorization)
                 declarative_suppressed = _is_in_declarative_guarded_class(
-                    tree, sf.line, declarative_guarded_classes, parent_map
+                    tree, sf.line, declarative_guarded_classes, parent_map,
+                    reachability_cfg=rules.reachability,
                 )
+                if declarative_suppressed and not (guard_result.weak or guard_result.unbound):
+                    capability.state = guard_status_to_capability_state("guarded", True)
+                    capability.guard_status = "guarded"
+                    capability.guard_message = f"declarative guard: {declarative_suppressed}"
 
                 severity = sf.severity
                 if reach.confidence == "medium":
@@ -1132,10 +1772,10 @@ def scan_path(
                     finding.suppression_reason = "inline_suppression"
 
                 # Check baseline
-                if baseline_findings:
-                    file_baselines = baseline_findings.get(rel, set())
-                    if snippet_hash in file_baselines:
-                        finding.suppressed = True
+                if is_in_baseline(baseline_findings, rel, rule_id, snippet_hash):
+                    finding.suppressed = True
+                    if not finding.suppression_reason:
+                        finding.suppression_reason = "baseline"
 
                 findings.append(finding)
                 # ── Progressive output (Work Order 2, Part 4.1) ──
@@ -1165,7 +1805,7 @@ def scan_path(
 
     # ── TypeScript/JavaScript analysis (if the [typescript] extra is installed) ──
     if explicit_files is not None:
-        ts_explicit = [f for f in explicit_files if f.suffix.lower() in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}]
+        ts_explicit = [f for f in explicit_files if f.suffix.lower() in {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}]
         if ts_explicit:
             ts_findings, ts_scanned, ts_errors, ts_files_scanned = _scan_typescript_files(
                 target, include_globs, exclude_globs, explicit_files=ts_explicit,
@@ -1179,47 +1819,11 @@ def scan_path(
             guard_patterns=rules.guard_patterns,
         )
     if ts_findings:
-        for tf in ts_findings:
-            # Work Order 2.1: record a Capability for each TS finding,
-            # including guarded ones (now returned by the detector).
-            cap_state = guard_status_to_capability_state(tf.guard_status, True)
-            capabilities.append(Capability(
-                file=tf.file,
-                line=tf.line,
-                col=tf.col,
-                rule_id=tf.rule_id,
-                category=tf.category,
-                severity=tf.severity,
-                call_text=tf.call_text,
-                state=cap_state,
-                guard_status=tf.guard_status,
-                guard_message=tf.guard_message,
-                confidence=tf.confidence,
-                reachability_reason="",
-                reachability_source="handler",  # TS reachability is handler-based
-                tier=_assign_tier(tf.file),
-                language="typescript",
-            ))
-            # Guarded findings are capabilities only — do not add to findings
-            if tf.guard_status == "guarded":
-                continue
-            findings.append(Finding(
-                file=tf.file,
-                line=tf.line,
-                col=tf.col,
-                rule_id=tf.rule_id,
-                category=tf.category,
-                severity=tf.severity,
-                confidence=tf.confidence,
-                description=tf.description,
-                call_text=tf.call_text,
-                remediation=_remediation_hint(tf.category),
-                snippet_hash="",
-                tier=_assign_tier(tf.file),
-            ))
+        _append_ts_results(
+            ts_findings, findings, capabilities,
+            suppressions, baseline_findings, on_finding=on_finding,
+        )
     analysis_errors.extend(ts_errors)
-
-    # Count TypeScript files as scanned (they were actually analysed)
 
     # If TypeScript was scanned, remove those files from unsupported_files
     if ts_scanned > 0:
@@ -1227,252 +1831,47 @@ def scan_path(
         unsupported_files = [(f, l) for f, l in unsupported_files if f not in ts_file_set]
 
     # ── Go analysis (if the [go] extra is installed) ──
-    go_scanned = 0
-    go_errors: list[tuple[str, str]] = []
-    from actenon_scan.detectors.go import is_go_extra_available, scan_go_file
-    if is_go_extra_available():
-        # Collect Go files
-        if explicit_files is not None:
-            go_files = [f for f in explicit_files if f.suffix.lower() == ".go" and f.exists()
-                        and not f.name.endswith("_test.go")]
-        elif target.is_file() and target.suffix.lower() == ".go" and not target.name.endswith("_test.go"):
-            go_files = [target]
-        else:
-            go_files = []
-            for filepath in target.rglob("*.go"):
-                if filepath.is_file():
-                    # Skip Go test files by default (like Python test_*.py)
-                    if filepath.name.endswith("_test.go"):
-                        continue
-                    rel = str(filepath.relative_to(target)) if target.is_dir() else filepath.name
-                    excluded = False
-                    for pattern in (exclude_globs or []):
-                        if _glob_match(rel, pattern):
-                            excluded = True
-                            break
-                    if not excluded:
-                        go_files.append(filepath)
-        go_files_scanned = list(go_files)
-        for go_file in go_files:
-            try:
-                go_source = go_file.read_bytes()
-                rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
-                go_findings = scan_go_file(rel, go_source, guard_patterns=rules.guard_patterns)
-                for gf in go_findings:
-                    # Work Order 2, Phase 5: record a Capability for every
-                    # Go finding, including guarded ones.
-                    cap_state = guard_status_to_capability_state(gf.guard_status, True)
-                    # Distinguish handler-registered from import-reachable
-                    reach_source = "handler" if "tool_registration" in (gf.reachability_reason or "") else "import"
-                    capabilities.append(Capability(
-                        file=gf.file,
-                        line=gf.line,
-                        col=gf.col,
-                        rule_id=gf.rule_id,
-                        category=gf.category,
-                        severity=gf.severity,
-                        call_text=gf.call_text,
-                        state=cap_state,
-                        guard_status=gf.guard_status,
-                        guard_message=gf.guard_message,
-                        confidence=gf.confidence,
-                        reachability_reason=gf.reachability_reason,
-                        reachability_source=reach_source,
-                        tier=_assign_tier(gf.file),
-                        language="go",
-                    ))
-                    # ITEM 1: skip findings dominated by a parameter-bound guard
-                    if gf.guard_status == "guarded":
-                        continue
-                    findings.append(Finding(
-                        file=gf.file,
-                        line=gf.line,
-                        col=gf.col,
-                        rule_id=gf.rule_id,
-                        category=gf.category,
-                        severity=gf.severity,
-                        confidence=gf.confidence,
-                        description=gf.description,
-                        call_text=gf.call_text,
-                        remediation=_remediation_hint(gf.category),
-                        snippet_hash="",
-                        tier=_assign_tier(gf.file),
-                        reachability_reason=gf.reachability_reason,
-                    ))
-                go_scanned += 1
-            except Exception as exc:
-                rel = str(go_file.relative_to(target)) if target.is_dir() else go_file.name
-                go_errors.append((rel, f"{type(exc).__name__}: {exc}"))
-        analysis_errors.extend(go_errors)
-        # Remove Go files from unsupported_files
-        if go_scanned > 0:
-            unsupported_files = [(f, l) for f, l in unsupported_files if not f.endswith(".go")]
+    go_findings_with_hash, go_scanned, go_errors, go_files_scanned = _scan_go_files(
+        target, include_globs, exclude_globs,
+        explicit_files=explicit_files,
+        guard_patterns=rules.guard_patterns,
+    )
+    if go_findings_with_hash:
+        _append_go_results(
+            go_findings_with_hash, findings, capabilities,
+            suppressions, baseline_findings, on_finding=on_finding,
+        )
+    analysis_errors.extend(go_errors)
+    if go_scanned > 0:
+        unsupported_files = [(f, l) for f, l in unsupported_files if not f.endswith(".go")]
 
     total_scanned = len(files) + ts_scanned + go_scanned
 
-    # ── Repository-level augmentation (Slice 1+) ──────────────────────
-    # Run cross-file analysis AFTER the per-file scan to AUGMENT findings
-    # with transitive reachability evidence. The per-file findings are
-    # never suppressed — this layer only adds new findings (for sinks
-    # reachable only transitively) and augments existing findings'
-    # reachability_reason with the call chain.
-    #
-    # Task 5-A1: this layer is now ON by default (``repository_analysis``
-    # default flipped from False to True). The opt-out is the CLI flag
-    # ``--no-repository-analysis``. When enabled, this layer:
-    #   1. Builds a RepositoryIndex from all .py files under target.
-    #   2. Discovers agent entrypoints from reachability config.
-    #   3. Computes transitive reachability through the call graph.
-    #   4. Propagates effect summaries from per-file sinks.
-    #   5. Adds new findings for sinks reachable only transitively.
-    #   6. Augments existing findings' reachability_reason with the chain.
-    #   7. Records the transitive_followed_count / _unfollowed_count
-    #      disclosure counts on ScanResult so the clean-scan output
-    #      can honestly state how many agent-reachable calls were
-    #      followed vs. could not be resolved.
-    if repository_analysis and target.is_dir() and files:
-        from actenon_scan.repository.engine_augment import (
-            RepositoryAnalysisConfig,
-            analyze_repository,
-        )
-        repo_cfg = RepositoryAnalysisConfig(
-            enabled=True,
-            emit_heuristic_new_findings=False,
-            max_depth=32,
-            max_iterations=16,
-        )
-        repo_result = analyze_repository(
-            target,
+    # ── Repository-level & cross-language augmentation ─────────────────
+    local_call_edges: list[dict] = []
+    local_calls_followed = 0
+    local_calls_unfollowed = 0
+    if repository_analysis:
+        (
+            transitive_followed_count,
+            transitive_unfollowed_count,
+            repository_analysis_enabled,
+            local_call_edges,
+            local_calls_followed,
+            local_calls_unfollowed,
+        ) = _run_repository_augmentation(
+            target=target,
+            rules=rules,
+            py_files=files,
+            ts_files_scanned=ts_files_scanned,
+            go_files_scanned=go_files_scanned,
             findings=findings,
             capabilities=capabilities,
-            reachability_cfg=rules.reachability,
-            config=repo_cfg,
-            rules_sinks=rules.sinks,
-            files=files,
+            analysis_errors=analysis_errors,
+            suppressions=suppressions,
+            baseline_findings=baseline_findings,
+            on_finding=on_finding,
         )
-        # Augment existing findings with call-chain evidence.
-        for finding_idx, path, certainty in repo_result.augmented_findings:
-            if finding_idx < len(findings):
-                f = findings[finding_idx]
-                chain = path.chain_text()
-                if chain and chain not in f.reachability_reason:
-                    suffix = (
-                        f" [transitive path: {chain}]"
-                        if f.reachability_reason
-                        else f"transitive path: {chain}"
-                    )
-                    f.reachability_reason = f.reachability_reason + suffix
-        # Add new findings.
-        findings.extend(repo_result.new_findings)
-        # Record the analysis error if any.
-        if repo_result.analysis_error:
-            analysis_errors.append(("<repository-analysis>", repo_result.analysis_error))
-        # Task 5-A1: populate the disclosure counts. Even if 0/0, the
-        # clean-scan output discloses that the layer ran.
-        transitive_followed_count = repo_result.transitive_followed_count
-        transitive_unfollowed_count = repo_result.transitive_unfollowed_count
-        repo_result_local_call_edges = list(repo_result.local_call_edges)
-        repo_result_local_calls_followed = repo_result.local_calls_followed
-        repo_result_local_calls_unfollowed = repo_result.local_calls_unfollowed
-        repository_analysis_enabled = True
-
-    # ── Cross-language reachability (TS + Go) ───────────────────────
-    # Phase 2 of the cross-file reachability slice. This layer runs for
-    # non-Python targets (TS-only, Go-only, or mixed) where the Python
-    # repo layer above is gated off (its gating condition is on the
-    # Python file list). The cross-language layer:
-    #   1. Builds a TSRepositoryIndex / GoRepositoryIndex from the
-    #      engine's already-filtered file lists.
-    #   2. Discovers registered model-callable handlers (arrows passed
-    #      to registerTool / tool / setRequestHandler for TS; func_literals
-    #      passed to mcp.AddTool / server.AddTool for Go).
-    #   3. Discovers ALL sinks in every indexed file (regardless of
-    #      per-file reachability) — so sinks the per-file scan skipped
-    #      become visible to this layer.
-    #   4. BFS from each handler through cross-file call sites, bounded
-    #      by max_depth=32, cycle-safe via visited set.
-    #   5. When traversal reaches a function whose body contains a sink
-    #      NOT already in the per-file findings, emits a NEW transitive
-    #      finding with reachability_reason describing the chain.
-    #
-    # Conservative invariants (Phase 3):
-    #   - never suppress an existing direct finding.
-    #   - never make an unreachable helper reachable (negative-control
-    #     test pins this).
-    #   - avoid duplicate direct + transitive findings (per-file finding
-    #     is augmented, not duplicated).
-    #   - bound traversal depth (max_depth=32).
-    #   - handle recursion/cycles safely (visited set in BFS).
-    #   - disclose unresolved dynamic calls (counted but not silently
-    #     resolved).
-    #
-    # Honest reporting: transitive findings state
-    # "Model-controlled sink argument: NOT ESTABLISHED" — we do not
-    # claim model-controlled argument provenance (taint propagation
-    # across Go/TS is out of scope for this slice).
-    go_files_for_xlang = go_files_scanned  # populated by the Go section above
-    if (repository_analysis and target.is_dir()
-            and (ts_files_scanned or go_files_for_xlang)):
-        from actenon_scan.repository.cross_language_reach import (
-            analyze_cross_language_reach,
-        )
-        xlang_result = analyze_cross_language_reach(
-            target,
-            findings=findings,
-            capabilities=capabilities,
-            ts_files=ts_files_scanned,
-            go_files=go_files_for_xlang,
-            max_depth=32,
-        )
-        # Augment existing findings with chain evidence.
-        for finding_idx, chain_text in xlang_result.augmented_findings:
-            if finding_idx < len(findings):
-                f = findings[finding_idx]
-                if chain_text and chain_text not in (f.reachability_reason or ""):
-                    suffix = (
-                        f" [transitive path: {chain_text}]"
-                        if f.reachability_reason
-                        else f"transitive path: {chain_text}"
-                    )
-                    f.reachability_reason = (f.reachability_reason or "") + suffix
-        # Add new findings.
-        findings.extend(xlang_result.new_findings)
-        # Also register a Capability for each new transitive finding so
-        # the JSON/SARIF capability surface shows the reachability_reason
-        # chain (mirrors the per-file detectors' capability+finding pattern
-        # for TS and Go). The new findings are REVIEW_REQUIRED (not guarded).
-        for nf in xlang_result.new_findings:
-            # Detect language from the file extension.
-            lang = "typescript" if nf.file.endswith((".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")) else (
-                "go" if nf.file.endswith(".go") else "unknown"
-            )
-            capabilities.append(Capability(
-                file=nf.file,
-                line=nf.line,
-                col=nf.col,
-                rule_id=nf.rule_id,
-                category=nf.category,
-                severity=nf.severity,
-                call_text=nf.call_text,
-                state="REVIEW_REQUIRED",
-                guard_status="",
-                guard_message="",
-                confidence=nf.confidence,
-                reachability_reason=nf.reachability_reason,
-                reachability_source="transitive",
-                tier=nf.tier,
-                language=lang,
-            ))
-        # Record analysis error if any.
-        if xlang_result.analysis_error:
-            analysis_errors.append(("<cross-language-reach>", xlang_result.analysis_error))
-        # Merge disclosure counts.
-        transitive_followed_count += xlang_result.transitive_followed_count
-        transitive_unfollowed_count += xlang_result.transitive_unfollowed_count
-        repository_analysis_enabled = True
-        xlang_local_call_edges = list(xlang_result.local_call_edges)
-        xlang_local_calls_followed = xlang_result.local_calls_followed
-        xlang_local_calls_unfollowed = xlang_result.local_calls_unfollowed
 
     return ScanResult(
         findings=findings,
@@ -1485,9 +1884,9 @@ def scan_path(
         transitive_unfollowed_count=transitive_unfollowed_count,
         repository_analysis_enabled=repository_analysis_enabled,
         default_excluded_count=_default_excluded_count,
-        local_call_edges=repo_result_local_call_edges + xlang_local_call_edges,
-        local_calls_followed=repo_result_local_calls_followed + xlang_local_calls_followed,
-        local_calls_unfollowed=repo_result_local_calls_unfollowed + xlang_local_calls_unfollowed,
+        local_call_edges=local_call_edges,
+        local_calls_followed=local_calls_followed,
+        local_calls_unfollowed=local_calls_unfollowed,
     )
 
 
@@ -1505,6 +1904,8 @@ class TSFindingWithFile:
     confidence: str = "high"
     guard_status: str = ""
     guard_message: str = ""
+    snippet_hash: str = ""
+    reachability_reason: str = ""
 
 
 def _scan_typescript_files(
@@ -1603,20 +2004,30 @@ def _scan_typescript_files(
         if not any("test" in (g or "").lower() or "spec" in (g or "").lower() for g in (include_globs or [])):
             exclude.extend(ts_test_excludes)
 
-        for filepath in target.rglob("*"):
-            if not filepath.is_file():
-                continue
-            if filepath.suffix.lower() not in ts_suffixes:
-                continue
-            rel = str(filepath.relative_to(target))
-            excluded = False
-            for pattern in exclude:
-                if _glob_match(rel, pattern):
-                    excluded = True
-                    break
-            if excluded:
-                continue
-            ts_files.append(filepath)
+        import os as _os
+        pruned_ts_dirs = {
+            ".git", ".hg", ".svn", ".venv", "venv", "env", ".env",
+            "node_modules", "bower_components", "__pycache__",
+            "build", "dist", "target", ".eggs", ".mypy_cache", ".ruff_cache",
+            ".tox", ".cache", ".pytest_cache",
+        }
+        for root, dirs, fnames in _os.walk(target):
+            dirs[:] = [d for d in dirs if d not in pruned_ts_dirs]
+            for fname in fnames:
+                filepath = Path(root) / fname
+                if filepath.suffix.lower() not in ts_suffixes:
+                    continue
+                rel = str(filepath.relative_to(target))
+                excluded = False
+                for pattern in exclude:
+                    if _glob_match(rel, pattern):
+                        excluded = True
+                        break
+                if excluded:
+                    continue
+                if include_globs and not any(_glob_match(rel, pat) for pat in include_globs):
+                    continue
+                ts_files.append(filepath)
 
     all_findings: list[TSFindingWithFile] = []
     errors: list[tuple[str, str]] = []
@@ -1624,7 +2035,14 @@ def _scan_typescript_files(
     for filepath in ts_files:
         rel = str(filepath.relative_to(target) if target.is_dir() else filepath.name)
         ts_findings, file_errors = analyze_typescript_file(filepath, guard_patterns=guard_patterns)
+        file_source_text: str | None = None
+        if ts_findings:
+            try:
+                file_source_text = filepath.read_text(encoding="utf-8-sig", errors="replace")
+            except OSError:
+                file_source_text = ""
         for f in ts_findings:
+            shash = _compute_snippet_hash(file_source_text, f.line) if file_source_text else ""
             all_findings.append(TSFindingWithFile(
                 file=rel,
                 rule_id=f.rule_id,
@@ -1637,6 +2055,8 @@ def _scan_typescript_files(
                 confidence="high",
                 guard_status=f.guard_status,
                 guard_message=f.guard_message,
+                snippet_hash=shash,
+                reachability_reason=getattr(f, "reachability_reason", ""),
             ))
         errors.extend(file_errors)
 

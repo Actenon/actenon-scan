@@ -87,11 +87,16 @@ TS_SINK_RULES: list[dict[str, Any]] = [
             "exec",
             "spawn",
             "spawnSync",
+            "execFile",
             "execFileSync",
             "child_process.exec",
             "child_process.execSync",
             "child_process.spawn",
             "child_process.spawnSync",
+            "child_process.execFile",
+            "child_process.execFileSync",
+            "Bun.spawn",
+            "Bun.spawnSync",
         ],
         # Work Order 1.8: `exec` and `spawn` are bare globals that collide
         # with common member expressions:
@@ -104,12 +109,27 @@ TS_SINK_RULES: list[dict[str, Any]] = [
         # Bare `exec`/`spawn` calls where the identifier is imported from
         # "child_process" ARE shell execution and must still flag. The
         # matching loop resolves imports to verify this.
-        "bare_only_patterns": ["exec", "spawn"],
+        "bare_only_patterns": ["exec", "spawn", "execFile"],
         # When the call is a member expression (X.exec / X.spawn / X.fetch),
         # flag only if the receiver X is a recognised shell/global binding.
         # For exec/spawn: "child_process" and common alias "cp" are genuine.
         # Other receivers (SAFE, pool, regex) are not shell execution.
         "global_receivers": ["child_process", "cp"],
+    },
+    # ── code_execution ────────────────────────────────────────────
+    {
+        "id": "EXEC-CODE",
+        "category": "code_execution",
+        "severity": "high",
+        "description": "Dynamic code execution via eval or vm context",
+        "patterns": [
+            "eval",
+            "vm.runInNewContext",
+            "vm.runInContext",
+            "vm.runInThisContext",
+        ],
+        "bare_only_patterns": ["eval"],
+        "global_receivers": ["globalThis", "window"],
     },
     # ── file_mutation ─────────────────────────────────────────────
     {
@@ -127,6 +147,8 @@ TS_SINK_RULES: list[dict[str, Any]] = [
             "fs.promises.rm",
             "fs.promises.unlink",
             "fs.promises.rmdir",
+            "Deno.remove",
+            "Deno.removeSync",
             "rimraf",
         ],
     },
@@ -134,14 +156,23 @@ TS_SINK_RULES: list[dict[str, Any]] = [
         "id": "FILE-WRITE",
         "category": "file_mutation",
         "severity": "medium",
-        "description": "File write via fs.writeFile",
+        "description": "File write or mutation via fs/Bun/Deno",
         "patterns": [
             "fs.writeFile",
             "fs.writeFileSync",
             "fs.appendFile",
             "fs.appendFileSync",
+            "fs.rename",
+            "fs.renameSync",
+            "fs.copyFile",
+            "fs.copyFileSync",
             "fs.promises.writeFile",
             "fs.promises.appendFile",
+            "fs.promises.rename",
+            "fs.promises.copyFile",
+            "Bun.write",
+            "Deno.writeTextFile",
+            "Deno.writeFile",
         ],
     },
     # ── data_destruction ──────────────────────────────────────────
@@ -229,9 +260,93 @@ TS_SINK_RULES: list[dict[str, Any]] = [
         "id": "SECRET-READ",
         "category": "credential_access",
         "severity": "high",
-        "description": "Credential access via process.env",
+        "description": "Secret/credential retrieval from secrets manager",
         "patterns": [
-            "process.env",
+            "GetSecretValueCommand",
+            "GetParameterCommand",
+            "GetParametersCommand",
+            "GetParametersByPathCommand",
+            "secretsManager.getSecretValue",
+            "secretsmanager.getSecretValue",
+            "ssm.getParameter",
+            "ssm.getParameters",
+            "secretClient.getSecret",
+            "secretManagerClient.accessSecretVersion",
+            "vault.read",
+        ],
+    },
+    # ── communication ─────────────────────────────────────────────
+    {
+        "id": "COMMUNICATION-SEND",
+        "category": "communication",
+        "severity": "high",
+        "description": "Outbound email/message send in agent tool",
+        "patterns": [
+            "transporter.sendMail",
+            "mailer.sendMail",
+            "resend.emails.send",
+            "sgMail.send",
+            "slack.chat.postMessage",
+            "webClient.chat.postMessage",
+            "twilio.messages.create",
+            "sns.publish",
+            "PublishCommand",
+            "SendEmailCommand",
+        ],
+    },
+    # ── repository_mutation ───────────────────────────────────────
+    {
+        "id": "REPOSITORY-MUTATION",
+        "category": "repository_mutation",
+        "severity": "medium",
+        "description": "Git or GitHub repository mutation in agent tool",
+        "patterns": [
+            "octokit.repos.createOrUpdateFileContents",
+            "octokit.repos.deleteFile",
+            "octokit.pulls.merge",
+            "octokit.git.deleteRef",
+            "octokit.rest.repos.createOrUpdateFileContents",
+            "octokit.rest.repos.deleteFile",
+            "octokit.rest.pulls.merge",
+            "octokit.rest.repos.delete",
+            "git.push",
+            "git.reset",
+        ],
+    },
+    # ── browser_action ────────────────────────────────────────────
+    {
+        "id": "BROWSER-ACTION",
+        "category": "browser_action",
+        "severity": "medium",
+        "description": "Browser automation navigation or interaction",
+        "patterns": [
+            "page.click",
+            "page.fill",
+            "page.type",
+            "page.press",
+            "page.goto",
+            "page.evaluate",
+            "locator.click",
+            "locator.fill",
+        ],
+    },
+    # ── deployment ────────────────────────────────────────────────
+    {
+        "id": "DEPLOY-K8S",
+        "category": "deployment",
+        "severity": "high",
+        "description": "Kubernetes or container deployment mutation",
+        "patterns": [
+            "k8sApi.createNamespacedDeployment",
+            "k8sApi.patchNamespacedDeployment",
+            "k8sApi.replaceNamespacedDeployment",
+            "k8sApi.deleteNamespacedDeployment",
+            "k8sApi.deleteNamespacedPod",
+            "appsV1Api.createNamespacedDeployment",
+            "appsV1Api.patchNamespacedDeployment",
+            "appsV1Api.deleteNamespacedDeployment",
+            "docker.createContainer",
+            "container.exec",
         ],
     },
 ]
@@ -241,14 +356,17 @@ TS_SINK_RULES: list[dict[str, Any]] = [
 TS_REACHABILITY_SIGNALS: list[str] = [
     # MCP SDK (low-level)
     "setRequestHandler",
-    # MCP SDK (high-level McpServer)
+    # MCP SDK (high-level McpServer) & FastMCP
     "registerTool",
     "server.tool",
+    "addTool",
     # @modelcontextprotocol/sdk import
     "@modelcontextprotocol/sdk",
-    # LangChain.js
+    # LangChain.js / Mastra / VoltAgent
     "DynamicStructuredTool",
-    "tool(",  # from @langchain/core
+    "StructuredTool",
+    "createTool",
+    "tool(",  # from @langchain/core or Vercel AI SDK
     # Vercel AI SDK
     "execute:",  # tools: { name: { execute } }
 ]
@@ -377,8 +495,8 @@ def analyze_typescript_file(
     # receiver. We need the node to check the receiver type.
     call_nodes_by_pos: dict[tuple[int, int], object] = {}
     for node in _ts_walk(tree.root_node):
-        if node.type == "call_expression":
-            func_node = node.child_by_field_name("function")
+        if node.type in ("call_expression", "new_expression"):
+            func_node = node.child_by_field_name("function") or node.child_by_field_name("constructor")
             if func_node is not None:
                 call_nodes_by_pos[(node.start_point[0] + 1, node.start_point[1])] = func_node
 
@@ -418,7 +536,7 @@ def analyze_typescript_file(
                         # identifier is imported from child_process. If not
                         # imported, it's ambiguous — flag it (prefer false
                         # positive over false negative on shell execution).
-                        if pattern in ("exec", "spawn"):
+                        if pattern in ("exec", "spawn", "execFile"):
                             if pattern not in child_process_bindings:
                                 # Not imported from child_process. Could be
                                 # a user-defined function or a global. We
@@ -434,7 +552,7 @@ def analyze_typescript_file(
                         # Check the receiver against global_receivers.
                         if actual_receiver in global_receivers:
                             pass  # global receiver — flag (e.g., window.fetch)
-                        elif actual_receiver in child_process_bindings and pattern in ("exec", "spawn"):
+                        elif actual_receiver in child_process_bindings and pattern in ("exec", "spawn", "execFile"):
                             pass  # cp.exec / child_process.exec — flag
                         else:
                             continue  # arbitrary receiver — no match (SAFE.exec, pool.spawn)
@@ -446,7 +564,7 @@ def analyze_typescript_file(
                         if last_seg == pattern:
                             if actual_receiver in global_receivers:
                                 pass
-                            elif actual_receiver in child_process_bindings and pattern in ("exec", "spawn"):
+                            elif actual_receiver in child_process_bindings and pattern in ("exec", "spawn", "execFile"):
                                 pass
                             elif "." in call_name and call_name.startswith(tuple(global_receivers)):
                                 # e.g., "child_process.exec" — receiver is "child_process"
@@ -740,8 +858,8 @@ def _is_name_in_tool_registration(func_name: str, source: str) -> bool:
                         for j in range(i, min(i + 3, len(lines))):
                             if func_name in lines[j]:
                                 return True
-        elif signal == "DynamicStructuredTool":
-            if "DynamicStructuredTool" in source and func_name in source:
+        elif signal in ("DynamicStructuredTool", "StructuredTool", "createTool", "addTool", "registerTool"):
+            if signal in source and func_name in source:
                 return True
     return False
 
@@ -773,14 +891,15 @@ def _is_inline_handler(node, source_lines: list[str]) -> bool:
             elif signal == "execute:":
                 if _TS_EXECUTE_HANDLER.search(line):
                     return True
-            elif signal == "setRequestHandler":
-                if "setRequestHandler" in line:
-                    return True
-            elif signal == "DynamicStructuredTool":
-                if "DynamicStructuredTool" in line:
-                    return True
-            elif signal == "registerTool":
-                if "registerTool" in line:
+            elif signal in (
+                "setRequestHandler",
+                "DynamicStructuredTool",
+                "StructuredTool",
+                "registerTool",
+                "createTool",
+                "addTool",
+            ):
+                if signal in line:
                     return True
     return False
 
@@ -1038,7 +1157,7 @@ def _check_file_level_reachability_strict(source: str) -> bool:
     for module-level reachability. tool() and DynamicStructuredTool
     define tools but don't make module-level code agent-reachable.
     """
-    strict_signals = ["setRequestHandler", "registerTool"]
+    strict_signals = ["setRequestHandler", "registerTool", "addTool"]
     for signal in strict_signals:
         if signal in source:
             return True
@@ -1092,10 +1211,12 @@ def _check_reachability(tree, lang, source: str) -> bool:
 
 
 def _extract_calls(tree, lang) -> list[tuple[str, int, int]]:
-    """Extract all call expressions with their qualified names.
+    """Extract all call/new expressions with their qualified names.
 
-    Uses tree-sitter queries to find call_expression nodes and extracts
-    their qualified name (e.g., stripe.refunds.create, execSync).
+    Uses tree-sitter queries to find call_expression nodes and AST walk
+    for new_expression constructors (such as AWS SDK v3 `new *Command(...)`
+    sinks), extracting their qualified name (e.g., stripe.refunds.create,
+    execSync, GetSecretValueCommand).
     """
     from tree_sitter import Query, QueryCursor
 
@@ -1122,6 +1243,21 @@ def _extract_calls(tree, lang) -> list[tuple[str, int, int]]:
     for node in captures.get("bare", []):
         name = node.text.decode("utf-8")
         calls.append((name, node.start_point[0] + 1, node.start_point[1]))
+
+    # Process constructor instantiations (e.g., new GetSecretValueCommand(...),
+    # new DeleteObjectsCommand(...)), anchoring line/col at the new_expression.
+    for node in _ts_walk(tree.root_node):
+        if node.type != "new_expression":
+            continue
+        ctor = node.child_by_field_name("constructor")
+        if ctor is None:
+            continue
+        if ctor.type == "identifier":
+            calls.append((ctor.text.decode("utf-8"), node.start_point[0] + 1, node.start_point[1]))
+        elif ctor.type == "member_expression":
+            qualified = _get_qualified_name(ctor)
+            if qualified:
+                calls.append((qualified, node.start_point[0] + 1, node.start_point[1]))
 
     return calls
 
@@ -1291,12 +1427,12 @@ def _ts_walk(node):
 
 
 def _ts_get_call_name(call_node, source: bytes) -> str:
-    """Extract the qualified name from a TS call_expression node.
+    """Extract the qualified name from a TS call_expression or new_expression node.
 
-    Handles: bare identifier (execSync), member expression (fs.rmSync),
-    and deeper member expressions (stripe.refunds.create).
+    Handles: bare identifier (execSync, GetSecretValueCommand), member expression
+    (fs.rmSync), and deeper member expressions (stripe.refunds.create).
     """
-    func = call_node.child_by_field_name("function")
+    func = call_node.child_by_field_name("function") or call_node.child_by_field_name("constructor")
     if func is None:
         return ""
     return _ts_node_text(func, source)
@@ -1458,7 +1594,7 @@ def _resolve_child_process_imports(root_node, source: bytes) -> set[str]:
                 if child.type == "string":
                     source_text = _ts_node_text(child, source).strip().strip('"').strip("'")
                     break
-            if source_text != "child_process":
+            if source_text not in ("child_process", "node:child_process"):
                 continue
             # Extract the import clause
             clause = node.child_by_field_name("source")
@@ -1501,7 +1637,7 @@ def _resolve_child_process_imports(root_node, source: bytes) -> set[str]:
                     for arg in args.children:
                         if arg.type == "string":
                             arg_text = _ts_node_text(arg, source).strip().strip('"').strip("'")
-                            if arg_text == "child_process":
+                            if arg_text in ("child_process", "node:child_process"):
                                 name_node = decl.child_by_field_name("name")
                                 if name_node and name_node.type == "identifier":
                                     bindings.add(_ts_node_text(name_node, source))
@@ -1922,7 +2058,7 @@ def _ts_is_explicitly_discarded(guard_call, source: bytes) -> bool:
 
 
 def _find_call_at_line(tree, line: int, source: bytes = b"", call_name: str = ""):
-    """Find the call_expression node at the given line.
+    """Find the call_expression or new_expression node at the given line.
 
     Used by analyze_typescript_file to get the sink_call_node for binding
     analysis. If ``call_name`` and ``source`` are provided, returns the
@@ -1935,7 +2071,7 @@ def _find_call_at_line(tree, line: int, source: bytes = b"", call_name: str = ""
     """
     best_match = None
     for node in _ts_walk(tree.root_node):
-        if node.type != "call_expression":
+        if node.type not in ("call_expression", "new_expression"):
             continue
         start = node.start_point[0] + 1
         end = node.end_point[0] + 1
@@ -1955,6 +2091,25 @@ def _find_call_at_line(tree, line: int, source: bytes = b"", call_name: str = ""
     return best_match
 
 
+def _find_dominating_ts_guard_name(
+    func_node,
+    sink_call_node,
+    source: bytes,
+    guard_patterns: list[str],
+) -> str:
+    """Return the first dominating guard call name before ``sink_call_node``."""
+    sink_line = sink_call_node.start_point[0] + 1
+    sink_start_byte = sink_call_node.start_byte
+    for node in _ts_walk(func_node):
+        if node.type != "call_expression" or node.start_byte >= sink_start_byte:
+            continue
+        cname = _ts_get_call_name(node, source)
+        if cname and _ts_matches_guard_name(cname, guard_patterns):
+            if _ts_dominates(node, sink_line, func_node, source):
+                return cname
+    return ""
+
+
 __all__ = [
     "TSFinding",
     "analyze_typescript_file",
@@ -1971,7 +2126,10 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
+def discover_all_ts_sinks(
+    filepath: str | Path,
+    guard_patterns: list[str] | None = None,
+) -> list[dict]:
     """Discover ALL sink matches in a TS/JS file, regardless of reachability.
 
     This function is used by the cross-file reachability layer
@@ -1991,19 +2149,14 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
       - ``severity`` (str)
       - ``description`` (str)
       - ``call_text`` (str — short text of the call expression)
-
-    This function does NOT run the per-function reachability filter
-    (``_is_call_reachable``) or the guard soundness check. Those are
-    per-file-scan concerns; the cross-file layer does its own
-    reachability reasoning and the per-file scan still runs alongside.
-
-    Only the sink-matching primitives are reused so the rule list and
-    matching semantics stay in lockstep with the per-file detector.
+      - ``guard_status`` (str — ``"guarded"``, ``"weak"``, ``"unbound"``, or ``""``)
+      - ``guard_message`` (str)
+      - ``guard_name`` (str — dominating callee guard name if any)
     """
     if not is_typescript_extra_available():
         return []
 
-    from tree_sitter import Language, Parser, Query, QueryCursor
+    from tree_sitter import Language, Parser
     import tree_sitter_typescript as tsts
 
     filepath = Path(filepath)
@@ -2025,16 +2178,20 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
     parser = Parser(lang)
     tree = parser.parse(source_bytes)
 
+    effective_guards = list(guard_patterns) if guard_patterns else []
+    for g in TS_GUARD_PATTERNS:
+        if g not in effective_guards:
+            effective_guards.append(g)
+
     calls = _extract_calls(tree, lang)
 
-    # Build a map from (call_name, line, col) → call_expression node for
-    # call_text extraction. We re-walk the tree to find call_expression
-    # nodes; cheaper than re-querying per match.
+    # Build a map from (call_name, line, col) → call_expression/new_expression node
+    # for call_text and guard binding extraction.
     call_nodes_by_pos: dict[tuple[str, int, int], object] = {}
     for node in _ts_walk(tree.root_node):
-        if node.type != "call_expression":
+        if node.type not in ("call_expression", "new_expression"):
             continue
-        func = node.child_by_field_name("function")
+        func = node.child_by_field_name("function") or node.child_by_field_name("constructor")
         if func is None:
             continue
         call_name = _ts_node_text(func, source_bytes)
@@ -2042,7 +2199,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
             continue
         call_nodes_by_pos[(call_name, node.start_point[0] + 1, node.start_point[1])] = node
 
-    # Re-resolve imports for bare-only pattern matching (exec/spawn
+    # Re-resolve imports for bare-only pattern matching (exec/spawn/execFile
     # from child_process). The bare_only logic in analyze_typescript_file
     # checks child_process_bindings; we replicate the same here.
     child_process_bindings = _resolve_child_process_imports(tree.root_node, source_bytes)
@@ -2055,7 +2212,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
         is_member_expr = False
         actual_receiver = ""
         if call_node is not None:
-            func_node_at_pos = call_node.child_by_field_name("function")
+            func_node_at_pos = call_node.child_by_field_name("function") or call_node.child_by_field_name("constructor")
             if func_node_at_pos is not None and func_node_at_pos.type == "member_expression":
                 is_member_expr = True
                 obj = func_node_at_pos.child_by_field_name("object")
@@ -2076,7 +2233,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                         if actual_receiver in global_receivers:
                             matched = True
                             break
-                        if actual_receiver in child_process_bindings and pattern in ("exec", "spawn"):
+                        if actual_receiver in child_process_bindings and pattern in ("exec", "spawn", "execFile"):
                             matched = True
                             break
                         continue
@@ -2086,7 +2243,7 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                             if actual_receiver in global_receivers:
                                 matched = True
                                 break
-                            if actual_receiver in child_process_bindings and pattern in ("exec", "spawn"):
+                            if actual_receiver in child_process_bindings and pattern in ("exec", "spawn", "execFile"):
                                 matched = True
                                 break
                             if "." in call_name and call_name.startswith(tuple(global_receivers)):
@@ -2106,6 +2263,22 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                 call_text = ""
                 if call_node is not None:
                     call_text = _ts_node_text(call_node, source_bytes)
+                guard_status = ""
+                guard_message = ""
+                guard_name = ""
+                enclosing_func = _find_enclosing_ts_function(tree, line)
+                if enclosing_func is not None and call_node is not None:
+                    guard_status, guard_message = _check_ts_guard(
+                        enclosing_func,
+                        call_node,
+                        tree.root_node,
+                        source_bytes,
+                        effective_guards,
+                    )
+                    if guard_status:
+                        guard_name = _find_dominating_ts_guard_name(
+                            enclosing_func, call_node, source_bytes, effective_guards
+                        )
                 results.append({
                     "file": str(filepath),
                     "line": line,
@@ -2115,6 +2288,9 @@ def discover_all_ts_sinks(filepath: str | Path) -> list[dict]:
                     "severity": rule["severity"],
                     "description": rule["description"],
                     "call_text": call_text,
+                    "guard_status": guard_status,
+                    "guard_message": guard_message,
+                    "guard_name": guard_name,
                 })
                 break  # one finding per call
     return results

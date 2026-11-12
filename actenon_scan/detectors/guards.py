@@ -1000,11 +1000,13 @@ def _find_enclosing_function(tree: ast.Module, line: int) -> ast.FunctionDef | a
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.lineno <= line:
                 end_line = getattr(node, "end_lineno", None)
-                if end_line is not None and line <= end_line:
-                    return node
-                for child in ast.walk(node):
-                    if hasattr(child, "lineno") and child.lineno >= line:
+                if end_line is not None:
+                    if line <= end_line:
                         return node
+                else:
+                    for child in ast.walk(node):
+                        if hasattr(child, "lineno") and child.lineno >= line:
+                            return node
     return None
 
 

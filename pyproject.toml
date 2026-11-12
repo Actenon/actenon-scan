@@ -34,6 +34,12 @@ Changelog = "https://github.com/Actenon/actenon-scan/blob/main/CHANGELOG.md"
 Security = "https://github.com/Actenon/actenon-scan/blob/main/SECURITY.md"
 
 [project.optional-dependencies]
+all = [
+  "pyyaml>=6.0",
+  "tree-sitter>=0.25,<1",
+  "tree-sitter-typescript>=0.23,<1",
+  "tree-sitter-go>=0.25,<1",
+]
 yaml = ["pyyaml>=6.0"]
 typescript = [
   "tree-sitter>=0.25,<1",
@@ -75,10 +81,12 @@ packages = [
     "actenon_scan.report",
     "actenon_scan.repository",
     "actenon_scan.rules",
+    "actenon_scan.skill",
 ]
 
 [tool.setuptools.package-data]
 "actenon_scan.rules" = ["default_rules.json"]
+"actenon_scan.skill" = ["SKILL.md"]
 # py.typed marker declares the package as PEP 561 typed. Integrators using
 # mypy/pyright get type information from actenon_scan.api and the dataclasses
 # in actenon_scan.engine.

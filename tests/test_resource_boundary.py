@@ -68,7 +68,7 @@ def authorize(path: str) -> None:
     caps = [c for c in result.capabilities if c.category == "data_destruction"]
     assert len(caps) == 1
     assert caps[0].state == "GUARD_FOUND"
-    assert caps[0].reachability_reason == "resource_boundary"
+    assert caps[0].reachability_reason.startswith("resource_boundary")
 
 
 def test_flask_route_handler_unguarded():

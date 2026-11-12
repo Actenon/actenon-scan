@@ -56,7 +56,14 @@ def format_explain(brief: Brief, *, handoff: AirlockHandoff | None = None) -> st
     # 3. EXECUTION PATH
     lines.append("3. EXECUTION PATH")
     lines.append(f"   tool input")
-    lines.append(f"   -> {brief.agent_entry_point.function_name}()")
+    if "->" in brief.data_flow.handler_step or "→" in brief.data_flow.handler_step:
+        import re as _re
+        for hop in _re.split(r"\s*(?:->|→)\s*", brief.data_flow.handler_step):
+            hop_clean = hop.strip()
+            if hop_clean:
+                lines.append(f"   -> {hop_clean}()")
+    else:
+        lines.append(f"   -> {brief.agent_entry_point.function_name}()")
     if brief.receiver_chain:
         lines.append(f"   -> {brief.receiver_chain.origin}...")
     lines.append(f"   -> {brief.sink.call_text}")

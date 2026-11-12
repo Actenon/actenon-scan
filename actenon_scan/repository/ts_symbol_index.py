@@ -370,8 +370,11 @@ class TSRepositoryIndex:
         """
         if self._finalized:
             return
-        for imp, info in self._pending_imports:
-            self._resolve_import(imp, info)
+        # Multi-pass import resolution so barrel re-exports (`export { fn } from './lib'`)
+        # resolve cleanly regardless of file indexing order (bounded at 3 passes for cycles).
+        for _ in range(3):
+            for imp, info in self._pending_imports:
+                self._resolve_import(imp, info)
         # Update each TSImport with its resolved target for diagnostics.
         for imp, info in self._pending_imports:
             bound = imp.bound_name
@@ -451,9 +454,9 @@ class TSRepositoryIndex:
                     info,
                 )
             elif node.type == "variable_declarator":
-                # `const f = () => {}` → ARROW_FUNCTION symbol named f.
+                # `const f = () => {}` / `const f = function() {}` → symbol named f.
                 value = node.child_by_field_name("value")
-                if value is None or value.type != "arrow_function":
+                if value is None or value.type not in ("arrow_function", "function_expression"):
                     continue
                 name_node = node.child_by_field_name("name")
                 if name_node is None or name_node.type != "identifier":
@@ -542,12 +545,55 @@ class TSRepositoryIndex:
         for node in _walk(root_node):
             if node.type == "import_statement":
                 self._index_esm_import(node, file_rel, module_qname, info, source_bytes)
+            elif node.type == "export_statement":
+                self._index_esm_reexport(node, file_rel, module_qname, info, source_bytes)
             elif node.type in ("lexical_declaration", "variable_declaration"):
                 self._index_var_decl_imports(node, file_rel, module_qname, info, source_bytes)
             elif node.type == "call_expression":
                 # Dynamic import: `import('mod')` parses as call_expression
                 # with function=import keyword.
                 self._index_dynamic_import_call(node, file_rel, module_qname, info, source_bytes)
+
+    def _index_esm_reexport(
+        self,
+        node,
+        file_rel: str,
+        module_qname: str,
+        info: _TSModuleInfo,
+        source_bytes: bytes,
+    ) -> None:
+        """Handle `export { a, b as c } from './lib'` barrel re-exports."""
+        module = ""
+        clause = None
+        for c in node.children:
+            if c.type == "string":
+                module = _strip_string_literal(_node_text(c, source_bytes))
+            elif c.type == "export_clause":
+                clause = c
+        if not module or clause is None:
+            return
+        line = node.start_point[0] + 1
+        col = node.start_point[1]
+        for sub in clause.children:
+            if sub.type != "export_specifier":
+                continue
+            idents = [s for s in sub.children if s.type in ("identifier", "property_identifier")]
+            if not idents:
+                continue
+            if len(idents) == 1:
+                imported = bound = _node_text(idents[0], source_bytes)
+            else:
+                imported = _node_text(idents[0], source_bytes)
+                bound = _node_text(idents[1], source_bytes)
+            imp = TSImport(
+                kind="esm_reexport",
+                module=module,
+                bound_name=bound,
+                imported_name=imported,
+                location=SourceLocation(file_rel, line, col),
+            )
+            self._imports.append(imp)
+            self._pending_imports.append((imp, info))
 
     def _index_esm_import(
         self,
@@ -648,9 +694,8 @@ class TSRepositoryIndex:
             if decl.type != "variable_declarator":
                 continue
             name_node = decl.child_by_field_name("name")
-            if name_node is None or name_node.type != "identifier":
+            if name_node is None:
                 continue
-            bound = _node_text(name_node, source_bytes)
             value = decl.child_by_field_name("value")
             if value is None:
                 continue
@@ -669,6 +714,45 @@ class TSRepositoryIndex:
             if func is None:
                 continue
             func_text = _node_text(func, source_bytes)
+            if func_text == "require" and name_node.type == "object_pattern":
+                # Destructured CJS: const { a, b: c } = require('./mod')
+                module = _first_string_arg(inner, source_bytes)
+                if module is None:
+                    continue
+                loc = SourceLocation(file_rel, decl.start_point[0] + 1, decl.start_point[1])
+                for prop in name_node.children:
+                    if prop.type == "shorthand_property_identifier_pattern":
+                        ident = _node_text(prop, source_bytes)
+                        if ident:
+                            imp = TSImport(
+                                kind="cjs_named",
+                                module=module,
+                                bound_name=ident,
+                                imported_name=ident,
+                                location=loc,
+                            )
+                            self._imports.append(imp)
+                            self._pending_imports.append((imp, info))
+                    elif prop.type == "pair_pattern":
+                        k_node = prop.child_by_field_name("key")
+                        v_node = prop.child_by_field_name("value")
+                        if k_node is not None and v_node is not None and v_node.type == "identifier":
+                            imported = _node_text(k_node, source_bytes)
+                            bound_alias = _node_text(v_node, source_bytes)
+                            if imported and bound_alias:
+                                imp = TSImport(
+                                    kind="cjs_named",
+                                    module=module,
+                                    bound_name=bound_alias,
+                                    imported_name=imported,
+                                    location=loc,
+                                )
+                                self._imports.append(imp)
+                                self._pending_imports.append((imp, info))
+                continue
+            if name_node.type != "identifier":
+                continue
+            bound = _node_text(name_node, source_bytes)
             if func_text == "require":
                 # CJS: const x = require('mod')
                 module = _first_string_arg(inner, source_bytes)
@@ -773,7 +857,7 @@ class TSRepositoryIndex:
         # in the target module's symbols. For default/namespace/cjs, the
         # binding is to the module itself (we cannot statically resolve
         # the default export to a single symbol).
-        if imp.kind == "esm_named":
+        if imp.kind in ("esm_named", "cjs_named", "esm_reexport"):
             target_sym = self._find_symbol_in_module(module_qname, imp.imported_name)
             if target_sym is not None:
                 info.bindings[imp.bound_name] = TSResolvedTarget(
@@ -802,10 +886,20 @@ class TSRepositoryIndex:
                 module_path=module_qname,
             )
 
-    def _find_symbol_in_module(self, module_qname: str, name: str) -> TSSymbol | None:
-        """Look for a symbol named ``name`` whose qualified_name starts with
-        ``module_qname.`` and ends with ``.name`` (or is exactly ``name``).
-        """
+    def _find_symbol_in_module(
+        self,
+        module_qname: str,
+        name: str,
+        _visited: set[tuple[str, str]] | None = None,
+    ) -> TSSymbol | None:
+        """Look for a symbol named ``name`` in ``module_qname`` (including barrel re-exports)."""
+        if _visited is None:
+            _visited = set()
+        visit_key = (module_qname, name)
+        if visit_key in _visited:
+            return None
+        _visited.add(visit_key)
+
         prefix = f"{module_qname}." if module_qname else ""
         for sym in self._symbols_by_qname.values():
             if sym.name != name:
@@ -819,24 +913,34 @@ class TSRepositoryIndex:
                 # Ensure the LAST segment is `name`.
                 if sym.qualified_name.rsplit(".", 1)[-1] == name:
                     return sym
+
+        # Check module bindings for barrel re-exports (`export { fn } from './lib'`).
+        for mod_info in self._modules.values():
+            if mod_info.qualified_name == module_qname:
+                bound_target = mod_info.bindings.get(name)
+                if bound_target is not None and bound_target.symbol is not None:
+                    return bound_target.symbol
+                break
         return None
 
     def _resolve_module_path(self, module_spec: str, in_file_rel: str) -> str | None:
         """Resolve a TS module specifier to a local module qualified name.
 
-        Handles ``./x``, ``../x``, ``/x`` (rare in TS) — anything else
-        (``"react"``, ``"child_process"``) is treated as external.
+        Handles ``./x``, ``../x``, ``/x`` (rare in TS), including subdirectory
+        relative imports and directory ``index.ts`` barrel modules — anything
+        else (``"react"``, ``"child_process"``) is treated as external.
 
         Returns ``None`` if the module is not present in the index.
         """
         if not module_spec:
             return None
-        if module_spec.startswith("./"):
-            rel = module_spec[2:]
-        elif module_spec.startswith("../"):
+        if module_spec.startswith("./") or module_spec.startswith("../"):
             # Compute by joining with the importer's directory and normalising.
             importer_dir = posixpath.dirname(in_file_rel.replace("\\", "/"))
-            rel = posixpath.normpath(posixpath.join(importer_dir, module_spec))
+            if importer_dir:
+                rel = posixpath.normpath(posixpath.join(importer_dir, module_spec))
+            else:
+                rel = posixpath.normpath(module_spec)
         elif module_spec.startswith("/"):
             rel = module_spec.lstrip("/")
         else:
@@ -846,24 +950,26 @@ class TSRepositoryIndex:
         rel = rel.replace("\\", "/")
         if rel.startswith("./"):
             rel = rel[2:]
+        if rel.startswith("../"):
+            return None
         # Look up by module_qname (file_rel → qname strips the extension).
         # Strip TS/JS extensions from the relative path before computing
         # the candidate qname — module specifiers like './lib.js' or
-        # './lib' should both resolve to the same module qname 'lib'
-        # (mirrors the file_rel → qname logic in _module_qualified_name).
+        # './lib' should both resolve to the same module qname 'lib'.
         for ext in (".tsx", ".ts", ".mts", ".cts", ".jsx", ".js", ".mjs", ".cjs"):
             if rel.endswith(ext):
                 rel = rel[: -len(ext)]
                 break
-        candidate_qname = rel.replace("/", ".")
+        candidate_qname = "" if rel in ("", ".") else rel.replace("/", ".")
         # Direct lookup: does a module with this qname exist?
         for info in self._modules.values():
             if info.qualified_name == candidate_qname:
                 return info.qualified_name
-        # Also try suffix matches (e.g. an index.ts in a directory).
-        # We don't model TS path resolution fully (moduleResolution config);
-        # this is a foundation slice. Direct match is sufficient for the
-        # tests we need to pass and the foundation contract.
+        # Directory barrel fallback: `./tools` → `src.tools.index`
+        index_qname = f"{candidate_qname}.index" if candidate_qname else "index"
+        for info in self._modules.values():
+            if info.qualified_name == index_qname:
+                return info.qualified_name
         return None
 
     # ── call-site indexing ───────────────────────────────────────────

@@ -247,6 +247,17 @@ def compare_authority_to_sink(
         if extract_action_label is not None and infer_sink_action_label is not None:
             auth_action = extract_action_label(auth_name)
             sink_action = infer_sink_action_label(sink_name)
+            if sink_action in (None, "create", "execute", "run", "call", "send") and isinstance(
+                sink_call.func, ast.Attribute
+            ):
+                # Inspect receiver chain segments (e.g. stripe.Refund.create -> 'refund')
+                cur_expr: ast.AST = sink_call.func.value
+                while isinstance(cur_expr, ast.Attribute):
+                    cand = infer_sink_action_label(cur_expr.attr)
+                    if cand and cand not in ("client", "api", "v1", "v2", "service"):
+                        sink_action = cand
+                        break
+                    cur_expr = cur_expr.value
             if (
                 auth_action is not None
                 and sink_action is not None

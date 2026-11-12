@@ -114,9 +114,8 @@ RULE_FAMILIES = {
     },
     "file_deletion": {
         "python": "DATA-DELETE-FILE",
-        "typescript": None,
+        "typescript": "DATA-DELETE-FILE",
         "go": "DATA-DELETE-OS-GO",
-        "not_applicable_reason": "TypeScript file deletion (fs.unlinkSync, fs.rmSync) is not yet implemented. The TS detector focuses on exec/spawn and HTTP egress. File deletion is a future port.",
     },
     "file_write": {
         "python": "FILE-WRITE",
@@ -130,33 +129,33 @@ RULE_FAMILIES = {
     },
     "sql_destruction": {
         "python": "DATA-DELETE-SQL",
-        "typescript": None,
+        "typescript": "DATA-DELETE-SQL",
         "go": "DATA-DELETE-SQL-GO",
-        "not_applicable_reason": "TypeScript SQL detection is not implemented. TS agent code typically uses tagged templates or parameterized queries (e.g., pg.query). SQL detection for TS is a future port.",
     },
     "payments_stripe": {
         "python": "PAY-STRIPE-REFUND",
-        "typescript": None,
+        "typescript": "PAY-STRIPE-REFUND",
         "go": "PAY-STRIPE-REFUND-GO",
-        "not_applicable_reason": "TypeScript Stripe detection is not implemented. stripe-node uses a different API surface than Python/Go. Future port.",
     },
     "payments_generic": {
         "python": "PAY-GENERIC-REFUND",
-        "typescript": None,
+        "typescript": "PAY-GENERIC-REFUND",
         "go": "PAY-GENERIC-REFUND-GO",
-        "not_applicable_reason": "TypeScript generic payment detection is not implemented. Same rationale as payments_stripe.",
     },
     "secret_read": {
         "python": "SECRET-READ",
-        "typescript": None,
+        "typescript": "SECRET-READ",
         "go": "SECRET-READ-GO",
-        "not_applicable_reason": "TypeScript secret detection is not implemented. TS agent code typically uses process.env (equivalent to os.Getenv, which is deliberately excluded from the Go rule too). Cloud SDK method names would need a separate TS port.",
     },
     "provider_sdk": {
         "python": "PROVIDER-SDK-CALL",
-        "typescript": None,
+        "typescript": "PROVIDER-SDK-CALL",
         "go": "PROVIDER-SDK-CALL-GO",
-        "not_applicable_reason": "TypeScript provider SDK detection is not implemented. The @aws-sdk family uses a different API surface than boto3. Future port.",
+    },
+    "communication_send": {
+        "python": "COMMUNICATION-SEND",
+        "typescript": "COMMUNICATION-SEND",
+        "go": "COMMUNICATION-SEND-GO",
     },
     # ── Families deliberately NOT ported to any language (with reasons) ──
     "permission_change": {

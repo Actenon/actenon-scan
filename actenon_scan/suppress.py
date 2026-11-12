@@ -1,21 +1,37 @@
-"""Inline suppression — parses ``# actenon-scan: ignore[rule-id]`` and
-``# actenon-scan: suppress rule-id`` comments.
+"""Inline suppression — parses ``# actenon-scan: ignore[rule-id]`` /
+``// actenon-scan: ignore[rule-id]`` and ``actenon-scan: suppress rule-id`` comments.
 
-Both syntaxes are accepted. The README previously documented only the
-``suppress RULE`` form while the code only matched ``ignore[RULE]`` —
-copy-paste from the README was a silent no-op. Both now work.
+Both ``#`` (Python) and ``//`` (TypeScript/JavaScript/Go) comment prefixes and
+both ``ignore[RULE]`` and ``suppress RULE`` syntaxes are accepted.
 """
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 
-# Primary syntax: # actenon-scan: ignore[EXEC-SHELL]
-SUPPRESSION_PATTERN_IGNORE = re.compile(r"#\s*actenon-scan:\s*ignore\[([^\]]+)\]")
+# Primary syntax: # actenon-scan: ignore[EXEC-SHELL] or // actenon-scan: ignore[EXEC-SHELL]
+SUPPRESSION_PATTERN_IGNORE = re.compile(r"(?:#|//)\s*actenon-scan:\s*ignore\[([^\]]+)\]")
 # Alternative syntax documented in the README: # actenon-scan: suppress EXEC-SHELL
-SUPPRESSION_PATTERN_SUPPRESS = re.compile(r"#\s*actenon-scan:\s*suppress\s+([A-Z][A-Z0-9\-_]*)")
+SUPPRESSION_PATTERN_SUPPRESS = re.compile(r"(?:#|//)\s*actenon-scan:\s*suppress\s+([A-Z][A-Z0-9\-_]*)")
+
+SCANNABLE_SUPPRESSION_SUFFIXES = (
+    ".py",
+    ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
+    ".go",
+)
+
+_PRUNED_SUPPRESSION_DIRS = frozenset({
+    ".git", ".hg", ".svn",
+    ".venv", "venv", "env", ".env",
+    ".actenon-env", ".scan-env", ".scan-venv", ".tox",
+    ".cache", ".pytest_cache",
+    "node_modules", "vendor", "bower_components",
+    "__pycache__", "build", "dist", "target",
+    ".eggs", ".mypy_cache", ".ruff_cache", ".coverage", "htmlcov",
+})
 
 
 class SuppressionSet(set):
@@ -141,3 +157,25 @@ def collect_suppressions_from_file(
         return parse_suppressions(source, key)
     except (OSError, UnicodeDecodeError):
         return SuppressionSet()
+
+
+def collect_suppressions_from_target(target: Path) -> SuppressionSet:
+    """Collect inline suppressions across Python, TypeScript/JS, and Go files under ``target``.
+
+    Prunes dependency, build, and VCS directories (``.git``, ``.venv``, ``node_modules``,
+    ``vendor``, ``dist``, ``build``, etc.) so large workspaces remain fast.
+    """
+    suppressions = SuppressionSet()
+    if target.is_file():
+        if target.suffix.lower() in SCANNABLE_SUPPRESSION_SUFFIXES:
+            suppressions.update(collect_suppressions_from_file(target, target))
+        return suppressions
+    if not target.is_dir():
+        return suppressions
+    for root, dirs, files in os.walk(target):
+        dirs[:] = [d for d in dirs if d not in _PRUNED_SUPPRESSION_DIRS and not d.endswith(".egg-info")]
+        for fname in files:
+            if fname.lower().endswith(SCANNABLE_SUPPRESSION_SUFFIXES):
+                fpath = Path(root) / fname
+                suppressions.update(collect_suppressions_from_file(fpath, target))
+    return suppressions
