@@ -19,6 +19,15 @@ The gate fails on:
   - Any FALSE_POSITIVE without a status (must be "fixed" or "recorded")
   - More than MAX_RECORDED_FP unfixed false positives
   - A recorded false positive older than MAX_FP_AGE_RELEASES releases
+  - A pinned repository with no measurement (missing, clone or scan failure)
+  - A triaged TRUE_POSITIVE (or recorded false positive) that is no longer
+    found: a detection regression must not pass as "fewer findings"
+  - Incomplete coverage in a re-measured repository: supported files that
+    failed to analyse, beyond the count accepted for it in pinned_repos.json
+    (``accepted_analysis_errors`` with an ``accepted_analysis_errors_reason``)
+
+Repositories are identified by their full ``owner/name`` everywhere, which is
+how corpus-triage.json and corpus-results.json record them.
 
 Exit codes:
   0 — gate passed (re-measured, all findings triaged, zero control findings)
@@ -92,29 +101,41 @@ def _clone_repo(repo_full_name: str, sha: str, dest: Path) -> bool:
         return False
 
 
-def _scan_repo(repo_path: Path) -> list[dict]:
-    """Scan a repo with actenon-scan. Returns list of findings as dicts."""
+class ScanFailed(RuntimeError):
+    """The scanner raised while measuring a repository. Never read as zero findings."""
+
+
+def repo_id(repo: dict) -> str:
+    """The canonical identity of a pinned repository: its full ``owner/name``."""
+    return repo.get("repo") or repo.get("full_name") or repo["name"]
+
+
+def _scan_repo(repo_path: Path) -> tuple[list[dict], list[tuple[str, str]]]:
+    """Scan a repo. Returns ``(findings, analysis_errors)``; raises ScanFailed.
+
+    A scanner exception used to be caught and returned as an empty findings
+    list, which reads exactly like a clean repository.
+    """
     try:
         from actenon_scan.engine import scan_path
         result = scan_path(repo_path, cache=None)
-        findings = []
-        for f in result.findings:
-            if f.suppressed:
-                continue
-            findings.append({
-                "file": f.file,
-                "line": f.line,
-                "rule_id": f.rule_id,
-                "severity": f.severity,
-                "confidence": f.confidence,
-                "description": f.description,
-                "call_text": f.call_text,
-                "category": f.category,
-            })
-        return findings
-    except Exception as e:
-        print(f"  SCAN ERROR: {e}", file=sys.stderr)
-        return []
+    except Exception as e:  # noqa: BLE001 - re-raised as a gate failure
+        raise ScanFailed(f"{type(e).__name__}: {e}") from e
+    findings = []
+    for f in result.findings:
+        if f.suppressed:
+            continue
+        findings.append({
+            "file": f.file,
+            "line": f.line,
+            "rule_id": f.rule_id,
+            "severity": f.severity,
+            "confidence": f.confidence,
+            "description": f.description,
+            "call_text": f.call_text,
+            "category": f.category,
+        })
+    return findings, list(result.analysis_errors)
 
 
 def remeasure_corpus(pinned: dict, work_dir: Path | None = None) -> dict:
@@ -139,7 +160,7 @@ def remeasure_corpus(pinned: dict, work_dir: Path | None = None) -> dict:
     total = len(repos)
     for i, repo in enumerate(repos):
         name = repo["name"]
-        full_name = repo.get("repo", repo.get("full_name", name))
+        full_name = repo_id(repo)
         sha = repo["sha"]
         category = repo.get("category", "unknown")
         print(f"[{i+1}/{total}] {name} ({category})...", end=" ", flush=True)
@@ -150,21 +171,32 @@ def remeasure_corpus(pinned: dict, work_dir: Path | None = None) -> dict:
             shutil.rmtree(dest)
 
         if not _clone_repo(full_name, sha, dest):
-            results["repos"][name] = {"findings": -1, "error": "clone_failed", "category": category}
+            results["repos"][full_name] = {"findings": -1, "error": "clone_failed", "category": category}
             print("CLONE FAILED")
             continue
 
-        findings = _scan_repo(dest)
-        print(f"{len(findings)} finding(s)")
+        try:
+            findings, analysis_errors = _scan_repo(dest)
+        except ScanFailed as e:
+            results["repos"][full_name] = {
+                "findings": -1, "error": "scan_failed", "detail": str(e), "category": category,
+            }
+            print(f"SCAN FAILED: {e}")
+            import shutil
+            shutil.rmtree(dest, ignore_errors=True)
+            continue
+        print(f"{len(findings)} finding(s), {len(analysis_errors)} analysis error(s)")
 
-        results["repos"][name] = {
+        results["repos"][full_name] = {
             "findings": len(findings),
             "category": category,
             "sha": sha,
+            "analysis_errors": len(analysis_errors),
+            "analysis_error_files": [rel for rel, _ in analysis_errors][:50],
         }
         results["total_findings"] += len(findings)
         for f in findings:
-            f["repo"] = name
+            f["repo"] = full_name
             results["findings"].append(f)
 
         # Cleanup
@@ -183,6 +215,76 @@ def check_triage(triage: dict, results: dict, pinned: dict) -> list[str]:
     """Check triage integrity against re-measured results."""
     problems: list[str] = []
     entries = triage.get("entries", [])
+    measured = results.get("repos", {})
+    pinned_by_id = {repo_id(r): r for r in pinned.get("repos", [])}
+
+    # ── Every pinned repository must have been measured ──
+    for rid in pinned_by_id:
+        data = measured.get(rid)
+        if data is None:
+            problems.append(f"NOT MEASURED: {rid} is pinned but has no result.")
+        elif data.get("error"):
+            detail = f" ({data['detail']})" if data.get("detail") else ""
+            problems.append(f"NOT MEASURED: {rid} {data['error']}{detail}.")
+
+    # ── Coverage: a re-measured repo must have analysed its supported files ──
+    for rid, data in measured.items():
+        errors = data.get("analysis_errors")
+        if errors is None or data.get("error"):
+            continue  # committed results without coverage data; see main()
+        accepted = int(pinned_by_id.get(rid, {}).get("accepted_analysis_errors", 0))
+        if errors > accepted:
+            files = ", ".join(data.get("analysis_error_files", [])[:5])
+            problems.append(
+                f"INCOMPLETE COVERAGE: {rid} had {errors} file(s) that could not be "
+                f"analysed (accepted: {accepted}). Findings in them are unknown. {files}"
+            )
+
+    # ── One verdict per finding ──
+    # A finding recorded as both TRUE_POSITIVE and FALSE_POSITIVE is counted
+    # twice and makes every published precision figure wrong.
+    by_key: dict[tuple, list[str]] = {}
+    for e in entries:
+        key = (e["repo"], e["file"], e["line"], e["rule_id"])
+        by_key.setdefault(key, []).append(f"{e.get('verdict')}/{e.get('status') or '-'}")
+    for (repo, file, line, rule), verdicts in by_key.items():
+        if len(verdicts) > 1:
+            problems.append(
+                f"CONFLICTING TRIAGE: {repo} {file}:{line} ({rule}) has {len(verdicts)} entries "
+                f"({', '.join(verdicts)}). Keep exactly one."
+            )
+
+    # ── Recorded totals must match the entries ──
+    totals = triage.get("totals")
+    if totals is not None:
+        actual = {
+            "findings": len(by_key),
+            "true_positives": sum(1 for e in entries if e.get("verdict") == "TRUE_POSITIVE"),
+            "false_positives": sum(1 for e in entries if e.get("verdict") == "FALSE_POSITIVE"),
+        }
+        for field, value in actual.items():
+            if field in totals and totals[field] != value:
+                problems.append(
+                    f"TOTALS MISMATCH: corpus-triage.json totals.{field} is {totals[field]}, "
+                    f"but the entries give {value}."
+                )
+
+    # ── Triaged findings must still be found ──
+    found = {(f["repo"], f["file"], f["line"], f["rule_id"]) for f in results.get("findings", [])}
+    for e in entries:
+        key = (e["repo"], e["file"], e["line"], e["rule_id"])
+        if key in found:
+            continue
+        if e.get("verdict") == "TRUE_POSITIVE":
+            problems.append(
+                f"MISSING TRUE POSITIVE (detection regression?): {e['repo']} "
+                f"{e['file']}:{e['line']} ({e['rule_id']}) is triaged but no longer found."
+            )
+        elif e.get("verdict") == "FALSE_POSITIVE" and e.get("status") == "recorded":
+            problems.append(
+                f"STALE RECORDED FALSE POSITIVE: {e['repo']} {e['file']}:{e['line']} "
+                f"({e['rule_id']}) no longer fires; mark it fixed with a regression fixture."
+            )
 
     # ── Check FALSE_POSITIVE entries ──
     false_positives = [e for e in entries if e.get("verdict") == "FALSE_POSITIVE"]
@@ -244,9 +346,11 @@ def check_triage(triage: dict, results: dict, pinned: dict) -> list[str]:
             )
 
     # ── Control repo findings are precision failures ──
-    controls = {r["name"] for r in pinned["repos"] if r.get("category") == "control"}
-    for name, data in results.get("repos", {}).items():
-        if name in controls and data.get("findings", 0):
+    # By full owner/name: matching short names against owner/name keys meant
+    # this check silently never ran on committed results.
+    controls = {rid for rid, r in pinned_by_id.items() if r.get("category") == "control"}
+    for name, data in measured.items():
+        if name in controls and data.get("findings", 0) > 0:
             problems.append(
                 f"CONTROL REPO FINDING: {name} produced {data['findings']} finding(s). "
                 f"Non-agent libraries must produce zero."
@@ -292,16 +396,16 @@ def main() -> int:
         print("Re-measuring corpus (cloning + scanning pinned repos)...", file=sys.stderr)
         results = remeasure_corpus(pinned, Path(args.work_dir) if args.work_dir else None)
 
-        # Check for clone failures
-        clone_failures = [
-            name for name, data in results.get("repos", {}).items()
-            if data.get("error") == "clone_failed"
+        # A repo that could not be cloned or scanned was not measured.
+        unmeasured = [
+            f"{name} ({data['error']})" for name, data in results.get("repos", {}).items()
+            if data.get("error")
         ]
-        if clone_failures:
+        if unmeasured:
             print(
-                f"FAIL: CANNOT RE-MEASURE — clone failed for {len(clone_failures)} repo(s): "
-                f"{', '.join(clone_failures)}. "
-                f"The gate cannot verify without network access. "
+                f"FAIL: CANNOT RE-MEASURE — {len(unmeasured)} repo(s) not measured: "
+                f"{', '.join(unmeasured)}. "
+                f"The gate cannot verify them. "
                 f"Pass --no-remeasure ONLY for local dev (NOT for CI).",
                 file=sys.stderr,
             )
@@ -322,7 +426,12 @@ def main() -> int:
     fp_recorded = sum(1 for e in entries if e.get("verdict") == "FALSE_POSITIVE" and e.get("status") == "recorded")
     total = tp + fp_fixed + fp_recorded
     precision = round(tp / total * 100, 1) if total else 100
-    controls = {r["name"] for r in pinned["repos"] if r.get("category") == "control"}
+    controls = {repo_id(r) for r in pinned["repos"] if r.get("category") == "control"}
+    coverage = (
+        "coverage re-measured"
+        if not args.no_remeasure
+        else "coverage NOT verified (committed results carry no analysis-error counts)"
+    )
 
     print(
         f"OK: {len(entries)} corpus findings, "
@@ -331,7 +440,7 @@ def main() -> int:
         f"{fp_recorded} false positives (recorded, unfixed), "
         f"0 untriaged, "
         f"0 findings across {len(controls)} control repos. "
-        f"Precision: {tp}/{total} ({precision}%)"
+        f"Precision: {tp}/{total} ({precision}%); {coverage}."
     )
     return 0
 

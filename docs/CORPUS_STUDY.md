@@ -34,15 +34,15 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 
 ## Findings
 
-- **Total findings:** 94
-- **True positives (hand-triaged):** 93
+- **Total findings:** 93
+- **True positives (hand-triaged):** 92
 - **False positives:** 1
 
 ### By consequence category
 
 | Category | Count |
 |---|---|
-| unknown | 94 |
+| unknown | 93 |
 
 ### By rule
 
@@ -56,10 +56,10 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 | BROWSER-ACTION | 5 |
 | EXEC-SHELL | 4 |
 | COMMUNICATION-SEND | 3 |
-| NET-EGRESS-GO | 2 |
 | FILE-WRITE | 2 |
 | DATA-DELETE-OS | 2 |
 | DATABASE-MUTATE | 1 |
+| NET-EGRESS-GO | 1 |
 
 ### By repository
 
@@ -71,9 +71,9 @@ in the analysed path.* It does **not** mean the finding is a vulnerability.
 | FoundationAgents/MetaGPT | 8 |
 | modelcontextprotocol/python-sdk | 3 |
 | browser-use/browser-use | 2 |
-| github/github-mcp-server | 2 |
 | langchain-ai/langchain | 1 |
 | modelcontextprotocol/servers | 1 |
+| github/github-mcp-server | 1 |
 
 ## The false-positive rate
 
@@ -83,7 +83,7 @@ engineers in a way that a tool claiming 100% never is.
 
 ### Full count lineage
 
-The corpus figure has changed five times. Each transition is recorded
+The corpus figure has changed 7 times. Each transition is recorded
 with the reason, so a reader can see the trajectory rather than a bare
 number that changed again.
 
@@ -95,6 +95,8 @@ number that changed again.
 | crewai/semantic-kernel correction (2026-07-26) | 28 → 21 | 7 findings reclassified: guarded by validation methods (`_validate_query`, `validate_url`, etc.) that dominate the sink and are bound to the model-controlled parameter. Scanner now recognises validation-method names as guards. |
 | TS guard rewrite + github-mcp-server Go triage (2026-07-27) | 21→22 TP, precision 100% (transient) | WO1.5 rewrote the TS guard detector. server.go:286 suppressed by rule fix. actions.go:172 reclassified to TRUE_POSITIVE under gate pressure (later corrected). |
 | Gate fix + actions.go reclassification (2026-07-29) | 22→21 TP, precision 100% → 95.5% | WO1.10 fixed the gate to allow recording unfixed FPs. actions.go:172 reclassified back to FALSE_POSITIVE (recorded, issue #81) on the merits: function is not a tool handler, URL is not directly model-controlled. The WO1.9 reclassification was made under gate pressure, not on the merits. |
+| Re-measurement (2026-09-21) | see note | Re-measured at commit 461eba229701. Control repos: 0 findings. 92 TP + 1 FP (corrected 2026-11-10: a duplicate TRUE_POSITIVE entry was removed; see corrections). scanner_version_measured_with is 1.6.0 so the claims staleness check matches the unreleased package. Hand-triaged entries and totals are unchanged from that measurement. |
+| Correction (2026-11-10) | 92/93 (98.9%) | Duplicate triage removed. pkg/github/actions.go:172 (NET-EGRESS-GO) had two entries: the original TRUE_POSITIVE and the FALSE_POSITIVE (recorded, issue #81) it was reclassified to on 2026-07-29. The TRUE_POSITIVE entry was never removed, so the finding was counted twice: 94 entries for 93 corpus findings, published as 93 TP / 1 FP. The correct figure is 92 TP / 1 FP. check_corpus_triage.py now rejects more than one entry per finding and totals that disagree with the entries. No finding or verdict changed. |
 
 ### Initial measurement: 51/63 (81% precision)
 
@@ -117,15 +119,14 @@ were identified and fixed:
    was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ
    rule's qualified patterns.
 
-### Current measurement: 93/94 (99% precision)
+### Current measurement: 92/93 (98.9% precision)
 
-After fixes, the current corpus has 93 findings,
-all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number
-that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is
-present or any finding is untriaged.
+The current corpus has 93 findings: 92 hand-triaged TRUE_POSITIVE and 1 FALSE_POSITIVE (1 recorded and unfixed, 0 fixed).
+- Recorded false positive: `github/github-mcp-server` `pkg/github/actions.go:172` (NET-EGRESS-GO), tracking issue #81. Function is not a tool handler; URL is not directly model-controlled.
 
-The corpus grew from 18 to 25 repos (7 more added). The false-positive
-count stayed at zero because each new finding was hand-triaged before merge.
+This is the number that gates CI. `check_corpus_triage.py` fails on any untriaged finding, any finding in a control repository, a false positive that is neither fixed nor recorded, more than 5 recorded false positives, conflicting triage entries, and a triaged finding that is no longer found.
+
+The corpus grew from 18 to 25 repos (7 more added). Each new finding was hand-triaged before merge.
 
 ### Self-correction: 2 agno findings reclassified (30 → 28)
 

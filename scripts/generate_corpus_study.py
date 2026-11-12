@@ -133,18 +133,32 @@ def generate() -> str:
     # Full lineage — Work Order 1.6, Item 5c
     lines.append("### Full count lineage")
     lines.append("")
-    lines.append("The corpus figure has changed five times. Each transition is recorded")
+    lineage = [
+        "| Initial scan (18 repos) | 63 raw → 51 true positive | 12 false positives across 3 failure classes (DEPLOY-K8S pattern too loose, DATA-DELETE-SQL missed variable SQL, s3.delete_objects not in vocabulary). All 3 fixed. |",
+        "| Corpus grew to 25 repos | 30 true positive | 7 new repos added; new findings hand-triaged before merge. |",
+        "| agno correction (2026-07-26) | 30 → 28 | 2 agno findings reclassified: `@tool(external_execution=True)` is agno's human-in-the-loop primitive, a framework-level guard. Scanner now recognises the flag. |",
+        "| crewai/semantic-kernel correction (2026-07-26) | 28 → 21 | 7 findings reclassified: guarded by validation methods (`_validate_query`, `validate_url`, etc.) that dominate the sink and are bound to the model-controlled parameter. Scanner now recognises validation-method names as guards. |",
+        "| TS guard rewrite + github-mcp-server Go triage (2026-07-27) | 21→22 TP, precision 100% (transient) | WO1.5 rewrote the TS guard detector. server.go:286 suppressed by rule fix. actions.go:172 reclassified to TRUE_POSITIVE under gate pressure (later corrected). |",
+        "| Gate fix + actions.go reclassification (2026-07-29) | 22→21 TP, precision 100% → 95.5% | WO1.10 fixed the gate to allow recording unfixed FPs. actions.go:172 reclassified back to FALSE_POSITIVE (recorded, issue #81) on the merits: function is not a tool handler, URL is not directly model-controlled. The WO1.9 reclassification was made under gate pressure, not on the merits. |",
+    ]
+    # Later steps come from corpus-triage.json itself, so they cannot drift from the data.
+    if triage.get("measurement_note"):
+        lineage.append(
+            f"| Re-measurement ({triage.get('measurement_date', 'date not recorded')}) | "
+            f"see note | {triage['measurement_note']} |"
+        )
+    for c in triage.get("corrections", []):
+        if c.get("date", "") >= "2026-11-10":
+            lineage.append(f"| Correction ({c['date']}) | {c.get('corrected_precision', '')} | {c.get('description', '')} |")
+    lines.append(
+        f"The corpus figure has changed {len(lineage) - 1} times. Each transition is recorded"
+    )
     lines.append("with the reason, so a reader can see the trajectory rather than a bare")
     lines.append("number that changed again.")
     lines.append("")
     lines.append("| Step | Count | Reason |")
     lines.append("|---|---|---|")
-    lines.append("| Initial scan (18 repos) | 63 raw → 51 true positive | 12 false positives across 3 failure classes (DEPLOY-K8S pattern too loose, DATA-DELETE-SQL missed variable SQL, s3.delete_objects not in vocabulary). All 3 fixed. |")
-    lines.append("| Corpus grew to 25 repos | 30 true positive | 7 new repos added; new findings hand-triaged before merge. |")
-    lines.append("| agno correction (2026-07-26) | 30 → 28 | 2 agno findings reclassified: `@tool(external_execution=True)` is agno's human-in-the-loop primitive, a framework-level guard. Scanner now recognises the flag. |")
-    lines.append("| crewai/semantic-kernel correction (2026-07-26) | 28 → 21 | 7 findings reclassified: guarded by validation methods (`_validate_query`, `validate_url`, etc.) that dominate the sink and are bound to the model-controlled parameter. Scanner now recognises validation-method names as guards. |")
-    lines.append("| TS guard rewrite + github-mcp-server Go triage (2026-07-27) | 21→22 TP, precision 100% (transient) | WO1.5 rewrote the TS guard detector. server.go:286 suppressed by rule fix. actions.go:172 reclassified to TRUE_POSITIVE under gate pressure (later corrected). |")
-    lines.append("| Gate fix + actions.go reclassification (2026-07-29) | 22→21 TP, precision 100% → 95.5% | WO1.10 fixed the gate to allow recording unfixed FPs. actions.go:172 reclassified back to FALSE_POSITIVE (recorded, issue #81) on the merits: function is not a tool handler, URL is not directly model-controlled. The WO1.9 reclassification was made under gate pressure, not on the merits. |")
+    lines.extend(lineage)
     lines.append("")
     lines.append("### Initial measurement: 51/63 (81% precision)")
     lines.append("")
@@ -167,20 +181,10 @@ def generate() -> str:
     lines.append("   was not in the sink vocabulary. Fixed by adding it to the DATA-DELETE-OBJ")
     lines.append("   rule's qualified patterns.")
     lines.append("")
-    # Current measurement — dynamically generated from the data
-    tp = totals.get('true_positives', 0)
-    fp = totals.get('false_positives', 0)
-    total = tp + fp
-    lines.append(f"### Current measurement: {tp}/{total} ({round(tp/total*100) if total else 100}% precision)")
-    lines.append("")
-    lines.append(f"After fixes, the current corpus has {tp} findings,")
-    lines.append(f"all hand-triaged as TRUE_POSITIVE. Zero false positives. This is the number")
-    lines.append(f"that gates CI — `check_corpus_triage.py` fails if any FALSE_POSITIVE is")
-    lines.append(f"present or any finding is untriaged.")
-    lines.append("")
-    lines.append("The corpus grew from 18 to 25 repos (7 more added). The false-positive")
-    lines.append("count stayed at zero because each new finding was hand-triaged before merge.")
-    lines.append("")
+    # Current measurement: every statement is computed from the triage entries,
+    # never hard-coded, so the study cannot claim zero false positives while
+    # the data records one.
+    lines.extend(current_measurement_lines(entries))
     lines.append("### Self-correction: 2 agno findings reclassified (30 → 28)")
     lines.append("")
     lines.append("During outreach preparation, 2 findings in `agno-agi/agno` were found to")
@@ -327,6 +331,48 @@ def generate() -> str:
     return "\n".join(lines) + "\n"
 
 
+def current_measurement_lines(entries: list[dict]) -> list[str]:
+    """The "Current measurement" section, derived only from the triage entries."""
+    tp = sum(1 for e in entries if e.get("verdict") == "TRUE_POSITIVE")
+    fps = [e for e in entries if e.get("verdict") == "FALSE_POSITIVE"]
+    recorded = [e for e in fps if e.get("status") == "recorded"]
+    fixed = [e for e in fps if e.get("status") == "fixed"]
+    total = tp + len(fps)
+    pct = f"{tp / total * 100:.1f}%" if total else "n/a"
+    lines = [f"### Current measurement: {tp}/{total} ({pct} precision)", ""]
+    if fps:
+        lines.append(
+            f"The current corpus has {total} findings: {tp} hand-triaged TRUE_POSITIVE and "
+            f"{len(fps)} FALSE_POSITIVE ({len(recorded)} recorded and unfixed, {len(fixed)} fixed)."
+        )
+        for e in recorded:
+            issue = f", tracking issue #{e['tracking_issue']}" if e.get("tracking_issue") else ""
+            lines.append(
+                f"- Recorded false positive: `{e['repo']}` `{e['file']}:{e['line']}` "
+                f"({e['rule_id']}){issue}. {e.get('rationale', '')}".rstrip()
+            )
+    else:
+        lines.append(f"The current corpus has {total} findings, all hand-triaged TRUE_POSITIVE.")
+    lines.append("")
+    lines.append(
+        "This is the number that gates CI. `check_corpus_triage.py` fails on any untriaged "
+        "finding, any finding in a control repository, a false positive that is neither fixed "
+        f"nor recorded, more than {MAX_RECORDED_FP_FOR_STUDY} recorded false positives, "
+        "conflicting triage entries, and a triaged finding that is no longer found."
+    )
+    lines.append("")
+    lines.append(
+        "The corpus grew from 18 to 25 repos (7 more added). Each new finding was hand-triaged "
+        "before merge."
+    )
+    lines.append("")
+    return lines
+
+
+# Mirrors MAX_RECORDED_FP in scripts/check_corpus_triage.py.
+MAX_RECORDED_FP_FOR_STUDY = 5
+
+
 def _check_staleness(triage: dict) -> int:
     """Work Order 1.6, Item 6: check that the recorded scanner version is not
     older than the current package version.
@@ -380,6 +426,7 @@ def _check_staleness(triage: dict) -> int:
     stale_precision_strings = [
         "21/21", "28/28", "30/30",  # old precision figures
         "21 TP / 0 FP", "0 FP = 100%",  # old FP claims
+        "93/94", "93 TP / 1 FP", "93 TP + 1 FP",  # double-counted duplicate (corrected 2026-11-10)
     ]
     # Historical markers — if a line contains one of these, the stale figure
     # is a historical reference (in a lineage table, changelog, or correction

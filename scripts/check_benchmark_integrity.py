@@ -191,14 +191,18 @@ def main() -> int:
         print(f"Fixture lock updated: {FIXTURE_LOCK}")
         return 0
 
-    # Check fixture lock
+    # Check fixture lock. Under --check a mismatch fails: benchmark evidence
+    # must not change without the lock (and its review) changing with it.
     in_sync, changed = check_fixture_lock()
     if not in_sync:
-        print("WARNING: benchmark fixtures have changed since last lock update:")
+        label = "FAIL" if parser_check else "WARNING"
+        print(f"{label}: benchmark fixtures have changed since last lock update:")
         for f in changed:
             print(f"  {f}")
         print("Run: python scripts/check_benchmark_integrity.py --update-lock")
         print("Then commit fixture-lock.json alongside the fixture changes.")
+        if parser_check:
+            return 1
     else:
         print("OK: fixture lock in sync")
 

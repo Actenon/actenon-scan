@@ -109,6 +109,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `analysis_error_count` / `unsupported_file_count` driver properties. The GitHub Action emits workflow
   warnings for both from `results.json` (its old console grep never matched) and adds the statement to the
   PR comment. Findings, `files_scanned`, JSON fields and exit codes are unchanged.
+- Evidence gates fail closed (independent audit). `check_corpus_triage.py` turned a scanner exception into
+  "0 findings", passed when a triaged TRUE_POSITIVE stopped being found, ignored pinned repositories with no
+  result and files that failed to analyse, compared short repository names to `owner/name` keys (so the
+  control-repository check never ran on committed results, and re-measured findings all looked untriaged),
+  and accepted one finding triaged twice. Each is now a failure; re-measured repositories record
+  `analysis_errors`, and only an explicit `accepted_analysis_errors` in `pinned_repos.json` allows any.
+  `check_benchmark_integrity.py --check` fails on a fixture-lock mismatch (it only warned).
+  `check_perf_gate.py` fails when its fixture is missing or has no files (it printed SKIP and passed).
+- Corpus figures corrected: `pkg/github/actions.go:172` in github-mcp-server was triaged both TRUE_POSITIVE and FALSE_POSITIVE,
+  so it was counted twice (94 entries for 93 findings, published as 93 TP / 1 FP). The duplicate is removed:
+  92 TP / 1 FP (98.9%). `docs/CORPUS_STUDY.md` said "Zero false positives" while the triage recorded one; its
+  current-measurement text is now generated from the entries.
+- Known false negative recorded as a strict expected failure: authorising one value and acting on another
+  (`authorize(attacker_id)` then `stripe.Refund.create(payment_intent=...)`) is reported as guarded.
 
 ## [1.5.0] — 2026-09-20
 
